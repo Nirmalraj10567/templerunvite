@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   Landmark,
   X,
+  Users,
 } from 'lucide-react';
 
 export default function DashboardLayout() {
@@ -31,6 +32,7 @@ export default function DashboardLayout() {
   const items = useMemo(
     () => [
       { to: '/dashboard', label: 'Overview', icon: Home, roles: ['admin', 'finance', 'staff'] },
+      { to: '/dashboard/members', label: 'Members', icon: Users, roles: ['admin', 'superadmin'] },
       { to: '/dashboard/transactions', label: 'Transactions', icon: CreditCard, roles: ['admin', 'finance'] },
       { to: '/dashboard/reports', label: 'Reports', icon: BarChart3, roles: ['admin', 'finance'] },
       { to: '/dashboard/master-data', label: 'Master Data', icon: Landmark, roles: ['admin', 'superadmin'] },

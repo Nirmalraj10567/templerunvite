@@ -13,6 +13,7 @@ import TransactionsPage from './pages/dashboard/TransactionsPage';
 import ReportsPage from './pages/dashboard/ReportsPage';
 import SettingsPage from './pages/dashboard/SettingsPage';
 import MasterDataPage from './pages/MasterDataPage';
+import MembersPage from './pages/MembersPage';
 
 function App() {
   return (
@@ -28,13 +29,14 @@ function App() {
               <Route path="/dashboard" element={<DashboardLayout />}>
                 <Route index element={<OverviewPage />} />
                 <Route
-                  path="master-data"
+                  path="/dashboard/master-data"
                   element={
                     <RoleGuard roles={["admin", "superadmin"]}>
                       <MasterDataPage />
                     </RoleGuard>
                   }
                 />
+              
                 <Route
                   path="transactions"
                   element={
@@ -56,6 +58,14 @@ function App() {
                   element={
                     <RoleGuard roles={["admin"]}>
                       <SettingsPage />
+                    </RoleGuard>
+                  }
+                />
+                <Route
+                  path="members"
+                  element={
+                    <RoleGuard roles={["admin", "superadmin"]}>
+                      <MembersPage />
                     </RoleGuard>
                   }
                 />

@@ -16,6 +16,7 @@ interface User {
   mobile: string;
   username: string;
   role: string;
+  templeId: number;
 }
 
 interface RegisterData {
