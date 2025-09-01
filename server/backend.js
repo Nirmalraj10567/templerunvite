@@ -95,6 +95,57 @@ app.use(bodyParser.json());
 // Mount routes
 app.use('/api/properties', propertiesRouter);
 
+// Add receipts endpoints
+app.post('/api/receipts', authenticateToken, async (req, res) => {
+  try {
+    const { registerNo, date, type, fromPerson, toPerson, amount, remarks } = req.body;
+    
+    // Validate required fields
+    if (!registerNo || !date || !type || !amount) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    const receipt = await db('receipts').insert({
+      register_no: registerNo,
+      date,
+      type,
+      from_person: fromPerson,
+      to_person: toPerson,
+      amount,
+      remarks,
+      created_by: req.user.id,
+      temple_id: req.user.templeId,
+      created_at: db.fn.now(),
+      updated_at: db.fn.now()
+    });
+    
+    res.json({ success: true, id: receipt[0] });
+  } catch (err) {
+    console.error('Error saving receipt:', err);
+    res.status(500).json({ error: 'Failed to save receipt' });
+  }
+});
+
+app.get('/api/receipts', authenticateToken, async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    
+    let query = db('receipts')
+      .where('temple_id', req.user.templeId)
+      .orderBy('date', 'desc');
+    
+    if (from) query = query.where('date', '>=', from);
+    if (to) query = query.where('date', '<=', to);
+    
+    const receipts = await query.select('*');
+    
+    res.json({ success: true, data: receipts });
+  } catch (err) {
+    console.error('Error fetching receipts:', err);
+    res.status(500).json({ error: 'Failed to fetch receipts' });
+  }
+});
+
 // Knex config for SQLite (database in server directory)
 const db = knex({
   client: 'sqlite3',
@@ -126,7 +177,7 @@ const retryOnBusy = async (fn, maxRetries = 5, delay = 100) => {
 };
 
 // Middleware to authenticate JWT token
-const authenticateToken = (req, res, next) => {
+function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -141,7 +192,7 @@ const authenticateToken = (req, res, next) => {
     req.user = user;
     next();
   });
-};
+}
 
 // Middleware to authorize user roles
 const authorizeRole = (allowedRoles) => {
@@ -2319,7 +2370,9 @@ app.get('/api/registrations/export/pdf',
   async (req, res) => {
     const templeId = req.user.templeId;
     let PDFDocument;
-    try { PDFDocument = require('pdfkit'); } catch (e) {
+    try {
+      PDFDocument = require('pdfkit');
+    } catch (e) {
       return res.status(501).json({ error: "PDF export not enabled. Run 'npm i pdfkit' in server/ and restart." });
     }
 
@@ -2497,7 +2550,6 @@ app.put('/api/registrations/:id',
         updated_at: db.fn.now()
       };
 
-      // Remove undefined keys
       Object.keys(map).forEach(k => map[k] === undefined && delete map[k]);
 
       await db('user_registrations')
@@ -4341,6 +4393,28 @@ app.delete('/api/hall-bookings/:id', authenticateToken, authorizeRole(['admin','
 });
 
 // CSV export for hall bookings
+/*app.get('/api/hall-bookings/export', authenticateToken, authorizeRole(['admin','superadmin']), async (req, res) => {
+  try {
+    const rows = await db('marriage_hall_bookings')
+      .where('temple_id', req.user.templeId)
+      .orderBy('date', 'desc');
+    const headers = [
+      'id,register_no,date,time,event,subdivision,name,address,village,mobile,advance_amount,total_amount,balance_amount,remarks'
+    ];
+    const csv = rows.map(r => [
+      r.id, r.register_no, r.date, r.time, r.event, r.subdivision, r.name,
+      (r.address||'').replaceAll(',', ' '), (r.village||'').replaceAll(',', ' '), (r.mobile||'').replaceAll(',', ' '),
+      r.advance_amount, r.total_amount, r.balance_amount, (r.remarks||'').replaceAll(',', ' ')
+    ].join(',')).join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="hall_bookings.csv"');
+    res.send(headers.join('\n') + '\n' + csv);
+  } catch (err) {
+    console.error('GET /api/hall-bookings/export error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});*/
+// CSV export for hall bookings
 app.get('/api/hall-bookings/export', authenticateToken, authorizeRole(['admin','superadmin']), async (req, res) => {
   try {
     const rows = await db('marriage_hall_bookings')
@@ -4362,6 +4436,183 @@ app.get('/api/hall-bookings/export', authenticateToken, authorizeRole(['admin','
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+// Create donations table if it doesn't exist
+db.schema.hasTable('donations').then(exists => {
+  if (!exists) {
+    return db.schema.createTable('donations', table => {
+      table.increments('id').primary();
+      table.integer('temple_id').notNullable();
+      table.string('product_name').notNullable();
+      table.text('description');
+      table.decimal('price', 10, 2).notNullable();
+      table.integer('quantity').defaultTo(1);
+      table.string('category');
+      table.string('donor_name');
+      table.string('donor_contact');
+      table.date('donation_date');
+      table.enum('status', ['available', 'reserved', 'distributed']).defaultTo('available');
+      table.text('notes');
+      table.timestamp('created_at').defaultTo(db.fn.now());
+      table.timestamp('updated_at').defaultTo(db.fn.now());
+    });
+  }
+});
+
+// GET /api/donations - Get all donations for current temple
+app.get('/api/donations', authenticateToken, async (req, res) => {
+  try {
+    const donations = await db('donations')
+      .where('temple_id', req.user.templeId)
+      .orderBy('created_at', 'desc');
+    res.json({ success: true, data: donations });
+  } catch (err) {
+    console.error('GET /api/donations error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/donations/:id - Get a single donation
+app.get('/api/donations/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const donation = await db('donations')
+      .where({ id })
+      .andWhere('temple_id', req.user.templeId)
+      .first();
+    
+    if (!donation) {
+      return res.status(404).json({ error: 'Donation not found' });
+    }
+    
+    res.json({ success: true, data: donation });
+  } catch (err) {
+    console.error('GET /api/donations/:id error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/donations - Fixed version
+app.post('/api/donations', authenticateToken, authorizeRole(['admin','superadmin']), async (req, res) => {
+  try {
+    // Ensure required fields have values
+    const productName = req.body.productName || req.body.registerNo || req.body.name || 'General Donation';
+    const price = parseFloat(req.body.price || req.body.amount || 0);
+    
+    if (!productName || price <= 0) {
+      return res.status(400).json({ 
+        error: 'Product name and valid price/amount are required' 
+      });
+    }
+
+    const donationData = {
+      temple_id: req.user.templeId,
+      product_name: productName,
+      description: req.body.description || req.body.reason || '',
+      price: price,
+      quantity: parseInt(req.body.quantity || req.body.unit || 1),
+      category: req.body.category || 'General',
+      donor_name: req.body.donorName || req.body.name || 'Anonymous',
+      donor_contact: req.body.donorContact || req.body.phone || '',
+      donation_date: req.body.donationDate || req.body.date || new Date().toISOString().split('T')[0],
+      status: req.body.status || 'available',
+      notes: req.body.notes || ''
+    };
+
+    const [id] = await db('donations').insert(donationData);
+    const donation = await db('donations').where({ id }).first();
+    
+    res.json({ success: true, data: donation });
+  } catch (err) {
+    console.error('POST /api/donations error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PUT /api/donations/:id - Update a donation
+app.put('/api/donations/:id', authenticateToken, authorizeRole(['admin','superadmin']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const updateData = {
+      product_name: req.body.productName,
+      description: req.body.description,
+      price: req.body.price,
+      quantity: req.body.quantity,
+      category: req.body.category,
+      donor_name: req.body.donorName,
+      donor_contact: req.body.donorContact,
+      donation_date: req.body.donationDate,
+      status: req.body.status,
+      notes: req.body.notes,
+      updated_at: db.fn.now()
+    };
+
+    const result = await db('donations')
+      .where({ id })
+      .andWhere('temple_id', req.user.templeId)
+      .update(updateData);
+    
+    if (!result) {
+      return res.status(404).json({ error: 'Donation not found' });
+    }
+    
+    const donation = await db('donations').where({ id }).first();
+    res.json({ success: true, data: donation });
+  } catch (err) {
+    console.error('PUT /api/donations/:id error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DELETE /api/donations/:id - Delete a donation
+app.delete('/api/donations/:id', authenticateToken, authorizeRole(['admin','superadmin']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await db('donations')
+      .where({ id })
+      .andWhere('temple_id', req.user.templeId)
+      .del();
+    
+    if (!result) {
+      return res.status(404).json({ error: 'Donation not found' });
+    }
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error('DELETE /api/donations/:id error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/donations/export - Export donations as CSV
+app.get('/api/donations/export', authenticateToken, authorizeRole(['admin','superadmin']), async (req, res) => {
+  try {
+    const rows = await db('donations')
+      .where('temple_id', req.user.templeId)
+      .orderBy('created_at', 'desc');
+    
+    const headers = [
+      'id,product_name,description,price,quantity,category,donor_name,donor_contact,donation_date,status,notes,created_at,updated_at'
+    ];
+    
+    const csv = rows.map(r => [
+      r.id, r.product_name, (r.description||'').replaceAll(',', ' '), r.price, r.quantity,
+      r.category, r.donor_name, r.donor_contact, r.donation_date, r.status,
+      (r.notes||'').replaceAll(',', ' '), r.created_at, r.updated_at
+    ].join(',')).join('\n');
+    
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="donations.csv"');
+    res.send(headers.join('\n') + '\n' + csv);
+  } catch (err) {
+    console.error('GET /api/donations/export error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/registrations/:id/pdf - Generate PDF for a single registration
 
 // GET /api/registrations/:id/pdf - Generate PDF for a single registration
 app.get('/api/registrations/:id/pdf', authenticateToken, async (req, res) => {

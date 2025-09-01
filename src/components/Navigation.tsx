@@ -8,17 +8,34 @@ export function Navigation() {
   const canEditTax = has('tax_registrations', 'edit');
   const canViewProperties = has('property_registrations', 'view');
   const canEditProperties = has('property_registrations', 'edit');
+  const canViewDonations = has('donations', 'view');
+  const canEditDonations = has('donations', 'edit');
+
   return (
     <nav className="flex flex-wrap gap-3 p-2 bg-gray-50 border-b text-sm">
       <Link className="underline" to="/">Home</Link>
       <Link className="underline" to="/dashboard/members">Members</Link>
       <span className="text-gray-400">|</span>
+
+      {(canViewDonations || canEditDonations) && (
+        <>
+          {canViewDonations && (
+            <Link className="font-semibold text-blue-700 underline" to="/dashboard/donation-product/list">Donations - List</Link>
+          )}
+          {canEditDonations && (
+            <Link className="font-semibold text-blue-700 underline" to="/dashboard/donation-product/entry">Donations - Entry</Link>
+          )}
+          <span className="text-gray-400">|</span>
+        </>
+      )}
+
       {canCreateRegistration && (
         <>
           <Link className="font-semibold text-green-700 underline" to="/dashboard/registrations/text-entry">Registrations - Text Entry</Link>
           <span className="text-gray-400">|</span>
         </>
       )}
+
       {(canViewTax || canEditTax) && (
         <>
          {canViewTax && (
@@ -33,10 +50,11 @@ export function Navigation() {
           {canEditTax && (
             <Link className="font-semibold text-blue-700 underline" to="/dashboard/tax/settings">Tax - Settings</Link>
           )}
-           
+          
           <span className="text-gray-400">|</span>
         </>
       )}
+
       <Link className="font-semibold text-orange-700 underline" to="/dashboard/hall/entry">Hall Entry</Link>
       <Link className="font-semibold text-orange-700 underline" to="/dashboard/registrations/list">Registrations - List</Link>
       <Link className="font-semibold text-orange-700 underline" to="/dashboard/hall/list">Hall List</Link>

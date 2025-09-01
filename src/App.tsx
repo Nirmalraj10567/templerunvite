@@ -31,6 +31,10 @@ import TaxUserEntryPage from './pages/tax/TaxUserEntryPage';
 import TaxUserListPage from './pages/tax/TaxUserListPage';
 import TaxSettingsPage from './pages/masterdata/TaxSettingsPage';
 import PropertyRoutes from './pages/property';
+import DonationProductList from './pages/product/DonationProductList';
+import DonationProductEntry from './pages/product/DonationProductEntry';
+import ReceiptEntryPage from './pages/Receipt /ReceiptEntryPage';
+import ReceiptListPage from './pages/Receipt /ReceiptListPage';
 
 function App() {
   return (
@@ -43,6 +47,10 @@ function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route path="/dashboard/donation-product/list" element={<DonationProductList />} />
+              <Route path="/dashboard/donation-product/entry" element={<DonationProductEntry />} />
+              <Route path="/dashboard/receipt/entry" element={<ReceiptEntryPage />} />
+              <Route path="/dashboard/receipt/list" element={<ReceiptListPage />} />
               {/* Protected Dashboard */}
               <Route element={<ProtectedRoute />}> 
                 <Route path="/dashboard" element={<DashboardLayout />}>
