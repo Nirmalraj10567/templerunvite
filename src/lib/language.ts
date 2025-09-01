@@ -1,9 +1,9 @@
 // /Volumes/KANINFOTECH/vitejswithandroid/aaascvite/src/lib/language.ts
 import React, { createContext, useContext, useState, useEffect, ReactNode, createElement } from 'react';
 
-type Language = 'tamil' | 'english';
+export type Language = 'tamil' | 'english';
 
-interface LanguageContextType {
+export interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
   currentLanguageName: string;
@@ -43,7 +43,8 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
 }
 
 export function useLanguage() {
-  const context = useContext(LanguageContext);
+ // const context = useContext(LanguageContext);
+ const context = 'english';
   if (!context) {
     throw new Error('useLanguage must be used within LanguageProvider');
   }

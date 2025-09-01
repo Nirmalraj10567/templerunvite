@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import AmmavasaiEditPage from './AmmavasaiEditPage';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -17,7 +18,7 @@ interface MasterDataItem {
 const MasterDataPage = () => {
   const { user, token } = useAuth();
   const { language, setLanguage } = useLanguage();
-  const [activeTab, setActiveTab] = useState<'clans' | 'groups' | 'occupations' | 'educations'>('clans');
+  const [activeTab, setActiveTab] = useState<'clans' | 'groups' | 'occupations' | 'educations' | 'ammavasai'>('clans');
   const [masterData, setMasterData] = useState<MasterDataItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -36,6 +37,7 @@ const MasterDataPage = () => {
       groups: 'Groups',
       occupations: 'Occupations',
       educations: 'Educations',
+      ammavasai: 'Ammavasai',
       addNew: 'Add New',
       edit: 'Edit',
       delete: 'Delete',
@@ -58,6 +60,7 @@ const MasterDataPage = () => {
       groups: 'குழுக்கள்',
       occupations: 'தொழில்கள்',
       educations: 'கல்வி நிலைகள்',
+      ammavasai: 'அமாவாசை',
       addNew: 'புதியதை சேர்க்கவும்',
       edit: 'திருத்து',
       delete: 'அழி',
@@ -92,13 +95,15 @@ const MasterDataPage = () => {
     { key: 'clans', label: t?.clans || 'Clans', endpoint: 'clans' },
     { key: 'groups', label: t?.groups || 'Groups', endpoint: 'groups' },
     { key: 'occupations', label: t?.occupations || 'Occupations', endpoint: 'occupations' },
-    { key: 'educations', label: t?.educations || 'Educations', endpoint: 'educations' }
+    { key: 'educations', label: t?.educations || 'Educations', endpoint: 'educations' },
+    { key: 'ammavasai', label: t?.ammavasai || 'Ammavasai', endpoint: 'ammavasai' }
   ];
 
 
   // Load data when tab changes
   useEffect(() => {
     if (user?.templeId && token) {
+      if (activeTab === 'ammavasai') return; // no master-data API for this tab
       loadData();
     }
   }, [activeTab, user, token]);
@@ -116,7 +121,7 @@ const MasterDataPage = () => {
   const loadData = async () => {
     if (!user?.templeId || !token) return;
 
-
+    if (activeTab === 'ammavasai') return; // guard
     setLoading(true);
     try {
       const currentTab = tabs.find(t => t.key === activeTab);
@@ -273,6 +278,7 @@ const MasterDataPage = () => {
             <p>Required Roles: admin, superadmin</p>
             <p>Has Permission: {user ? ['admin', 'superadmin'].includes(user.role) : 'No user'}</p>
           </div>
+      )}
         </div>
       )}
 */}
@@ -321,6 +327,10 @@ const MasterDataPage = () => {
 
 
       {/* Content */}
+      {activeTab === 'ammavasai' ? (
+        // Render the Ammavasai editor as its own page content
+        <AmmavasaiEditPage />
+      ) : (
       <div className="bg-white rounded-lg shadow-sm border">
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
@@ -401,10 +411,8 @@ const MasterDataPage = () => {
           )}
         </div>
       </div>
-
-
-      {/* Add/Edit Master Data Modal */}
-      {(showAddModal || editingItem) && (
+      )}
+      {(showAddModal || editingItem) && activeTab !== 'ammavasai' && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="mt-3">
