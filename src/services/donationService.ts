@@ -27,6 +27,7 @@ export interface DonationFormData {
   product: string;
   unit: string;
   reason: string;
+  transferTo?: string;
 }
 
 export interface ApiResponse<T> {

@@ -193,6 +193,7 @@ module.exports = function(deps = {}) {
         total_amount: p.totalAmount || null,
         balance_amount: p.balanceAmount || null,
         remarks: p.remarks || null,
+        transfer_to_account: p.transfer_to_account || p.transferTo || null,
         created_at: db.fn.now(),
         updated_at: db.fn.now(),
       };
@@ -224,6 +225,7 @@ module.exports = function(deps = {}) {
         total_amount: p.totalAmount || null,
         balance_amount: p.balanceAmount || null,
         remarks: p.remarks || null,
+        transfer_to_account: p.transfer_to_account ?? p.transferTo,
         updated_at: db.fn.now(),
       };
 
@@ -272,13 +274,13 @@ module.exports = function(deps = {}) {
         .orderBy('date', 'desc');
       
       const headers = [
-        'id,register_no,date,time,event,subdivision,name,address,village,mobile,advance_amount,total_amount,balance_amount,remarks'
+        'id,register_no,date,time,event,subdivision,name,address,village,mobile,advance_amount,total_amount,balance_amount,remarks,transfer_to_account'
       ];
       
       const csv = rows.map(r => [
         r.id, r.register_no, r.date, r.time, r.event, r.subdivision, r.name,
         (r.address||'').replaceAll(',', ' '), (r.village||'').replaceAll(',', ' '), (r.mobile||'').replaceAll(',', ' '),
-        r.advance_amount, r.total_amount, r.balance_amount, (r.remarks||'').replaceAll(',', ' ')
+        r.advance_amount, r.total_amount, r.balance_amount, (r.remarks||'').replaceAll(',', ' '), (r.transfer_to_account||'').replaceAll(',', ' ')
       ].join(',')).join('\n');
       
       res.setHeader('Content-Type', 'text/csv');

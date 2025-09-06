@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import type { LanguageContextType } from '@/lib/language';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import axios from 'axios';
+import { getAuthToken } from '@/lib/auth';
 
 const generateReceiptNo = () => {
   const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -26,6 +29,7 @@ interface FormState {
   totalAmount: string;
   balanceAmount: string;
   remarks: string;
+  transferTo?: string;
 }
 
 const initialState: FormState = {
@@ -41,7 +45,8 @@ const initialState: FormState = {
   advanceAmount: '',
   totalAmount: '',
   balanceAmount: '',
-  remarks: ''
+  remarks: '',
+  transferTo: ''
 };
 
 export default function HallEntryPage() {
@@ -53,6 +58,8 @@ export default function HallEntryPage() {
   });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string|undefined>();
+  const [isError, setIsError] = useState(false);
+  const [categories, setCategories] = useState<Array<{ id: number; value: string; label: string }>>([]);
 
   const t = (en: string, ta: string) => language === 'tamil' ? ta : en;
 
@@ -68,10 +75,31 @@ export default function HallEntryPage() {
     return true;
   };
 
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const resp = await axios.get<any>('/api/ledger/categories', {
+          headers: { Authorization: `Bearer ${getAuthToken()}` }
+        });
+        const data = (resp?.data && Array.isArray(resp.data.data)) ? resp.data.data : (Array.isArray(resp?.data) ? resp.data : []);
+        const mapped = (data || []).map((item: any, index: number) => {
+          if (typeof item === 'string') return { id: index + 1, value: item, label: item };
+          return { id: item.id || index + 1, value: item.value || item.label, label: item.label || item.value };
+        });
+        setCategories(mapped);
+      } catch (e) {
+        console.error('Failed to load categories', e);
+        setCategories([]);
+      }
+    };
+    loadCategories();
+  }, []);
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(undefined);
     if (!validate()) {
+      setIsError(true);
       setMessage(t('Please fill required fields', 'தேவையான புலங்களை நிரப்பவும்'));
       return;
     }
@@ -85,8 +113,10 @@ export default function HallEntryPage() {
       if (!res.ok) throw new Error('Failed');
       setForm(initialState);
       setForm((prev) => ({ ...prev, registerNo: generateReceiptNo() }));
+      setIsError(false);
       setMessage(t('Saved successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது'));
     } catch (err) {
+      setIsError(true);
       setMessage(t('Save failed', 'சேமிப்பில் தோல்வி'));
     } finally {
       setSaving(false);
@@ -96,7 +126,14 @@ export default function HallEntryPage() {
   return (
     <div className="max-w-3xl mx-auto bg-white p-4 rounded shadow">
       <h1 className="text-xl font-semibold mb-4">{t('Marriage Hall Booking Entry', 'திருமண மண்டப பதிவு')}</h1>
-      {message && <div className="mb-3 text-sm text-blue-700">{message}</div>}
+      {message && (
+        <div className="mb-3">
+          <Alert variant={isError ? 'destructive' : 'default'}>
+            <AlertTitle>{isError ? t('Error', 'பிழை') : t('Success', 'வெற்றி')}</AlertTitle>
+            <AlertDescription>{message}</AlertDescription>
+          </Alert>
+        </div>
+      )}
       <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm mb-1">{t('Receipt No', 'ரசீது எண்')}</label>

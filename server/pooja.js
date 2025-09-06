@@ -146,6 +146,8 @@ module.exports = function(deps = {}) {
         from_date: p.fromDate,
         to_date: p.toDate,
         remarks: p.remarks || null,
+        transfer_to_account: p.transfer_to_account || p.transferTo || null,
+        amount: p.amount != null && p.amount !== '' ? Number(p.amount) : null,
         created_by: req.user.id,
         created_at: db.fn.now(),
         updated_at: db.fn.now(),
@@ -194,6 +196,8 @@ module.exports = function(deps = {}) {
         from_date: p.fromDate,
         to_date: p.toDate,
         remarks: p.remarks || null,
+        transfer_to_account: p.transfer_to_account ?? p.transferTo,
+        amount: p.amount != null && p.amount !== '' ? Number(p.amount) : undefined,
         updated_at: db.fn.now(),
       };
 
@@ -242,7 +246,7 @@ module.exports = function(deps = {}) {
         .orderBy('from_date', 'desc');
       
       const headers = [
-        'id,receipt_number,name,mobile_number,time,from_date,to_date,remarks,created_at'
+        'id,receipt_number,name,mobile_number,time,from_date,to_date,remarks,transfer_to_account,amount,created_at'
       ];
       
       const csv = rows.map(r => [
@@ -254,6 +258,8 @@ module.exports = function(deps = {}) {
         r.from_date, 
         r.to_date, 
         (r.remarks || '').replaceAll(',', ' '),
+        (r.transfer_to_account || '').replaceAll(',', ' '),
+        r.amount != null ? r.amount : '',
         r.created_at
       ].join(',')).join('\n');
       

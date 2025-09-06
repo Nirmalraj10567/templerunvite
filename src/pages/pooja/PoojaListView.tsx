@@ -61,6 +61,7 @@ export default function PoojaListView() {
   const [isViewEditOpen, setIsViewEditOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editedPooja, setEditedPooja] = useState<Partial<PoojaFormData>>({});
+  const [categories, setCategories] = useState<Array<{ id: number; value: string; label: string }>>([]);
   
   // Filter states
   const [filters, setFilters] = useState({
@@ -193,6 +194,26 @@ export default function PoojaListView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagination.pageIndex, pagination.pageSize, searchTerm, filters, columnFilters]);
 
+  // Load ledger categories for Transfer To Account
+  useEffect(() => {
+    const load = async () => {
+      try {
+        if (!token) return;
+        const resp = await fetch('/api/ledger/categories', { headers: { Authorization: `Bearer ${token}` } });
+        const body = await resp.json().catch(() => ({}));
+        const raw = Array.isArray(body?.data) ? body.data : (Array.isArray(body) ? body : []);
+        const mapped = (raw || []).map((item: any, idx: number) => {
+          if (typeof item === 'string') return { id: idx + 1, value: item, label: item };
+          return { id: item.id || idx + 1, value: item.value || item.label, label: item.label || item.value };
+        });
+        setCategories(mapped);
+      } catch (e) {
+        // ignore
+      }
+    };
+    load();
+  }, [token]);
+
   const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       setPagination((prev) => ({ ...prev, pageIndex: 0 }));
@@ -248,6 +269,8 @@ export default function PoojaListView() {
       fromDate: pooja.from_date,
       toDate: pooja.to_date,
       remarks: pooja.remarks,
+      transferTo: (pooja as any).transfer_to_account || '',
+      amount: (pooja as any).amount != null ? String((pooja as any).amount) : '',
     });
     setEditMode(false);
     setIsViewEditOpen(true);
@@ -263,6 +286,8 @@ export default function PoojaListView() {
       fromDate: pooja.from_date,
       toDate: pooja.to_date,
       remarks: pooja.remarks,
+      transferTo: (pooja as any).transfer_to_account || '',
+      amount: (pooja as any).amount != null ? String((pooja as any).amount) : '',
     });
     setEditMode(true);
     setIsViewEditOpen(true);
@@ -279,7 +304,9 @@ export default function PoojaListView() {
       time: editedPooja.time || '',
       fromDate: editedPooja.fromDate || '',
       toDate: editedPooja.toDate || '',
-      remarks: editedPooja.remarks || ''
+      remarks: editedPooja.remarks || '',
+      transferTo: editedPooja.transferTo || '',
+      amount: editedPooja.amount || ''
     };
 
     try {
@@ -784,6 +811,36 @@ export default function PoojaListView() {
                   className="col-span-3"
                   disabled={!editMode}
                   rows={3}
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="transferTo" className="text-right">
+                  {t("Transfer To Account", "எந்த கணக்கிற்கு மாற்றுவது")}
+                </Label>
+                <select
+                  id="transferTo"
+                  value={editedPooja.transferTo || ''}
+                  onChange={(e) => setEditedPooja({ ...editedPooja, transferTo: e.target.value })}
+                  className="col-span-3 border rounded p-2"
+                  disabled={!editMode}
+                >
+                  <option value="">{t('Select', 'தேர்ந்தெடு')}</option>
+                  {categories.map(c => (
+                    <option key={c.id} value={c.value}>{c.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="amount" className="text-right">
+                  {t("Amount", "தொகை")}
+                </Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  value={editedPooja.amount || ''}
+                  onChange={(e) => setEditedPooja({ ...editedPooja, amount: e.target.value })}
+                  className="col-span-3"
+                  disabled={!editMode}
                 />
               </div>
             </div>

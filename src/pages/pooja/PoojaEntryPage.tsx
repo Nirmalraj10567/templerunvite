@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import PoojaCalendar from '@/components/PoojaCalendar';
 import { poojaService, PoojaFormData } from '@/services/poojaService';
+import axios from 'axios';
 
 const generateReceiptNo = () => {
   const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -33,6 +34,7 @@ export default function PoojaEntryPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [showCalendar, setShowCalendar] = useState(true); // Default to showing calendar
+  const [categories, setCategories] = useState<Array<{ id: number; value: string; label: string }>>([]);
 
   const t = (en: string, ta: string) => language === 'tamil' ? ta : en;
 
@@ -74,7 +76,9 @@ export default function PoojaEntryPage() {
               time: data.time,
               fromDate: data.from_date,
               toDate: data.to_date,
-              remarks: data.remarks || ''
+              remarks: data.remarks || '',
+              transferTo: data.transfer_to_account || '',
+              amount: data.amount != null ? String(data.amount) : ''
             };
             reset(formData);
           } else {
@@ -95,6 +99,27 @@ export default function PoojaEntryPage() {
       fetchPooja();
     }
   }, [id, reset, setValue, token, t]);
+
+  useEffect(() => {
+    // Load ledger categories for Transfer To select
+    const load = async () => {
+      try {
+        if (!token) return;
+        const resp = await axios.get<any>('/api/ledger/categories', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = (resp?.data && Array.isArray(resp.data.data)) ? resp.data.data : (Array.isArray(resp?.data) ? resp.data : []);
+        const mapped = (data || []).map((item: any, index: number) => {
+          if (typeof item === 'string') return { id: index + 1, value: item, label: item };
+          return { id: item.id || index + 1, value: item.value || item.label, label: item.label || item.value };
+        });
+        setCategories(mapped);
+      } catch (e) {
+        console.error('Failed to load categories', e);
+      }
+    };
+    load();
+  }, [token]);
 
   if (isLoading) {
     return <div className="p-8">Loading pooja data...</div>;
@@ -125,14 +150,16 @@ export default function PoojaEntryPage() {
         return;
       }
 
-      const payload = {
+      const payload: PoojaFormData = {
         receiptNumber: data.receiptNumber,
         name: data.name,
         mobileNumber: data.mobileNumber,
         time: data.time,
         fromDate: data.fromDate,
         toDate: data.toDate,
-        remarks: data.remarks || ''
+        remarks: data.remarks || '',
+        transferTo: data.transferTo || '',
+        amount: data.amount || ''
       };
 
       const result = id 
@@ -280,6 +307,38 @@ export default function PoojaEntryPage() {
                   {...register('toDate', { required: true })}
                 />
               </div>
+
+              {/* Amount */}
+              <div className="space-y-2">
+                <Label htmlFor="amount">
+                  {t('Amount', 'தொகை')}
+                </Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  step="0.01"
+                  placeholder={t('Enter amount', 'தொகையை உள்ளிடவும்')}
+                  {...register('amount')}
+                />
+              </div>
+            </div>
+
+            {/* Transfer To Account */}
+            <div className="space-y-2">
+              <Label htmlFor="transferTo">
+                {t('Transfer To Account', 'எந்த கணக்கிற்கு மாற்றுவது')}
+              </Label>
+              <select
+                id="transferTo"
+                className="w-full border p-2 rounded"
+                {...register('transferTo')}
+                defaultValue=""
+              >
+                <option value="">{t('Select', 'தேர்ந்தெடு')}</option>
+                {categories.map(c => (
+                  <option key={c.id} value={c.value}>{c.label}</option>
+                ))}
+              </select>
             </div>
 
             {/* Remarks */}

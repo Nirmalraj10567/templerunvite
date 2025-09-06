@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from 'react-i18next'; // Import the useTranslation hook
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import axios from 'axios';
 
 interface Heir {
   id: string;
@@ -42,6 +44,7 @@ export default function TaxUserEntryPage() {
     taxAmount: '',
     amountPaid: '',
     outstandingAmount: '',
+    transferTo: '',
   });
 
   const [newUser, setNewUser] = useState({
@@ -54,9 +57,11 @@ export default function TaxUserEntryPage() {
   const [lookingUp, setLookingUp] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Array<{ id: number; value: string; label: string }>>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [taxBreakdown, setTaxBreakdown] = useState<any[]>([]);
   const [cumulativeInfo, setCumulativeInfo] = useState<any>(null);
+  const [initialDue, setInitialDue] = useState<number>(0); // current year tax + previous unpaid, from backend settings
 
   // Master data for dropdowns
   const [masterClans, setMasterClans] = useState<string[]>([]);
@@ -153,6 +158,26 @@ export default function TaxUserEntryPage() {
       setLoading(false);
     }
   }, [user, token]);
+
+  // Load ledger categories for Transfer To Account
+  useEffect(() => {
+    if (!token) return;
+    (async () => {
+      try {
+        const resp = await axios.get<any>('/api/ledger/categories', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = (resp?.data && Array.isArray(resp.data.data)) ? resp.data.data : (Array.isArray(resp?.data) ? resp.data : []);
+        const mapped = (data || []).map((item: any, index: number) => {
+          if (typeof item === 'string') return { id: index + 1, value: item, label: item };
+          return { id: item.id || index + 1, value: item.value || item.label, label: item.label || item.value };
+        });
+        setCategories(mapped);
+      } catch (e) {
+        console.error('Failed to load ledger categories', e);
+      }
+    })();
+  }, [token]);
 
   // Load tax amount for current year on mount
   useEffect(() => {
@@ -286,6 +311,7 @@ export default function TaxUserEntryPage() {
             taxAmount: currentYearTax.toString(),
             outstandingAmount: totalTaxDue.toString()
           }));
+          setInitialDue(totalTaxDue);
 
           // Store breakdown for display
           setTaxBreakdown(yearBreakdown || []);
@@ -334,6 +360,7 @@ export default function TaxUserEntryPage() {
             taxAmount: data.data.tax_amount.toString(),
             outstandingAmount: data.data.tax_amount.toString()
           }));
+          setInitialDue(Number(data.data.tax_amount) || 0);
           setMsg(`Tax amount for ${year}: ₹${data.data.tax_amount} loaded / ${year} வரி தொகை: ₹${data.data.tax_amount} ஏற்றப்பட்டது`);
           setTimeout(() => setMsg(null), 3000);
         } else {
@@ -361,7 +388,7 @@ export default function TaxUserEntryPage() {
   // Calculate outstanding amount when amount paid changes
   const handleAmountPaidChange = (amountPaid: string) => {
     const paid = parseFloat(amountPaid) || 0;
-    const totalDue = parseFloat(form.outstandingAmount) || 0; // This includes cumulative
+    const totalDue = Number.isFinite(initialDue) ? initialDue : (parseFloat(form.outstandingAmount) || 0);
     const outstanding = Math.max(0, totalDue - paid);
     
     setForm(prev => ({ 
@@ -496,6 +523,8 @@ export default function TaxUserEntryPage() {
       formData.append('taxAmount', form.taxAmount);
       formData.append('amountPaid', form.amountPaid);
       formData.append('outstandingAmount', form.outstandingAmount);
+      formData.append('transferTo', (form as any).transferTo || '');
+      if ((form as any).donationAmount) formData.append('donationAmount', (form as any).donationAmount);
       formData.append('templeId', user.templeId.toString());
 
       // Append heirs as JSON array if present
@@ -556,6 +585,8 @@ export default function TaxUserEntryPage() {
         taxAmount: '',
         amountPaid: '',
         outstandingAmount: '',
+        transferTo: '',
+        donationAmount: '',
       });
 
       setNewUser({
@@ -597,6 +628,8 @@ export default function TaxUserEntryPage() {
       taxAmount: '',
       amountPaid: '',
       outstandingAmount: '',
+      transferTo: '',
+      donationAmount: '',
     });
     // Fetch tax amount for current year after clearing
     fetchTaxAmountForYear(currentYear);
@@ -652,16 +685,13 @@ export default function TaxUserEntryPage() {
 
         {/* Main Container */}
         <div className="bg-white rounded-lg shadow-md border border-gray-200 p-4">
-          {/* Status Messages - Compact */}
-          {msg && (
-            <div className="mb-3 p-2 bg-green-50 border border-green-200 text-green-800 rounded text-sm">
-              {msg}
-            </div>
-          )}
-
-          {err && (
-            <div className="mb-3 p-2 bg-red-50 border border-red-200 text-red-800 rounded text-sm">
-              {err}
+          {/* Status Messages */}
+          {(msg || err) && (
+            <div className="mb-3">
+              <Alert variant={err ? 'destructive' : 'default'}>
+                <AlertTitle>{err ? 'Error / பிழை' : 'Success / வெற்றி'}</AlertTitle>
+                <AlertDescription>{err ? err : msg}</AlertDescription>
+              </Alert>
             </div>
           )}
 
@@ -727,6 +757,62 @@ export default function TaxUserEntryPage() {
                     </select>
                   </div>
                 </div>
+              </div>
+
+              {/* Transfer To Account */}
+              <div className="bg-gray-50 rounded-lg p-3">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">{L('Transfer To Account', 'எந்த கணக்கிற்கு மாற்றுவது')}</h3>
+                <select
+                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                  value={(form as any).transferTo || ''}
+                  onChange={e => set('transferTo' as any, e.target.value)}
+                >
+                  <option value="">{L('Select', 'தேர்ந்தெடு')}</option>
+                  {categories.map(c => (
+                    <option key={c.id} value={c.value}>{c.label}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">{L('Choose the ledger account to transfer this amount into.', 'இந்தத் தொகை மாற்றப்படும் லெட்ஜர் கணக்கைத் தேர்ந்தெடுக்கவும்.')}</p>
+              </div>
+
+              {/* Amounts Summary */}
+              <div className="bg-gray-50 rounded-lg p-3">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">{L('Amounts', 'தொகைகள்')}</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Amount', 'தொகை')}</label>
+                    <input
+                      readOnly
+                      value={form.taxAmount}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded bg-gray-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Amount due', 'நிறுவை தொகை')}</label>
+                    <input
+                      readOnly
+                      value={form.outstandingAmount}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded bg-gray-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Amount to be paid', 'செலுத்தும் தொகை')}</label>
+                    <input
+                      value={form.amountPaid}
+                      onChange={e => handleAmountPaidChange(e.target.value)}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Donation amount', 'நன்கொடை தொகை')}</label>
+                    <input
+                      value={(form as any).donationAmount || ''}
+                      onChange={e => set('donationAmount' as any, e.target.value)}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">{L('Amount due includes previous unpaid amounts based on year-wise settings.', 'நிறுவை தொகையில் ஆண்டு-அமைப்பின் அடிப்படையில் முந்தைய நிலுவையும் சேர்க்கப்பட்டுள்ளது.')}</p>
               </div>
 
               {/* Personal Details */}

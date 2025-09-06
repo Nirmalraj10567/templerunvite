@@ -76,6 +76,8 @@ router.post('/', authenticateToken, upload.single('photo'), async (req, res) => 
       tax_amount: toNumber(b.taxAmount, 0),
       amount_paid: toNumber(b.amountPaid, 0),
       outstanding_amount: toNumber(b.outstandingAmount, 0),
+      transfer_to_account: b.transfer_to_account || b.transferTo || null,
+      donation_amount: toNumber(b.donationAmount, 0),
       created_at: db.fn.now(),
       updated_at: db.fn.now(),
     };

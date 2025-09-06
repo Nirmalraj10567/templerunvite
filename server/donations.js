@@ -87,7 +87,8 @@ module.exports = function(deps = {}) {
         donor_contact: req.body.donorContact || req.body.phone || '',
         donation_date: req.body.donationDate || req.body.date || new Date().toISOString().split('T')[0],
         status: req.body.status || 'available',
-        notes: req.body.notes || ''
+        notes: req.body.notes || '',
+        transfer_to_account: req.body.transfer_to_account || req.body.transferTo || null
       };
 
       const [id] = await db('donations').insert(donationData);
@@ -116,6 +117,7 @@ module.exports = function(deps = {}) {
         donation_date: req.body.donationDate,
         status: req.body.status,
         notes: req.body.notes,
+        transfer_to_account: req.body.transfer_to_account ?? req.body.transferTo,
         updated_at: db.fn.now()
       };
 

@@ -326,6 +326,7 @@ app.use('/api/ledger', ledgerRouter);
         phone: b.phone || '',
         amount,
         reason: b.reason || '',
+        transfer_to_account: b.transfer_to_account || b.transferTo || null,
         temple_id: req.user.templeId,
         created_at: db.fn.now(),
         updated_at: db.fn.now(),
@@ -367,6 +368,7 @@ app.use('/api/ledger', ledgerRouter);
         phone: b.phone,
         amount: b.amount != null ? Number(b.amount) : undefined,
         reason: b.reason,
+        transfer_to_account: b.transfer_to_account ?? b.transferTo,
         updated_at: db.fn.now(),
       };
       // remove undefined keys
@@ -1136,6 +1138,13 @@ async function migrate() {
       // Column might already exist, ignore error
     }
 
+    // Add transfer_to_account for ledger account mapping
+    try {
+      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN transfer_to_account TEXT');
+    } catch (err) {
+      // Column might already exist, ignore error
+    }
+
     // Create hall_approval_logs table
     if (!(await db.schema.hasTable('hall_approval_logs'))) {
       await db.schema.createTable('hall_approval_logs', (table) => {
@@ -1230,12 +1239,14 @@ async function migrate() {
         table.string('phone');
         table.float('amount').notNullable();
         table.string('reason');
-        table.integer('temple_id').notNullable();
+        table.integer('temple_id').notNullable().defaultTo(1);
         table.timestamp('created_at').defaultTo(db.fn.now());
         table.timestamp('updated_at').defaultTo(db.fn.now());
       });
       console.log('Created money_donations table.');
     }
+    // Safe column additions for money_donations table
+    try { await db.raw('ALTER TABLE money_donations ADD COLUMN transfer_to_account TEXT'); } catch (e) {}
 
     // Create annadhanam table
     if (!(await db.schema.hasTable('annadhanam'))) {
@@ -1422,6 +1433,8 @@ async function migrate() {
       });
       console.log('Created donations table.');
     }
+    // Safe column additions for donations table
+    try { await db.raw('ALTER TABLE donations ADD COLUMN transfer_to_account TEXT'); } catch (e) {}
     try { await db.raw("ALTER TABLE donations ADD COLUMN approval_status TEXT DEFAULT 'approved' CHECK (approval_status IN ('pending','approved','rejected','cancelled'))"); } catch (e) {}
     try { await db.raw('ALTER TABLE donations ADD COLUMN submitted_by_mobile TEXT'); } catch (e) {}
     try { await db.raw('ALTER TABLE donations ADD COLUMN submitted_at TIMESTAMP'); } catch (e) {}
@@ -1591,6 +1604,20 @@ async function migrate() {
 
     try {
       await db.raw(`ALTER TABLE pooja ADD COLUMN admin_notes TEXT`);
+    } catch (err) {
+      // Column might already exist, ignore error
+    }
+
+    // Map pooja to ledger account
+    try {
+      await db.raw(`ALTER TABLE pooja ADD COLUMN transfer_to_account TEXT`);
+    } catch (err) {
+      // Column might already exist, ignore error
+    }
+
+    // Amount field for pooja entries
+    try {
+      await db.raw(`ALTER TABLE pooja ADD COLUMN amount REAL`);
     } catch (err) {
       // Column might already exist, ignore error
     }

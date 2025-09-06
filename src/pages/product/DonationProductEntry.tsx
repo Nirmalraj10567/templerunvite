@@ -17,7 +17,8 @@ const initialState: DonationFormData = {
   amount: '',
   product: '',
   unit: '',
-  reason: ''
+  reason: '',
+  transferTo: ''
 };
 
 export default function DonationProductEntry() {
@@ -27,6 +28,7 @@ export default function DonationProductEntry() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string|undefined>();
   const [products, setProducts] = useState<DonationProduct[]>([]);
+  const [categories, setCategories] = useState<Array<{ id: number; value: string; label: string }>>([]);
 
   const t = (en: string, ta: string) => language === 'tamil' ? ta : en;
 
@@ -48,7 +50,24 @@ export default function DonationProductEntry() {
         setProducts([]);
       }
     };
+    const loadCategories = async () => {
+      try {
+        const resp = await axios.get<any>('/api/ledger/categories', {
+          headers: { Authorization: `Bearer ${getAuthToken()}` }
+        });
+        const data = (resp?.data && Array.isArray(resp.data.data)) ? resp.data.data : (Array.isArray(resp?.data) ? resp.data : []);
+        const mapped = (data || []).map((item: any, index: number) => {
+          if (typeof item === 'string') return { id: index + 1, value: item, label: item };
+          return { id: item.id || index + 1, value: item.value || item.label, label: item.label || item.value };
+        });
+        setCategories(mapped);
+      } catch (e) {
+        console.error('Failed to load categories', e);
+        setCategories([]);
+      }
+    };
     loadProducts();
+    loadCategories();
   }, []);
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -73,7 +92,7 @@ export default function DonationProductEntry() {
       <h1 className="text-xl font-semibold mb-4 text-center">
         {t('Donation Entry', 'பொருள் நன்கொடைக் பதிவு')}
       </h1>
-      <div className="flex justify-end mb-3">
+      <div className="flex justify-end items-center mb-3 gap-2">
         <DonationProductManager products={products} setProducts={setProducts} />
       </div>
       {message && (
@@ -111,6 +130,20 @@ export default function DonationProductEntry() {
         <div>
           <label className="block text-sm mb-1">{t('Amount', 'வருமானம்')}</label>
           <input className="w-full border p-2 rounded" name="amount" value={form.amount} onChange={onChange} />
+        </div>
+        <div>
+          <label className="block text-sm mb-1">{t('Transfer To Account', 'எந்த கணக்கிற்கு மாற்றுவது')}</label>
+          <select
+            className="w-full border p-2 rounded"
+            name="transferTo"
+            value={form.transferTo || ''}
+            onChange={(e) => setForm(prev => ({ ...prev, transferTo: e.target.value }))}
+          >
+            <option value="">{t('Select account', 'கணக்கைத் தேர்ந்தெடுக்கவும்')}</option>
+            {categories.map(c => (
+              <option key={c.id} value={c.value}>{c.label}</option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="block text-sm mb-1">{t('Product', 'பொருள்')}</label>

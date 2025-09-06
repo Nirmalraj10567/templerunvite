@@ -18,6 +18,8 @@ interface Pooja {
   from_date: string;
   to_date: string;
   remarks?: string;
+  transfer_to_account?: string;
+  amount?: number;
   created_at: string;
   updated_at: string;
 }
@@ -30,6 +32,8 @@ interface PoojaFormData {
   fromDate: string;
   toDate: string;
   remarks?: string;
+  transferTo?: string;
+  amount?: string;
 }
 
 interface ApiResponse<T> {
@@ -105,7 +109,9 @@ class PoojaService {
       time: data.time,
       fromDate: data.fromDate,
       toDate: data.toDate,
-      remarks: data.remarks || ''
+      remarks: data.remarks || '',
+      transferTo: data.transferTo || '',
+      amount: data.amount || ''
     };
 
     const response = await fetch(this.baseUrl, {
@@ -125,7 +131,9 @@ class PoojaService {
       time: data.time,
       fromDate: data.fromDate,
       toDate: data.toDate,
-      remarks: data.remarks || ''
+      remarks: data.remarks || '',
+      transferTo: data.transferTo || '',
+      amount: data.amount || ''
     };
 
     const response = await fetch(`${this.baseUrl}/${id}`, {
