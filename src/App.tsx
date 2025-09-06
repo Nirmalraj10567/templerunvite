@@ -32,6 +32,8 @@ import TaxSettingsPage from './pages/masterdata/TaxSettingsPage';
 import PropertyRoutes from './pages/property';
 import DonationProductList from './pages/product/DonationProductList';
 import DonationProductEntry from './pages/product/DonationProductEntry';
+import MoneyDonationEntry from './pages/donations/MoneyDonationEntry';
+import MoneyDonationList from './pages/donations/MoneyDonationList';
 import ReceiptEntryPage from './pages/receipts/ReceiptEntryPage';
 import ReceiptListView from './pages/receipts/ReceiptListView';
 import AnnadhanamEntryPage from './pages/annadhanam/AnnadhanamEntryPage';
@@ -83,6 +85,22 @@ function App() {
                       }
                     />
                   </Route>
+                  <Route 
+                    path="donations/money-entry" 
+                    element={
+                      <PermissionGuard requiredPermission="edit_donations" accessLevel="edit">
+                        <MoneyDonationEntry />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route 
+                    path="donations/money-list" 
+                    element={
+                      <PermissionGuard requiredPermission="view_donations" accessLevel="view">
+                        <MoneyDonationList />
+                      </PermissionGuard>
+                    }
+                  />
                   <Route 
                     path="receipt/entry" 
                     element={

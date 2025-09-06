@@ -1,0 +1,9 @@
+CREATE TABLE ledger_categories (
+  id SERIAL PRIMARY KEY,
+  value VARCHAR(255) NOT NULL UNIQUE,
+  label VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_ledger_categories_value ON ledger_categories(value);

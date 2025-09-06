@@ -31,9 +31,452 @@ app.use(bodyParser.json());
 // Serve static files from the project's public directory (../public)
 app.use('/public', express.static(path.join(__dirname, '../public')));
 
+// Knex config for SQLite (database in server directory)
+const db = knex({
+  client: 'sqlite3',
+  connection: {
+    filename: path.join(__dirname, 'deev.sqlite3'),
+  },
+  useNullAsDefault: true,
+  pool: {
+    afterCreate: (conn, cb) => {
+      conn.run('PRAGMA busy_timeout = 5000', cb);
+    }
+  }
+});
+
+// Function to retry database operations on SQLITE_BUSY
+const retryOnBusy = async (fn, maxRetries = 5, delay = 100) => {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (err.code === 'SQLITE_BUSY' && i < maxRetries - 1) {
+        console.log(`Database busy, retrying (${i+1}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      throw err;
+    }
+  }
+};
+
+// Import routes
+//const ledgerCategoriesRouter = require('./api/ledger-categories')({ db });
+
+// Middleware to authenticate JWT token
+function authenticateToken(req, res, next) {
+  const authHeader = req.header('Authorization');
+  if (!authHeader) return res.status(401).json({ error: 'Access denied. No JWT provided.' });
+
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Access denied. No JWT provided.' });
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: 'Access denied. Invalid JWT.' });
+    }
+    req.user = user;
+    next();
+  });
+}
+
+// Middleware to authorize user roles
+const authorizeRole = (allowedRoles) => {
+  return (req, res, next) => {
+    const userRole = req.user.role;
+    if (!allowedRoles.includes(userRole)) {
+      return res.status(403).json({ error: 'Access denied. Insufficient role.' });
+    }
+    next();
+  };
+};
+
+// Middleware to check if user has access to specific temple
+const authorizeTempleAccess = (req, res, next) => {
+  const userTempleId = req.user.templeId;
+  const requestedTempleId = req.params.templeId || req.body.templeId;
+  if (userTempleId !== requestedTempleId) {
+    return res.status(403).json({ error: 'Access denied. Temple ID mismatch.' });
+  }
+  next();
+};
+
+// Enhanced authorizePermission middleware with superadmin bypass
+const authorizePermission = (permissionId, requiredLevel = 'view') => {
+  return async (req, res, next) => {
+    if (req.user.role === 'superadmin') {
+      return next();
+    }
+
+    try {
+      const userPermissions = await db('user_permissions')
+        .where({ user_id: req.user.id, permission_id: permissionId })
+        .first();
+
+      if (!userPermissions) {
+        return res.status(403).json({ error: 'Access denied. No permission.' });
+      }
+
+      const userAccessLevel = userPermissions.access_level;
+      if (userAccessLevel !== requiredLevel && userAccessLevel !== 'full') {
+        return res.status(403).json({ error: 'Access denied. Insufficient permission level.' });
+      }
+
+      next();
+    } catch (err) {
+      console.error('Error authorizing permission:', err);
+      res.status(500).json({ error: 'Database error while authorizing permission.' });
+    }
+  };
+};
+
+// Now that we have the middleware, create the routers that depend on them
+const hallApprovalRouter = require('./hall-approval')({ db, authenticateToken, authorizePermission });
+
 // Mount routes
 app.use('/api/properties', propertiesRouter);
 app.use('/api/ledger', ledgerRouter);
+// Native categories router under /api/ledger to ensure /api/ledger/categories works
+(() => {
+  const express = require('express');
+  const r = express.Router();
+
+  // GET /api/ledger/categories
+  r.get('/categories', authenticateToken, async (req, res) => {
+    try {
+      const rows = await db('ledger_categories').select('*').orderBy('label', 'asc');
+      const data = rows.map(r => ({ id: r.id, value: r.value || r.label, label: r.label || r.value }));
+      res.json({ data });
+    } catch (err) {
+      console.error('Error fetching /api/ledger/categories:', err);
+      res.status(500).json({ error: 'Failed to fetch categories' });
+    }
+  });
+
+  // POST /api/ledger/categories
+  r.post('/categories', authenticateToken, async (req, res) => {
+    try {
+      const { value, label } = req.body || {};
+      if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
+      const exists = await db('ledger_categories').where({ value }).orWhere({ label }).first();
+      if (exists) return res.status(400).json({ error: 'Category already exists' });
+
+      const [id] = await db('ledger_categories').insert({ value, label, created_at: db.fn.now() });
+      res.status(201).json({ id, value, label });
+    } catch (err) {
+      console.error('Error creating /api/ledger/categories:', err);
+      res.status(500).json({ error: 'Failed to create category' });
+    }
+  });
+
+  // POST /api/ledger/categories/find-or-create
+  r.post('/categories/find-or-create', authenticateToken, async (req, res) => {
+    try {
+      const { value, label } = req.body || {};
+      if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
+      const existing = await db('ledger_categories').where({ value }).orWhere({ label }).first();
+      if (existing) return res.json({ id: existing.id, value: existing.value, label: existing.label });
+
+      const [id] = await db('ledger_categories').insert({ value, label, created_at: db.fn.now() });
+      res.status(201).json({ id, value, label });
+    } catch (err) {
+      console.error('Error find-or-create /api/ledger/categories:', err);
+      res.status(500).json({ error: 'Failed to create category' });
+    }
+  });
+
+  // PUT /api/ledger/categories/:id
+  r.put('/categories/:id', authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { value, label } = req.body || {};
+      if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
+      await db('ledger_categories').where({ id: Number(id) }).update({ value, label });
+      res.json({ id: Number(id), value, label });
+    } catch (err) {
+      console.error('Error updating /api/ledger/categories:', err);
+      res.status(500).json({ error: 'Failed to update category' });
+    }
+  });
+
+  // DELETE /api/ledger/categories/:id
+  r.delete('/categories/:id', authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await db('ledger_categories').where({ id: Number(id) }).del();
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error deleting /api/ledger/categories:', err);
+      res.status(500).json({ error: 'Failed to delete category' });
+    }
+  });
+
+  app.use('/api/ledger', r);
+})();
+
+// Donation products router under /api/donation-products
+(() => {
+  const express = require('express');
+  const r = express.Router();
+
+  // GET /api/donation-products
+  r.get('/', authenticateToken, async (req, res) => {
+    try {
+      const rows = await db('donation_products').select('*').orderBy('label', 'asc');
+      const data = rows.map(row => ({ id: row.id, value: row.value || row.label, label: row.label || row.value, unit: row.unit || '' }));
+      res.json({ data });
+    } catch (err) {
+      console.error('Error fetching /api/donation-products:', err);
+      res.status(500).json({ error: 'Failed to fetch donation products' });
+    }
+  });
+
+  // POST /api/donation-products
+  r.post('/', authenticateToken, async (req, res) => {
+    try {
+      const { value, label, unit } = req.body || {};
+      if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
+      const exists = await db('donation_products').where({ value }).orWhere({ label }).first();
+      if (exists) return res.status(400).json({ error: 'Product already exists' });
+      const [id] = await db('donation_products').insert({ value, label, unit: unit || null, created_at: db.fn.now() });
+      res.status(201).json({ id, value, label, unit: unit || '' });
+    } catch (err) {
+      console.error('Error creating /api/donation-products:', err);
+      res.status(500).json({ error: 'Failed to create donation product' });
+    }
+  });
+
+  // POST /api/donation-products/find-or-create
+  r.post('/find-or-create', authenticateToken, async (req, res) => {
+    try {
+      const { value, label, unit } = req.body || {};
+      if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
+      const existing = await db('donation_products').where({ value }).orWhere({ label }).first();
+      if (existing) return res.json({ id: existing.id, value: existing.value, label: existing.label, unit: existing.unit || '' });
+      const [id] = await db('donation_products').insert({ value, label, unit: unit || null, created_at: db.fn.now() });
+      res.status(201).json({ id, value, label, unit: unit || '' });
+    } catch (err) {
+      console.error('Error find-or-create /api/donation-products:', err);
+      res.status(500).json({ error: 'Failed to create donation product' });
+    }
+  });
+
+  // PUT /api/donation-products/:id
+  r.put('/:id', authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { value, label, unit } = req.body || {};
+      if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
+      await db('donation_products').where({ id: Number(id) }).update({ value, label, unit: unit || null, updated_at: db.fn.now() });
+      res.json({ id: Number(id), value, label, unit: unit || '' });
+    } catch (err) {
+      console.error('Error updating /api/donation-products:', err);
+      res.status(500).json({ error: 'Failed to update donation product' });
+    }
+  });
+
+  // DELETE /api/donation-products/:id
+  r.delete('/:id', authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await db('donation_products').where({ id: Number(id) }).del();
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error deleting /api/donation-products:', err);
+      res.status(500).json({ error: 'Failed to delete donation product' });
+    }
+  });
+
+  app.use('/api/donation-products', r);
+})();
+
+// Money donations router under /api/money-donations
+(() => {
+  const express = require('express');
+  const r = express.Router();
+
+  // List money donations (current user temple)
+  r.get('/', authenticateToken, async (req, res) => {
+    try {
+      const rows = await db('money_donations')
+        .where('temple_id', req.user.templeId)
+        .orderBy('date', 'desc')
+        .select('*');
+      res.json({ success: true, data: rows });
+    } catch (err) {
+      console.error('Error fetching /api/money-donations:', err);
+      res.status(500).json({ error: 'Failed to fetch money donations' });
+    }
+  });
+
+  // Create money donation
+  r.post('/', authenticateToken, async (req, res) => {
+    try {
+      const b = req.body || {};
+      const amount = Number(b.amount || 0);
+      if (!amount || isNaN(amount)) return res.status(400).json({ error: 'Valid amount is required' });
+      const payload = {
+        register_no: b.registerNo || '',
+        date: b.date || new Date().toISOString().slice(0,10),
+        name: b.name || '',
+        father_name: b.fatherName || '',
+        address: b.address || '',
+        village: b.village || '',
+        phone: b.phone || '',
+        amount,
+        reason: b.reason || '',
+        temple_id: req.user.templeId,
+        created_at: db.fn.now(),
+        updated_at: db.fn.now(),
+      };
+      const [id] = await db('money_donations').insert(payload);
+      const row = await db('money_donations').where({ id }).first();
+      res.json({ success: true, data: row });
+    } catch (err) {
+      console.error('Error creating /api/money-donations:', err);
+      res.status(500).json({ error: 'Failed to create money donation' });
+    }
+  });
+
+  // Get single
+  r.get('/:id', authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const row = await db('money_donations').where({ id }).andWhere('temple_id', req.user.templeId).first();
+      if (!row) return res.status(404).json({ error: 'Not found' });
+      res.json({ success: true, data: row });
+    } catch (err) {
+      console.error('Error reading /api/money-donations/:id:', err);
+      res.status(500).json({ error: 'Failed to read money donation' });
+    }
+  });
+
+  // Update
+  r.put('/:id', authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const b = req.body || {};
+      const update = {
+        register_no: b.registerNo,
+        date: b.date,
+        name: b.name,
+        father_name: b.fatherName,
+        address: b.address,
+        village: b.village,
+        phone: b.phone,
+        amount: b.amount != null ? Number(b.amount) : undefined,
+        reason: b.reason,
+        updated_at: db.fn.now(),
+      };
+      // remove undefined keys
+      Object.keys(update).forEach(k => update[k] === undefined && delete update[k]);
+      const changed = await db('money_donations').where({ id }).andWhere('temple_id', req.user.templeId).update(update);
+      if (!changed) return res.status(404).json({ error: 'Not found' });
+      const row = await db('money_donations').where({ id }).first();
+      res.json({ success: true, data: row });
+    } catch (err) {
+      console.error('Error updating /api/money-donations/:id:', err);
+      res.status(500).json({ error: 'Failed to update money donation' });
+    }
+  });
+
+  // Delete
+  r.delete('/:id', authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const del = await db('money_donations').where({ id }).andWhere('temple_id', req.user.templeId).del();
+      if (!del) return res.status(404).json({ error: 'Not found' });
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error deleting /api/money-donations/:id:', err);
+      res.status(500).json({ error: 'Failed to delete money donation' });
+    }
+  });
+
+  app.use('/api/money-donations', r);
+})();
+// Backward-compatible categories router (no redirect)
+const ledgerCategoriesCompat = (() => {
+  const express = require('express');
+  const router = express.Router();
+
+  // GET /api/ledger-categories -> list categories
+  router.get('/', authenticateToken, async (req, res) => {
+    try {
+      const rows = await db('ledger_categories').select('*').orderBy('label', 'asc');
+      const data = rows.map((r) => ({ id: r.id, value: r.value || r.label, label: r.label || r.value }));
+      res.json(data);
+    } catch (err) {
+      console.error('Error fetching categories (/api/ledger-categories):', err);
+      res.status(500).json({ error: 'Failed to fetch categories' });
+    }
+  });
+
+  // POST /api/ledger-categories -> create category
+  router.post('/', authenticateToken, async (req, res) => {
+    try {
+      const { value, label } = req.body || {};
+      if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
+
+      const exists = await db('ledger_categories').where({ value }).orWhere({ label }).first();
+      if (exists) return res.status(400).json({ error: 'Category already exists' });
+
+      const [id] = await db('ledger_categories').insert({ value, label, created_at: db.fn.now() });
+      res.status(201).json({ id, value, label });
+    } catch (err) {
+      console.error('Error creating category (/api/ledger-categories):', err);
+      res.status(500).json({ error: 'Failed to create category' });
+    }
+  });
+
+  // POST /api/ledger-categories/find-or-create
+  router.post('/find-or-create', authenticateToken, async (req, res) => {
+    try {
+      const { value, label } = req.body || {};
+      if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
+
+      const existing = await db('ledger_categories').where({ value }).orWhere({ label }).first();
+      if (existing) return res.json({ id: existing.id, value: existing.value, label: existing.label });
+
+      const [id] = await db('ledger_categories').insert({ value, label, created_at: db.fn.now() });
+      res.status(201).json({ id, value, label });
+    } catch (err) {
+      console.error('Error find-or-create category (/api/ledger-categories):', err);
+      res.status(500).json({ error: 'Failed to create category' });
+    }
+  });
+
+  // PUT /api/ledger-categories/:id -> mock update
+  router.put('/:id', authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { value, label } = req.body || {};
+      if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
+      // In this simplified model, just return the updated object
+      res.json({ id: Number(id), value, label });
+    } catch (err) {
+      console.error('Error updating category (/api/ledger-categories):', err);
+      res.status(500).json({ error: 'Failed to update category' });
+    }
+  });
+
+  // DELETE /api/ledger-categories/:id -> mock delete
+  router.delete('/:id', authenticateToken, async (req, res) => {
+    try {
+      // No-op in this simplified model
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error deleting category (/api/ledger-categories):', err);
+      res.status(500).json({ error: 'Failed to delete category' });
+    }
+  });
+
+  return router;
+})();
+
+app.use('/api/ledger-categories', ledgerCategoriesCompat);
+app.use('/api/hall-approval', hallApprovalRouter);
 
 // Add receipts endpoints (CRUD)
 app.post('/api/receipts', authenticateToken, async (req, res) => {
@@ -255,148 +698,6 @@ app.delete('/api/receipts/:id', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Failed to delete receipt' });
   }
 });
-
-// Knex config for SQLite (database in server directory)
-const db = knex({
-  client: 'sqlite3',
-  connection: {
-    filename: path.join(__dirname, 'deev.sqlite3'),
-  },
-  useNullAsDefault: true,
-  pool: {
-    afterCreate: (conn, cb) => {
-      conn.run('PRAGMA busy_timeout = 5000', cb);
-    }
-  }
-});
-
-// Mount mobile routes (no authentication required) - AFTER DB INIT
-const poojaMobileRouter = require('./pooja-mobile')({ db });
-app.use('/api/pooja-mobile', poojaMobileRouter);
-
-const mobileAuthRouter = require('./mobile-auth')({ db });
-app.use('/api/mobile-auth', mobileAuthRouter);
-
-// Hall mobile routes
-const hallMobileRouter = require('./hall-mobile')({ db });
-app.use('/api/hall-mobile', hallMobileRouter);
-
-// Annadhanam mobile routes
-const annadhanamMobileRouter = require('./annadhanam-mobile')({ db });
-app.use('/api/annadhanam-mobile', annadhanamMobileRouter);
-
-// Donations mobile routes
-const donationsMobileRouter = require('./donations-mobile')({ db });
-app.use('/api/donations-mobile', donationsMobileRouter);
-
-// Hall admin approval routes (protected) - mounted after authorizePermission is defined
-
-// Function to retry database operations on SQLITE_BUSY
-const retryOnBusy = async (fn, maxRetries = 5, delay = 100) => {
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      return await fn();
-    } catch (err) {
-      if (err.code === 'SQLITE_BUSY' && i < maxRetries - 1) {
-        console.log(`Database busy, retrying (${i+1}/${maxRetries})...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        continue;
-      }
-      throw err;
-    }
-  }
-};
-
-// Middleware to authenticate JWT token
-function authenticateToken(req, res, next) {
-  // Public allowlist: mobile events feed
-  const url = req.originalUrl || req.url || '';
-  if (req.method === 'GET' && /\/api\/events\/mobile\/events(\?.*)?$/.test(url)) {
-    return next();
-  }
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
-  }
-
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({ error: 'Invalid or expired token' });
-    }
-    req.user = user;
-    next();
-  });
-}
-
-// Middleware to authorize user roles
-const authorizeRole = (allowedRoles) => {
-  return (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
-    
-    if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ error: 'Insufficient permissions' });
-    }
-    
-    next();
-  };
-};
-
-// (moved down) hall-approval mount will be added after authorizePermission definition
-
-// Middleware to check if user has access to specific temple
-const authorizeTempleAccess = (req, res, next) => {
-  // For master data endpoints, users can only access their own temple
-  // The templeId is stored in req.user.templeId from the JWT token
-  if (!req.user || !req.user.templeId) {
-    return res.status(401).json({ error: 'User not authenticated or temple ID missing' });
-  }
-
-  next();
-};
-
-// Enhanced authorizePermission middleware with superadmin bypass
-const authorizePermission = (permissionId, requiredLevel = 'view') => {
-  return async (req, res, next) => {
-    // Superadmin bypass
-    if (req.user.role === 'superadmin') {
-      return next();
-    }
-    try {
-      const permission = await db('user_permissions')
-        .where({ 
-          user_id: req.user.id, 
-          permission_id: permissionId 
-        })
-        .first();
-      
-      if (!permission) {
-        return res.status(403).json({ error: 'Permission not granted' });
-      }
-      
-      // Check access level hierarchy: view < edit < full
-      const accessLevels = { 'view': 1, 'edit': 2, 'full': 3 };
-      const userLevel = accessLevels[permission.access_level] || 0;
-      const requiredLevelNum = accessLevels[requiredLevel] || 0;
-      
-      if (userLevel < requiredLevelNum) {
-        return res.status(403).json({ error: 'Insufficient permission level' });
-      }
-      
-      next();
-    } catch (err) {
-      console.error('Permission check error:', err);
-      res.status(500).json({ error: 'Error checking permissions' });
-    }
-  };
-};
-
-// Now that authorizePermission is defined, mount hall approval routes
-const hallApprovalRouter = require('./hall-approval')({ db, authenticateToken, authorizePermission });
-app.use('/api/hall-approval', hallApprovalRouter);
 
 // Migrate tables if not exist
 async function migrate() {
@@ -866,6 +1167,75 @@ async function migrate() {
       ('superadmin', 'hall_approval', 'full'),
       ('member', 'hall_mobile_submit', 'full')
     `);
+
+    // Ensure ledger_categories table exists (for Manage Categories)
+    if (!(await db.schema.hasTable('ledger_categories'))) {
+      await db.schema.createTable('ledger_categories', (table) => {
+        table.increments('id').primary();
+        table.string('value').notNullable();
+        table.string('label').notNullable();
+        table.timestamp('created_at').defaultTo(db.fn.now());
+        table.timestamp('updated_at');
+        table.unique(['value']);
+        table.unique(['label']);
+      });
+      console.log('Created ledger_categories table.');
+    }
+
+    // Seed ledger_categories from existing ledger_entries.under (idempotent)
+    try {
+      const existingValues = new Set((await db('ledger_categories').select('value')).map(r => r.value));
+      const underRows = await db('ledger_entries')
+        .whereNotNull('under')
+        .distinct({ value: 'under' })
+        .orderBy('under', 'asc');
+      const toInsert = underRows
+        .map(r => ({ value: r.value, label: r.value }))
+        .filter(r => r.value && !existingValues.has(r.value));
+      if (toInsert.length > 0) {
+        await db('ledger_categories').insert(
+          toInsert.map(r => ({ ...r, created_at: db.fn.now() }))
+        );
+        console.log(`Seeded ${toInsert.length} categories from ledger_entries.`);
+      }
+    } catch (seedErr) {
+      console.log('Seeding ledger_categories skipped or failed:', seedErr.message);
+    }
+
+    // Ensure donation_products table exists
+    if (!(await db.schema.hasTable('donation_products'))) {
+      await db.schema.createTable('donation_products', (table) => {
+        table.increments('id').primary();
+        table.string('value').notNullable();
+        table.string('label').notNullable();
+        table.string('unit');
+        table.timestamp('created_at').defaultTo(db.fn.now());
+        table.timestamp('updated_at');
+        table.unique(['value']);
+        table.unique(['label']);
+      });
+      console.log('Created donation_products table.');
+    }
+
+    // Ensure money_donations table exists
+    if (!(await db.schema.hasTable('money_donations'))) {
+      await db.schema.createTable('money_donations', (table) => {
+        table.increments('id').primary();
+        table.string('register_no');
+        table.string('date').notNullable();
+        table.string('name');
+        table.string('father_name');
+        table.string('address');
+        table.string('village');
+        table.string('phone');
+        table.float('amount').notNullable();
+        table.string('reason');
+        table.integer('temple_id').notNullable();
+        table.timestamp('created_at').defaultTo(db.fn.now());
+        table.timestamp('updated_at').defaultTo(db.fn.now());
+      });
+      console.log('Created money_donations table.');
+    }
 
     // Create annadhanam table
     if (!(await db.schema.hasTable('annadhanam'))) {
@@ -2621,6 +2991,15 @@ const registrationsRouter = createRegistrationsRouter(db);
 app.use((req, res, next) => {
   if (req.method !== 'GET') {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+    
+    // Log to database
+    db('superadmin_logs').insert({
+      user_id: req.user?.id || null,
+      action: `${req.method} ${req.path}`,
+      ip_address: req.ip,
+      user_agent: req.get('User-Agent'),
+      timestamp: db.fn.now()
+    }).catch(console.error);
   }
   next();
 });

@@ -265,8 +265,11 @@ router.get('/profit-and-loss', authenticateToken, async (req, res) => {
   }
 });
 
-// Get all categories (distinct 'under' values)
-router.get('/categories', authenticateToken, async (req, res) => {
+// Get categories actually used in entries (distinct 'under' values)
+// NOTE: The full master list of categories is served by backend.js at
+// GET /api/ledger/categories from the ledger_categories table.
+// This endpoint is intentionally named /categories-used to avoid conflicts.
+router.get('/categories-used', authenticateToken, async (req, res) => {
   try {
     const result = await db('ledger_entries')
       .distinct('under')

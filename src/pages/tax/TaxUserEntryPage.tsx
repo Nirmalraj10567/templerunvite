@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from 'react-i18next'; // Import the useTranslation hook
 
 interface Heir {
   id: string;
@@ -12,6 +13,7 @@ interface Heir {
 }
 
 export default function TaxUserEntryPage() {
+  const { t, i18n } = useTranslation(); // Initialize the translation hook
   const { user, token } = useAuth();
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
@@ -94,14 +96,17 @@ export default function TaxUserEntryPage() {
       (async () => {
         setLoading(true);
         try {
-          const [clansRes, groupsRes, occupationsRes] = await Promise.all([
-            fetch(`/api/master-clans/${user.templeId}`, {
+          const [clansRes, groupsRes, occupationsRes, educationsRes] = await Promise.all([
+            fetch(`/api/master/clans/${user.templeId}`, {
               headers: { Authorization: `Bearer ${token}` }
             }),
-            fetch(`/api/master-groups/${user.templeId}`, {
+            fetch(`/api/master/groups/${user.templeId}`, {
               headers: { Authorization: `Bearer ${token}` }
             }),
-            fetch(`/api/master-occupations/${user.templeId}`, {
+            fetch(`/api/master/occupations/${user.templeId}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            }),
+            fetch(`/api/master/educations/${user.templeId}`, {
               headers: { Authorization: `Bearer ${token}` }
             }),
           ]);
@@ -118,21 +123,25 @@ export default function TaxUserEntryPage() {
             const occupations = await occupationsRes.json();
             setMasterOccupations(occupations.map((x: any) => x.name));
           }
-
-          // Set static education options
-          setMasterEducations([
-            'Illiterate',
-            'Primary',
-            'Secondary',
-            'Higher Secondary',
-            'Diploma',
-            'Bachelor Degree',
-            'Master Degree',
-            'PhD',
-            'Professional Course',
-            'Technical Training',
-            'Other',
-          ]);
+          if (educationsRes.ok) {
+            const educations = await educationsRes.json();
+            setMasterEducations(educations.map((x: any) => x.name));
+          } else {
+            // Fallback static education options
+            setMasterEducations([
+              'Illiterate',
+              'Primary',
+              'Secondary',
+              'Higher Secondary',
+              'Diploma',
+              'Bachelor Degree',
+              'Master Degree',
+              'PhD',
+              'Professional Course',
+              'Technical Training',
+              'Other',
+            ]);
+          }
         } catch (e) {
           console.error('Error loading master data', e);
           setErr('Failed to load master data / முதன்மை தரவு ஏற்ற முடியவில்லை');
@@ -153,6 +162,9 @@ export default function TaxUserEntryPage() {
   }, [user?.templeId, token, loading]);
 
   const set = (k: string, v: any) => setForm(p => ({ ...p, [k]: v }));
+
+  // Helper to show text in current language only
+  const L = (en: string, ta: string) => (i18n.language?.startsWith('ta') ? ta : en);
 
   // Input formatting functions
   const formatMobileNumber = (value: string) => {
@@ -185,7 +197,7 @@ export default function TaxUserEntryPage() {
 
     try {
       // Search in user_registrations table for existing user data using the search parameter
-      const response = await fetch(`http://localhost:4000/api/registrations?search=${cleanMobile}&pageSize=1`, {
+      const response = await fetch(`/api/registrations?search=${cleanMobile}&pageSize=1`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -485,6 +497,19 @@ export default function TaxUserEntryPage() {
       formData.append('amountPaid', form.amountPaid);
       formData.append('outstandingAmount', form.outstandingAmount);
       formData.append('templeId', user.templeId.toString());
+
+      // Append heirs as JSON array if present
+      if (newUser.heirs && newUser.heirs.length > 0) {
+        const heirsPayload = newUser.heirs.map(h => ({
+          serialNumber: h.serialNumber,
+          name: h.name,
+          race: h.race,
+          maritalStatus: h.maritalStatus,
+          education: h.education,
+          birthDate: h.birthDate,
+        }));
+        formData.append('heirs', JSON.stringify(heirsPayload));
+      }
       
       // Append photo if exists
       if (newUser.photo) {
@@ -589,7 +614,7 @@ export default function TaxUserEntryPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading master data... / முதன்மை தரவு ஏற்றுகிறது...</p>
+          <p className="text-gray-600">{L('Loading master data...', 'முதன்மை தரவு ஏற்றுகிறது...')}</p>
         </div>
       </div>
     );
@@ -598,11 +623,31 @@ export default function TaxUserEntryPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-4 px-3">
       <div className="max-w-7xl mx-auto">
-        {/* Compact Header */}
-        <div className="text-center mb-4">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Tax Registration <span className="text-base text-gray-600">/ வரி பதிவு</span>
-          </h1>
+        {/* Language Toggle + Header */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-center flex-1">
+            <h1 className="text-2xl font-bold text-gray-900">
+              {L('Tax Registration', 'வரி பதிவு')}
+            </h1>
+          </div>
+          <div className="ml-4 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => i18n.changeLanguage('en')}
+              className={`px-2 py-1 text-xs rounded border ${i18n.language?.startsWith('ta') ? 'bg-white text-gray-700' : 'bg-blue-600 text-white border-blue-600'}`}
+              title="Switch to English"
+            >
+              EN
+            </button>
+            <button
+              type="button"
+              onClick={() => i18n.changeLanguage('ta')}
+              className={`px-2 py-1 text-xs rounded border ${i18n.language?.startsWith('ta') ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700'}`}
+              title="தமிழ்க்கு மாற்று"
+            >
+              தமிழ்
+            </button>
+          </div>
         </div>
 
         {/* Main Container */}
@@ -626,19 +671,19 @@ export default function TaxUserEntryPage() {
               {/* Basic Info Section */}
               <div className="bg-gray-50 rounded-lg p-3">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-gray-900">Basic Information / அடிப்படை தகவல்</h3>
+                  <h3 className="text-sm font-semibold text-gray-900">{L('Basic Information', 'அடிப்படை தகவல்')}</h3>
                   <button
                     type="button"
                     onClick={clearForm}
                     className="px-2 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600"
-                    title="Clear all fields"
+                    title={L('Clear all fields', 'அனைத்தையும் அழி')}
                   >
-                    🗑️ Clear
+                    🗑️ {L('Clear', 'அழிக்க')}
                   </button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">Date / தேதி</label>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Date', 'தேதி')}</label>
                     <input
                       type="date"
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
@@ -647,7 +692,7 @@ export default function TaxUserEntryPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">Year / வருடம் *</label>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Year', 'வருடம்')} *</label>
                     <select
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       value={form.year}
@@ -659,7 +704,7 @@ export default function TaxUserEntryPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">Ref No / குறிப்பு எண்</label>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Ref No', 'குறிப்பு எண்')}</label>
                     <input
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       value={form.referenceNumber}
@@ -667,16 +712,16 @@ export default function TaxUserEntryPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">Subdivision / உட்பிரிவு</label>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Subdivision', 'உட்பிரிவு')}</label>
                     <select
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       value={form.subdivision}
                       onChange={e => set('subdivision', e.target.value)}
                     >
-                      <option value="">Select / தேர்ந்தெடு</option>
+                      <option value="">{L('Select', 'தேர்ந்தெடு')}</option>
                       {subdivisions.map((sub) => (
                         <option key={sub.value} value={sub.value}>
-                          {sub.label} / {sub.tamil}
+                          {L(sub.label, sub.tamil)}
                         </option>
                       ))}
                     </select>
@@ -686,12 +731,10 @@ export default function TaxUserEntryPage() {
 
               {/* Personal Details */}
               <div className="bg-gray-50 rounded-lg p-3">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Personal Details / தனிப்பட்ட விவரங்கள்</h3>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">{L('Personal Details', 'தனிப்பட்ட விவரங்கள்')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">
-                      Name * / பெயர்
-                    </label>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Name', 'பெயர்')} *</label>
                     <input
                       className={`w-full px-2 py-1.5 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'
                         }`}
@@ -701,7 +744,7 @@ export default function TaxUserEntryPage() {
                     {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">Alt Name / மாற்று பெயர்</label>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Alt Name', 'மாற்று பெயர்')}</label>
                     <input
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       value={form.alternativeName}
@@ -709,7 +752,7 @@ export default function TaxUserEntryPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">Spouse / மனைவி</label>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Spouse', 'மனைவி')}</label>
                     <input
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       value={form.wifeName}
@@ -717,7 +760,7 @@ export default function TaxUserEntryPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">Father / தந்தை *</label>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Father', 'தந்தை')} *</label>
                     <input
                       className={`w-full px-2 py-1.5 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.fatherName ? 'border-red-500 bg-red-50' : 'border-gray-300'
                         }`}
@@ -727,7 +770,7 @@ export default function TaxUserEntryPage() {
                     {errors.fatherName && <p className="text-red-500 text-xs mt-1">{errors.fatherName}</p>}
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">Birth Date / பிறந்த தேதி</label>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Birth Date', 'பிறந்த தேதி')}</label>
                     <input
                       type="date"
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
@@ -736,33 +779,33 @@ export default function TaxUserEntryPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">Education / கல்வி</label>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Education', 'கல்வி')}</label>
                     <select
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       value={form.education}
                       onChange={e => set('education', e.target.value)}
                     >
-                      <option value="">Select / தேர்ந்தெடு</option>
+                      <option value="">{L('Select', 'தேர்ந்தெடு')}</option>
                       {masterEducations.map((edu) => (
                         <option key={edu} value={edu}>{edu}</option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">Occupation / தொழில்</label>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Occupation', 'தொழில்')}</label>
                     <select
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       value={form.occupation}
                       onChange={e => set('occupation', e.target.value)}
                     >
-                      <option value="">Select / தேர்ந்தெடு</option>
+                      <option value="">{L('Select', 'தேர்ந்தெடு')}</option>
                       {masterOccupations.map((occ) => (
                         <option key={occ} value={occ}>{occ}</option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">Village / கிராமம்</label>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Village', 'கிராமம்')}</label>
                     <input
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       value={form.village}
@@ -771,8 +814,8 @@ export default function TaxUserEntryPage() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">
-                      Mobile / கைபேசி
-                      {lookingUp && <span className="ml-2 text-blue-600 text-xs">🔍 Looking up...</span>}
+                      {L('Mobile', 'கைபேசி')}
+                      {lookingUp && <span className="ml-2 text-blue-600 text-xs">🔍 {L('Looking up...', 'தேடுகிறது...')}</span>}
                     </label>
                     <div className="flex gap-2">
                       <input
@@ -781,7 +824,7 @@ export default function TaxUserEntryPage() {
                           }`}
                         value={form.mobileNumber}
                         onChange={e => handleMobileChange(e.target.value)}
-                        placeholder="Enter 10-digit mobile"
+                        placeholder={L('Enter 10-digit mobile', '10 இலக்க கைபேசி எண்')}
                         maxLength={12}
                       />
                       <button
@@ -789,14 +832,14 @@ export default function TaxUserEntryPage() {
                         onClick={() => lookupUserByMobile(form.mobileNumber)}
                         disabled={lookingUp || form.mobileNumber.replace(/\D/g, '').length !== 10}
                         className="px-2 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Lookup user details"
+                        title={L('Lookup user details', 'பயனர் விவரங்களைத் தேடு')}
                       >
                         🔍
                       </button>
                     </div>
                     {errors.mobileNumber && <p className="text-red-500 text-xs mt-1">{errors.mobileNumber}</p>}
                     <p className="text-xs text-gray-500 mt-1">
-                      💡 Auto-fills details from existing registrations when mobile is entered
+                      💡 {L('Auto-fills details from existing registrations when mobile is entered', 'கைபேசியை உள்ளிட்டவுடன் பதிவுகளில் இருந்து விவரங்கள் தானாக நிரப்படும்')}
                     </p>
                   </div>
                 </div>
@@ -804,7 +847,7 @@ export default function TaxUserEntryPage() {
 
               {/* Address */}
               <div className="bg-gray-50 rounded-lg p-3">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Address / முகவரி *</h3>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">{L('Address', 'முகவரி')} *</h3>
                 <textarea
                   className={`w-full px-2 py-1.5 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.address ? 'border-red-500 bg-red-50' : 'border-gray-300'
                     }`}
@@ -817,10 +860,10 @@ export default function TaxUserEntryPage() {
 
               {/* ID Numbers & Other Info */}
               <div className="bg-gray-50 rounded-lg p-3">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">ID & Other Details / அடையாள விவரங்கள்</h3>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">{L('ID & Other Details', 'அடையாள விவரங்கள்')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">Aadhaar / ஆதார்</label>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Aadhaar', 'ஆதார்')}</label>
                     <input
                       type="text"
                       className={`w-full px-2 py-1.5 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.aadhaarNumber ? 'border-red-500 bg-red-50' : 'border-gray-300'
@@ -833,7 +876,7 @@ export default function TaxUserEntryPage() {
                     {errors.aadhaarNumber && <p className="text-red-500 text-xs mt-1">{errors.aadhaarNumber}</p>}
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">PAN / பான்</label>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('PAN', 'பான்')}</label>
                     <input
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       value={form.panNumber}
@@ -841,33 +884,33 @@ export default function TaxUserEntryPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">Clan / குலம்</label>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Clan', 'குலம்')}</label>
                     <select
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       value={form.clan}
                       onChange={e => set('clan', e.target.value)}
                     >
-                      <option value="">Select / தேர்ந்தெடு</option>
+                      <option value="">{L('Select', 'தேர்ந்தெடு')}</option>
                       {masterClans.map((clan) => (
                         <option key={clan} value={clan}>{clan}</option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">Group / குழு</label>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Group', 'குழு')}</label>
                     <select
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       value={form.group}
                       onChange={e => set('group', e.target.value)}
                     >
-                      <option value="">Select / தேர்ந்தெடு</option>
+                      <option value="">{L('Select', 'தேர்ந்தெடு')}</option>
                       {masterGroups.map((group) => (
                         <option key={group} value={group}>{group}</option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">Postal Code / அஞ்சல் குறியீடு</label>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Postal Code', 'அஞ்சல் குறியீடு')}</label>
                     <input
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       value={form.postalCode}
@@ -875,7 +918,7 @@ export default function TaxUserEntryPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">Male Heirs / ஆண் வாரிசு</label>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Male Heirs', 'ஆண் வாரிசு')}</label>
                     <input
                       type="number"
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
@@ -885,7 +928,7 @@ export default function TaxUserEntryPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">Female Heirs / பெண் வாரிசு</label>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Female Heirs', 'பெண் வாரிசு')}</label>
                     <input
                       type="number"
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
@@ -901,21 +944,21 @@ export default function TaxUserEntryPage() {
               {cumulativeInfo && taxBreakdown.length > 0 && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                   <h3 className="text-sm font-semibold text-yellow-900 mb-3">
-                    📊 Outstanding Balance Calculation / நிலுவை கணக்கீடு
+                    📊 {L('Outstanding Balance Calculation', 'நிலுவை கணக்கீடு')}
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <h4 className="text-xs font-medium text-yellow-800 mb-2">Year-wise Breakdown:</h4>
+                      <h4 className="text-xs font-medium text-yellow-800 mb-2">{L('Year-wise Breakdown:', 'ஆண்டு வாரியாக:')}</h4>
                       <div className="space-y-1">
                         {taxBreakdown.map((item: any) => (
                           <div key={item.year} className="flex justify-between text-xs">
                             <span className={`${item.status.includes('current') ? 'font-semibold text-blue-700' : 'text-gray-700'}`}>
                               {item.year} {
-                                item.status === 'new_registration_previous_year' ? '(NEW - Previous Year)' :
-                                item.status === 'registered' ? '(Registered)' : 
-                                item.status === 'current_new' ? '(NEW - Current)' : 
-                                item.status === 'current_registered' ? '(Current - Registered)' :
-                                '(Not Paid)'
+                                item.status === 'new_registration_previous_year' ? L('(NEW - Previous Year)', '(புதியது - முந்தைய ஆண்டு)') :
+                                item.status === 'registered' ? L('(Registered)', '(பதிவு செய்யப்பட்டது)') : 
+                                item.status === 'current_new' ? L('(NEW - Current)', '(புதியது - தற்போதைய)') : 
+                                item.status === 'current_registered' ? L('(Current - Registered)', '(தற்போதைய - பதிவு)') :
+                                L('(Not Paid)', '(செலுத்தப்படவில்லை)')
                               }:
                             </span>
                             <span className={`font-medium ${item.outstanding > 0 ? 'text-red-600' : 'text-green-600'}`}>
@@ -926,18 +969,18 @@ export default function TaxUserEntryPage() {
                       </div>
                     </div>
                     <div>
-                      <h4 className="text-xs font-medium text-yellow-800 mb-2">Summary:</h4>
+                      <h4 className="text-xs font-medium text-yellow-800 mb-2">{L('Summary:', 'சுருக்கம்:')}</h4>
                       <div className="space-y-1 text-xs">
                         <div className="flex justify-between">
-                          <span>Previous Years Outstanding:</span>
+                          <span>{L('Previous Years Outstanding:', 'முந்தைய ஆண்டுகளின் நிலுவை:')}</span>
                           <span className="font-medium text-red-600">₹{cumulativeInfo.cumulativeOutstanding.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Current Year ({form.year}):</span>
+                          <span>{L('Current Year', 'தற்போதைய ஆண்டு')} ({form.year}):</span>
                           <span className="font-medium text-blue-600">₹{cumulativeInfo.currentYearTax.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between border-t pt-1 font-bold">
-                          <span>Total Due:</span>
+                          <span>{L('Total Due:', 'மொத்த நிலுவை:')}</span>
                           <span className="text-green-600">₹{cumulativeInfo.totalTaxDue.toLocaleString()}</span>
                         </div>
                       </div>
@@ -945,82 +988,28 @@ export default function TaxUserEntryPage() {
                   </div>
                   {cumulativeInfo.hasExistingRegistration ? (
                     <p className="text-xs text-yellow-700 mt-2">
-                      ⚠️ Existing user: Only actual unpaid amounts from registered years included.
+                      ⚠️ {L('Existing user: Only actual unpaid amounts from registered years included.', 'ஏற்கனவே பதிவு செய்தவர்: பதிவு செய்யப்பட்ட ஆண்டுகளில் செலுத்தாத தொகைகள் மட்டும் சேர்க்கப்பட்டுள்ளது.')}
                     </p>
                   ) : (
                     <p className="text-xs text-green-700 mt-2">
-                      🆕 NEW Registration: Previous years included based on Tax Settings (ON/OFF mode).
+                      🆕 {L('NEW Registration: Previous years included based on Tax Settings (ON/OFF mode).', 'புதிய பதிவு: வரி அமைப்பின் அடிப்படையில் (ON/OFF) முந்தைய ஆண்டுகள் சேர்க்கப்பட்டுள்ளது.')}
                     </p>
                   )}
                 </div>
               )}
 
-              {/* Tax & Payment Details */}
-              <div className="bg-blue-50 rounded-lg p-3">
-                <h3 className="text-sm font-semibold text-blue-900 mb-3">Tax & Payment Details / வரி மற்றும் கட்டண விவரங்கள்</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-blue-900 mb-1">Tax Amount / வரி தொகை (₹)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      className="w-full px-2 py-1.5 text-sm border border-blue-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-blue-50"
-                      value={form.taxAmount}
-                      onChange={e => {
-                        set('taxAmount', e.target.value);
-                        // Recalculate outstanding when tax amount changes
-                        const tax = parseFloat(e.target.value) || 0;
-                        const paid = parseFloat(form.amountPaid) || 0;
-                        const outstanding = Math.max(0, tax - paid);
-                        set('outstandingAmount', outstanding.toString());
-                      }}
-                      placeholder="Auto-filled based on year"
-                    />
-                    <p className="text-xs text-blue-600 mt-1">
-                      💡 Auto-loaded from tax settings for selected year
-                    </p>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-blue-900 mb-1">Amount Paid / செலுத்திய தொகை (₹)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      className="w-full px-2 py-1.5 text-sm border border-blue-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-                      value={form.amountPaid}
-                      onChange={e => handleAmountPaidChange(e.target.value)}
-                      placeholder="Enter amount paid"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-blue-900 mb-1">Outstanding / நிலுவை தொகை (₹)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      className="w-full px-2 py-1.5 text-sm border border-blue-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-gray-100"
-                      value={form.outstandingAmount}
-                      readOnly
-                      placeholder="Auto-calculated"
-                    />
-                    <p className="text-xs text-blue-600 mt-1">
-                      📊 {cumulativeInfo ? 'Cumulative Outstanding (Previous + Current - Paid)' : 'Tax Amount - Amount Paid'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
               {/* Heirs Section - Compact Table */}
               <div className="bg-gray-50 rounded-lg p-3">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-gray-900">
-                    Heirs Details / வாரிசு விவரம்
+                    {L('Heirs Details', 'வாரிசு விவரம்')}
                   </h3>
                   <button
                     type="button"
                     onClick={addHeir}
                     className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
                   >
-                    + Add / சேர்க்க
+                    + {L('Add', 'சேர்க்க')}
                   </button>
                 </div>
 
@@ -1030,12 +1019,12 @@ export default function TaxUserEntryPage() {
                       <thead className="bg-gray-100">
                         <tr>
                           <th className="px-2 py-1 text-left font-medium text-gray-900 border-b">S.No</th>
-                          <th className="px-2 py-1 text-left font-medium text-gray-900 border-b">Name / பெயர்</th>
-                          <th className="px-2 py-1 text-left font-medium text-gray-900 border-b">Race / இனம்</th>
-                          <th className="px-2 py-1 text-left font-medium text-gray-900 border-b">Status / நிலை</th>
-                          <th className="px-2 py-1 text-left font-medium text-gray-900 border-b">Education / கல்வி</th>
-                          <th className="px-2 py-1 text-left font-medium text-gray-900 border-b">DOB / பிறந்த தேதி</th>
-                          <th className="px-2 py-1 text-center font-medium text-gray-900 border-b">Action</th>
+                          <th className="px-2 py-1 text-left font-medium text-gray-900 border-b">{L('Name', 'பெயர்')}</th>
+                          <th className="px-2 py-1 text-left font-medium text-gray-900 border-b">{L('Race', 'இனம்')}</th>
+                          <th className="px-2 py-1 text-left font-medium text-gray-900 border-b">{L('Status', 'நிலை')}</th>
+                          <th className="px-2 py-1 text-left font-medium text-gray-900 border-b">{L('Education', 'கல்வி')}</th>
+                          <th className="px-2 py-1 text-left font-medium text-gray-900 border-b">{L('DOB', 'பிறந்த தேதி')}</th>
+                          <th className="px-2 py-1 text-center font-medium text-gray-900 border-b">{L('Action', 'நடவடிக்கை')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1058,7 +1047,7 @@ export default function TaxUserEntryPage() {
                                 className={`w-full px-1 py-0.5 text-xs border rounded ${errors[`heir_${index}_race`] ? 'border-red-300' : 'border-gray-300'
                                   }`}
                               >
-                                <option value="">Select</option>
+                                <option value="">{L('Select', 'தேர்ந்தெடு')}</option>
                                 {masterRaces.map((race) => (
                                   <option key={race.value} value={race.value}>
                                     {race.label}
@@ -1085,7 +1074,7 @@ export default function TaxUserEntryPage() {
                                 onChange={(e) => updateHeir(heir.id, 'education', e.target.value)}
                                 className="w-full px-1 py-0.5 text-xs border border-gray-300 rounded"
                               >
-                                <option value="">Select</option>
+                                <option value="">{L('Select', 'தேர்ந்தெடு')}</option>
                                 {masterEducations.map((edu) => (
                                   <option key={edu} value={edu}>{edu}</option>
                                 ))}
@@ -1114,7 +1103,7 @@ export default function TaxUserEntryPage() {
                   </div>
                 ) : (
                   <div className="text-center py-4 text-gray-500 text-xs bg-white rounded border border-gray-200">
-                    <p>No heirs added / வாரிசுகள் இல்லை</p>
+                    <p>{L('No heirs added', 'வாரிசுகள் இல்லை')}</p>
                   </div>
                 )}
               </div>
@@ -1124,7 +1113,7 @@ export default function TaxUserEntryPage() {
             <div className="space-y-4">
               {/* Photo Upload - Compact */}
               <div className="bg-gray-50 rounded-lg p-3">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Photo / புகைப்படம்</h3>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">{L('Photo', 'புகைப்படம்')}</h3>
                 <div className="flex flex-col items-center">
                   <div className="w-24 h-32 bg-white border-2 border-dashed border-gray-300 rounded flex items-center justify-center mb-2">
                     {newUser.photo ? (
@@ -1138,7 +1127,7 @@ export default function TaxUserEntryPage() {
                         <svg className="w-8 h-8 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
-                        <p className="text-xs">Photo</p>
+                        <p className="text-xs">{L('Photo', 'புகைப்படம்')}</p>
                       </div>
                     )}
                   </div>
@@ -1153,9 +1142,9 @@ export default function TaxUserEntryPage() {
                     htmlFor="photo-upload"
                     className="px-2 py-1 bg-blue-600 text-white text-xs rounded cursor-pointer hover:bg-blue-700"
                   >
-                    Upload
+                    {L('Upload', 'பதிவேற்று')}
                   </label>
-                  <p className="text-xs text-gray-500 mt-1 text-center">Max: 100KB</p>
+                  <p className="text-xs text-gray-500 mt-1 text-center">{L('Max: 100KB', 'அதிகபட்சம்: 100KB')}</p>
                 </div>
               </div>
 
@@ -1166,14 +1155,14 @@ export default function TaxUserEntryPage() {
                   onClick={submit}
                   className="w-full px-4 py-2 bg-blue-600 text-white font-medium rounded shadow hover:bg-blue-700 disabled:opacity-50 text-sm"
                 >
-                  {saving ? 'Saving...' : 'Save / சேமிக்க'}
+                  {saving ? L('Saving...', 'சேமிக்கிறது...') : L('Save', 'சேமிக்க')}
                 </button>
 
                 <button
                   onClick={clearForm}
                   className="w-full px-4 py-2 bg-gray-200 text-gray-800 font-medium rounded shadow hover:bg-gray-300 text-sm"
                 >
-                  Clear / அழிக்க
+                  {L('Clear', 'அழிக்க')}
                 </button>
               </div>
             </div>

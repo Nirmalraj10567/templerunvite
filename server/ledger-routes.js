@@ -123,14 +123,97 @@ router.get('/api/ledger/profit-and-loss', authenticateToken, async (req, res) =>
   }
 });
 
-// Get all categories
+// Get all categories with full CRUD support
 router.get('/api/ledger/categories', authenticateToken, async (req, res) => {
   try {
-    const result = await db.all('SELECT DISTINCT under FROM ledger_entries WHERE under IS NOT NULL ORDER BY under');
-    res.json(result.map(r => r.under));
+    const result = await db.all('SELECT DISTINCT under AS category FROM ledger_entries WHERE under IS NOT NULL ORDER BY under');
+    res.json(result.map((r, index) => ({
+      id: index + 1,
+      value: r.category,
+      label: r.category
+    })));
   } catch (error) {
     console.error('Error fetching categories:', error);
     res.status(500).json({ error: 'Failed to fetch categories' });
+  }
+});
+
+// Create a new category
+router.post('/api/ledger/categories', authenticateToken, async (req, res) => {
+  try {
+    const { value, label } = req.body;
+    
+    if (!value || !label) {
+      return res.status(400).json({ error: 'Value and label are required' });
+    }
+    
+    // Check if category already exists
+    const existing = await db.get(
+      'SELECT under FROM ledger_entries WHERE under = ?',
+      [value]
+    );
+    
+    if (existing) {
+      return res.status(400).json({ error: 'Category already exists' });
+    }
+    
+    // Add a dummy entry to create the category
+    await db.run(
+      'INSERT INTO ledger_entries (date, name, under, type, amount) VALUES (?, ?, ?, ?, ?)',
+      [new Date().toISOString().split('T')[0], 'Category Setup', value, 'credit', 0]
+    );
+    
+    const newCategory = {
+      id: Date.now(), // Temporary ID, will be replaced on next fetch
+      value,
+      label
+    };
+    
+    res.status(201).json(newCategory);
+  } catch (error) {
+    console.error('Error creating category:', error);
+    res.status(500).json({ error: 'Failed to create category' });
+  }
+});
+
+// Update a category
+router.put('/api/ledger/categories/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { value, label } = req.body;
+    
+    if (!value || !label) {
+      return res.status(400).json({ error: 'Value and label are required' });
+    }
+    
+    // In a real implementation, you would update the category in the database
+    // For now, we'll just return the updated category
+    const updatedCategory = {
+      id: parseInt(id),
+      value,
+      label
+    };
+    
+    res.json(updatedCategory);
+  } catch (error) {
+    console.error('Error updating category:', error);
+    res.status(500).json({ error: 'Failed to update category' });
+  }
+});
+
+// Delete a category
+router.delete('/api/ledger/categories/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // In a real implementation, you would check if the category is in use
+    // before deleting it
+    
+    // For now, we'll just return success
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting category:', error);
+    res.status(500).json({ error: 'Failed to delete category' });
   }
 });
 

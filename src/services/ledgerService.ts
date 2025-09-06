@@ -65,8 +65,9 @@ interface BalanceResponse {
   balance: number;
 }
 
+type CategoryApiItem = string | { id?: number; value?: string; label?: string };
 interface CategoriesResponse {
-  data: string[];
+  data: CategoryApiItem[];
 }
 
 export interface ProfitAndLoss {
@@ -134,8 +135,18 @@ export const ledgerService = {
   },
 
   async getCategories(): Promise<string[]> {
-    const response = await api.get<CategoriesResponse>(`/api/ledger/categories`);
-    return response.data.data;
+    const response = await api.get<any>(`/api/ledger/categories`);
+    const raw = response?.data;
+    const list: CategoryApiItem[] = Array.isArray(raw?.data)
+      ? raw.data
+      : Array.isArray(raw)
+      ? raw
+      : [];
+    // Normalize to string[] using label -> value fallback
+    const normalized = (list as CategoryApiItem[])
+      .map((it) => (typeof it === 'string' ? it : (it.label || it.value || '')))
+      .filter((s): s is string => !!s && typeof s === 'string');
+    return normalized;
   },
 
   async exportAsCSV(params: Record<string, any>): Promise<Blob> {
