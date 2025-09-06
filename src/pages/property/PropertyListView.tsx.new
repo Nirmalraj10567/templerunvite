@@ -1,0 +1,292 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Search, PlusCircle, Loader2, Eye, Edit, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { toast } from '@/components/ui/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+
+interface Property {
+  id: number;
+  propertyNo: string;
+  surveyNo: string;
+  wardNo: string;
+  ownerName: string;
+  ownerMobile: string;
+  taxStatus: 'Paid' | 'Pending' | 'Overdue';
+  taxAmount: number;
+}
+
+const PropertyListView: React.FC = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [data, setData] = useState<Property[]>([]);
+  const [pagination, setPagination] = useState({
+    pageIndex: 0,
+    pageSize: 10,
+    total: 0,
+    totalPages: 1,
+  });
+
+  const isSuperAdmin = user?.role === 'superadmin';
+  const canEdit = isSuperAdmin || user?.permissions?.some(
+    (p: any) => p.permission_id === 'property_registrations' && 
+    (p.access_level === 'edit' || p.access_level === 'full')
+  );
+
+  const canDelete = isSuperAdmin || user?.permissions?.some(
+    (p: any) => p.permission_id === 'property_registrations' && 
+    p.access_level === 'full'
+  );
+
+  const fetchProperties = async () => {
+    try {
+      setLoading(true);
+      // Mock data for now - replace with actual API call
+      const mockData: Property[] = [
+        {
+          id: 1,
+          propertyNo: 'PROP-001',
+          surveyNo: 'SUR-001',
+          wardNo: 'W-01',
+          ownerName: 'John Doe',
+          ownerMobile: '1234567890',
+          taxStatus: 'Paid',
+          taxAmount: 2500
+        },
+        {
+          id: 2,
+          propertyNo: 'PROP-002',
+          surveyNo: 'SUR-002',
+          wardNo: 'W-02',
+          ownerName: 'Jane Smith',
+          ownerMobile: '9876543210',
+          taxStatus: 'Pending',
+          taxAmount: 1800
+        }
+      ];
+      
+      setData(mockData);
+      setPagination(prev => ({
+        ...prev,
+        total: mockData.length,
+        totalPages: Math.ceil(mockData.length / pagination.pageSize)
+      }));
+      
+    } catch (error) {
+      console.error('Error fetching properties:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch properties. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProperties();
+  }, [pagination.pageIndex, pagination.pageSize, searchTerm]);
+
+  const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      setPagination(prev => ({ ...prev, pageIndex: 0 }));
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (window.confirm('Are you sure you want to delete this property?')) {
+      try {
+        // Mock delete - replace with actual API call
+        // await propertyService.deleteProperty(id.toString());
+        setData(prev => prev.filter(prop => prop.id !== id));
+        
+        toast({
+          title: 'Success',
+          description: 'Property deleted successfully',
+        });
+      } catch (error) {
+        console.error('Error deleting property:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to delete property. Please try again.',
+          variant: 'destructive',
+        });
+      }
+    }
+  };
+
+  const getStatusVariant = (status: string) => {
+    switch (status) {
+      case 'Paid':
+        return 'default';
+      case 'Pending':
+        return 'secondary';
+      case 'Overdue':
+        return 'destructive';
+      default:
+        return 'outline';
+    }
+  };
+
+  return (
+    <div className="container mx-auto py-6 px-4">
+      <div className="flex flex-col space-y-4">
+        <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Property List</h1>
+            <p className="text-sm text-muted-foreground">
+              Manage property registrations and tax details
+            </p>
+          </div>
+          {(canEdit || isSuperAdmin) && (
+            <Button 
+              onClick={() => navigate("/dashboard/properties/new")}
+              className="w-full sm:w-auto"
+            >
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add New Property
+            </Button>
+          )}
+        </div>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="mb-4">
+              <div className="relative max-w-md">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search by property no, survey no, owner name or mobile..."
+                  className="pl-9 w-full"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={handleSearch}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-md border">
+              {loading ? (
+                <div className="flex items-center justify-center h-64">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Property No</TableHead>
+                      <TableHead>Survey No</TableHead>
+                      <TableHead>Ward No</TableHead>
+                      <TableHead>Owner Name</TableHead>
+                      <TableHead>Mobile</TableHead>
+                      <TableHead>Tax Status</TableHead>
+                      <TableHead className="text-right">Tax Amount</TableHead>
+                      <TableHead className="w-[150px] text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.length > 0 ? (
+                      data.map((property) => (
+                        <TableRow key={property.id}>
+                          <TableCell className="font-medium">{property.propertyNo}</TableCell>
+                          <TableCell>{property.surveyNo}</TableCell>
+                          <TableCell>{property.wardNo}</TableCell>
+                          <TableCell>{property.ownerName}</TableCell>
+                          <TableCell>{property.ownerMobile}</TableCell>
+                          <TableCell>
+                            <Badge variant={getStatusVariant(property.taxStatus) as any}>
+                              {property.taxStatus}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            ₹{property.taxAmount.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end space-x-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => navigate(`/dashboard/properties/${property.id}`)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              {(canEdit || isSuperAdmin) && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => navigate(`/dashboard/properties/${property.id}/edit`)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {(canDelete || isSuperAdmin) && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDelete(property.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={8} className="h-24 text-center">
+                          No properties found
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
+
+              {/* Pagination */}
+              <div className="flex items-center justify-between px-4 py-3 border-t">
+                <div className="text-sm text-muted-foreground">
+                  Showing <span className="font-medium">
+                    {data.length > 0 ? pagination.pageIndex * pagination.pageSize + 1 : 0}
+                  </span> to{' '}
+                  <span className="font-medium">
+                    {Math.min((pagination.pageIndex + 1) * pagination.pageSize, pagination.total)}
+                  </span>{' '}
+                  of <span className="font-medium">{pagination.total}</span> properties
+                </div>
+                <div className="flex space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPagination(prev => ({ ...prev, pageIndex: Math.max(0, prev.pageIndex - 1) }))}
+                    disabled={pagination.pageIndex === 0}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPagination(prev => ({ ...prev, pageIndex: prev.pageIndex + 1 }))}
+                    disabled={pagination.pageIndex >= pagination.totalPages - 1}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+export default PropertyListView;
