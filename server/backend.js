@@ -9,6 +9,7 @@ const knex = require('knex');
 const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
+const https = require('https');
 
 const app = express();
 const PORT = 4000;
@@ -20,12 +21,37 @@ const ledgerRouter = require('./routes/ledger');
 // JWT Secret (in production, use environment variable)
 const JWT_SECRET = 'your-super-secret-jwt-key-change-in-production';
 
+// CORS: allow localhost and LAN IPs during development
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:4002',"http://localhost:64095/",'http://localhost:4000', 'http://localhost:8080', 'http://localhost:5173'],
+  origin: (origin, callback) => {
+    // Allow requests with no origin like curl or mobile apps
+    if (!origin) return callback(null, true);
+
+    const allowList = [
+      'http://localhost:3000',
+      'http://localhost:4002',
+      'http://localhost:4000',
+      'http://localhost:8080',
+      'http://localhost:5173',
+      'http://localhost:64095/',
+    ];
+
+    const isLocalhost = allowList.includes(origin);
+    const isLan = /^http:\/\/192\.168\.[0-9]+\.[0-9]+:\d+$/.test(origin);
+
+    if (isLocalhost || isLan) {
+      return callback(null, true);
+    }
+    // Default deny
+    return callback(new Error(`CORS not allowed for origin ${origin}`));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// Explicitly handle preflight for all routes
+app.options('*', cors());
 app.use(bodyParser.json());
 
 // Serve static files from the project's public directory (../public)
@@ -137,6 +163,30 @@ const hallApprovalRouter = require('./hall-approval')({ db, authenticateToken, a
 // Mount routes
 app.use('/api/properties', propertiesRouter);
 app.use('/api/ledger', ledgerRouter);
+// Mount mobile auth routes (public endpoints for OTP)
+(() => {
+  const mobileAuthRouter = require('./mobile-auth')({ db });
+  // Do NOT put authenticateToken here so that /api/mobile-auth/send-otp and /verify-otp remain public
+  app.use('/api/mobile-auth', mobileAuthRouter);
+})();
+// Mount hall-mobile routes (public; validation via mobile number and internal checks)
+(() => {
+  try {
+    const hallMobileRouter = require('./hall-mobile')({ db });
+    app.use('/api/hall-mobile', hallMobileRouter);
+  } catch (e) {
+    console.error('Failed to mount hall-mobile router:', e);
+  }
+})();
+// Mount pooja-mobile routes (public; validation via mobile number and internal checks)
+(() => {
+  try {
+    const poojaMobileRouter = require('./pooja-mobile')({ db });
+    app.use('/api/pooja-mobile', poojaMobileRouter);
+  } catch (e) {
+    console.error('Failed to mount pooja-mobile router:', e);
+  }
+})();
 // Native categories router under /api/ledger to ensure /api/ledger/categories works
 (() => {
   const express = require('express');
@@ -214,6 +264,49 @@ app.use('/api/ledger', ledgerRouter);
 
   app.use('/api/ledger', r);
 })();
+
+// Public Mobile Events endpoint (simplified format, no JWT)
+app.get('/api/mobile/events', async (req, res) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const events = await db('events')
+      .where('date', '>=', today)
+      .orderBy('date', 'asc')
+      .orderBy('time', 'asc')
+      .limit(50);
+
+    const eventIds = events.map(e => e.id);
+    let images = [];
+    try {
+      images = await db('event_images')
+        .whereIn('event_id', eventIds)
+        .groupBy('event_id')
+        .select('event_id', 'image_path');
+    } catch (e) {
+      // If table or columns not available yet, ignore
+      images = [];
+    }
+
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const mobileEvents = events.map(event => {
+      const img = images.find(img => img.event_id === event.id);
+      return {
+        id: event.id,
+        title: event.title,
+        date: event.date,
+        time: event.time,
+        location: event.location,
+        image: img ? `${baseUrl}/public${img.image_path}` : null,
+        description: event.description,
+      };
+    });
+
+    res.json(mobileEvents);
+  } catch (error) {
+    console.error('GET /api/mobile/events error:', error);
+    res.status(500).json({ error: 'Failed to fetch events' });
+  }
+});
 
 // Donation products router under /api/donation-products
 (() => {
@@ -398,6 +491,63 @@ app.use('/api/ledger', ledgerRouter);
 
   app.use('/api/money-donations', r);
 })();
+
+// Middleware to verify JWT from query parameter for file downloads (e.g., PDFs opened via window.open)
+function verifyQueryToken(req, res, next) {
+  try {
+    const token = req.query.token;
+    if (!token || typeof token !== 'string') {
+      return res.status(401).json({ error: 'Access denied. No token provided.' });
+    }
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+      if (err) return res.status(403).json({ error: 'Access denied. Invalid token.' });
+      req.user = user;
+      next();
+    });
+  } catch (e) {
+    return res.status(401).json({ error: 'Access denied.' });
+  }
+}
+
+// Mount external route for money donation receipt
+try {
+  const moneyDonationReceiptRouter = require('./routes/money-donation-receipt')({ db, verifyQueryToken });
+  app.use(moneyDonationReceiptRouter);
+} catch (e) {
+  console.error('Failed to mount money donation receipt router:', e);
+}
+
+// Mount PDF settings API
+try {
+  const pdfSettingsRouter = require('./routes/pdf-settings')({ db, authenticateToken, authorizePermission });
+  app.use(pdfSettingsRouter);
+} catch (e) {
+  console.error('Failed to mount PDF settings router:', e);
+}
+
+// Mount tax registration receipt route (PDF)
+try {
+  const taxRegistrationReceiptRouter = require('./routes/tax-registration-receipt')({ db, verifyQueryToken });
+  app.use(taxRegistrationReceiptRouter);
+} catch (e) {
+  console.error('Failed to mount tax registration receipt router:', e);
+}
+
+// Mount annadhanam receipt route (PDF)
+try {
+  const annadhanamReceiptRouter = require('./routes/annadhanam-receipt')({ db, verifyQueryToken });
+  app.use(annadhanamReceiptRouter);
+} catch (e) {
+  console.error('Failed to mount annadhanam receipt router:', e);
+}
+
+// Mount hall booking receipt route (PDF)
+try {
+  const hallBookingReceiptRouter = require('./routes/hall-booking-receipt')({ db, verifyQueryToken });
+  app.use(hallBookingReceiptRouter);
+} catch (e) {
+  console.error('Failed to mount hall booking receipt router:', e);
+}
 // Backward-compatible categories router (no redirect)
 const ledgerCategoriesCompat = (() => {
   const express = require('express');
@@ -777,6 +927,13 @@ async function migrate() {
         INSERT OR IGNORE INTO permissions (id, name, description)
         VALUES ('property_registrations', 'Property Registrations', 'Manage property registrations and tax details')
       `);
+
+      // Add pdf_settings permission if it doesn't exist
+      await db.raw(`
+        INSERT OR IGNORE INTO permissions (id, name, description)
+        VALUES ('pdf_settings', 'PDF Settings', 'Manage receipt PDF titles and logo')
+        VALUES ('pdf_settings', 'PDF Settings', 'Manage receipt PDF titles and logo');
+      `);
       
       // Grant full permission to admin role
       await db.raw(`
@@ -847,6 +1004,10 @@ async function migrate() {
     // Import and run user_tax_registrations table migration
     const createUserTaxRegistrationsTable = require('./db/migrations/createUserTaxRegistrationsTable');
     await createUserTaxRegistrationsTable(db);
+
+    // Import and run pdf_settings table migration
+    const createPdfSettingsTable = require('./db/migrations/createPdfSettingsTable');
+    await createPdfSettingsTable(db);
 
     // Import and run tax_settings table migration
     const createTaxSettingsTable = require('./db/migrations/createTaxSettingsTable');
@@ -1667,6 +1828,7 @@ app.get('/api/permissions', authenticateToken, authorizeRole(['admin', 'superadm
       { id: 'backup_restore', label: 'Backup & Restore', description: 'Database backup and restore operations' },
       { id: 'user_registrations', label: 'User Registrations', description: 'Manage temple user registrations and related payments' },
       { id: 'tax_registrations', label: 'Tax Registrations', description: 'Manage temple tax registrations (separate module)' },
+      { id: 'pdf_settings', label: 'PDF Settings', description: 'Manage receipt PDF titles and logo' },
     ];
     res.json({ success: true, permissions });
   } catch (err) {
@@ -2430,7 +2592,8 @@ app.post('/api/admin/grant-all-permissions', authenticateToken, authorizeRole(['
       'balance_sheet',
       'transaction',
       'report',
-      'setting'
+      'setting',
+      'pdf_settings'
     ];
 
     // Upsert permissions to 'full'

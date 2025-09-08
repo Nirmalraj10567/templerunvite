@@ -65,6 +65,7 @@ export default function DashboardLayout() {
         children: [
           { to: '/dashboard/settings', label: 'General Settings', permissionId: 'settings' },
           { to: '/dashboard/tax/settings', label: 'Tax Settings', permissionId: 'tax_registrations' },
+          { to: '/dashboard/settings/pdf', label: 'PDF Settings', permissionId: 'pdf_settings' },
         ]
       },
       

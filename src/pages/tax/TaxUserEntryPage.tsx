@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from 'react-i18next'; // Import the useTranslation hook
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Modal } from '@/components/ui/modal';
 import axios from 'axios';
 
 interface Heir {
@@ -64,6 +65,8 @@ export default function TaxUserEntryPage() {
   const [taxBreakdown, setTaxBreakdown] = useState<any[]>([]);
   const [cumulativeInfo, setCumulativeInfo] = useState<any>(null);
   const [initialDue, setInitialDue] = useState<number>(0); // current year tax + previous unpaid, from backend settings
+  const [lastCreatedId, setLastCreatedId] = useState<number | null>(null);
+  const [showPrintPrompt, setShowPrintPrompt] = useState<boolean>(false);
 
   // Master data for dropdowns
   const [masterClans, setMasterClans] = useState<string[]>([]);
@@ -559,6 +562,10 @@ export default function TaxUserEntryPage() {
       if (!res.ok) throw new Error(data?.error || 'Failed to save / சேமிக்க முடியவில்லை');
 
       setMsg(`Tax registration ID ${data.id} saved successfully / வரி பதிவு ID ${data.id} வெற்றிகரமாக சேமிக்கப்பட்டது`);
+      if (typeof data?.id === 'number') {
+        setLastCreatedId(data.id);
+        setShowPrintPrompt(true);
+      }
       setTimeout(() => setMsg(null), 5000);
 
       // Reset form
@@ -651,6 +658,35 @@ export default function TaxUserEntryPage() {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">{L('Loading master data...', 'முதன்மை தரவு ஏற்றுகிறது...')}</p>
         </div>
+    {showPrintPrompt && lastCreatedId != null && (
+      <Modal
+        title={L('Print Receipt', 'ரசீதை அச்சிடவா?')}
+        onClose={() => setShowPrintPrompt(false)}
+      >
+        <p className="mb-4 text-sm">
+          {L('Do you want to open the PDF receipt for printing?', 'PDF ரசீதை அச்சிட திறக்க விரும்புகிறீர்களா?')}
+        </p>
+        <div className="flex justify-end gap-2">
+          <button
+            className="px-4 py-2 rounded border"
+            onClick={() => setShowPrintPrompt(false)}
+          >
+            {L('No', 'இல்லை')}
+          </button>
+          <button
+            className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+            onClick={() => {
+              const t = token ? encodeURIComponent(token) : '';
+              const url = `http://localhost:4000/api/tax-registrations/${lastCreatedId}/receipt.pdf${t ? `?token=${t}` : ''}`;
+              window.open(url, '_blank');
+              setShowPrintPrompt(false);
+            }}
+          >
+            {L('Yes, Print', 'ஆம், அச்சிடு')}
+          </button>
+        </div>
+      </Modal>
+    )}
       </div>
     );
   }

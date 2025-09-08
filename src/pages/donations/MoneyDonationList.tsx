@@ -14,7 +14,7 @@ export default function MoneyDonationList() {
 
   const t = (en: string, ta: string) => (language === 'tamil' ? ta : en);
 
-  type ColKey = '#' | 'date' | 'name' | 'phone' | 'amount' | 'reason';
+  type ColKey = '#' | 'date' | 'name' | 'phone' | 'amount' | 'reason' | 'actions';
 
   const allColumns: Array<{ key: ColKey; label: string; align?: 'left'|'right'|'center' }> = [
     { key: '#', label: '#' },
@@ -23,11 +23,12 @@ export default function MoneyDonationList() {
     { key: 'phone', label: t('Phone', 'கைபேசி') },
     { key: 'amount', label: t('Amount', 'தொகை'), align: 'right' },
     { key: 'reason', label: t('Reason', 'காரணம்') },
+    { key: 'actions', label: t('Actions', 'நடவடிக்கைகள்'), align: 'center' },
   ];
 
   const STORAGE_KEY = 'money_donation_list_visible_columns_v1';
   const defaultVisible: Record<ColKey, boolean> = {
-    '#': true, date: true, name: true, phone: true, amount: true, reason: true
+    '#': true, date: true, name: true, phone: true, amount: true, reason: true, actions: true
   };
 
   const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>(() => {
@@ -140,6 +141,26 @@ export default function MoneyDonationList() {
                     {visibleCols['phone'] && (<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{r.phone || '-'}</td>)}
                     {visibleCols['amount'] && (<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">₹{toNum(r.amount).toLocaleString()}</td>)}
                     {visibleCols['reason'] && (<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{r.reason || '-'}</td>)}
+                    {visibleCols['actions'] && (
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const url = moneyDonationService.receiptUrl(r.id, token);
+                            window.open(url, '_blank');
+                          }}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 border border-gray-300 rounded-md bg-white hover:bg-gray-50 text-gray-700"
+                          title={t('Print Tamil Receipt', 'தமிழ் ரசீது அச்சிடுக')}
+                        >
+                          {/* Printer icon */}
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M6 2a2 2 0 00-2 2v2h12V4a2 2 0 00-2-2H6z" />
+                            <path fillRule="evenodd" d="M4 8a2 2 0 00-2 2v3a2 2 0 002 2h1v-2a1 1 0 011-1h8a1 1 0 011 1v2h1a2 2 0 002-2v-3a2 2 0 00-2-2H4zm3 7a1 1 0 011-1h4a1 1 0 011 1v2H7v-2z" clipRule="evenodd" />
+                          </svg>
+                          {t('Print', 'அச்சிடு')}
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))
               )}

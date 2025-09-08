@@ -6,6 +6,7 @@ import { moneyDonationService, MoneyDonationFormData } from '@/services/moneyDon
 import axios from 'axios';
 import { getAuthToken } from '@/lib/auth';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Modal } from '@/components/ui/modal';
 
 const initialState: MoneyDonationFormData = {
   registerNo: '',
@@ -29,6 +30,8 @@ export default function MoneyDonationEntry() {
   const [message, setMessage] = useState<string|undefined>();
   const [isError, setIsError] = useState(false);
   const [categories, setCategories] = useState<Array<{ id: number; value: string; label: string }>>([]);
+  const [lastCreatedId, setLastCreatedId] = useState<number | null>(null);
+  const [showPrintPrompt, setShowPrintPrompt] = useState(false);
 
   const t = (en: string, ta: string) => language === 'tamil' ? ta : en;
 
@@ -68,10 +71,16 @@ export default function MoneyDonationEntry() {
         setMessage(t('Enter a valid amount', 'செல்லுப்படியான தொகையை உள்ளிடவும்'));
         return;
       }
-      await moneyDonationService.create(token, form);
+      const resp = await moneyDonationService.create(token, form);
+      const newId = resp?.data?.id;
+      const createdId = typeof newId === 'number' ? newId : null;
+      setLastCreatedId(createdId);
       setForm(initialState);
       setIsError(false);
       setMessage(t('Saved successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது'));
+      if (createdId != null) {
+        setShowPrintPrompt(true);
+      }
     } catch (err) {
       console.error('Save failed:', err);
       setIsError(true);
@@ -92,6 +101,7 @@ export default function MoneyDonationEntry() {
             <AlertTitle>{isError ? t('Error', 'பிழை') : t('Success', 'வெற்றி')}</AlertTitle>
             <AlertDescription>{message}</AlertDescription>
           </Alert>
+          {/* Print prompt moved to modal */}
         </div>
       )}
       <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -164,6 +174,34 @@ export default function MoneyDonationEntry() {
           </button>
         </div>
       </form>
+      {showPrintPrompt && lastCreatedId != null && (
+        <Modal
+          title={t('Print Receipt', 'ரசீதை அச்சிடவா?')}
+          onClose={() => setShowPrintPrompt(false)}
+        >
+          <p className="mb-4 text-sm">
+            {t('Do you want to open the PDF receipt for printing?', 'PDF ரசீதை அச்சிட திறக்க விரும்புகிறீர்களா?')}
+          </p>
+          <div className="flex justify-end gap-2">
+            <button
+              className="px-4 py-2 rounded border"
+              onClick={() => setShowPrintPrompt(false)}
+            >
+              {t('No', 'இல்லை')}
+            </button>
+            <button
+              className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+              onClick={() => {
+                const url = moneyDonationService.receiptUrl(lastCreatedId!, token);
+                window.open(url, '_blank');
+                setShowPrintPrompt(false);
+              }}
+            >
+              {t('Yes, Print', 'ஆம், அச்சிடு')}
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

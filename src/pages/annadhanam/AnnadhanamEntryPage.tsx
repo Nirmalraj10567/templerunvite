@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { Modal } from '@/components/ui/modal';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const generateReceiptNo = () => {
@@ -39,6 +40,8 @@ export default function AnnadhanamEntryPage() {
   const navigate = useNavigate();
   const { register, handleSubmit, reset, setValue } = useForm<AnnadhanamFormData>();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [lastCreatedId, setLastCreatedId] = useState<number | null>(null);
+  const [showPrintPrompt, setShowPrintPrompt] = useState(false);
 
   const t = (en: string, ta: string) => language === 'tamil' ? ta : en;
 
@@ -149,6 +152,11 @@ export default function AnnadhanamEntryPage() {
           title: id ? t('Annadhanam updated successfully', 'அன்னதானம் வெற்றிகரமாக புதுப்பிக்கப்பட்டது') : t('Annadhanam created successfully', 'அன்னதானம் வெற்றிகரமாக உருவாக்கப்பட்டது'),
           description: t('Data saved successfully', 'தரவு வெற்றிகரமாக சேமிக்கப்பட்டது')
         });
+        const newId = id ? Number(id) : (result?.data?.id ?? null);
+        if (typeof newId === 'number') {
+          setLastCreatedId(newId);
+          setShowPrintPrompt(true);
+        }
       } else {
         throw new Error(result.error || 'Failed to save annadhanam data');
       }
@@ -342,6 +350,30 @@ export default function AnnadhanamEntryPage() {
           </form>
         </CardContent>
       </Card>
+      {showPrintPrompt && lastCreatedId != null && (
+        <Modal
+          title={t('Print Receipt', 'ரசீதை அச்சிடவா?')}
+          onClose={() => setShowPrintPrompt(false)}
+        >
+          <p className="mb-4 text-sm">{t('Do you want to open the PDF receipt for printing?', 'PDF ரசீதை அச்சிட திறக்க விரும்புகிறீர்களா?')}</p>
+          <div className="flex justify-end gap-2">
+            <button className="px-4 py-2 rounded border" onClick={() => setShowPrintPrompt(false)}>
+              {t('No', 'இல்லை')}
+            </button>
+            <button
+              className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+              onClick={() => {
+                const q = token ? `?token=${encodeURIComponent(token)}` : '';
+                const url = `http://localhost:4000/api/annadhanam/${lastCreatedId}/receipt.pdf${q}`;
+                window.open(url, '_blank');
+                setShowPrintPrompt(false);
+              }}
+            >
+              {t('Yes, Print', 'ஆம், அச்சிடு')}
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

@@ -14,6 +14,7 @@ import ReportsPage from './pages/dashboard/ReportsPage';
 import DailyReportPage from './pages/reports/DailyReportPage';
 import MonthlyReportPage from './pages/reports/MonthlyReportPage';
 import SettingsPage from './pages/dashboard/SettingsPage';
+import PdfSettingsPage from './pages/settings/PdfSettings';
 import MasterDataPage from '@/pages/masterdata/MasterDataPage';
 import MembersPage from './pages/MembersPage';
 import BalanceSheet from './pages/account/BalanceSheetPage';
@@ -262,6 +263,14 @@ function App() {
                     element={
                       <PermissionGuard requiredPermission="setting" accessLevel="view">
                         <SettingsPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/dashboard/settings/pdf"
+                    element={
+                      <PermissionGuard requiredPermission="pdf_settings" accessLevel="edit">
+                        <PdfSettingsPage />
                       </PermissionGuard>
                     }
                   />

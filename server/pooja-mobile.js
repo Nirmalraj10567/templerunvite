@@ -4,8 +4,41 @@ const router = express.Router();
 module.exports = function(deps = {}) {
   const { db } = deps;
 
+  // Require mobile token like 'Bearer mobile_<userId>_<timestamp>'
+  const verifyMobileToken = (req, res, next) => {
+    try {
+      const authHeader = req.headers['authorization'] || '';
+      const token = authHeader.split(' ')[1] || '';
+      if (!token.startsWith('mobile_')) {
+        return res.status(401).json({ success: false, error: 'Invalid or missing mobile token' });
+      }
+      const parts = token.split('_');
+      const userId = parseInt(parts[1], 10);
+      if (!Number.isFinite(userId)) {
+        return res.status(401).json({ success: false, error: 'Invalid mobile token format' });
+      }
+      req.userId = userId;
+      next();
+    } catch (e) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+  };
+
+  // Attach user's mobile_number from DB into req.userMobile for convenience
+  const attachUserMobile = async (req, res, next) => {
+    try {
+      const user = await db('user_registrations').where('id', req.userId).first();
+      if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+      req.userMobile = user.mobile_number;
+      next();
+    } catch (e) {
+      console.error('attachUserMobile error:', e);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  };
+
   // Submit pooja request from mobile
-  router.post('/submit', async (req, res) => {
+  router.post('/submit', verifyMobileToken, attachUserMobile, async (req, res) => {
     try {
       const {
         receipt_number,
@@ -65,13 +98,13 @@ module.exports = function(deps = {}) {
         temple_id: 1,
         receipt_number,
         name,
-        mobile_number,
+        mobile_number: req.userMobile,
         time,
         from_date,
         to_date,
         remarks,
         status: 'pending',
-        submitted_by_mobile: submitted_by_mobile || mobile_number,
+        submitted_by_mobile: req.userMobile,
         submitted_at: new Date(),
         created_by: null, // Will be set when approved
         created_at: new Date(),
@@ -84,7 +117,7 @@ module.exports = function(deps = {}) {
         action: 'submitted',
         performed_by: null,
         performed_at: new Date(),
-        notes: `Submitted from mobile by ${submitted_by_mobile || mobile_number}`,
+        notes: `Submitted from mobile by ${req.userMobile}`,
         old_status: null,
         new_status: 'pending'
       });
@@ -105,19 +138,12 @@ module.exports = function(deps = {}) {
   });
 
   // Get user's submitted pooja requests
-  router.get('/my-requests', async (req, res) => {
+  router.get('/my-requests', verifyMobileToken, attachUserMobile, async (req, res) => {
     try {
-      const { mobile_number } = req.query;
-
-      if (!mobile_number) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Mobile number is required' 
-        });
-      }
+      // Use the mobile derived from token
 
       const requests = await db('pooja')
-        .where('submitted_by_mobile', mobile_number)
+        .where('submitted_by_mobile', req.userMobile)
         .select(
           'id',
           'receipt_number',
@@ -151,21 +177,13 @@ module.exports = function(deps = {}) {
   });
 
   // Get single pooja request details
-  router.get('/request/:id', async (req, res) => {
+  router.get('/request/:id', verifyMobileToken, attachUserMobile, async (req, res) => {
     try {
       const { id } = req.params;
-      const { mobile_number } = req.query;
-
-      if (!mobile_number) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Mobile number is required' 
-        });
-      }
 
       const request = await db('pooja')
         .where('id', id)
-        .where('submitted_by_mobile', mobile_number)
+        .where('submitted_by_mobile', req.userMobile)
         .first();
 
       if (!request) {
@@ -195,21 +213,14 @@ module.exports = function(deps = {}) {
   });
 
   // Cancel pooja request (only if pending)
-  router.put('/cancel/:id', async (req, res) => {
+  router.put('/cancel/:id', verifyMobileToken, attachUserMobile, async (req, res) => {
     try {
       const { id } = req.params;
-      const { mobile_number, reason } = req.body;
-
-      if (!mobile_number) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Mobile number is required' 
-        });
-      }
+      const { reason } = req.body;
 
       const request = await db('pooja')
         .where('id', id)
-        .where('submitted_by_mobile', mobile_number)
+        .where('submitted_by_mobile', req.userMobile)
         .where('status', 'pending')
         .first();
 
@@ -234,7 +245,7 @@ module.exports = function(deps = {}) {
         action: 'cancelled',
         performed_by: null,
         performed_at: new Date(),
-        notes: `Cancelled by user: ${reason || 'No reason provided'}`,
+        notes: `Cancelled by user ${req.userMobile}: ${reason || 'No reason provided'}`,
         old_status: 'pending',
         new_status: 'cancelled'
       });
@@ -254,7 +265,7 @@ module.exports = function(deps = {}) {
   });
 
   // Get available time slots for a date range
-  router.get('/available-slots', async (req, res) => {
+  router.get('/available-slots', verifyMobileToken, attachUserMobile, async (req, res) => {
     try {
       const { from_date, to_date } = req.query;
 

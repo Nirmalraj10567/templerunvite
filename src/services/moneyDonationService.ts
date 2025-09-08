@@ -57,6 +57,12 @@ class MoneyDonationService {
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
   }
+
+  // Build receipt PDF URL for a donation id; token is passed via query for file download
+  receiptUrl(id: number, token: string | null): string {
+    const t = token ? encodeURIComponent(token) : '';
+    return `${this.baseUrl}/${id}/receipt.pdf${t ? `?token=${t}` : ''}`;
+  }
 }
 
 export const moneyDonationService = new MoneyDonationService();

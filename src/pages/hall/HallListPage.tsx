@@ -173,18 +173,10 @@ export default function HallListPage() {
     } catch {}
   };
 
-  const onExportPdfOne = async (id: number) => {
-    try {
-      const res = await fetch(`/api/hall-bookings/${id}/pdf`, { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) return;
-      const blob = await res.blob();
-      const href = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = href;
-      a.download = `hall_booking_${id}.pdf`;
-      a.click();
-      window.URL.revokeObjectURL(href);
-    } catch {}
+  const onExportPdfOne = (id: number) => {
+    const q = token ? `?token=${encodeURIComponent(token)}` : '';
+    const url = `/api/hall-bookings/${id}/receipt.pdf${q}`;
+    window.open(url, '_blank');
   };
 
   return (
@@ -258,7 +250,7 @@ export default function HallListPage() {
                 {visibleCols.remarks && (<td className="p-2 border-b text-left">{r.remarks || ''}</td>)}
                 {/* Actions column (always visible) */}
                 <td className="p-2 border-b text-right whitespace-nowrap">
-                  <PrintButton onClick={() => onExportPdfOne(r.id)} title={t('Export PDF', 'PDF ஏற்று')} />
+                  <PrintButton onClick={() => onExportPdfOne(r.id)} title={t('Print Receipt', 'ரசீதை அச்சிடு')} />
                 </td>
               </tr>
             ))}

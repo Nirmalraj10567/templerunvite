@@ -68,53 +68,11 @@ export default function DonationProductList() {
     print: true,
   };
 
-  // Print a donation receipt as PDF for a single item
+  // Print a donation receipt via backend PDF (opens in new tab)
   const onPrintPdf = (item: DonationItem) => {
-    try {
-      const doc = new jsPDF();
-
-      // Header
-      doc.setFontSize(16);
-      doc.text(t('Donation Receipt', 'நன்கொடை ரசீது'), 105, 15, { align: 'center' });
-
-      // Body
-      doc.setFontSize(12);
-      const left = 20;
-      let y = 30;
-
-      const row = (label: string, value?: string | number | null) => {
-        const v = value === null || value === undefined || value === '' ? '-' : String(value);
-        doc.text(`${label}:`, left, y);
-        doc.text(v, left + 50, y);
-        y += 8;
-      };
-
-      row(t('Receipt No', 'ரசீது எண்'), item.id);
-      row(t('Date', 'தேதி'), item.donation_date);
-      row(t('Donor', 'நன்கொடையாளர்'), item.donor_name);
-      row(t('Contact', 'தொடர்பு'), item.donor_contact);
-      row(t('Category', 'வகை'), item.category);
-      row(t('Product', 'பொருள்'), item.product_name);
-      row(t('Quantity', 'அளவு'), item.quantity);
-      row(t('Price', 'விலை'), item.price ? `₹${item.price}` : '-');
-      row(t('Description', 'விளக்கம்'), item.description);
-
-      // Footer / Notes
-      y += 6;
-      doc.setFontSize(10);
-      doc.text(
-        t('Thank you for your generous contribution!', 'உங்களுடைய பெருந்தன்மைக்கான நன்றி!'),
-        105,
-        y,
-        { align: 'center' }
-      );
-
-      // Save
-      const filename = `donation-${item.id}.pdf`;
-      doc.save(filename);
-    } catch (e) {
-      console.error('PDF generation failed', e);
-    }
+    const q = token ? `?token=${encodeURIComponent(token)}` : '';
+    const url = `/api/money-donations/${item.id}/receipt.pdf${q}`;
+    window.open(url, '_blank');
   };
 
   // Load visible columns from localStorage or default
