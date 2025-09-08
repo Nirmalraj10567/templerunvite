@@ -294,6 +294,140 @@ async function calculateCurrentBalance() {
     .first();
   
   return (result.total_credits || 0) - (result.total_debits || 0);
-}
+};
+
+// Detailed cashflow by category (under)
+// GET /api/ledger/cashflow/summary?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD&includeEntries=0|1
+router.get('/cashflow/summary', authenticateToken, async (req, res) => {
+  try {
+    const { startDate, endDate, includeEntries, under } = req.query;
+
+    let base = db('ledger_entries');
+    if (startDate) base = base.where('date', '>=', startDate);
+    if (endDate) base = base.where('date', '<=', endDate);
+    if (under) base = base.where('under', under);
+
+    // Summary by category
+    const summaryRows = await base
+      .clone()
+      .select(
+        'under',
+        db.raw("COALESCE(SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END), 0) as total_credit"),
+        db.raw("COALESCE(SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END), 0) as total_debit"),
+        db.raw("COUNT(*) as entry_count")
+      )
+      .groupBy('under')
+      .orderBy('under', 'asc');
+
+    // Overall totals
+    const totals = await base
+      .clone()
+      .select(
+        db.raw("COALESCE(SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END), 0) as total_credit"),
+        db.raw("COALESCE(SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END), 0) as total_debit")
+      )
+      .first();
+
+    // Optionally include detailed entries per category
+    let details = undefined;
+    if (String(includeEntries) === '1') {
+      const rows = await base
+        .clone()
+        .select('id', 'date', 'name', 'under', 'type', 'amount', 'note')
+        .orderBy('date', 'desc')
+        .orderBy('id', 'desc');
+      // Group by under in memory
+      details = rows.reduce((acc, r) => {
+        const key = r.under || 'Uncategorized';
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(r);
+        return acc;
+      }, {});
+    }
+
+    // Normalize under label
+    const summary = summaryRows.map(r => ({
+      category: r.under || 'Uncategorized',
+      total_credit: Number(r.total_credit) || 0,
+      total_debit: Number(r.total_debit) || 0,
+      net: (Number(r.total_credit) || 0) - (Number(r.total_debit) || 0),
+      entry_count: Number(r.entry_count) || 0,
+    }));
+
+    res.json({
+      success: true,
+      range: { startDate: startDate || null, endDate: endDate || null },
+      totals: {
+        total_credit: Number(totals?.total_credit || 0),
+        total_debit: Number(totals?.total_debit || 0),
+        net: Number(totals?.total_credit || 0) - Number(totals?.total_debit || 0),
+      },
+      summary,
+      details: details || null,
+    });
+  } catch (error) {
+    console.error('Error generating cashflow summary:', error);
+    res.status(500).json({ error: 'Failed to generate cashflow summary' });
+  }
+});
+
+// Bank-style statement for a single category with opening and running balance
+// GET /api/ledger/cashflow/statement?under=Category&startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+router.get('/cashflow/statement', authenticateToken, async (req, res) => {
+  try {
+    const { under, startDate, endDate } = req.query;
+    if (!under) return res.status(400).json({ error: "Parameter 'under' (category) is required" });
+
+    // Opening balance = credits - debits before startDate for this category
+    let openBase = db('ledger_entries').where('under', under);
+    if (startDate) openBase = openBase.andWhere('date', '<', startDate);
+    const opening = await openBase
+      .select(
+        db.raw("COALESCE(SUM(CASE WHEN type='credit' THEN amount ELSE 0 END), 0) as cr"),
+        db.raw("COALESCE(SUM(CASE WHEN type='debit' THEN amount ELSE 0 END), 0) as dr")
+      )
+      .first();
+    const opening_balance = Number(opening?.cr || 0) - Number(opening?.dr || 0);
+
+    // Entries within the period
+    let periodBase = db('ledger_entries').where('under', under);
+    if (startDate) periodBase = periodBase.andWhere('date', '>=', startDate);
+    if (endDate) periodBase = periodBase.andWhere('date', '<=', endDate);
+    const entries = await periodBase
+      .select('id', 'date', 'name', 'type', 'amount', 'note')
+      .orderBy('date', 'asc')
+      .orderBy('id', 'asc');
+
+    // Compute running balance
+    let running = opening_balance;
+    const rows = entries.map((e) => {
+      const amt = Number(e.amount || 0);
+      if (e.type === 'credit') running += amt; else running -= amt;
+      return {
+        ...e,
+        credit: e.type === 'credit' ? amt : 0,
+        debit: e.type === 'debit' ? amt : 0,
+        running_balance: running,
+      };
+    });
+
+    // Period totals
+    const totals = rows.reduce((acc, r) => ({ cr: acc.cr + r.credit, dr: acc.dr + r.debit }), { cr: 0, dr: 0 });
+    const closing_balance = opening_balance + totals.cr - totals.dr;
+
+    res.json({
+      success: true,
+      category: under,
+      range: { startDate: startDate || null, endDate: endDate || null },
+      opening_balance,
+      totals: { credit: totals.cr, debit: totals.dr },
+      closing_balance,
+      entries: rows,
+    });
+  } catch (error) {
+    console.error('Error generating category statement:', error);
+    res.status(500).json({ error: 'Failed to generate category statement' });
+  }
+});
 
 module.exports = router;

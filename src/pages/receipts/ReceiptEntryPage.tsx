@@ -194,6 +194,18 @@ export default function ReceiptEntryPage() {
             </div>
             <div className="flex justify-end space-x-4 pt-6 border-t">
               <Button type="button" variant="outline" onClick={handleCancel} disabled={isSubmitting}>{t('Cancel', 'ரத்து செய்')}</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  // Read selected date field from the form inputs via DOM or fallback to today
+                  const input = document.getElementById('date') as HTMLInputElement | null;
+                  const d = input?.value || new Date().toISOString().slice(0,10);
+                  navigate(`/dashboard/reports/daily?date=${d}`);
+                }}
+              >
+                {t('Go to Daily Report', 'தினசரி அறிக்கைக்கு செல்ல')}
+              </Button>
               <Button type="submit" disabled={isSubmitting} className="bg-orange-600 hover:bg-orange-700">
                 {isSubmitting ? t('Saving...', 'சேமிக்கிறது...') : id ? t('Update Receipt', 'ரசீது புதுப்பிக்க') : t('Save Receipt', 'ரசீது சேமிக்க')}
               </Button>

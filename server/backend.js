@@ -477,217 +477,6 @@ const ledgerCategoriesCompat = (() => {
   return router;
 })();
 
-app.use('/api/ledger-categories', ledgerCategoriesCompat);
-app.use('/api/hall-approval', hallApprovalRouter);
-
-// Add receipts endpoints (CRUD)
-app.post('/api/receipts', authenticateToken, async (req, res) => {
-  try {
-    const b = req.body || {};
-    // Accept both old and new payload shapes
-    const registerNo = b.registerNo || b.receiptNumber;
-    const date = b.date;
-    // Map type: 'income'|'expense' (new) -> 'receipt'|'payment' (db). Accept old values too
-    const type = b.type === 'income' ? 'receipt' : b.type === 'expense' ? 'payment' : (b.type || 'receipt');
-    const fromPerson = b.fromPerson || b.donor || '';
-    const toPerson = b.toPerson || b.receiver || '';
-    const amount = Number(b.amount);
-    const remarks = b.remarks || null;
-
-    if (!registerNo || !date || !type || !amount || isNaN(amount) || amount <= 0) {
-      return res.status(400).json({ error: 'Missing or invalid fields: registerNo/receiptNumber, date, type, amount' });
-    }
-
-    const inserted = await db('receipts').insert({
-      register_no: String(registerNo),
-      date,
-      type, // stored as 'receipt' or 'payment'
-      from_person: fromPerson || null,
-      to_person: toPerson || null,
-      amount,
-      remarks,
-      created_by: req.user.id,
-      temple_id: req.user.templeId,
-      created_at: db.fn.now(),
-      updated_at: db.fn.now(),
-    }).returning('*');
-
-    const r = inserted[0] || { id: inserted[0] };
-    res.json({ success: true, data: r });
-  } catch (err) {
-    console.error('Error saving receipt:', err);
-    res.status(500).json({ error: 'Failed to save receipt' });
-  }
-});
-
-app.get('/api/receipts', authenticateToken, async (req, res) => {
-  try {
-    const { from, to, q, type, page = 1, pageSize = 20 } = req.query;
-    const pg = Math.max(parseInt(page, 10) || 1, 1);
-    const ps = Math.min(Math.max(parseInt(pageSize, 10) || 20, 1), 100);
-    const offset = (pg - 1) * ps;
-
-    let query = db('receipts')
-      .where('temple_id', req.user.templeId)
-      .modify((qb) => {
-        if (from) qb.andWhere('date', '>=', from);
-        if (to) qb.andWhere('date', '<=', to);
-        if (type) {
-          const dbType = type === 'expense' ? 'payment' : type === 'income' ? 'receipt' : type;
-          qb.andWhere('type', dbType);
-        }
-        if (q) {
-          qb.andWhere((b) => {
-            b.where('register_no', 'like', `%${q}%`)
-             .orWhere('from_person', 'like', `%${q}%`)
-             .orWhere('to_person', 'like', `%${q}%`);
-          });
-        }
-      })
-      .orderBy('date', 'desc')
-      .limit(ps)
-      .offset(offset);
-
-    const rows = await query.select('*');
-    // Map to frontend shape
-    const data = rows.map(r => ({
-      id: r.id,
-      receipt_number: r.register_no,
-      date: r.date,
-      type: r.type === 'payment' ? 'expense' : 'income',
-      donor: r.from_person,
-      receiver: r.to_person,
-      amount: r.amount,
-      remarks: r.remarks,
-      created_at: r.created_at,
-      updated_at: r.updated_at,
-    }));
-
-    res.json({ success: true, data });
-  } catch (err) {
-    console.error('Error fetching receipts:', err);
-    res.status(500).json({ error: 'Failed to fetch receipts' });
-  }
-});
-
-// CSV export
-app.get('/api/receipts/export', authenticateToken, async (req, res) => {
-  try {
-    const { from, to, q, type } = req.query;
-    let query = db('receipts')
-      .where('temple_id', req.user.templeId)
-      .modify((qb) => {
-        if (from) qb.andWhere('date', '>=', from);
-        if (to) qb.andWhere('date', '<=', to);
-        if (type) {
-          const dbType = type === 'expense' ? 'payment' : type === 'income' ? 'receipt' : type;
-          qb.andWhere('type', dbType);
-        }
-        if (q) {
-          qb.andWhere((b) => {
-            b.where('register_no', 'like', `%${q}%`)
-             .orWhere('from_person', 'like', `%${q}%`)
-             .orWhere('to_person', 'like', `%${q}%`);
-          });
-        }
-      })
-      .orderBy('date', 'desc');
-
-    const rows = await query.select('*');
-    const headers = ['id','receipt_number','date','type','donor','receiver','amount','remarks','created_at'];
-    const csvRows = rows.map(r => [
-      r.id,
-      r.register_no,
-      r.date,
-      r.type === 'payment' ? 'expense' : 'income',
-      (r.from_person || '').replaceAll(',', ' '),
-      (r.to_person || '').replaceAll(',', ' '),
-      r.amount,
-      (r.remarks || '').replaceAll(',', ' '),
-      r.created_at
-    ].join(','));
-
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="receipts.csv"');
-    res.send(headers.join(',') + '\n' + csvRows.join('\n'));
-  } catch (err) {
-    console.error('Error exporting receipts CSV:', err);
-    res.status(500).json({ error: 'Failed to export CSV' });
-  }
-});
-
-// Get single
-app.get('/api/receipts/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const r = await db('receipts')
-      .where({ id })
-      .andWhere('temple_id', req.user.templeId)
-      .first();
-    if (!r) return res.status(404).json({ error: 'Receipt not found' });
-    res.json({ success: true, data: {
-      id: r.id,
-      receipt_number: r.register_no,
-      date: r.date,
-      type: r.type === 'payment' ? 'expense' : 'income',
-      donor: r.from_person,
-      receiver: r.to_person,
-      amount: r.amount,
-      remarks: r.remarks,
-      created_at: r.created_at,
-      updated_at: r.updated_at,
-    }});
-  } catch (err) {
-    console.error('Error fetching receipt:', err);
-    res.status(500).json({ error: 'Failed to fetch receipt' });
-  }
-});
-
-// Update
-app.put('/api/receipts/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const b = req.body || {};
-    const date = b.date;
-    const type = b.type === 'income' ? 'receipt' : b.type === 'expense' ? 'payment' : (b.type || 'receipt');
-    const fromPerson = b.fromPerson || b.donor || null;
-    const toPerson = b.toPerson || b.receiver || null;
-    const amount = b.amount != null ? Number(b.amount) : null;
-    const remarks = b.remarks ?? null;
-
-    const exists = await db('receipts').where({ id }).andWhere('temple_id', req.user.templeId).first();
-    if (!exists) return res.status(404).json({ error: 'Receipt not found' });
-
-    const updateData = {
-      ...(date ? { date } : {}),
-      ...(b.type ? { type } : {}),
-      ...(fromPerson !== undefined ? { from_person: fromPerson } : {}),
-      ...(toPerson !== undefined ? { to_person: toPerson } : {}),
-      ...(amount !== null && !isNaN(amount) ? { amount } : {}),
-      ...(remarks !== undefined ? { remarks } : {}),
-      updated_at: db.fn.now(),
-    };
-
-    await db('receipts').where({ id }).andWhere('temple_id', req.user.templeId).update(updateData);
-    const r = await db('receipts').where({ id }).first();
-    res.json({ success: true, data: {
-      id: r.id,
-      receipt_number: r.register_no,
-      date: r.date,
-      type: r.type === 'payment' ? 'expense' : 'income',
-      donor: r.from_person,
-      receiver: r.to_person,
-      amount: r.amount,
-      remarks: r.remarks,
-      created_at: r.created_at,
-      updated_at: r.updated_at,
-    }});
-  } catch (err) {
-    console.error('Error updating receipt:', err);
-    res.status(500).json({ error: 'Failed to update receipt' });
-  }
-});
-
 // Delete
 app.delete('/api/receipts/:id', authenticateToken, async (req, res) => {
   try {
@@ -701,10 +490,171 @@ app.delete('/api/receipts/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Reports: Daily aggregation
+app.get('/api/reports/daily', authenticateToken, async (req, res) => {
+  try {
+    const date = (req.query.date || new Date().toISOString().slice(0,10)).toString();
+    const templeId = req.user.templeId;
+
+    // Receipts
+    const [receiptsIncomeRow] = await db('receipts')
+      .where({ temple_id: templeId })
+      .andWhere('date', date)
+      .andWhere('type', 'receipt')
+      .sum({ sum: 'amount' });
+    const [receiptsExpenseRow] = await db('receipts')
+      .where({ temple_id: templeId })
+      .andWhere('date', date)
+      .andWhere('type', 'payment')
+      .sum({ sum: 'amount' });
+
+    // Money donations
+    const [donationsRow] = await db('money_donations')
+      .where({ temple_id: templeId })
+      .andWhere('date', date)
+      .sum({ sum: 'amount' });
+
+    // Pooja amounts where the selected date falls within the booking range
+    const [poojaRow] = await db('pooja')
+      .where({ temple_id: templeId })
+      .andWhere('from_date', '<=', date)
+      .andWhere('to_date', '>=', date)
+      .sum({ sum: 'amount' });
+
+    // Hall bookings: count advance amounts collected on the booking date
+    const [hallAdvanceRow] = await db('marriage_hall_bookings')
+      .where({ temple_id: templeId })
+      .andWhere('date', date)
+      .sum({ sum: 'advance_amount' });
+
+    const toNum = (v) => {
+      const n = Number(v?.sum ?? v ?? 0);
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    const income = {
+      receipts_income_total: toNum(receiptsIncomeRow),
+      donations_total: toNum(donationsRow),
+      pooja_total: toNum(poojaRow),
+      hall_advance_total: toNum(hallAdvanceRow),
+    };
+    const expenses = {
+      receipts_expense_total: toNum(receiptsExpenseRow),
+    };
+
+    const grand_total_income = Object.values(income).reduce((a, b) => a + b, 0);
+    const grand_total_expense = Object.values(expenses).reduce((a, b) => a + b, 0);
+
+    res.json({
+      success: true,
+      date,
+      data: {
+        breakdown: {
+          income,
+          expenses,
+        },
+        totals: {
+          grand_total_income,
+          grand_total_expense,
+          net: grand_total_income - grand_total_expense,
+        },
+      },
+    });
+  } catch (err) {
+    console.error('GET /api/reports/daily error:', err);
+    res.status(500).json({ error: 'Failed to generate daily report' });
+  }
+});
+
+// Reports: Monthly aggregation (year=YYYY, month=MM 1-12)
+app.get('/api/reports/monthly', authenticateToken, async (req, res) => {
+  try {
+    const year = parseInt(req.query.year, 10) || new Date().getFullYear();
+    const month = parseInt(req.query.month, 10) || (new Date().getMonth() + 1);
+    const templeId = req.user.templeId;
+
+    const pad = (n) => String(n).padStart(2, '0');
+    const from = `${year}-${pad(month)}-01`;
+    // Compute last day of month
+    const lastDay = new Date(year, month, 0).getDate();
+    const to = `${year}-${pad(month)}-${pad(lastDay)}`;
+
+    // Receipts
+    const [receiptsIncomeRow] = await db('receipts')
+      .where({ temple_id: templeId })
+      .andWhere('date', '>=', from)
+      .andWhere('date', '<=', to)
+      .andWhere('type', 'receipt')
+      .sum({ sum: 'amount' });
+    const [receiptsExpenseRow] = await db('receipts')
+      .where({ temple_id: templeId })
+      .andWhere('date', '>=', from)
+      .andWhere('date', '<=', to)
+      .andWhere('type', 'payment')
+      .sum({ sum: 'amount' });
+
+    // Money donations
+    const [donationsRow] = await db('money_donations')
+      .where({ temple_id: templeId })
+      .andWhere('date', '>=', from)
+      .andWhere('date', '<=', to)
+      .sum({ sum: 'amount' });
+
+    // Pooja amounts overlapping the month
+    const [poojaRow] = await db('pooja')
+      .where({ temple_id: templeId })
+      .andWhere('from_date', '<=', to)
+      .andWhere('to_date', '>=', from)
+      .sum({ sum: 'amount' });
+
+    // Hall bookings: sum advance collected within the month
+    const [hallAdvanceRow] = await db('marriage_hall_bookings')
+      .where({ temple_id: templeId })
+      .andWhere('date', '>=', from)
+      .andWhere('date', '<=', to)
+      .sum({ sum: 'advance_amount' });
+
+    const toNum = (v) => {
+      const n = Number(v?.sum ?? v ?? 0);
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    const income = {
+      receipts_income_total: toNum(receiptsIncomeRow),
+      donations_total: toNum(donationsRow),
+      pooja_total: toNum(poojaRow),
+      hall_advance_total: toNum(hallAdvanceRow),
+    };
+    const expenses = {
+      receipts_expense_total: toNum(receiptsExpenseRow),
+    };
+
+    const grand_total_income = Object.values(income).reduce((a, b) => a + b, 0);
+    const grand_total_expense = Object.values(expenses).reduce((a, b) => a + b, 0);
+
+    res.json({
+      success: true,
+      range: { from, to },
+      data: {
+        breakdown: { income, expenses },
+        totals: {
+          grand_total_income,
+          grand_total_expense,
+          net: grand_total_income - grand_total_expense,
+        },
+      },
+    });
+  } catch (err) {
+    console.error('GET /api/reports/monthly error:', err);
+    res.status(500).json({ error: 'Failed to generate monthly report' });
+  }
+});
+
 // Migrate tables if not exist
 async function migrate() {
   console.log('Starting database migration...');
   try {
+    // ... (rest of the code remains the same)
     // Create temples table
     if (!(await db.schema.hasTable('temples'))) {
       await db.schema.createTable('temples', (table) => {

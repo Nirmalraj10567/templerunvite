@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from 'react-i18next'; // Import the useTranslation hook
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -17,6 +18,7 @@ interface Heir {
 export default function TaxUserEntryPage() {
   const { t, i18n } = useTranslation(); // Initialize the translation hook
   const { user, token } = useAuth();
+  const navigate = useNavigate();
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const [form, setForm] = useState({
@@ -679,6 +681,18 @@ export default function TaxUserEntryPage() {
               title="தமிழ்க்கு மாற்று"
             >
               தமிழ்
+            </button>
+          </div>
+          <div className="ml-4">
+            <button
+              type="button"
+              onClick={() => {
+                const d = form.date || new Date().toISOString().slice(0,10);
+                navigate(`/dashboard/reports/daily?date=${d}`);
+              }}
+              className="px-3 py-1 text-xs rounded border bg-white text-gray-700 hover:bg-gray-50"
+            >
+              {L('Go to Daily Report', 'தினசரி அறிக்கைக்கு செல்ல')}
             </button>
           </div>
         </div>

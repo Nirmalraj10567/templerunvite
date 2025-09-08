@@ -11,6 +11,8 @@ import DashboardLayout from './layouts/DashboardLayout';
 import OverviewPage from './pages/dashboard/OverviewPage';
 import TransactionsPage from './pages/dashboard/TransactionsPage';
 import ReportsPage from './pages/dashboard/ReportsPage';
+import DailyReportPage from './pages/reports/DailyReportPage';
+import MonthlyReportPage from './pages/reports/MonthlyReportPage';
 import SettingsPage from './pages/dashboard/SettingsPage';
 import MasterDataPage from '@/pages/masterdata/MasterDataPage';
 import MembersPage from './pages/MembersPage';
@@ -52,6 +54,8 @@ import NewMoonDaysPage from './pages/calendar/NewMoonDaysPage';
 import LedgerEntryPage from './pages/ledger/LedgerEntryPage';
 import LedgerListPage from './pages/ledger/LedgerListPage';
 import ProfitAndLossPage from './pages/ledger/ProfitAndLossPage';
+import CashflowByCategoryPage from './pages/ledger/CashflowByCategoryPage';
+import CategoryStatementPage from './pages/ledger/CategoryStatementPage';
 
 function App() {
   return (
@@ -238,6 +242,22 @@ function App() {
                     }
                   />
                   <Route
+                    path="/dashboard/reports/daily"
+                    element={
+                      <PermissionGuard requiredPermission="reports" accessLevel="view">
+                        <DailyReportPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/dashboard/reports/monthly"
+                    element={
+                      <PermissionGuard requiredPermission="reports" accessLevel="view">
+                        <MonthlyReportPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
                     path="settings"
                     element={
                       <PermissionGuard requiredPermission="setting" accessLevel="view">
@@ -291,6 +311,22 @@ function App() {
                     element={
                       <PermissionGuard requiredPermission="reports" accessLevel="view">
                         <ProfitAndLossPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/dashboard/ledger/cashflow-by-category"
+                    element={
+                      <PermissionGuard requiredPermission="reports" accessLevel="view">
+                        <CashflowByCategoryPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/dashboard/ledger/category-statement"
+                    element={
+                      <PermissionGuard requiredPermission="reports" accessLevel="view">
+                        <CategoryStatementPage />
                       </PermissionGuard>
                     }
                   />

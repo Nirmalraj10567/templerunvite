@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import type { LanguageContextType } from '@/lib/language';
@@ -52,6 +53,7 @@ const initialState: FormState = {
 export default function HallEntryPage() {
   const { token } = useAuth();
   const { language } = useLanguage();
+  const navigate = useNavigate();
   const [form, setForm] = useState<FormState>({
     ...initialState,
     registerNo: generateReceiptNo()
@@ -195,6 +197,16 @@ export default function HallEntryPage() {
         <div className="md:col-span-2 flex gap-2">
           <button disabled={saving} className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700" type="submit">
             {saving ? t('Saving...', 'சேமிக்கிறது...') : t('Save', 'சேமிக்க')}
+          </button>
+          <button
+            type="button"
+            className="border px-4 py-2 rounded"
+            onClick={() => {
+              const d = form.date || new Date().toISOString().slice(0,10);
+              navigate(`/dashboard/reports/daily?date=${d}`);
+            }}
+          >
+            {t('Go to Daily Report', 'தினசரி அறிக்கைக்கு செல்ல')}
           </button>
           <button type="button" className="border px-4 py-2 rounded" onClick={() => setForm(initialState)}>
             {t('Clear', 'அழிக்க')}

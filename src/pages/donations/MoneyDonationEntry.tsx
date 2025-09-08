@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import { moneyDonationService, MoneyDonationFormData } from '@/services/moneyDonationService';
@@ -22,6 +23,7 @@ const initialState: MoneyDonationFormData = {
 export default function MoneyDonationEntry() {
   const { token } = useAuth();
   const { language } = useLanguage();
+  const navigate = useNavigate();
   const [form, setForm] = useState<MoneyDonationFormData>(initialState);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string|undefined>();
@@ -146,6 +148,16 @@ export default function MoneyDonationEntry() {
         <div className="md:col-span-2 flex gap-2 justify-center">
           <button disabled={saving} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700" type="submit">
             {saving ? t('Saving...', 'சேமிக்கிறது...') : t('Save', 'பதிவு')}
+          </button>
+          <button
+            type="button"
+            className="border px-4 py-2 rounded"
+            onClick={() => {
+              const d = form.date || new Date().toISOString().slice(0,10);
+              navigate(`/dashboard/reports/daily?date=${d}`);
+            }}
+          >
+            {t('Go to Daily Report', 'தினசரி அறிக்கைக்கு செல்ல')}
           </button>
           <button type="button" className="border px-4 py-2 rounded" onClick={() => setForm(initialState)}>
             {t('Clear', 'வெளியே')}

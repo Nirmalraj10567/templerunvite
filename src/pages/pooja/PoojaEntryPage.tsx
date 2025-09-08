@@ -364,6 +364,16 @@ export default function PoojaEntryPage() {
               >
                 {t('Cancel', 'ரத்து செய்')}
               </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  const d = watch('fromDate') || selectedDate || new Date().toISOString().slice(0,10);
+                  navigate(`/dashboard/reports/daily?date=${d}`);
+                }}
+              >
+                {t('Go to Daily Report', 'தினசரி அறிக்கைக்கு செல்ல')}
+              </Button>
               <Button 
                 type="submit" 
                 disabled={isSubmitting}

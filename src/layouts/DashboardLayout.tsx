@@ -36,8 +36,14 @@ export default function DashboardLayout() {
     () => [
       { to: '/dashboard', label: 'Overview', icon: HomeIcon },
       { to: '/dashboard/members', label: 'Members', icon: UsersIcon, permissionId: 'member_entry' },
-      { to: '/dashboard/transactions', label: 'Transactions', icon: CreditCardIcon, permissionId: 'transactions' },
-      { to: '/dashboard/reports', label: 'Reports', icon: BarChartIcon, permissionId: 'reports' },
+      {
+        label: 'Reports',
+        icon: BarChartIcon,
+        children: [
+          { to: '/dashboard/reports/daily', label: 'Daily Report', permissionId: 'reports' },
+          { to: '/dashboard/reports/monthly', label: 'Monthly Report', permissionId: 'reports' },
+        ]
+      },
       { to: '/dashboard/balance-sheet', label: 'Balance Sheet', icon: LandmarkIcon, permissionId: 'balance_sheet' },
       { to: '/dashboard/master-data', label: 'Master Data', icon: LandmarkIcon, permissionId: 'master_data' },
       {
@@ -47,6 +53,8 @@ export default function DashboardLayout() {
           { to: '/dashboard/ledger/entry', label: 'New Entry', permissionId: 'ledger_management', accessLevel: 'edit' },
           { to: '/dashboard/ledger/list', label: 'View Entries', permissionId: 'ledger_management', accessLevel: 'view' },
           { to: '/dashboard/ledger/profit-and-loss', label: 'Profit & Loss', permissionId: 'reports', accessLevel: 'view' },
+          { to: '/dashboard/ledger/cashflow-by-category', label: 'Cashflow by Category', permissionId: 'reports', accessLevel: 'view' },
+          { to: '/dashboard/ledger/category-statement', label: 'Category Statement', permissionId: 'reports', accessLevel: 'view' },
         ]
       },
       { to: '/dashboard/session-logs', label: 'Session Logs', icon: HistoryIcon, permissionId: 'view_session_logs' },
