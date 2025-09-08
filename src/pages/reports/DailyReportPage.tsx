@@ -65,13 +65,79 @@ export default function DailyReportPage() {
   const totalExpense = useMemo(() => data?.totals.grand_total_expense || 0, [data]);
   const net = useMemo(() => data?.totals.net || 0, [data]);
 
+  // Build a simple day journal (Dr/Cr) view from the breakdown
+  type JournalRow = {
+    id: number;
+    account: string;
+    type: 'income' | 'expense';
+    debit: number; // Dr
+    credit: number; // Cr
+    note?: string;
+  };
+
+  const rows: JournalRow[] = useMemo(() => {
+    if (!data) return [];
+    const list: JournalRow[] = [];
+    let i = 1;
+    // Expenses -> Debit
+    Object.entries(data.breakdown.expenses).forEach(([k, v]) => {
+      if (!v) return;
+      list.push({ id: i++, account: k.replaceAll('_', ' '), type: 'expense', debit: v, credit: 0 });
+    });
+    // Income -> Credit
+    Object.entries(data.breakdown.income).forEach(([k, v]) => {
+      if (!v) return;
+      list.push({ id: i++, account: k.replaceAll('_', ' '), type: 'income', debit: 0, credit: v });
+    });
+    return list;
+  }, [data]);
+
+  const debitTotal = useMemo(() => rows.reduce((s, r) => s + r.debit, 0), [rows]);
+  const creditTotal = useMemo(() => rows.reduce((s, r) => s + r.credit, 0), [rows]);
+
+  const toCurrency = (n: number) => `₹ ${n.toLocaleString()}`;
+
+  const onExportCSV = () => {
+    const headers = [
+      t('S.No', 'எண்'),
+      t('Date', 'தேதி'),
+      'Type',
+      t('Account', 'கணக்கு'),
+      t('Debit', 'பற்று'),
+      t('Credit', 'கடன்'),
+      t('Note', 'குறிப்பு'),
+    ];
+    const lines = rows.map((r) => [
+      r.id,
+      date,
+      r.type === 'income' ? t('Income', 'வரவு') : t('Expense', 'செலவு'),
+      r.account,
+      r.debit,
+      r.credit,
+      r.note || '',
+    ]);
+    const all = [headers, ...lines, ['', '', t('Totals', 'மொத்தம்'), '', debitTotal, creditTotal, '']];
+    const csv = all.map((row) => row.map((x) => (typeof x === 'string' ? `"${x.replaceAll('"', '""')}"` : x)).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `daily-report-${date}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const onPrint = () => {
+    window.print();
+  };
+
   const manualIncome = (parseFloat(extraIncome) || 0) + (parseFloat(cashCount) || 0);
   const manualExpense = parseFloat(extraExpense) || 0;
   const manualNet = manualIncome - manualExpense;
   const difference = manualNet - net;
 
   return (
-    <div className="max-w-6xl mx-auto bg-white p-4 rounded shadow">
+    <div className="max-w-7xl mx-auto bg-white p-4 md:p-6 rounded shadow print:p-0">
       <h1 className="text-2xl font-semibold mb-4 text-center">{t('Daily Report', 'தினசரி அறிக்கை')}</h1>
 
       {/* Filters */}
@@ -92,65 +158,130 @@ export default function DailyReportPage() {
       {error && <div className="p-3 bg-red-50 text-red-700 rounded mb-3">{error}</div>}
 
       {data && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Breakdown */}
-          <div>
-            <h2 className="text-lg font-semibold mb-2">{t('Income', 'வரவு')}</h2>
-            <div className="space-y-2">
-              {Object.entries(data.breakdown.income).map(([k, v]) => (
-                <div key={k} className="flex justify-between border-b pb-1 text-sm">
-                  <span className="capitalize">{k.replaceAll('_', ' ')}</span>
-                  <span>₹ {v.toLocaleString()}</span>
-                </div>
-              ))}
-              <div className="flex justify-between font-semibold">
-                <span>{t('Total Income', 'மொத்த வரவு')}</span>
-                <span>₹ {totalIncome.toLocaleString()}</span>
-              </div>
+        <div className="space-y-6">
+          {/* Summary cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="border rounded p-4 bg-green-50">
+              <div className="text-sm text-green-700">{t('Total Income', 'மொத்த வரவு')}</div>
+              <div className="text-2xl font-semibold">{toCurrency(totalIncome)}</div>
             </div>
-
-            <h2 className="text-lg font-semibold mt-6 mb-2">{t('Expenses', 'செலவு')}</h2>
-            <div className="space-y-2">
-              {Object.entries(data.breakdown.expenses).map(([k, v]) => (
-                <div key={k} className="flex justify-between border-b pb-1 text-sm">
-                  <span className="capitalize">{k.replaceAll('_', ' ')}</span>
-                  <span>₹ {v.toLocaleString()}</span>
-                </div>
-              ))}
-              <div className="flex justify-between font-semibold">
-                <span>{t('Total Expenses', 'மொத்த செலவு')}</span>
-                <span>₹ {totalExpense.toLocaleString()}</span>
-              </div>
+            <div className="border rounded p-4 bg-red-50">
+              <div className="text-sm text-red-700">{t('Total Expenses', 'மொத்த செலவு')}</div>
+              <div className="text-2xl font-semibold">{toCurrency(totalExpense)}</div>
+            </div>
+            <div className="border rounded p-4 bg-blue-50">
+              <div className="text-sm text-blue-700">{t('Net', 'நிகர')}</div>
+              <div className="text-2xl font-semibold">{toCurrency(net)}</div>
             </div>
           </div>
 
+          {/* Actions */}
+          <div className="flex flex-wrap gap-2 items-center">
+            <button onClick={onExportCSV} className="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded border">
+              {t('Export CSV', 'CSV ஏற்றுமதி')}
+            </button>
+            <button onClick={onPrint} className="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded border">
+              {t('Print', 'அச்சிடு')}
+            </button>
+          </div>
+
+          {/* Journal table */}
+          <div className="overflow-auto border rounded">
+            <table className="min-w-full text-sm">
+              <thead className="bg-slate-50 sticky top-0">
+                <tr className="text-left">
+                  <th className="px-3 py-2 border-b w-20">{t('S.No', 'எண்')}</th>
+                  <th className="px-3 py-2 border-b w-32">{t('Date', 'தேதி')}</th>
+                  <th className="px-3 py-2 border-b w-28">Type</th>
+                  <th className="px-3 py-2 border-b">{t('Account', 'கணக்கு')}</th>
+                  <th className="px-3 py-2 border-b text-right w-36">{t('Debit', 'பற்று')}</th>
+                  <th className="px-3 py-2 border-b text-right w-36">{t('Credit', 'கடன்')}</th>
+                  <th className="px-3 py-2 border-b w-56">{t('Note', 'குறிப்பு')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id} className="odd:bg-white even:bg-slate-50">
+                    <td className="px-3 py-2 border-b">{r.id}</td>
+                    <td className="px-3 py-2 border-b">{date}</td>
+                    <td className="px-3 py-2 border-b">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${r.type === 'income' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                        {r.type === 'income' ? t('Income', 'வரவு') : t('Expense', 'செலவு')}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 border-b capitalize">{r.account}</td>
+                    <td className="px-3 py-2 border-b text-right">{r.debit ? toCurrency(r.debit) : '-'}</td>
+                    <td className="px-3 py-2 border-b text-right">{r.credit ? toCurrency(r.credit) : '-'}</td>
+                    <td className="px-3 py-2 border-b">{r.note || ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="font-semibold bg-slate-100">
+                  <td className="px-3 py-2 border-t" colSpan={4}>{t('Totals', 'மொத்தம்')}</td>
+                  <td className="px-3 py-2 border-t text-right">{toCurrency(debitTotal)}</td>
+                  <td className="px-3 py-2 border-t text-right">{toCurrency(creditTotal)}</td>
+                  <td className="px-3 py-2 border-t"></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
           {/* Calculator */}
-          <div>
-            <h2 className="text-lg font-semibold mb-2">{t('Day-end Calculator', 'நாள் முடிவு கணக்குபடுத்தி')}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm mb-1">{t('Cash Count (total)', 'பண எண்ணிக்கை (மொத்தம்)')}</label>
-                <input className="w-full border p-2 rounded" value={cashCount} onChange={(e) => setCashCount(e.target.value)} placeholder="0" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="border rounded p-4">
+              <h2 className="text-lg font-semibold mb-2">{t('Day-end Calculator', 'நாள் முடிவு கணக்குபடுத்தி')}</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm mb-1">{t('Cash Count (total)', 'பண எண்ணிக்கை (மொத்தம்)')}</label>
+                  <input className="w-full border p-2 rounded" value={cashCount} onChange={(e) => setCashCount(e.target.value)} placeholder="0" />
+                </div>
+                <div>
+                  <label className="block text-sm mb-1">{t('Extra Income (if any)', 'கூடுதல் வரவு (இருந்தால்)')}</label>
+                  <input className="w-full border p-2 rounded" value={extraIncome} onChange={(e) => setExtraIncome(e.target.value)} placeholder="0" />
+                </div>
+                <div>
+                  <label className="block text-sm mb-1">{t('Extra Expenses (if any)', 'கூடுதல் செலவு (இருந்தால்)')}</label>
+                  <input className="w-full border p-2 rounded" value={extraExpense} onChange={(e) => setExtraExpense(e.target.value)} placeholder="0" />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm mb-1">{t('Extra Income (if any)', 'கூடுதல் வரவு (இருந்தால்)')}</label>
-                <input className="w-full border p-2 rounded" value={extraIncome} onChange={(e) => setExtraIncome(e.target.value)} placeholder="0" />
-              </div>
-              <div>
-                <label className="block text-sm mb-1">{t('Extra Expenses (if any)', 'கூடுதல் செலவு (இருந்தால்)')}</label>
-                <input className="w-full border p-2 rounded" value={extraExpense} onChange={(e) => setExtraExpense(e.target.value)} placeholder="0" />
+              <div className="mt-4 space-y-1">
+                <div className="flex justify-between"><span>{t('System Net', 'கணினி நிகர')}</span><span>{toCurrency(net)}</span></div>
+                <div className="flex justify-between"><span>{t('Manual Net', 'கையேடு நிகர')}</span><span>{toCurrency(manualNet)}</span></div>
+                <div className={`flex justify-between font-semibold ${Math.abs(difference) < 0.01 ? 'text-green-700' : 'text-red-700'}`}>
+                  <span>{t('Difference', 'வித்தியாசம்')}</span><span>{toCurrency(difference)}</span>
+                </div>
               </div>
             </div>
-            <div className="mt-4 space-y-1">
-              <div className="flex justify-between"><span>{t('System Net', 'கணினி நிகர')}</span><span>₹ {net.toLocaleString()}</span></div>
-              <div className="flex justify-between"><span>{t('Manual Net', 'கையேடு நிகர')}</span><span>₹ {manualNet.toLocaleString()}</span></div>
-              <div className={`flex justify-between font-semibold ${Math.abs(difference) < 0.01 ? 'text-green-700' : 'text-red-700'}`}>
-                <span>{t('Difference', 'வித்தியாசம்')}</span><span>₹ {difference.toLocaleString()}</span>
+
+            {/* Breakdown side card */}
+            <div className="grid grid-cols-1 gap-6">
+              <div className="border rounded p-4">
+                <h2 className="text-lg font-semibold mb-2">{t('Income Breakdown', 'வரவு விவரம்')}</h2>
+                <div className="space-y-1 text-sm">
+                  {Object.entries(data.breakdown.income).map(([k, v]) => (
+                    <div key={k} className="flex justify-between">
+                      <span className="capitalize">{k.replaceAll('_', ' ')}</span>
+                      <span>{toCurrency(v)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="border rounded p-4">
+                <h2 className="text-lg font-semibold mb-2">{t('Expenses Breakdown', 'செலவு விவரம்')}</h2>
+                <div className="space-y-1 text-sm">
+                  {Object.entries(data.breakdown.expenses).map(([k, v]) => (
+                    <div key={k} className="flex justify-between">
+                      <span className="capitalize">{k.replaceAll('_', ' ')}</span>
+                      <span>{toCurrency(v)}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
-    </div>
+      </div>
   );
 }
