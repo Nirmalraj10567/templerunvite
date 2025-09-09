@@ -13,15 +13,13 @@ import MemberLogsView from './MemberLogsView';
 export default function MembersPage() {
   const [activeTab, setActiveTab] = useState<'view' | 'entry' | 'logs'>('view');
   const { language } = useLanguage();
-  const { user, token, userPermissions } = useAuth();
+  const { user, token, userPermissions, isSuperAdmin } = useAuth();
   
-  const hasFullAccess = (userPermissions || []).some(p => 
-    p.permission_id === 'member_entry' && p.access_level === 'full'
-  );
-  
-  const hasViewAccess = (userPermissions || []).some(p => 
-    p.permission_id === 'member_entry' && p.access_level !== 'view' ? true : p.access_level === 'view'
-  );
+  const memberEntryPerm = (userPermissions || []).find(p => p.permission_id === 'member_entry');
+  const memberEntryLevel = memberEntryPerm?.access_level as ('view' | 'edit' | 'full' | undefined);
+  const hasViewAccess = !!memberEntryLevel; // any level grants view
+  const hasEditAccess = memberEntryLevel === 'edit' || memberEntryLevel === 'full';
+  const hasFullAccess = memberEntryLevel === 'full';
 
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -45,24 +43,18 @@ export default function MembersPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<number | null>(null);
 
-  const canAddMembers = hasFullAccess;
+  const canAddMembers = hasEditAccess;
 
   const canViewMembers = hasViewAccess;
 
-  // Enhanced permission checks
-  const isSuperadmin = user?.role === 'superadmin';
-  const canEditMembers = isSuperadmin || (userPermissions || []).some(p => 
-    p.permission_id === 'member_edit' && p.access_level === 'full'
-  );
-
-  const canDeleteMembers = isSuperadmin || (userPermissions || []).some(p => 
-    p.permission_id === 'member_delete' && p.access_level === 'full'
-  );
-
-  const canBlockMembers = isSuperadmin;
-  const canResetPasswords = isSuperadmin;
-  const canViewLogs = isSuperadmin || (userPermissions || []).some(p => 
-    p.permission_id === 'session_logs' || p.permission_id === 'view_session_logs'
+  // Enhanced permission checks aligned to standardized IDs
+  const canEditMembers = isSuperAdmin || hasEditAccess;
+  const canDeleteMembers = isSuperAdmin || hasFullAccess;
+  const canBlockMembers = isSuperAdmin;
+  const canResetPasswords = isSuperAdmin;
+  const canViewLogs = isSuperAdmin || (userPermissions || []).some(p => 
+    (p.permission_id === 'view_session_logs' || p.permission_id === 'activity_logs') &&
+    (p.access_level === 'view' || p.access_level === 'edit' || p.access_level === 'full')
   );
 
   if (!canViewMembers) {
@@ -116,7 +108,7 @@ export default function MembersPage() {
           name: newMember.fullName,
           username: newMember.username,
           mobile: newMember.mobile,
-          email: newMember.email,
+          email: (newMember.email && newMember.email.trim() !== '') ? newMember.email.trim() : null,
           createLogin: newMember.createLogin === true,
           password: newMember.createLogin ? newMember.password : undefined,
           role: newMember.role,

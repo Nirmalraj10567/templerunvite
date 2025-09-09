@@ -10,20 +10,20 @@ interface PermissionGuardProps {
 }
 
 const PermissionGuard: React.FC<PermissionGuardProps> = ({ children, requiredPermission, accessLevel }) => {
-  const { user } = useAuth();
+  const { userPermissions, isSuperAdmin } = useAuth();
 
   // Superadmin bypasses all permissions
-  if (user?.role === 'superadmin') {
+  if (isSuperAdmin) {
     return <>{children}</>;
   }
 
-  const hasPermission = user?.permissions?.some(
-    (p) => 
-      p.permission_id === requiredPermission && 
-      (p.access_level === 'full' || 
-       (accessLevel === 'edit' && p.access_level === 'edit') ||
-       (accessLevel === 'view' && (p.access_level === 'view' || p.access_level === 'edit' || p.access_level === 'full')))
-  );
+  const hasPermission = (userPermissions || []).some((p) => {
+    if (p.permission_id !== requiredPermission) return false;
+    if (accessLevel === 'view') return true; // any level grants view
+    if (accessLevel === 'edit') return p.access_level === 'edit' || p.access_level === 'full';
+    if (accessLevel === 'full') return p.access_level === 'full';
+    return false;
+  });
 
   if (hasPermission) {
     return <>{children}</>;

@@ -79,7 +79,7 @@ export default function DashboardLayout() {
 
   const sidebarItems = useMemo(
     () => [
-      { to: '/dashboard', label: 'Overview', icon: HomeIcon },
+      { to: '/dashboard', label: 'Overview', icon: HomeIcon, permissionId: 'dashboard' },
       { to: '/dashboard/members', label: 'Members', icon: UsersIcon, permissionId: 'member_entry' },
       {
         label: 'Reports',
@@ -108,7 +108,7 @@ export default function DashboardLayout() {
         label: 'Settings',
         icon: SettingsIcon,
         children: [
-          { to: '/dashboard/settings', label: 'General Settings', permissionId: 'settings' },
+          { to: '/dashboard/settings', label: 'General Settings', permissionId: 'setting' },
           { to: '/dashboard/tax/settings', label: 'Tax Settings', permissionId: 'tax_registrations' },
           { to: '/dashboard/settings/pdf', label: 'PDF Settings', permissionId: 'pdf_settings' },
         ]
@@ -128,7 +128,7 @@ export default function DashboardLayout() {
         label: 'Hall Booking',
         icon: CalendarIcon,
         children: [
-          { to: '/dashboard/hall/list', label: 'Hall Bookings', permissionId: 'hall_booking', accessLevel: 'view' },
+          { to: '/dashboard/hall/list', label: 'Hall Bookings', permissionId: 'marriage_register', accessLevel: 'view' },
           { to: '/dashboard/hall/entry', label: 'New Booking', permissionId: 'hall_booking', accessLevel: 'edit' },
           { to: '/dashboard/hall/approvals', label: 'Hall Approvals', permissionId: 'hall_approval', accessLevel: 'view' },
         ]
@@ -163,8 +163,8 @@ export default function DashboardLayout() {
         label: 'Annadhanam',
         icon: HeartIcon,
         children: [
-          { to: '/dashboard/annadhanam/list', label: 'Annadhanam List', permissionId: 'view_annadhanam' },
-          { to: '/dashboard/annadhanam/entry', label: 'Annadhanam Entry', permissionId: 'edit_annadhanam' },
+          { to: '/dashboard/annadhanam/list', label: 'Annadhanam List', permissionId: 'annadhanam_registrations', accessLevel: 'view' },
+          { to: '/dashboard/annadhanam/entry', label: 'Annadhanam Entry', permissionId: 'annadhanam_registrations', accessLevel: 'edit' },
           { to: '/dashboard/annadhanam/approval', label: 'Annadhanam Approval', permissionId: 'annadhanam_approval' },
         ]
       },
@@ -197,8 +197,8 @@ export default function DashboardLayout() {
         label: 'Marriage Hall',
         icon: HomeIcon,
         children: [
-          { to: '/dashboard/hall/entry', label: 'Hall Entry', permissionId: 'edit_hall' },
-          { to: '/dashboard/hall/list', label: 'Hall List', permissionId: 'view_hall' },
+          { to: '/dashboard/hall/entry', label: 'Hall Entry', permissionId: 'hall_booking', accessLevel: 'edit' },
+          { to: '/dashboard/hall/list', label: 'Hall List', permissionId: 'marriage_register', accessLevel: 'view' },
         ]
       },
       
@@ -207,20 +207,42 @@ export default function DashboardLayout() {
         label: 'Properties',
         icon: HomeIcon,
         children: [
-          { to: '/dashboard/properties', label: 'Properties List', permissionId: 'view_properties' },
-          { to: '/dashboard/properties/new', label: 'New Property', permissionId: 'edit_properties' },
+          { to: '/dashboard/properties', label: 'Properties List', permissionId: 'property_registrations', accessLevel: 'view' },
+          { to: '/dashboard/properties/new', label: 'New Property', permissionId: 'property_registrations', accessLevel: 'edit' },
         ]
       },
     ],
     []
   );
 
+  const hasPermission = useMemo(() => {
+    const perms = userPermissions || [];
+    return (permissionId?: string, requiredLevel: 'view' | 'edit' | 'full' = 'view') => {
+      if (!permissionId) return false; // explicit permissionId required to show
+      if (isSuperAdmin) return true;
+      const p = perms.find(pp => pp.permission_id === permissionId);
+      if (!p) return false;
+      if (requiredLevel === 'view') return true;
+      if (requiredLevel === 'edit') return p.access_level === 'edit' || p.access_level === 'full';
+      if (requiredLevel === 'full') return p.access_level === 'full';
+      return false;
+    };
+  }, [userPermissions, isSuperAdmin]);
+
   const allowedSidebarItems = useMemo(() => {
     if (isSuperAdmin) return sidebarItems;
-    return sidebarItems.filter(item => 
-      userPermissions?.some(p => p.permission_id === item.permissionId && p.access_level === 'full')
-    );
-  }, [userPermissions, isSuperAdmin, sidebarItems]);
+    if (!userPermissions || userPermissions.length === 0) return [] as any[];
+    return sidebarItems
+      .map((item) => {
+        if (item.children) {
+          const filteredChildren = item.children.filter((child) => hasPermission(child.permissionId, (child as any).accessLevel || 'view'));
+          if (filteredChildren.length === 0) return null;
+          return { ...item, children: filteredChildren };
+        }
+        return hasPermission((item as any).permissionId, (item as any).accessLevel || 'view') ? item : null;
+      })
+      .filter(Boolean) as any[];
+  }, [sidebarItems, hasPermission, isSuperAdmin]);
 
   const Sidebar = ({ isMobile = false }) => {
     const [expandedItems, setExpandedItems] = useState<string[]>([]);

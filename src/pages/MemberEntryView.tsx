@@ -30,18 +30,53 @@ export default function MemberEntryForm({
   
   const handleSubmit = isEditing ? handleUpdateMember : handleAddMember;
 
-  // Comprehensive permission options aligned with backend permission IDs
+  // Comprehensive permission options aligned with backend permission IDs and routing guards
   const PERMISSION_OPTIONS = [
-    { id: 'member_entry', label: 'Member Entry', description: 'Add, edit, and manage member registrations', icon: '👥', color: 'blue' },
-    { id: 'member_view', label: 'Member View', description: 'View member list and details', icon: '👁️', color: 'green' },
+    // Core modules
+    { id: 'member_entry', label: 'Members', description: 'View and manage members', icon: '👥', color: 'blue' },
     { id: 'master_data', label: 'Master Data', description: 'Manage groups, clans, occupations, villages, educations', icon: '📊', color: 'purple' },
     { id: 'ledger_management', label: 'Ledger Management', description: 'Manage financial records and transactions', icon: '💰', color: 'yellow' },
-    { id: 'session_logs', label: 'Session Logs', description: 'View user login/logout activities', icon: '🔐', color: 'indigo' },
-    { id: 'activity_logs', label: 'Activity Logs', description: 'View system activity and audit logs', icon: '📋', color: 'gray' },
-    { id: 'user_management', label: 'User Management', description: 'Create and manage user accounts', icon: '⚙️', color: 'red' },
-    { id: 'temple_settings', label: 'Temple Settings', description: 'Manage temple configuration and settings', icon: '🏛️', color: 'orange' },
-    { id: 'reports', label: 'Reports', description: 'Generate and view system reports', icon: '📈', color: 'teal' },
-    { id: 'backup_restore', label: 'Backup & Restore', description: 'Database backup and restore operations', icon: '💾', color: 'pink' },
+    { id: 'reports', label: 'Reports', description: 'View financial and operational reports', icon: '📈', color: 'teal' },
+    { id: 'balance_sheet', label: 'Balance Sheet', description: 'View balance sheet', icon: '📊', color: 'green' },
+
+    // Settings
+    { id: 'setting', label: 'General Settings', description: 'Access general settings', icon: '⚙️', color: 'orange' },
+    { id: 'pdf_settings', label: 'PDF Settings', description: 'Manage PDF export settings', icon: '📄', color: 'indigo' },
+
+    // Registrations and tax
+    { id: 'user_registrations', label: 'User Registrations', description: 'Manage temple portal users', icon: '🧑‍💻', color: 'gray' },
+    { id: 'tax_registrations', label: 'Tax Registrations', description: 'Manage tax module registrations', icon: '🧾', color: 'pink' },
+
+    // Properties
+    { id: 'property_registrations', label: 'Properties', description: 'Manage temple properties', icon: '🏠', color: 'cyan' },
+
+    // Donations
+    { id: 'view_donations', label: 'Donations - View', description: 'View donation products and entries', icon: '🎁', color: 'green' },
+    { id: 'edit_donations', label: 'Donations - Edit', description: 'Create and modify donation products and entries', icon: '✏️', color: 'yellow' },
+    { id: 'donation_approval', label: 'Donations Approval', description: 'Approve donations submitted from mobile app', icon: '✅', color: 'emerald' },
+
+    // Events and calendar
+    { id: 'view_events', label: 'Events - View', description: 'View events and calendars', icon: '📅', color: 'blue' },
+    { id: 'edit_events', label: 'Events - Edit', description: 'Create and modify events', icon: '✏️', color: 'yellow' },
+
+    // Pooja
+    { id: 'pooja_registrations', label: 'Pooja Registrations', description: 'Create, edit, and view poojas', icon: '🛕', color: 'orange' },
+    { id: 'pooja_mobile_submit', label: 'Pooja Mobile Requests', description: 'Submit/view my pooja requests', icon: '📱', color: 'violet' },
+    { id: 'pooja_approval', label: 'Pooja Approval', description: 'Approve pooja requests', icon: '✅', color: 'green' },
+
+    // Annadhanam
+    { id: 'annadhanam_registrations', label: 'Annadhanam', description: 'Create, edit, and view Annadhanam registrations', icon: '🍛', color: 'amber' },
+    { id: 'annadhanam_approval', label: 'Annadhanam Approval', description: 'Approve Annadhanam requests', icon: '✅', color: 'green' },
+
+    // Hall / Marriage
+    { id: 'hall_booking', label: 'Hall Booking', description: 'Create or edit hall bookings', icon: '🏨', color: 'rose' },
+    { id: 'hall_approval', label: 'Hall Approval', description: 'Approve hall bookings', icon: '✅', color: 'green' },
+    { id: 'marriage_register', label: 'Marriage Register', description: 'Access marriage/hall lists', icon: '💍', color: 'purple' },
+
+    // Logs
+    { id: 'session_management', label: 'Session Management', description: 'Manage active sessions', icon: '🔒', color: 'slate' },
+    { id: 'activity_logs', label: 'Activity Logs', description: 'View system activity logs', icon: '📝', color: 'gray' },
+    { id: 'view_session_logs', label: 'Session Logs', description: 'View user session logs', icon: '📜', color: 'gray' },
   ];
 
   const togglePermission = (permId: string, enabled: boolean) => {
@@ -61,7 +96,7 @@ export default function MemberEntryForm({
     }
   };
 
-  const setPermissionLevel = (permId: string, level: 'view' | 'full') => {
+  const setPermissionLevel = (permId: string, level: 'view' | 'edit' | 'full') => {
     const existing = member?.customPermissions || [];
     const updated = existing.map((p: any) => (p.id === permId ? { ...p, access: level } : p));
     setMember({ ...member, customPermissions: updated });
@@ -71,14 +106,14 @@ export default function MemberEntryForm({
 
   // Simplified temple member entry form (no banking UI)
   return (
-    <div className="max-w-2xl mx-auto p-4">
-      <h2 className="text-xl font-semibold mb-4">
+    <div className="max-w-3xl mx-auto p-4 md:p-6">
+      <h2 className="text-2xl md:text-3xl font-semibold mb-5 tracking-tight text-slate-800">
         {isEditing
           ? (language === 'tamil' ? 'உறுப்பினர் விவரங்களை புதுப்பிக்கவும்' : 'Update Member')
           : (language === 'tamil' ? 'உறுப்பினர் பதிவு' : 'Member Entry')}
       </h2>
 
-      <form onSubmit={handleSubmit} className="space-y-4 bg-white rounded-lg border p-4">
+      <form onSubmit={handleSubmit} className="space-y-6 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         <div>
           <label className="block text-sm font-medium mb-1">{language === 'tamil' ? 'முழு பெயர்' : 'Full Name'} *</label>
           <input
@@ -98,6 +133,17 @@ export default function MemberEntryForm({
             onChange={(e) => setMember({ ...member, mobile: e.target.value })}
             className="w-full px-3 py-2 border rounded"
             required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">{language === 'tamil' ? 'மின்னஞ்சல்' : 'Email'} </label>
+          <input
+            type="email"
+            value={member?.email || ''}
+            onChange={(e) => setMember({ ...member, email: e.target.value })}
+            className="w-full px-3 py-2 border rounded"
+            placeholder="name@example.com"
           />
         </div>
 
@@ -160,7 +206,7 @@ export default function MemberEntryForm({
                 <select
                   value={member?.permissionLevel || ''}
                   onChange={(e) => {
-                    const level = e.target.value as 'view' | 'full' | '';
+                    const level = e.target.value as 'view' | 'edit' | 'full' | '';
                     // Update top-level permissionLevel
                     const base = { ...member, permissionLevel: level } as any;
                     // Also sync to customPermissions for 'member_entry'
@@ -179,6 +225,7 @@ export default function MemberEntryForm({
                 >
                   <option value="">Select level</option>
                   <option value="view">View Only</option>
+                  <option value="edit">Edit Access</option>
                   <option value="full">Full Access</option>
                 </select>
               </div>

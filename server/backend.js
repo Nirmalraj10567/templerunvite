@@ -193,7 +193,7 @@ app.use('/api/ledger', ledgerRouter);
   const r = express.Router();
 
   // GET /api/ledger/categories
-  r.get('/categories', authenticateToken, async (req, res) => {
+  r.get('/categories', authenticateToken, authorizePermission('ledger_management', 'view'), async (req, res) => {
     try {
       const rows = await db('ledger_categories').select('*').orderBy('label', 'asc');
       const data = rows.map(r => ({ id: r.id, value: r.value || r.label, label: r.label || r.value }));
@@ -205,7 +205,7 @@ app.use('/api/ledger', ledgerRouter);
   });
 
   // POST /api/ledger/categories
-  r.post('/categories', authenticateToken, async (req, res) => {
+  r.post('/categories', authenticateToken, authorizePermission('ledger_management', 'edit'), async (req, res) => {
     try {
       const { value, label } = req.body || {};
       if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
@@ -221,7 +221,7 @@ app.use('/api/ledger', ledgerRouter);
   });
 
   // POST /api/ledger/categories/find-or-create
-  r.post('/categories/find-or-create', authenticateToken, async (req, res) => {
+  r.post('/categories/find-or-create', authenticateToken, authorizePermission('ledger_management', 'edit'), async (req, res) => {
     try {
       const { value, label } = req.body || {};
       if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
@@ -237,7 +237,7 @@ app.use('/api/ledger', ledgerRouter);
   });
 
   // PUT /api/ledger/categories/:id
-  r.put('/categories/:id', authenticateToken, async (req, res) => {
+  r.put('/categories/:id', authenticateToken, authorizePermission('ledger_management', 'edit'), async (req, res) => {
     try {
       const { id } = req.params;
       const { value, label } = req.body || {};
@@ -251,7 +251,7 @@ app.use('/api/ledger', ledgerRouter);
   });
 
   // DELETE /api/ledger/categories/:id
-  r.delete('/categories/:id', authenticateToken, async (req, res) => {
+  r.delete('/categories/:id', authenticateToken, authorizePermission('ledger_management', 'edit'), async (req, res) => {
     try {
       const { id } = req.params;
       await db('ledger_categories').where({ id: Number(id) }).del();
@@ -314,7 +314,7 @@ app.get('/api/mobile/events', async (req, res) => {
   const r = express.Router();
 
   // GET /api/donation-products
-  r.get('/', authenticateToken, async (req, res) => {
+  r.get('/', authenticateToken, authorizePermission('view_donations', 'view'), async (req, res) => {
     try {
       const rows = await db('donation_products').select('*').orderBy('label', 'asc');
       const data = rows.map(row => ({ id: row.id, value: row.value || row.label, label: row.label || row.value, unit: row.unit || '' }));
@@ -326,7 +326,7 @@ app.get('/api/mobile/events', async (req, res) => {
   });
 
   // POST /api/donation-products
-  r.post('/', authenticateToken, async (req, res) => {
+  r.post('/', authenticateToken, authorizePermission('edit_donations', 'edit'), async (req, res) => {
     try {
       const { value, label, unit } = req.body || {};
       if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
@@ -341,7 +341,7 @@ app.get('/api/mobile/events', async (req, res) => {
   });
 
   // POST /api/donation-products/find-or-create
-  r.post('/find-or-create', authenticateToken, async (req, res) => {
+  r.post('/find-or-create', authenticateToken, authorizePermission('edit_donations', 'edit'), async (req, res) => {
     try {
       const { value, label, unit } = req.body || {};
       if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
@@ -356,7 +356,7 @@ app.get('/api/mobile/events', async (req, res) => {
   });
 
   // PUT /api/donation-products/:id
-  r.put('/:id', authenticateToken, async (req, res) => {
+  r.put('/:id', authenticateToken, authorizePermission('edit_donations', 'edit'), async (req, res) => {
     try {
       const { id } = req.params;
       const { value, label, unit } = req.body || {};
@@ -370,7 +370,7 @@ app.get('/api/mobile/events', async (req, res) => {
   });
 
   // DELETE /api/donation-products/:id
-  r.delete('/:id', authenticateToken, async (req, res) => {
+  r.delete('/:id', authenticateToken, authorizePermission('edit_donations', 'edit'), async (req, res) => {
     try {
       const { id } = req.params;
       await db('donation_products').where({ id: Number(id) }).del();
@@ -390,7 +390,7 @@ app.get('/api/mobile/events', async (req, res) => {
   const r = express.Router();
 
   // List money donations (current user temple)
-  r.get('/', authenticateToken, async (req, res) => {
+  r.get('/', authenticateToken, authorizePermission('view_donations', 'view'), async (req, res) => {
     try {
       const rows = await db('money_donations')
         .where('temple_id', req.user.templeId)
@@ -404,7 +404,7 @@ app.get('/api/mobile/events', async (req, res) => {
   });
 
   // Create money donation
-  r.post('/', authenticateToken, async (req, res) => {
+  r.post('/', authenticateToken, authorizePermission('edit_donations', 'edit'), async (req, res) => {
     try {
       const b = req.body || {};
       const amount = Number(b.amount || 0);
@@ -434,7 +434,7 @@ app.get('/api/mobile/events', async (req, res) => {
   });
 
   // Get single
-  r.get('/:id', authenticateToken, async (req, res) => {
+  r.get('/:id', authenticateToken, authorizePermission('view_donations', 'view'), async (req, res) => {
     try {
       const { id } = req.params;
       const row = await db('money_donations').where({ id }).andWhere('temple_id', req.user.templeId).first();
@@ -447,7 +447,7 @@ app.get('/api/mobile/events', async (req, res) => {
   });
 
   // Update
-  r.put('/:id', authenticateToken, async (req, res) => {
+  r.put('/:id', authenticateToken, authorizePermission('edit_donations', 'edit'), async (req, res) => {
     try {
       const { id } = req.params;
       const b = req.body || {};
@@ -477,7 +477,7 @@ app.get('/api/mobile/events', async (req, res) => {
   });
 
   // Delete
-  r.delete('/:id', authenticateToken, async (req, res) => {
+  r.delete('/:id', authenticateToken, authorizePermission('edit_donations', 'edit'), async (req, res) => {
     try {
       const { id } = req.params;
       const del = await db('money_donations').where({ id }).andWhere('temple_id', req.user.templeId).del();
@@ -628,7 +628,7 @@ const ledgerCategoriesCompat = (() => {
 })();
 
 // Delete
-app.delete('/api/receipts/:id', authenticateToken, async (req, res) => {
+app.delete('/api/receipts/:id', authenticateToken, authorizePermission('receipts', 'edit'), async (req, res) => {
   try {
     const { id } = req.params;
     const del = await db('receipts').where({ id }).andWhere('temple_id', req.user.templeId).del();
@@ -641,7 +641,7 @@ app.delete('/api/receipts/:id', authenticateToken, async (req, res) => {
 });
 
 // Reports: Daily aggregation
-app.get('/api/reports/daily', authenticateToken, async (req, res) => {
+app.get('/api/reports/daily', authenticateToken, authorizePermission('reports', 'view'), async (req, res) => {
   try {
     const date = (req.query.date || new Date().toISOString().slice(0,10)).toString();
     const templeId = req.user.templeId;
@@ -717,7 +717,7 @@ app.get('/api/reports/daily', authenticateToken, async (req, res) => {
 });
 
 // Reports: Monthly aggregation (year=YYYY, month=MM 1-12)
-app.get('/api/reports/monthly', authenticateToken, async (req, res) => {
+app.get('/api/reports/monthly', authenticateToken, authorizePermission('reports', 'view'), async (req, res) => {
   try {
     const year = parseInt(req.query.year, 10) || new Date().getFullYear();
     const month = parseInt(req.query.month, 10) || (new Date().getMonth() + 1);
@@ -847,8 +847,8 @@ app.get('/api/dashboard/stats', authenticateToken, async (req, res) => {
 
 // Migrate tables if not exist
 async function migrate() {
-  console.log('Starting database migration...');
   try {
+    console.log('Starting database migration...');
     // ... (rest of the code remains the same)
     // Create temples table
     if (!(await db.schema.hasTable('temples'))) {
@@ -931,6 +931,61 @@ async function migrate() {
           });
         }
       });
+
+      // Continue with other table creations below...
+    }
+
+    // Ensure users.email allows NULL (email is optional but must be UNIQUE when present)
+    try {
+      const cols = await db.raw(`PRAGMA table_info('users')`);
+      const emailCol = (cols?.[0] || cols).find?.(c => c.name === 'email');
+      if (emailCol && emailCol.notnull === 1) {
+        console.log('Migrating users table to allow NULL emails (keeping UNIQUE constraint)');
+        await db.transaction(async trx => {
+          // Create new table with email nullable
+          await trx.schema.createTable('users_new', (table) => {
+            table.increments('id').primary();
+            table.string('username').notNullable().unique();
+            table.string('email').unique().nullable();
+            table.string('full_name');
+            table.string('mobile').notNullable().unique();
+            table.string('password').notNullable();
+            table.string('role').notNullable().defaultTo('member');
+            table.integer('temple_id').notNullable();
+            table.string('status').notNullable().defaultTo('active');
+            table.timestamp('created_at').defaultTo(trx.fn.now());
+            table.timestamp('updated_at').defaultTo(trx.fn.now());
+          });
+
+          // Copy data; convert empty emails to NULL
+          const rows = await trx('users').select('*');
+          for (const r of rows) {
+            await trx('users_new').insert({
+              id: r.id,
+              username: r.username,
+              email: r.email && String(r.email).trim() !== '' ? r.email : null,
+              full_name: r.full_name,
+              mobile: r.mobile,
+              password: r.password,
+              role: r.role,
+              temple_id: r.temple_id,
+              status: r.status,
+              created_at: r.created_at,
+              updated_at: r.updated_at,
+            });
+          }
+
+          // Replace old table
+          await trx.schema.dropTable('users');
+          await trx.schema.renameTable('users_new', 'users');
+
+          // Recreate foreign keys if necessary (SQLite limitations)
+          // Note: If there are FKs referencing users.id, they remain valid by table rename.
+          console.log('Users table migrated successfully.');
+        });
+      }
+    } catch (e) {
+      console.warn('Users email NULL migration skipped or failed:', e.message);
     }
 
     // Create properties table
@@ -2540,12 +2595,14 @@ app.post('/api/members',
         }
       }
       
+      const safeEmail = email && String(email).trim() !== '' ? String(email).trim() : null;
+      
       const newMember = await db.transaction(async trx => {
         console.log('Creating member record with data:', {
           name,
           username,
           mobile_number: mobile,
-          email,
+          email: safeEmail,
           temple_id: req.user.templeId
         });
         
@@ -2555,7 +2612,7 @@ app.post('/api/members',
             name,
             username,
             mobile_number: mobile,
-            email,
+            email: safeEmail,
             temple_id: req.user.templeId,
             created_at: db.fn.now()
           })
@@ -2569,7 +2626,7 @@ app.post('/api/members',
               username,
               full_name: name,
               mobile,
-              email,
+              email: safeEmail,
               password: hashedPassword,
               temple_id: req.user.templeId,
               role: mobile === '9999999999' ? 'superadmin' : role || 'member'
@@ -2813,7 +2870,7 @@ app.use('/api/events',
 
 app.use((req, res, next) => {
   if (req.user?.mobile === '9999999999') {
-    console.log(`[SUPERADMIN ACTION] ${req.method} ${req.path}`);
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
     
     // Log to database
     db('superadmin_logs').insert({
@@ -3175,7 +3232,7 @@ const registrationsRouter = createRegistrationsRouter(db);
 // Add logging middleware before routes
 app.use((req, res, next) => {
   if (req.method !== 'GET') {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
     
     // Log to database
     db('superadmin_logs').insert({

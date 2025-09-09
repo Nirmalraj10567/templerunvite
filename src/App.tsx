@@ -71,7 +71,14 @@ function App() {
               {/* Protected Dashboard */}
               <Route element={<ProtectedRoute />}> 
                 <Route path="dashboard" element={<DashboardLayout />}>
-                  <Route index element={<OverviewPage />} />
+                  <Route 
+                    index 
+                    element={
+                      <PermissionGuard requiredPermission="dashboard" accessLevel="view">
+                        <OverviewPage />
+                      </PermissionGuard>
+                    } 
+                  />
                   <Route path="donation-product">
                     <Route 
                       path="list" 
@@ -123,11 +130,39 @@ function App() {
                     } 
                   />
                   <Route path="events">
-                    <Route index element={<EventListView />} />
-                    <Route path="new" element={<EventRegistrationForm />} />
-                    <Route path="edit/:id" element={<EventRegistrationForm />} />
+                    <Route 
+                      index 
+                      element={
+                        <PermissionGuard requiredPermission="view_events" accessLevel="view">
+                          <EventListView />
+                        </PermissionGuard>
+                      } 
+                    />
+                    <Route 
+                      path="new" 
+                      element={
+                        <PermissionGuard requiredPermission="edit_events" accessLevel="edit">
+                          <EventRegistrationForm />
+                        </PermissionGuard>
+                      } 
+                    />
+                    <Route 
+                      path="edit/:id" 
+                      element={
+                        <PermissionGuard requiredPermission="edit_events" accessLevel="edit">
+                          <EventRegistrationForm />
+                        </PermissionGuard>
+                      } 
+                    />
                   </Route>
-                  <Route path="/dashboard/calendar/new-moon-days" element={<NewMoonDaysPage />} />
+                  <Route 
+                    path="/dashboard/calendar/new-moon-days" 
+                    element={
+                      <PermissionGuard requiredPermission="view_events" accessLevel="view">
+                        <NewMoonDaysPage />
+                      </PermissionGuard>
+                    } 
+                  />
                   <Route
                     path="/dashboard/master-data"
                     element={
@@ -229,7 +264,7 @@ function App() {
                   <Route
                     path="/dashboard/transactions"
                     element={
-                      <PermissionGuard requiredPermission="transaction" accessLevel="view">
+                      <PermissionGuard requiredPermission="ledger_management" accessLevel="view">
                         <TransactionsPage />
                       </PermissionGuard>
                     }
@@ -237,7 +272,7 @@ function App() {
                   <Route
                     path="reports"
                     element={
-                      <PermissionGuard requiredPermission="report" accessLevel="view">
+                      <PermissionGuard requiredPermission="reports" accessLevel="view">
                         <ReportsPage />
                       </PermissionGuard>
                     }
