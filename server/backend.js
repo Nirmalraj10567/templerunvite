@@ -800,6 +800,51 @@ app.get('/api/reports/monthly', authenticateToken, async (req, res) => {
   }
 });
 
+// Dashboard stats: total members, paid this month, unpaid this month
+app.get('/api/dashboard/stats', authenticateToken, async (req, res) => {
+  try {
+    const templeId = req.user.templeId;
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const pad = (n) => String(n).padStart(2, '0');
+    const from = `${year}-${pad(month)}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const to = `${year}-${pad(month)}-${pad(lastDay)}`;
+
+    // Total members (registrations) for temple
+    const [{ count: totalCountRaw }] = await db('user_registrations')
+      .where('temple_id', templeId)
+      .count({ count: '*' });
+    const totalMembers = Number(totalCountRaw || 0);
+
+    // Paid members this month: distinct register_no in receipts with type='receipt' in month
+    // Assumption: receipts.register_no maps to user_registrations.reference_number
+    const paidRows = await db('receipts')
+      .where({ temple_id: templeId })
+      .andWhere('type', 'receipt')
+      .andWhere('date', '>=', from)
+      .andWhere('date', '<=', to)
+      .distinct('register_no as reg');
+    const paidMembersThisMonth = paidRows.filter(r => r.reg != null && String(r.reg).trim() !== '').length;
+
+    const unpaidMembersThisMonth = Math.max(0, totalMembers - paidMembersThisMonth);
+
+    res.json({
+      success: true,
+      range: { from, to },
+      data: {
+        totalMembers,
+        paidMembersThisMonth,
+        unpaidMembersThisMonth,
+      }
+    });
+  } catch (err) {
+    console.error('GET /api/dashboard/stats error:', err);
+    res.status(500).json({ error: 'Failed to fetch dashboard stats' });
+  }
+});
+
 // Migrate tables if not exist
 async function migrate() {
   console.log('Starting database migration...');

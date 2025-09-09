@@ -21,6 +21,10 @@ export default function DashboardLayout() {
   const { user, userPermissions, isSuperAdmin } = useAuth();
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isHoveringSidebar, setIsHoveringSidebar] = useState(false);
+
+  // Handle click outside to close mobile menu
+  const mainContentRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -28,9 +32,50 @@ export default function DashboardLayout() {
         setMobileMenuOpen(false);
       }
     };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      // Desktop-only auto behavior
+      if (window.innerWidth < 768) return;
+
+      // Tailwind widths: w-64 = 16rem (~256px), w-20 = 5rem (~80px)
+      const expandedWidth = 256;
+      const collapsedWidth = 80;
+      const buffer = 40; // hysteresis to avoid flicker
+
+      // Do not auto-collapse while the user is interacting with the sidebar itself
+      if (!isSidebarCollapsed && isHoveringSidebar) return;
+
+      // Auto-expand when near the left edge (within collapsed width + small buffer)
+      if (isSidebarCollapsed && e.clientX <= collapsedWidth + buffer / 2) {
+        setSidebarCollapsed(false);
+        return;
+      }
+
+      // Auto-collapse when cursor moves sufficiently to the right of the expanded sidebar
+      if (!isSidebarCollapsed && e.clientX > expandedWidth + buffer) {
+        setSidebarCollapsed(true);
+      }
+    };
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (window.innerWidth >= 768 || !isMobileMenuOpen) return;
+
+      const target = e.target as HTMLElement;
+      if (!target.closest('aside') && !target.closest('.mobile-menu-button')) {
+        setMobileMenuOpen(false);
+      }
+    };
+
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    window.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('pointerdown', handleClickOutside);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('pointerdown', handleClickOutside);
+    };
+  }, [isSidebarCollapsed, isMobileMenuOpen, isHoveringSidebar]);
 
   const sidebarItems = useMemo(
     () => [
@@ -190,6 +235,8 @@ export default function DashboardLayout() {
 
     return (
       <aside
+        onMouseEnter={() => setIsHoveringSidebar(true)}
+        onMouseLeave={() => setIsHoveringSidebar(false)}
         className={`
           ${isMobile ? 'fixed' : 'hidden md:flex'} 
           inset-y-0 left-0 z-40 flex-col bg-slate-900 text-white transition-all duration-300
@@ -288,7 +335,7 @@ export default function DashboardLayout() {
     <div className="relative min-h-screen md:flex">
       {/* Mobile menu button */}
       <div className="bg-gray-800 text-gray-100 flex justify-between md:hidden">
-        <button onClick={() => setMobileMenuOpen(true)} className="p-4">
+        <button onClick={() => setMobileMenuOpen(!isMobileMenuOpen)} className="p-4 mobile-menu-button">
           <MenuIcon />
         </button>
       </div>
@@ -298,7 +345,7 @@ export default function DashboardLayout() {
       {isMobileMenuOpen && <Sidebar isMobile />}
 
       {/* Main content */}
-      <div className={`flex-1 flex flex-col transition-all duration-300 ${isSidebarCollapsed ? 'md:ml-1' : 'md:ml-1'}`}>
+      <div ref={mainContentRef} className={`flex-1 flex flex-col transition-all duration-300 ${isSidebarCollapsed ? 'md:ml-1' : 'md:ml-1'}`}>
         <header className="flex items-center justify-end h-16 bg-white border-b border-gray-200 px-4">
           <Header />
         </header>
@@ -310,7 +357,7 @@ export default function DashboardLayout() {
       {/* Mobile overlay */}
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
+          className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden mobile-overlay"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
