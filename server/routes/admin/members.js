@@ -3,6 +3,32 @@ const express = require('express');
 function createAdminMembersRouter({ db, authenticateToken, authorizePermission, authorizeRole }) {
   const router = express.Router();
 
+  // Minimal users list for dropdowns
+  router.get('/', authenticateToken, authorizePermission('member_management', 'view'), async (req, res) => {
+    try {
+      const minimal = String(req.query.minimal || '').trim() === '1';
+      if (minimal) {
+        const rows = await db('users')
+          .select('id as user_id', 'full_name', 'username', 'mobile')
+          .orderBy('full_name', 'asc');
+        const data = rows.map(r => ({
+          user_id: r.user_id,
+          name: (r.full_name && r.full_name.trim()) || r.username || r.mobile || String(r.user_id)
+        }));
+        return res.json({ success: true, data });
+      }
+      // Fallback: basic list
+      const users = await db('users')
+        .select('id', 'full_name', 'username', 'mobile', 'email', 'role', 'status')
+        .orderBy('id', 'desc')
+        .limit(100);
+      res.json({ success: true, data: users });
+    } catch (err) {
+      console.error('Error listing members:', err);
+      res.status(500).json({ error: 'Failed to list members' });
+    }
+  });
+
   // Block/Unblock member (superadmin only)
   router.put('/:id/block', authenticateToken, authorizePermission('member_management', 'edit'), async (req, res) => {
     try {

@@ -24,6 +24,7 @@ export default function LedgerListPage() {
     endDate: '',
     type: 'all' as const,
     under: 'all' as const,
+    name: ''
   });
   const [categories, setCategories] = useState<string[]>([]);
   const [currentBalance, setCurrentBalance] = useState(0);
@@ -132,6 +133,7 @@ export default function LedgerListPage() {
           endDate: filters.endDate || undefined,
           type: filters.type === 'all' ? undefined : filters.type,
           under: filters.under === 'all' ? undefined : filters.under,
+          name: filters.name?.trim() ? filters.name.trim() : undefined,
           page: currentPage,
           limit: itemsPerPage,
         }),
@@ -392,6 +394,16 @@ export default function LedgerListPage() {
               </SelectContent>
             </Select>
 
+            {/* Name Search */}
+            <div className="w-full md:w-60">
+              <Input
+                placeholder={t('Search name', 'பெயரைத் தேடவும்')}
+                value={filters.name}
+                onChange={(e) => handleFilterChange('name', e.target.value)}
+                className="text-sm"
+              />
+            </div>
+
             {/* Actions */}
             <div className="flex flex-wrap gap-2 w-full md:w-auto">
               <Button
@@ -402,6 +414,7 @@ export default function LedgerListPage() {
                     endDate: '',
                     type: 'all',
                     under: 'all',
+                    name: '',
                   });
                 }}
               >

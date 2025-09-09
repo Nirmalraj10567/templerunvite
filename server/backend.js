@@ -204,6 +204,56 @@ app.use('/api/ledger', ledgerRouter);
     }
   });
 
+  // GET /api/ledger/accounts (placed here to avoid collision with /api/ledger/:templeId)
+  r.get('/accounts', authenticateToken, authorizePermission('ledger_management', 'view'), async (req, res) => {
+    try {
+      let accounts = [];
+      // Try reading from ledger_accounts table if it exists
+      try {
+        const hasTable = await db.schema.hasTable('ledger_accounts');
+        if (hasTable) {
+          const rows = await db('ledger_accounts').select('*').orderBy('label', 'asc');
+          accounts = rows.map(row => ({ id: row.id, value: row.value || row.label, label: row.label || row.value }));
+        }
+      } catch (e) {
+        // ignore schema errors and fallback below
+      }
+
+      if (!accounts || accounts.length === 0) {
+        // Fallback to distinct NAMEs from ledger_entries (preferred over categories)
+        try {
+          const hasName = await db.schema.hasColumn('ledger_entries', 'name');
+          if (hasName) {
+            const rows = await db('ledger_entries').distinct('name').whereNotNull('name').andWhere('name', '!=', '').orderBy('name', 'asc');
+            accounts = rows.map(r => ({ id: undefined, value: r.name, label: r.name }));
+          } else {
+            // Older schema may use donor_name; try that
+            const hasDonorName = await db.schema.hasColumn('ledger_entries', 'donor_name');
+            if (hasDonorName) {
+              const rows = await db('ledger_entries').distinct('donor_name').whereNotNull('donor_name').andWhere('donor_name', '!=', '').orderBy('donor_name', 'asc');
+              accounts = rows.map(r => ({ id: undefined, value: r.donor_name, label: r.donor_name }));
+            }
+          }
+        } catch (e) {
+          accounts = [];
+        }
+      }
+
+      // Include some sensible defaults if still empty
+      if (!accounts || accounts.length === 0) {
+        accounts = [
+          { id: 1, value: 'CASH A/C', label: 'CASH A/C' },
+          { id: 2, value: 'BANK A/C', label: 'BANK A/C' },
+        ];
+      }
+
+      res.json({ data: accounts });
+    } catch (err) {
+      console.error('Error fetching /api/ledger/accounts:', err);
+      res.status(500).json({ error: 'Failed to fetch accounts' });
+    }
+  });
+
   // POST /api/ledger/categories
   r.post('/categories', authenticateToken, authorizePermission('ledger_management', 'edit'), async (req, res) => {
     try {
@@ -426,6 +476,25 @@ app.get('/api/mobile/events', async (req, res) => {
       };
       const [id] = await db('money_donations').insert(payload);
       const row = await db('money_donations').where({ id }).first();
+
+      // Also record a credit in ledger_entries for the selected account so balances reflect this donation
+      try {
+        const under = row.transfer_to_account || b.transferTo || 'CASH A/C';
+        await db('ledger_entries').insert({
+          date: row.date,
+          name: row.name ? `Donation - ${row.name}` : 'Donation',
+          type: 'credit',
+          under,
+          amount: row.amount,
+          remarks: row.reason || null,
+          temple_id: row.temple_id,
+          created_at: db.fn.now(),
+          updated_at: db.fn.now(),
+        });
+      } catch (e) {
+        console.error('Failed to insert ledger entry for donation:', e);
+        // Do not fail the main request; frontend balances may not reflect until manual entry
+      }
       res.json({ success: true, data: row });
     } catch (err) {
       console.error('Error creating /api/money-donations:', err);
@@ -626,6 +695,128 @@ const ledgerCategoriesCompat = (() => {
 
   return router;
 })();
+
+// Create receipt
+app.post('/api/receipts', authenticateToken, authorizePermission('receipts', 'edit'), async (req, res) => {
+  try {
+    const b = req.body || {};
+    const type = b.type === 'expense' ? 'payment' : 'receipt';
+    const amount = Number(b.amount);
+    if (!b.date) return res.status(400).json({ error: 'Date is required' });
+    if (!amount || !Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: 'Valid amount is required' });
+    const payload = {
+      register_no: b.receiptNumber || '',
+      date: b.date,
+      type,
+      from_person: b.donor || '',
+      to_person: b.receiver || '',
+      amount,
+      remarks: b.remarks || '',
+      created_by: req.user.id,
+      temple_id: req.user.templeId,
+      created_at: db.fn.now(),
+      updated_at: db.fn.now(),
+    };
+    const [id] = await db('receipts').insert(payload);
+    const row = await db('receipts').where({ id }).first();
+    res.json({ success: true, data: row });
+  } catch (err) {
+    console.error('Error creating receipt:', err);
+    res.status(500).json({ error: 'Failed to create receipt' });
+  }
+});
+
+// Read receipt
+app.get('/api/receipts/:id', authenticateToken, authorizePermission('receipts', 'view'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const row = await db('receipts').where({ id }).andWhere('temple_id', req.user.templeId).first();
+    if (!row) return res.status(404).json({ success: false, error: 'Receipt not found' });
+    res.json({ success: true, data: row });
+  } catch (err) {
+    console.error('Error fetching receipt:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch receipt' });
+  }
+});
+
+// Update receipt
+app.put('/api/receipts/:id', authenticateToken, authorizePermission('receipts', 'edit'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const b = req.body || {};
+    const update = {
+      register_no: b.receiptNumber,
+      date: b.date,
+      type: b.type ? (b.type === 'expense' ? 'payment' : 'receipt') : undefined,
+      from_person: b.donor,
+      to_person: b.receiver,
+      amount: b.amount != null ? Number(b.amount) : undefined,
+      remarks: b.remarks,
+      updated_at: db.fn.now(),
+    };
+    // strip undefineds
+    Object.keys(update).forEach(k => update[k] === undefined && delete update[k]);
+    const changed = await db('receipts').where({ id }).andWhere('temple_id', req.user.templeId).update(update);
+    if (!changed) return res.status(404).json({ success: false, error: 'Receipt not found' });
+    const row = await db('receipts').where({ id }).first();
+    res.json({ success: true, data: row });
+  } catch (err) {
+    console.error('Error updating receipt:', err);
+    res.status(500).json({ success: false, error: 'Failed to update receipt' });
+  }
+});
+
+// List receipts with filters
+app.get('/api/receipts', authenticateToken, authorizePermission('receipts', 'view'), async (req, res) => {
+  try {
+    // Pagination
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit || req.query.pageSize) || 20;
+    const offset = (page - 1) * limit;
+
+    const { q, from, to } = req.query;
+    const typeParam = req.query.type; // 'income' | 'expense' (from UI)
+    const dbType = typeParam === 'income' ? 'receipt' : typeParam === 'expense' ? 'payment' : undefined;
+
+    let base = db('receipts').where('temple_id', req.user.templeId);
+    if (from) base = base.andWhere('date', '>=', String(from));
+    if (to) base = base.andWhere('date', '<=', String(to));
+    if (dbType) base = base.andWhere('type', dbType);
+    if (q && String(q).trim()) {
+      const term = `%${String(q).trim()}%`;
+      base = base.andWhere(function () {
+        this.where('register_no', 'like', term)
+          .orWhere('from_person', 'like', term)
+          .orWhere('to_person', 'like', term)
+          .orWhere('remarks', 'like', term);
+      });
+    }
+
+    const countRow = await base.clone().count({ c: '*' }).first();
+    const total = Number(countRow?.c || countRow?.count || 0);
+
+    const rows = await base
+      .clone()
+      .orderBy('date', 'desc')
+      .orderBy('id', 'desc')
+      .limit(limit)
+      .offset(offset);
+
+    res.json({
+      success: true,
+      data: rows,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit))
+      }
+    });
+  } catch (err) {
+    console.error('Error listing receipts:', err);
+    res.status(500).json({ success: false, error: 'Failed to list receipts' });
+  }
+});
 
 // Delete
 app.delete('/api/receipts/:id', authenticateToken, authorizePermission('receipts', 'edit'), async (req, res) => {
@@ -1895,9 +2086,13 @@ migrate().then(() => {
   console.log('Continuing with server startup...');
 });
 
-// Mount users router
-const usersRouter = require('./users')({ db, JWT_SECRET });
-app.use('/api', usersRouter);
+// Mount users router (provides /api/login for username/mobile + password, and protects other user routes)
+try {
+  const usersRouter = require('./users')({ db, JWT_SECRET, authenticateToken: authenticateToken });
+  app.use('/api', usersRouter);
+} catch (e) {
+  console.error('Failed to mount users router:', e);
+}
 
 // Mobile routes already mounted at the top
 
@@ -2644,12 +2839,29 @@ app.post('/api/members',
             }));
             await trx('user_permissions').insert(superPerms);
           } else if (customPermissions && Array.isArray(customPermissions)) {
-            const permissionRecords = customPermissions.map(perm => ({
+            // De-duplicate by permission_id and upsert to avoid UNIQUE constraint errors
+            const uniqueMap = new Map();
+            for (const perm of customPermissions) {
+              if (!perm?.id) continue;
+              uniqueMap.set(perm.id, perm.access || 'view');
+            }
+            const permissionRecords = Array.from(uniqueMap.entries()).map(([pid, access]) => ({
               user_id: createdUser.id,
-              permission_id: perm.id,
-              access_level: perm.access
+              permission_id: pid,
+              access_level: access,
+              created_at: trx.fn.now(),
+              updated_at: trx.fn.now(),
             }));
-            await trx('user_permissions').insert(permissionRecords);
+
+            if (permissionRecords.length) {
+              await trx('user_permissions')
+                .insert(permissionRecords)
+                .onConflict(['user_id', 'permission_id'])
+                .merge({
+                  access_level: trx.raw('excluded.access_level'),
+                  updated_at: trx.fn.now(),
+                });
+            }
           } else if (permissionLevel) {
             // Backward compatibility: if only a single permission level is provided, set it for member_entry
             await trx('user_permissions').insert({

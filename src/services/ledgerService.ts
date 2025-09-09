@@ -107,6 +107,7 @@ export const ledgerService = {
     endDate?: string;
     type?: 'credit' | 'debit';
     under?: string;
+    name?: string;
     page?: number;
     limit?: number;
   }): Promise<PaginatedResponse<LedgerEntry>> {
@@ -146,6 +147,16 @@ export const ledgerService = {
     const normalized = (list as CategoryApiItem[])
       .map((it) => (typeof it === 'string' ? it : (it.label || it.value || '')))
       .filter((s): s is string => !!s && typeof s === 'string');
+    return normalized;
+  },
+
+  async getNames(): Promise<string[]> {
+    const response = await api.get<any>(`/api/ledger/names`);
+    const raw = response?.data;
+    const list: any[] = Array.isArray(raw?.data) ? raw.data : Array.isArray(raw) ? raw : [];
+    const normalized = list
+      .map((it) => (typeof it === 'string' ? it : it?.name))
+      .filter((s: any): s is string => !!s && typeof s === 'string');
     return normalized;
   },
 

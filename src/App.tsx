@@ -17,6 +17,8 @@ import SettingsPage from './pages/dashboard/SettingsPage';
 import PdfSettingsPage from './pages/settings/PdfSettings';
 import MasterDataPage from '@/pages/masterdata/MasterDataPage';
 import MembersPage from './pages/MembersPage';
+import MemberEntryPage from './pages/MemberEntryPage';
+import MemberLogsPage from './pages/MemberLogsPage';
 import BalanceSheet from './pages/account/BalanceSheetPage';
 import SessionManagementPage from './pages/SessionManagementPage';
 import ActivityLogsPage from './pages/ActivityLogsPage';
@@ -314,6 +316,30 @@ function App() {
                     element={
                       <PermissionGuard requiredPermission="member_entry" accessLevel="view">
                         <MembersPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/dashboard/members/entry"
+                    element={
+                      <PermissionGuard requiredPermission="member_entry" accessLevel="edit">
+                        <MemberEntryPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/dashboard/members/edit/:id"
+                    element={
+                      <PermissionGuard requiredPermission="member_entry" accessLevel="edit">
+                        <MemberEntryPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/dashboard/members/logs"
+                    element={
+                      <PermissionGuard requiredPermission="view_session_logs" accessLevel="view">
+                        <MemberLogsPage />
                       </PermissionGuard>
                     }
                   />

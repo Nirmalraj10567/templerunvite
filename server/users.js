@@ -2,31 +2,78 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
 
 module.exports = function(deps = {}) {
-  const { db, JWT_SECRET } = deps;
+  const { db, JWT_SECRET, authenticateToken } = deps;
 
-  // Login endpoint with rate limiting
-  router.post('/login', async (req, res) => {
-    const { mobile, username, password } = req.body;
+  // Rate limiters (protect public login discovery endpoints)
+  const modeLimiter = rateLimit({ windowMs: 60 * 1000, max: 30 }); // 30/min per IP
+  const smartLimiter = rateLimit({ windowMs: 60 * 1000, max: 10 }); // 10/min per IP
 
-    // Accept either username or mobile along with password
-    if ((!mobile && !username) || !password) {
-      return res.status(400).json({ 
-        error: "Username or mobile and password are required."
-      });
-    }
-
+  // Note: Public routes are defined below. Removed stray early /login block.
+  // Smart login (public)
+  // POST /api/login/smart { mobile, name?, receiptNumber? }
+  // - If mobile belongs to admin or a user with password => respond with password mode and username hint
+  // - Else => auto-trigger OTP (development: returns TEST_OTP) and the matching registration users list
+  router.post('/login/smart', smartLimiter, async (req, res) => {
     try {
+      const { mobile, name, receiptNumber } = req.body || {};
+      if (!mobile) return res.status(400).json({ error: 'mobile is required' });
+
+      const cleanMobile = String(mobile).replace(/\D/g, '');
+      if (cleanMobile.length !== 10) return res.status(400).json({ error: 'Invalid mobile number' });
+
+      // Check main users table (admin/staff)
+      const sysUser = await db('users').select('id','username','mobile','role','password')
+        .where('mobile', cleanMobile).first();
+
+      const isAdmin = !!sysUser && (sysUser.role === 'admin' || sysUser.role === 'superadmin');
+      const hasPassword = !!sysUser && !!sysUser.password && String(sysUser.password).length > 0;
+
+      if (sysUser && (isAdmin || hasPassword)) {
+        return res.json({ mode: 'password', username: sysUser.username || sysUser.mobile, isAdmin });
+      }
+
+      // Otherwise fallback to OTP for member users
+      const TEST_OTP = '123456'; // Development only; replace with SMS integration in production
+      let query = db('user_registrations').where('mobile_number', cleanMobile);
+      if (name) query = query.andWhere('name', 'like', `%${name}%`);
+      if (receiptNumber) query = query.andWhere('reference_number', receiptNumber);
+      const users = await query.select(
+        'id','name','reference_number as referenceNumber','mobile_number as mobileNumber','father_name as fatherName','alternative_name as alternativeName'
+      );
+
+      // Always respond success with OTP mode to avoid leaking whether the number exists in staff table
+      return res.json({
+        mode: 'otp',
+        message: 'OTP sent successfully',
+        otp: TEST_OTP, // Development only; do not expose in production
+        users
+      });
+
+    } catch (err) {
+      console.error('POST /api/login/smart error:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Password login (public)
+  router.post('/login', async (req, res) => {
+    try {
+      const { mobile, username, password } = req.body || {};
+      if ((!mobile && !username) || !password) {
+        return res.status(400).json({ error: 'Username or mobile and password are required.' });
+      }
+
       // Get user with temple information
       const userQuery = db('users')
         .join('temples', 'users.temple_id', 'temples.id')
         .where('users.status', 'active')
         .select('users.*', 'temples.name as templeName');
 
-      // If both provided, match either. If one provided, match that one.
       if (mobile && username) {
-        userQuery.andWhere(builder => builder.where('users.mobile', mobile).orWhere('users.username', username));
+        userQuery.andWhere((b) => b.where('users.mobile', mobile).orWhere('users.username', username));
       } else if (mobile) {
         userQuery.andWhere('users.mobile', mobile);
       } else if (username) {
@@ -34,61 +81,31 @@ module.exports = function(deps = {}) {
       }
 
       const user = await userQuery.first();
-
-      if (!user) {
-        return res.status(401).json({ error: 'Invalid credentials or user not found.' });
-      }
+      if (!user) return res.status(401).json({ error: 'Invalid credentials or user not found.' });
 
       const match = await bcrypt.compare(password, user.password);
-      if (!match) {
-        return res.status(401).json({ error: 'Invalid credentials.' });
-      }
+      if (!match) return res.status(401).json({ error: 'Invalid credentials.' });
 
-      // Update last login (only if column exists)
+      // Optionally update last_login if column exists
       try {
         const hasLastLogin = await db.schema.hasColumn('users', 'last_login');
-        if (hasLastLogin) {
-          await db('users').where('id', user.id).update({ last_login: db.fn.now() });
-        }
-      } catch (e) {
-        // Ignore if schema APIs are unavailable or column missing
-      }
+        if (hasLastLogin) await db('users').where('id', user.id).update({ last_login: db.fn.now() });
+      } catch {}
 
-      // Generate JWT token
       const token = jwt.sign(
-        { 
-          id: user.id, 
-          mobile: user.mobile, 
-          username: user.username, 
-          templeId: user.temple_id,
-          role: user.role 
-        },
+        { id: user.id, mobile: user.mobile, username: user.username, templeId: user.temple_id, role: user.role },
         JWT_SECRET,
         { expiresIn: '24h' }
       );
 
-      // Load user permissions to support frontend permission guard
-      const permissions = await db('user_permissions')
-        .where({ user_id: user.id })
-        .select('permission_id', 'access_level');
+      // Load permissions
+      const permissions = await db('user_permissions').where({ user_id: user.id }).select('permission_id', 'access_level');
 
-      const ipAddress = req.ip;
-      const userAgent = req.headers['user-agent'];
+      // Log session (best effort)
+      db('session_logs').insert({ user_id: user.id, login_time: db.fn.now(), ip_address: req.ip, user_agent: req.headers['user-agent'] }).catch(() => {});
 
-      // Insert session log for login
-      db('session_logs').insert({
-        user_id: user.id,
-        login_time: db.fn.now(),
-        ip_address: ipAddress,
-        user_agent: userAgent
-      }).then(() => {
-        console.log(`Logged login for user ${user.id}`);
-      }).catch(err => {
-        console.error('Error logging session:', err);
-      });
-
-      res.json({ 
-        success: true, 
+      return res.json({
+        success: true,
         token,
         user: {
           id: user.id,
@@ -99,13 +116,62 @@ module.exports = function(deps = {}) {
           templeName: user.templeName,
           fullName: user.full_name,
           email: user.email,
-          permissions
-        }
+          permissions,
+        },
       });
     } catch (err) {
-      console.error('Login error:', err);
-      res.status(500).json({ error: 'Internal server error.' });
+      console.error('POST /api/login error:', err);
+      return res.status(500).json({ error: 'Internal server error.' });
     }
+  });
+
+  // Determine login mode (public)
+  // GET /api/login/mode?mobile=9876543210 or ?username=admin
+  // Returns { mode: 'password' | 'otp', username?: string, isAdmin?: boolean }
+  router.get('/login/mode', modeLimiter, async (req, res) => {
+    try {
+      const { mobile, username } = req.query;
+      if (!mobile && !username) {
+        return res.status(400).json({ error: 'mobile or username is required' });
+      }
+
+      const q = db('users').select('id','username','mobile','role','password');
+      if (mobile && username) {
+        q.where(builder => builder.where('mobile', mobile).orWhere('username', username));
+      } else if (mobile) {
+        q.where({ mobile });
+      } else {
+        q.where({ username });
+      }
+      const user = await q.first();
+
+      if (!user) {
+        return res.json({ mode: 'otp' });
+      }
+
+      const isAdmin = user.role === 'admin' || user.role === 'superadmin';
+      const hasPassword = !!user.password && String(user.password).length > 0;
+
+      if (isAdmin || hasPassword) {
+        return res.json({ mode: 'password', username: user.username || user.mobile, isAdmin });
+      }
+      return res.json({ mode: 'otp', username: user.username || undefined, isAdmin });
+    } catch (err) {
+      console.error('GET /api/login/mode error:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Protect all routes after this point with JWT authentication
+  router.use((req, res, next) => {
+    // Skip auth for these public routes
+    const publicRoutes = ['/login', '/login/mode', '/login/smart'];
+    if (publicRoutes.includes(req.path)) return next();
+    
+    if (typeof authenticateToken === 'function') {
+      return authenticateToken(req, res, next);
+    }
+    return res.status(401).json({ error: 'Access denied. No auth middleware configured.' });
   });
 
   // Register endpoint (admin/superadmin only)

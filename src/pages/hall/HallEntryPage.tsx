@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+        import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
@@ -62,7 +62,7 @@ export default function HallEntryPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string|undefined>();
   const [isError, setIsError] = useState(false);
-  const [categories, setCategories] = useState<Array<{ id: number; value: string; label: string }>>([]);
+  const [accounts, setAccounts] = useState<Array<{ id?: number; value: string; label: string }>>([]);
   const [lastCreatedId, setLastCreatedId] = useState<number | null>(null);
   const [showPrintPrompt, setShowPrintPrompt] = useState(false);
 
@@ -75,29 +75,34 @@ export default function HallEntryPage() {
     }
   };
 
+  const onSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
   const validate = () => {
     if (!form.date || !form.time || !form.name || !form.mobile) return false;
     return true;
   };
 
   useEffect(() => {
-    const loadCategories = async () => {
+    const loadAccounts = async () => {
       try {
-        const resp = await axios.get<any>('/api/ledger/categories', {
+        const resp = await axios.get<any>('/api/ledger/accounts', {
           headers: { Authorization: `Bearer ${getAuthToken()}` }
         });
         const data = (resp?.data && Array.isArray(resp.data.data)) ? resp.data.data : (Array.isArray(resp?.data) ? resp.data : []);
         const mapped = (data || []).map((item: any, index: number) => {
           if (typeof item === 'string') return { id: index + 1, value: item, label: item };
-          return { id: item.id || index + 1, value: item.value || item.label, label: item.label || item.value };
+          return { id: item.id ?? index + 1, value: item.value || item.label, label: item.label || item.value };
         });
-        setCategories(mapped);
+        setAccounts(mapped);
       } catch (e) {
-        console.error('Failed to load categories', e);
-        setCategories([]);
+        console.error('Failed to load accounts', e);
+        setAccounts([]);
       }
     };
-    loadCategories();
+    loadAccounts();
   }, []);
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -156,11 +161,11 @@ export default function HallEntryPage() {
           />
         </div>
         <div>
-          <label className="block text-sm mb-1">{t('Date', 'தேதி')}</label>
+          <label className="block text-sm mb-1">{t('Date', 'தேதி')} *</label>
           <input type="date" className="w-full border p-2 rounded" name="date" value={form.date} onChange={onChange} />
         </div>
         <div>
-          <label className="block text-sm mb-1">{t('Time', 'நேரம்')}</label>
+          <label className="block text-sm mb-1">{t('Time', 'நேரம்')} *</label>
           <input type="time" className="w-full border p-2 rounded" name="time" value={form.time} onChange={onChange} />
         </div>
         <div>
@@ -172,7 +177,7 @@ export default function HallEntryPage() {
           <input className="w-full border p-2 rounded" name="subdivision" value={form.subdivision} onChange={onChange} />
         </div>
         <div>
-          <label className="block text-sm mb-1">{t('Name', 'பெயர்')}</label>
+          <label className="block text-sm mb-1">{t('Name', 'பெயர்')} *</label>
           <input className="w-full border p-2 rounded" name="name" value={form.name} onChange={onChange} />
         </div>
         <div className="md:col-span-2">
@@ -184,7 +189,7 @@ export default function HallEntryPage() {
           <input className="w-full border p-2 rounded" name="village" value={form.village} onChange={onChange} />
         </div>
         <div>
-          <label className="block text-sm mb-1">{t('Phone', 'தொலைபேசி')}</label>
+          <label className="block text-sm mb-1">{t('Phone', 'தொலைபேசி')} *</label>
           <input className="w-full border p-2 rounded" name="mobile" value={form.mobile} onChange={onChange} />
         </div>
         <div>
@@ -203,8 +208,24 @@ export default function HallEntryPage() {
           <label className="block text-sm mb-1">{t('Remarks', 'குறிப்புகள்')}</label>
           <textarea className="w-full border p-2 rounded" name="remarks" value={form.remarks} onChange={onChange} />
         </div>
+        {/* Transfer To Account */}
+        <div className="md:col-span-2">
+          <label className="block text-sm mb-1">{t('Transfer To Account', 'எந்த கணக்கிற்கு மாற்றுவது')}</label>
+          <select
+            name="transferTo"
+            className="w-full border p-2 rounded"
+            value={form.transferTo || ''}
+            onChange={onSelectChange}
+            aria-label={t('Transfer To Account', 'எந்த கணக்கிற்கு மாற்றுவது')}
+          >
+            <option value="">{t('Select account', 'கணக்கைத் தேர்ந்தெடுக்கவும்')}</option>
+            {accounts.map(acc => (
+              <option key={acc.id ?? acc.value} value={acc.value}>{acc.label}</option>
+            ))}
+          </select>
+        </div>
         <div className="md:col-span-2 flex gap-2">
-          <button disabled={saving} className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700" type="submit">
+          <button disabled={saving} className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700 disabled:opacity-60 disabled:cursor-not-allowed" type="submit">
             {saving ? t('Saving...', 'சேமிக்கிறது...') : t('Save', 'சேமிக்க')}
           </button>
           <div className="flex items-center gap-2">

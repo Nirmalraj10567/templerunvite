@@ -34,7 +34,7 @@ export default function PoojaEntryPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [showCalendar, setShowCalendar] = useState(true); // Default to showing calendar
-  const [categories, setCategories] = useState<Array<{ id: number; value: string; label: string }>>([]);
+  const [accounts, setAccounts] = useState<Array<{ id?: number; value: string; label: string }>>([]);
 
   const t = (en: string, ta: string) => language === 'tamil' ? ta : en;
 
@@ -101,21 +101,21 @@ export default function PoojaEntryPage() {
   }, [id, reset, setValue, token, t]);
 
   useEffect(() => {
-    // Load ledger categories for Transfer To select
+    // Load ledger accounts for Transfer To select
     const load = async () => {
       try {
         if (!token) return;
-        const resp = await axios.get<any>('/api/ledger/categories', {
+        const resp = await axios.get<any>('/api/ledger/accounts', {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = (resp?.data && Array.isArray(resp.data.data)) ? resp.data.data : (Array.isArray(resp?.data) ? resp.data : []);
         const mapped = (data || []).map((item: any, index: number) => {
           if (typeof item === 'string') return { id: index + 1, value: item, label: item };
-          return { id: item.id || index + 1, value: item.value || item.label, label: item.label || item.value };
+          return { id: item.id ?? index + 1, value: item.value || item.label, label: item.label || item.value };
         });
-        setCategories(mapped);
+        setAccounts(mapped);
       } catch (e) {
-        console.error('Failed to load categories', e);
+        console.error('Failed to load accounts', e);
       }
     };
     load();
@@ -335,8 +335,8 @@ export default function PoojaEntryPage() {
                 defaultValue=""
               >
                 <option value="">{t('Select', 'தேர்ந்தெடு')}</option>
-                {categories.map(c => (
-                  <option key={c.id} value={c.value}>{c.label}</option>
+                {accounts.map(acc => (
+                  <option key={acc.id ?? acc.value} value={acc.value}>{acc.label}</option>
                 ))}
               </select>
             </div>

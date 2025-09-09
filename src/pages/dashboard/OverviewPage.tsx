@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../lib/language'; // Added for language support
 import {
   UsersIcon,
   BarChartIcon,
@@ -11,6 +12,62 @@ import {
 export default function OverviewPage() {
   const navigate = useNavigate();
   const { user, token } = useAuth();
+  const { language } = useLanguage(); // Get current language
+
+  // Translation object
+  const t = {
+    tamil: {
+      greeting: 'Hi',
+      subtitle: 'Here’s what’s happening today',
+      totalMembers: 'Total Members',
+      paidMembers: 'Paid Members',
+      unpaidMembers: 'Unpaid Members',
+      upcomingEvents: 'Upcoming Events',
+      recentMembers: 'Recent Members',
+      noRecentMembers: 'No recent members',
+      loading: 'Loading…',
+      quickActions: 'Quick Actions',
+      addMember: 'Add Member',
+      addMemberDesc: 'Create a new member record',
+      viewReports: 'View Reports',
+      viewReportsDesc: 'Check today’s performance',
+      collectPayment: 'Collect Payment',
+      collectPaymentDesc: 'Record a new receipt',
+      scheduleEvent: 'Schedule Event',
+      scheduleEventDesc: 'Add to the events calendar',
+      newLabel: 'New',
+      totalRegistrations: 'Total registrations',
+      paidThisMonth: 'Paid this month',
+      unpaidThisMonth: 'Unpaid this month',
+      fromTodayOnwards: 'From today onwards',
+  
+    },
+    english: {
+       greeting: 'வணக்கம்',
+      subtitle: 'இன்று நடக்கும் நிகழ்வுகள் இதோ',
+      totalMembers: 'மொத்த உறுப்பினர்கள்',
+      paidMembers: 'செலுத்திய உறுப்பினர்கள்',
+      unpaidMembers: 'செலுத்தாத உறுப்பினர்கள்',
+      upcomingEvents: 'வரவிருக்கும் நிகழ்வுகள்',
+      recentMembers: 'சமீபத்திய உறுப்பினர்கள்',
+      noRecentMembers: 'சமீபத்திய உறுப்பினர்கள் இல்லை',
+      loading: 'ஏற்றுகிறது…',
+      quickActions: 'விரைவு செயல்கள்',
+      addMember: 'உறுப்பினரைச் சேர்',
+      addMemberDesc: 'புதிய உறுப்பினரைப் பதிவு செய்க',
+      viewReports: 'அறிக்கைகளைப் பார்',
+      viewReportsDesc: 'இன்றைய செயல்பாட்டைச் சரிபார்க்கவும்',
+      collectPayment: 'கட்டணத்தை வசூலி',
+      collectPaymentDesc: 'புதிய ரசீதைப் பதிவு செய்க',
+      scheduleEvent: 'நிகழ்வை அட்டவணைப்படுத்து',
+      scheduleEventDesc: 'நிகழ்வுகள் நாட்காட்டியில் சேர்க்கவும்',
+      newLabel: 'புதியது',
+      totalRegistrations: 'மொத்தப் பதிவுகள்',
+      paidThisMonth: 'இந்த மாதம் செலுத்தியது',
+      unpaidThisMonth: 'இந்த மாதம் செலுத்தவில்லை',
+      fromTodayOnwards: 'இன்று முதல்',
+    },
+  } as const;
 
   // State for dynamic data
   const [totalMembers, setTotalMembers] = useState<number | null>(null);
@@ -89,45 +146,65 @@ export default function OverviewPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl md:text-3xl font-bold text-slate-900">
-            Hi {user?.name ? user.name.split(' ')[0] : 'User'}
+            {t[language as 'tamil' | 'english'].greeting} {user?.name ? user.name.split(' ')[0] : 'User'}
           </h2>
-          <p className="text-sm text-slate-500 mt-1">Here’s what’s happening today</p>
+          <p className="text-sm text-slate-500 mt-1">{t[language as 'tamil' | 'english'].subtitle}</p>
         </div>
       </div>
 
       {/* Stat gradient cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div className="rounded-2xl p-5 text-white shadow-lg bg-gradient-to-br from-orange-500 via-orange-600 to-amber-500 hover:shadow-xl transition-all duration-200">
+        {/* Total Members - Blue */}
+        <div className="rounded-2xl p-5 text-white shadow-lg bg-gradient-to-br from-indigo-500 via-indigo-600 to-blue-600 hover:shadow-xl transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div className="text-sm opacity-90">Total Members</div>
+            <div className="text-sm opacity-90">{t[language as 'tamil' | 'english'].totalMembers}</div>
             <UsersIcon className="h-6 w-6 opacity-90" />
           </div>
           <div className="text-3xl font-bold mt-2">{totalMembers ?? '—'}</div>
-          <div className="text-xs mt-2 opacity-90">{loading ? 'Loading…' : 'Total registrations'}</div>
+          <div className="text-xs mt-2 opacity-90">
+            {loading 
+              ? t[language as 'tamil' | 'english'].loading 
+              : t[language as 'tamil' | 'english'].totalRegistrations}
+          </div>
         </div>
-        <div className="rounded-2xl p-5 text-white shadow-lg bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600 hover:shadow-xl transition-all duration-200">
+        {/* Paid Members - Green */}
+        <div className="rounded-2xl p-5 text-white shadow-lg bg-gradient-to-br from-green-500 via-green-600 to-green-600 hover:shadow-xl transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div className="text-sm opacity-90">Paid Members</div>
+            <div className="text-sm opacity-90">{t[language as 'tamil' | 'english'].paidMembers}</div>
             <CreditCardIcon className="h-6 w-6 opacity-90" />
           </div>
           <div className="text-3xl font-bold mt-2">{paidMembersThisMonth ?? '—'}</div>
-          <div className="text-xs mt-2 opacity-90">{loading ? 'Loading…' : 'Paid this month'}</div>
+          <div className="text-xs mt-2 opacity-90">
+            {loading 
+              ? t[language as 'tamil' | 'english'].loading 
+              : t[language as 'tamil' | 'english'].paidThisMonth}
+          </div>
         </div>
-        <div className="rounded-2xl p-5 text-white shadow-lg bg-gradient-to-br from-rose-600 via-rose-700 to-red-700 hover:shadow-xl transition-all duration-200">
+        {/* Unpaid Members - Blue */}
+        <div className="rounded-2xl p-5 text-white shadow-lg bg-gradient-to-br from-sky-500 via-blue-600 to-indigo-600 hover:shadow-xl transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div className="text-sm opacity-90">Unpaid Members</div>
+            <div className="text-sm opacity-90">{t[language as 'tamil' | 'english'].unpaidMembers}</div>
             <BarChartIcon className="h-6 w-6 opacity-90" />
           </div>
           <div className="text-3xl font-bold mt-2">{unpaidMembersThisMonth ?? '—'}</div>
-          <div className="text-xs mt-2 opacity-90">{loading ? 'Loading…' : 'Unpaid this month'}</div>
+          <div className="text-xs mt-2 opacity-90">
+            {loading 
+              ? t[language as 'tamil' | 'english'].loading 
+              : t[language as 'tamil' | 'english'].unpaidThisMonth}
+          </div>
         </div>
-        <div className="rounded-2xl p-5 text-white shadow-lg bg-gradient-to-br from-indigo-500 via-indigo-600 to-blue-600 hover:shadow-xl transition-all duration-200">
+        {/* Upcoming Events - Green */}
+        <div className="rounded-2xl p-5 text-white shadow-lg bg-gradient-to-br from-green-500 via-green-600 to-green-600 hover:shadow-xl transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div className="text-sm opacity-90">Upcoming Events</div>
+            <div className="text-sm opacity-90">{t[language as 'tamil' | 'english'].upcomingEvents}</div>
             <CalendarIcon className="h-6 w-6 opacity-90" />
           </div>
           <div className="text-3xl font-bold mt-2">{upcomingEvents ?? '—'}</div>
-          <div className="text-xs mt-2 opacity-90">{loading ? 'Loading…' : 'From today onwards'}</div>
+          <div className="text-xs mt-2 opacity-90">
+            {loading 
+              ? t[language as 'tamil' | 'english'].loading 
+              : t[language as 'tamil' | 'english'].fromTodayOnwards}
+          </div>
         </div>
       </div>
 
@@ -135,7 +212,7 @@ export default function OverviewPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Members */}
         <div className="rounded-2xl bg-white border border-slate-200/60 backdrop-blur-sm shadow-sm p-4 sm:p-6">
-          <h3 className="font-semibold text-slate-900 mb-4">Recent Members</h3>
+          <h3 className="font-semibold text-slate-900 mb-4">{t[language as 'tamil' | 'english'].recentMembers}</h3>
           <div className="space-y-3">
             {(recentMembers || []).map((m) => (
               <div
@@ -143,7 +220,8 @@ export default function OverviewPage() {
                 className="flex items-center justify-between rounded-xl border border-slate-200 p-3 hover:bg-slate-50 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-orange-100 text-orange-700 font-semibold flex items-center justify-center">
+                  {/* Avatar circle - Blue */}
+                  <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 font-semibold flex items-center justify-center">
                     {m.name?.split(' ').map(n => n[0]).join('')}
                   </div>
                   <div>
@@ -153,71 +231,73 @@ export default function OverviewPage() {
                     </div>
                   </div>
                 </div>
-                <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600 font-medium">New</span>
+                <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600 font-medium">
+                  {t[language as 'tamil' | 'english'].newLabel}
+                </span>
               </div>
             ))}
             {!loading && recentMembers.length === 0 && (
-              <div className="text-sm text-slate-500">No recent members</div>
+              <div className="text-sm text-slate-500">{t[language as 'tamil' | 'english'].noRecentMembers}</div>
             )}
             {loading && (
-              <div className="text-sm text-slate-500">Loading…</div>
+              <div className="text-sm text-slate-500">{t[language as 'tamil' | 'english'].loading}</div>
             )}
           </div>
         </div>
 
         {/* Quick Actions */}
         <div className="rounded-2xl bg-white border border-slate-200/60 backdrop-blur-sm shadow-sm p-4 sm:p-6">
-          <h3 className="font-semibold text-slate-900 mb-4">Quick Actions</h3>
+          <h3 className="font-semibold text-slate-900 mb-4">{t[language as 'tamil' | 'english'].quickActions}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <button
               onClick={() => navigate('/dashboard/registrations/entry')}
-              aria-label="Add a new member"
-              className="group rounded-2xl p-6 text-left text-white bg-gradient-to-br from-orange-500 via-orange-600 to-amber-500 shadow hover:shadow-lg hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 transition"
+              aria-label={t[language as 'tamil' | 'english'].addMember}
+              className="group rounded-2xl p-6 text-left text-white bg-gradient-to-br from-green-500 via-green-600 to-green-600 shadow hover:shadow-lg hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400 transition"
             >
               <div className="flex items-start gap-3">
                 <UsersIcon className="h-6 w-6 opacity-90" />
                 <div>
-                  <div className="text-lg font-semibold">Add Member</div>
-                  <p className="text-xs mt-1 opacity-90">Create a new member record</p>
+                  <div className="text-lg font-semibold">{t[language as 'tamil' | 'english'].addMember}</div>
+                  <p className="text-xs mt-1 opacity-90">{t[language as 'tamil' | 'english'].addMemberDesc}</p>
                 </div>
               </div>
             </button>
             <button
               onClick={() => navigate('/dashboard/reports/daily')}
-              aria-label="View daily reports"
+              aria-label={t[language as 'tamil' | 'english'].viewReports}
               className="group rounded-2xl p-6 text-left text-white bg-gradient-to-br from-indigo-500 via-indigo-600 to-blue-600 shadow hover:shadow-lg hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 transition"
             >
               <div className="flex items-start gap-3">
                 <BarChartIcon className="h-6 w-6 opacity-90" />
                 <div>
-                  <div className="text-lg font-semibold">View Reports</div>
-                  <p className="text-xs mt-1 opacity-90">Check today’s performance</p>
+                  <div className="text-lg font-semibold">{t[language as 'tamil' | 'english'].viewReports}</div>
+                  <p className="text-xs mt-1 opacity-90">{t[language as 'tamil' | 'english'].viewReportsDesc}</p>
                 </div>
               </div>
             </button>
             <button
               onClick={() => navigate('/dashboard/receipt/entry')}
-              aria-label="Collect a payment"
-              className="group rounded-2xl p-6 text-left text-white bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600 shadow hover:shadow-lg hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 transition"
+              aria-label={t[language as 'tamil' | 'english'].collectPayment}
+              className="group rounded-2xl p-6 text-left text-white bg-gradient-to-br from-indigo-500 via-indigo-600 to-blue-600 shadow hover:shadow-lg hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 transition"
             >
               <div className="flex items-start gap-3">
                 <CreditCardIcon className="h-6 w-6 opacity-90" />
                 <div>
-                  <div className="text-lg font-semibold">Collect Payment</div>
-                  <p className="text-xs mt-1 opacity-90">Record a new receipt</p>
+                  <div className="text-lg font-semibold">{t[language as 'tamil' | 'english'].collectPayment}</div>
+                  <p className="text-xs mt-1 opacity-90">{t[language as 'tamil' | 'english'].collectPaymentDesc}</p>
                 </div>
               </div>
             </button>
             <button
               onClick={() => navigate('/dashboard/events/new')}
-              aria-label="Schedule a new event"
-              className="group rounded-2xl p-6 text-left text-white bg-gradient-to-br from-fuchsia-500 via-purple-600 to-indigo-600 shadow hover:shadow-lg hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400 transition"
+              aria-label={t[language as 'tamil' | 'english'].scheduleEvent}
+              className="group rounded-2xl p-6 text-left text-white bg-gradient-to-br from-green-500 via-green-600 to-green-600 shadow hover:shadow-lg hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 transition"
             >
               <div className="flex items-start gap-3">
                 <CalendarIcon className="h-6 w-6 opacity-90" />
                 <div>
-                  <div className="text-lg font-semibold">Schedule Event</div>
-                  <p className="text-xs mt-1 opacity-90">Add to the events calendar</p>
+                  <div className="text-lg font-semibold">{t[language as 'tamil' | 'english'].scheduleEvent}</div>
+                  <p className="text-xs mt-1 opacity-90">{t[language as 'tamil' | 'english'].scheduleEventDesc}</p>
                 </div>
               </div>
             </button>
@@ -227,4 +307,3 @@ export default function OverviewPage() {
     </div>
   );
 }
-

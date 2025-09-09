@@ -154,7 +154,31 @@ module.exports = function(deps = {}) {
       };
 
       const inserted = await db('pooja').insert(record).returning('*');
-      res.json({ success: true, data: inserted[0] });
+      const row = inserted[0];
+
+      // Mirror to ledger as a credit if amount present
+      try {
+        const under = row.transfer_to_account || p.transferTo || 'CASH A/C';
+        const amountNum = Number(p.amount || row.amount || 0);
+        if (!isNaN(amountNum) && amountNum > 0) {
+          await db('ledger_entries').insert({
+            date: row.from_date || new Date().toISOString().slice(0,10),
+            name: row.name ? `Pooja - ${row.name}` : 'Pooja',
+            type: 'credit',
+            under,
+            amount: amountNum,
+            remarks: row.remarks || null,
+            temple_id: row.temple_id,
+            created_at: db.fn.now(),
+            updated_at: db.fn.now(),
+          });
+        }
+      } catch (e) {
+        console.error('Failed to insert ledger entry for pooja:', e);
+        // Do not fail the main request
+      }
+
+      res.json({ success: true, data: row });
     } catch (err) {
       console.error('POST /api/pooja error:', err);
       res.status(500).json({ error: 'Internal server error' });

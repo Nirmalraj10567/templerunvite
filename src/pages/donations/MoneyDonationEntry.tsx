@@ -29,7 +29,7 @@ export default function MoneyDonationEntry() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string|undefined>();
   const [isError, setIsError] = useState(false);
-  const [categories, setCategories] = useState<Array<{ id: number; value: string; label: string }>>([]);
+  const [accounts, setAccounts] = useState<Array<{ id?: number; value: string; label: string }>>([]);
   const [lastCreatedId, setLastCreatedId] = useState<number | null>(null);
   const [showPrintPrompt, setShowPrintPrompt] = useState(false);
 
@@ -41,23 +41,23 @@ export default function MoneyDonationEntry() {
   };
 
   useEffect(() => {
-    const loadCategories = async () => {
+    const loadAccounts = async () => {
       try {
-        const resp = await axios.get<any>('/api/ledger/categories', {
+        const resp = await axios.get<any>('/api/ledger/accounts', {
           headers: { Authorization: `Bearer ${getAuthToken()}` }
         });
         const data = (resp?.data && Array.isArray(resp.data.data)) ? resp.data.data : (Array.isArray(resp?.data) ? resp.data : []);
         const mapped = (data || []).map((item: any, index: number) => {
           if (typeof item === 'string') return { id: index + 1, value: item, label: item };
-          return { id: item.id || index + 1, value: item.value || item.label, label: item.label || item.value };
+          return { id: item.id ?? index + 1, value: item.value || item.label, label: item.label || item.value };
         });
-        setCategories(mapped);
+        setAccounts(mapped);
       } catch (e) {
-        console.error('Failed to load categories', e);
-        setCategories([]);
+        console.error('Failed to load accounts', e);
+        setAccounts([]);
       }
     };
-    loadCategories();
+    loadAccounts();
   }, []);
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -146,8 +146,8 @@ export default function MoneyDonationEntry() {
             onChange={(e) => setForm(prev => ({ ...prev, transferTo: e.target.value }))}
           >
             <option value="">{t('Select account', 'கணக்கைத் தேர்ந்தெடுக்கவும்')}</option>
-            {categories.map(c => (
-              <option key={c.id} value={c.value}>{c.label}</option>
+            {accounts.map(acc => (
+              <option key={acc.id ?? acc.value} value={acc.value}>{acc.label}</option>
             ))}
           </select>
         </div>

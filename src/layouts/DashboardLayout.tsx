@@ -80,7 +80,15 @@ export default function DashboardLayout() {
   const sidebarItems = useMemo(
     () => [
       { to: '/dashboard', label: 'Overview', icon: HomeIcon, permissionId: 'dashboard' },
-      { to: '/dashboard/members', label: 'Members', icon: UsersIcon, permissionId: 'member_entry' },
+      {
+        label: 'Members',
+        icon: UsersIcon,
+        children: [
+          { to: '/dashboard/members', label: 'View Members', permissionId: 'member_entry', accessLevel: 'view' },
+          { to: '/dashboard/members/entry', label: 'Member Entry', permissionId: 'member_entry', accessLevel: 'edit' },
+          { to: '/dashboard/members/logs', label: 'Member Logs', permissionId: 'view_session_logs', accessLevel: 'view' },
+        ],
+      },
       {
         label: 'Reports',
         icon: BarChartIcon,
@@ -89,30 +97,21 @@ export default function DashboardLayout() {
           { to: '/dashboard/reports/monthly', label: 'Monthly Report', permissionId: 'reports' },
         ]
       },
-      { to: '/dashboard/balance-sheet', label: 'Balance Sheet', icon: LandmarkIcon, permissionId: 'balance_sheet' },
-      { to: '/dashboard/master-data', label: 'Master Data', icon: LandmarkIcon, permissionId: 'master_data' },
-      {
+    /*  { to: '/dashboard/balance-sheet', label: 'Balance Sheet', icon: LandmarkIcon, permissionId: 'balance_sheet' },
+      */ {
         label: 'Ledger',
         icon: CreditCardIcon,
         children: [
           { to: '/dashboard/ledger/entry', label: 'New Entry', permissionId: 'ledger_management', accessLevel: 'edit' },
           { to: '/dashboard/ledger/list', label: 'View Entries', permissionId: 'ledger_management', accessLevel: 'view' },
+       
+       /*
           { to: '/dashboard/ledger/profit-and-loss', label: 'Profit & Loss', permissionId: 'reports', accessLevel: 'view' },
           { to: '/dashboard/ledger/cashflow-by-category', label: 'Cashflow by Category', permissionId: 'reports', accessLevel: 'view' },
           { to: '/dashboard/ledger/category-statement', label: 'Category Statement', permissionId: 'reports', accessLevel: 'view' },
-        ]
+        */]
       },
-      { to: '/dashboard/session-logs', label: 'Session Logs', icon: HistoryIcon, permissionId: 'view_session_logs' },
-      // Settings section with child routes
-      {
-        label: 'Settings',
-        icon: SettingsIcon,
-        children: [
-          { to: '/dashboard/settings', label: 'General Settings', permissionId: 'setting' },
-          { to: '/dashboard/tax/settings', label: 'Tax Settings', permissionId: 'tax_registrations' },
-          { to: '/dashboard/settings/pdf', label: 'PDF Settings', permissionId: 'pdf_settings' },
-        ]
-      },
+   
       
       // Pooja section with parent and child routes
       {
@@ -211,6 +210,21 @@ export default function DashboardLayout() {
           { to: '/dashboard/properties/new', label: 'New Property', permissionId: 'property_registrations', accessLevel: 'edit' },
         ]
       },
+      
+      { to: '/dashboard/session-logs', label: 'Session Logs', icon: HistoryIcon, permissionId: 'view_session_logs' },
+      // Settings section with child routes
+
+      { to: '/dashboard/master-data', label: 'Master Data', icon: LandmarkIcon, permissionId: 'master_data' },
+     
+      {
+        label: 'Settings',
+        icon: SettingsIcon,
+        children: [
+          { to: '/dashboard/settings', label: 'General Settings', permissionId: 'setting' },
+          { to: '/dashboard/tax/settings', label: 'Tax Settings', permissionId: 'tax_registrations' },
+          { to: '/dashboard/settings/pdf', label: 'PDF Settings', permissionId: 'pdf_settings' },
+        ]
+      }
     ],
     []
   );
@@ -261,18 +275,18 @@ export default function DashboardLayout() {
         onMouseLeave={() => setIsHoveringSidebar(false)}
         className={`
           ${isMobile ? 'fixed' : 'hidden md:flex'} 
-          inset-y-0 left-0 z-40 flex-col bg-slate-900 text-white transition-all duration-300
+          inset-y-0 left-0 z-40 flex flex-col md:h-screen bg-blue-500 text-white transition-all duration-300
           ${isSidebarCollapsed ? 'w-20' : 'w-64'}
           ${isMobile ? (isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full') : ''}
         `}
       >
-        <div className="flex items-center justify-between h-16 px-4 border-b border-slate-800">
+        <div className="flex items-center justify-between h-16 px-4 border-b border-blue-400 bg-blue-500">
           {!isSidebarCollapsed && <span className="text-xl font-bold">Temple</span>}
-          <button onClick={() => setSidebarCollapsed(!isSidebarCollapsed)} className="hidden md:block p-2 rounded-full hover:bg-slate-800">
+          <button onClick={() => setSidebarCollapsed(!isSidebarCollapsed)} className="hidden md:block p-2 rounded-full hover:bg-blue-400">
             {isSidebarCollapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
           </button>
         </div>
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-orange-500 scrollbar-track-slate-900 hover:scrollbar-thumb-orange-400 transition-colors duration-200 pr-2">
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto bg-blue-500 scrollbar-thin scrollbar-thumb-blue-400 scrollbar-track-blue-500 hover:scrollbar-thumb-blue-300 transition-colors duration-200 pr-2">
           {allowedSidebarItems.map((item) => {
             // If item has children, render expandable menu
             if (item.children) {
@@ -284,7 +298,7 @@ export default function DashboardLayout() {
                     className={`
                       flex items-center p-2 rounded-lg cursor-pointer transition-colors
                       ${isSidebarCollapsed ? 'justify-center' : ''} 
-                      hover:bg-slate-800
+                      hover:bg-blue-400/60
                     `}
                   >
                     <item.icon className="h-6 w-6" />
@@ -304,7 +318,7 @@ export default function DashboardLayout() {
                           end
                           className={({ isActive }) =>
                             `block p-2 rounded-lg transition-colors 
-                            ${isActive ? 'bg-orange-600' : 'hover:bg-slate-800'}`
+                            ${isActive ? 'bg-blue-400' : 'hover:bg-blue-300/60'}`
                           }
                           onClick={() => isMobile && setMobileMenuOpen(false)}
                         >
@@ -326,7 +340,7 @@ export default function DashboardLayout() {
                 className={({ isActive }) =>
                   `flex items-center p-2 rounded-lg transition-colors 
                   ${isSidebarCollapsed ? 'justify-center' : ''} 
-                  ${isActive ? 'bg-orange-600' : 'hover:bg-slate-800'}`
+                  ${isActive ? 'bg-blue-400' : 'hover:bg-blue-300/60'}`
                 }
                 onClick={() => isMobile && setMobileMenuOpen(false)}
               >
@@ -338,7 +352,7 @@ export default function DashboardLayout() {
         </nav>
         <div className="p-4 border-t border-slate-800">
           <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : ''}`}>
-            <div className="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center font-bold">
+            <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center font-bold">
               {user?.name?.[0]?.toUpperCase() || 'U'}
             </div>
             {!isSidebarCollapsed && (
@@ -356,7 +370,7 @@ export default function DashboardLayout() {
   return (
     <div className="relative min-h-screen md:flex">
       {/* Mobile menu button */}
-      <div className="bg-gray-800 text-gray-100 flex justify-between md:hidden">
+      <div className="bg-blue-800 text-gray-100 flex justify-between md:hidden">
         <button onClick={() => setMobileMenuOpen(!isMobileMenuOpen)} className="p-4 mobile-menu-button">
           <MenuIcon />
         </button>
@@ -371,7 +385,7 @@ export default function DashboardLayout() {
         <header className="flex items-center justify-end h-16 bg-white border-b border-gray-200 px-4">
           <Header />
         </header>
-        <main className="flex-1 p-6 overflow-y-auto bg-gray-100 scrollbar-thin scrollbar-thumb-orange-500 scrollbar-track-gray-100 hover:scrollbar-thumb-orange-400 transition-colors duration-200 pr-4">
+        <main className="flex-1 p-6 overflow-y-auto bg-blue-50 scrollbar-thin scrollbar-thumb-blue-500 scrollbar-track-blue-50 hover:scrollbar-thumb-blue-400 transition-colors duration-200 pr-4">
           <Outlet />
         </main>
       </div>
@@ -379,7 +393,7 @@ export default function DashboardLayout() {
       {/* Mobile overlay */}
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden mobile-overlay"
+          className="fixed inset-0 bg-blue-200 bg-opacity-50 z-30 md:hidden mobile-overlay"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}

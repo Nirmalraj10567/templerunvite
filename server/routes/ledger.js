@@ -76,7 +76,7 @@ router.post('/entries', authenticateToken, async (req, res) => {
 // Get all ledger entries with filters
 router.get('/entries', authenticateToken, async (req, res) => {
   try {
-    const { startDate, endDate, type, under, page = 1, limit = 20 } = req.query;
+    const { startDate, endDate, type, under, name, page = 1, limit = 20 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
     
     let query = db('ledger_entries');
@@ -95,6 +95,14 @@ router.get('/entries', authenticateToken, async (req, res) => {
     
     if (under) {
       query = query.where('under', under);
+    }
+    
+    if (name) {
+      // Partial match on name (case-insensitive where supported)
+      const term = String(name).trim();
+      if (term) {
+        query = query.where('name', 'like', `%${term}%`);
+      }
     }
     
     // Get total count for pagination
@@ -281,6 +289,22 @@ router.get('/categories-used', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error fetching categories:', error);
     res.status(500).json({ error: 'Failed to fetch categories' });
+  }
+});
+
+// Get distinct ledger names for autocompletion (donor/receiver, etc.)
+router.get('/names', authenticateToken, async (req, res) => {
+  try {
+    const rows = await db('ledger_entries')
+      .distinct('name')
+      .whereNotNull('name')
+      .andWhere('name', '!=', '')
+      .orderBy('name', 'asc');
+    const names = rows.map(r => r.name);
+    res.json({ data: names });
+  } catch (error) {
+    console.error('Error fetching ledger names:', error);
+    res.status(500).json({ error: 'Failed to fetch ledger names' });
   }
 });
 

@@ -31,6 +31,9 @@ export default function DailyReportPage() {
   const [cashCount, setCashCount] = useState<string>('');
   const [extraIncome, setExtraIncome] = useState<string>('');
   const [extraExpense, setExtraExpense] = useState<string>('');
+  // Client-side filters
+  const [filterText, setFilterText] = useState<string>('');
+  const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
 
   const fetchReport = async (d: string) => {
     if (!token) return;
@@ -89,13 +92,31 @@ export default function DailyReportPage() {
       if (!v) return;
       list.push({ id: i++, account: k.replaceAll('_', ' '), type: 'income', debit: 0, credit: v });
     });
-    return list;
-  }, [data]);
+    // Apply client-side filters
+    const ft = filterText.trim().toLowerCase();
+    const t = filterType;
+    const filtered = list.filter((r) => {
+      const typeOk = t === 'all' ? true : r.type === t;
+      const textOk = !ft ||
+        r.account.toLowerCase().includes(ft) ||
+        (r.note || '').toLowerCase().includes(ft);
+      return typeOk && textOk;
+    });
+    return filtered;
+  }, [data, filterText, filterType]);
 
   const debitTotal = useMemo(() => rows.reduce((s, r) => s + r.debit, 0), [rows]);
   const creditTotal = useMemo(() => rows.reduce((s, r) => s + r.credit, 0), [rows]);
 
   const toCurrency = (n: number) => `₹ ${n.toLocaleString()}`;
+
+  // Pagination for journal rows
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const itemsPerPage = 10;
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(rows.length / itemsPerPage)), [rows]);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedRows = useMemo(() => rows.slice(startIndex, startIndex + itemsPerPage), [rows, startIndex]);
+  useEffect(() => { setCurrentPage(1); }, [date, data]);
 
   const onExportCSV = () => {
     const headers = [
@@ -145,6 +166,27 @@ export default function DailyReportPage() {
         <div>
           <label className="block text-sm mb-1">{t('Date', 'தேதி')}</label>
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="border rounded p-2" />
+        </div>
+        <div>
+          <label className="block text-sm mb-1">{t('Type', 'வகை')}</label>
+          <select
+            className="border rounded p-2"
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value as any)}
+          >
+            <option value="all">{t('All', 'அனைத்து')}</option>
+            <option value="income">{t('Income', 'வரவு')}</option>
+            <option value="expense">{t('Expense', 'செலவு')}</option>
+          </select>
+        </div>
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-sm mb-1">{t('Search', 'தேடல்')}</label>
+          <input
+            placeholder={t('Search account or note', 'கணக்கு அல்லது குறிப்பில் தேடவும்')}
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+            className="w-full border rounded p-2"
+          />
         </div>
         <button
           onClick={() => fetchReport(date)}
@@ -200,9 +242,9 @@ export default function DailyReportPage() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id} className="odd:bg-white even:bg-slate-50">
-                    <td className="px-3 py-2 border-b">{r.id}</td>
+                {paginatedRows.map((r, idx) => (
+                  <tr key={`${r.id}-${idx}`} className="odd:bg-white even:bg-slate-50">
+                    <td className="px-3 py-2 border-b">{startIndex + idx + 1}</td>
                     <td className="px-3 py-2 border-b">{date}</td>
                     <td className="px-3 py-2 border-b">
                       <span className={`px-2 py-1 rounded text-xs font-medium ${r.type === 'income' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
@@ -225,6 +267,27 @@ export default function DailyReportPage() {
                 </tr>
               </tfoot>
             </table>
+          </div>
+
+          {/* Pagination controls */}
+          <div className="flex items-center justify-between mt-3">
+            <button
+              className="px-3 py-1.5 rounded border bg-white hover:bg-slate-50 disabled:opacity-50"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+            >
+              {t('Previous', 'முந்தைய')}
+            </button>
+            <div className="text-sm text-slate-600">
+              {t('Page', 'பக்கம்')} {currentPage} {t('of', 'இல்')} {totalPages}
+            </div>
+            <button
+              className="px-3 py-1.5 rounded border bg-white hover:bg-slate-50 disabled:opacity-50"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages}
+            >
+              {t('Next', 'அடுத்தது')}
+            </button>
           </div>
 
           {/* Calculator */}

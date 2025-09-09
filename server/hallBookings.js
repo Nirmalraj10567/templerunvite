@@ -198,7 +198,31 @@ module.exports = function(deps = {}) {
         updated_at: db.fn.now(),
       };
       const inserted = await db('marriage_hall_bookings').insert(record).returning('*');
-      res.json({ success: true, data: inserted[0] });
+      const row = inserted[0];
+
+      // Mirror to ledger as a credit so balances reflect revenue collection
+      try {
+        const under = row.transfer_to_account || p.transferTo || 'CASH A/C';
+        const amountNum = Number(p.advanceAmount || p.totalAmount || 0);
+        if (!isNaN(amountNum) && amountNum > 0) {
+          await db('ledger_entries').insert({
+            date: row.date || new Date().toISOString().slice(0,10),
+            name: row.name ? `Hall Booking - ${row.name}${row.event ? ' (' + row.event + ')' : ''}` : 'Hall Booking',
+            type: 'credit',
+            under,
+            amount: amountNum,
+            remarks: row.remarks || null,
+            temple_id: row.temple_id,
+            created_at: db.fn.now(),
+            updated_at: db.fn.now(),
+          });
+        }
+      } catch (e) {
+        console.error('Failed to insert ledger entry for hall booking:', e);
+        // Do not fail the main request
+      }
+
+      res.json({ success: true, data: row });
     } catch (err) {
       console.error('POST /api/hall-bookings error:', err);
       res.status(500).json({ error: 'Internal server error' });

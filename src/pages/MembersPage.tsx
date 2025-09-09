@@ -11,10 +11,65 @@ import { Modal } from '@/components/ui/modal';
 import MemberLogsView from './MemberLogsView';
 
 export default function MembersPage() {
-  const [activeTab, setActiveTab] = useState<'view' | 'entry' | 'logs'>('view');
   const { language } = useLanguage();
   const { user, token, userPermissions, isSuperAdmin } = useAuth();
   
+  // Translation object
+  const t = {
+    tamil: {
+      management: 'உறுப்பினர்கள் நிர்வாகம்',
+      viewMembers: 'காட்சி',
+      memberEntry: 'நுழைவு',
+      logs: 'பதிவுகள்',
+      editMember: 'உறுப்பினர் திருத்தம்',
+      resetPassword: 'கடவுச்சொல் மீட்டமை',
+      newPassword: 'புதிய கடவுச்சொல்',
+      cancel: 'ரத்து செய்',
+      reset: 'மீட்டமை',
+      deleteConfirm: 'உறுப்பினரை நீக்கவா?',
+      deleteMessage: 'இந்த உறுப்பினரை நிரந்தரமாக நீக்க விரும்புகிறீர்களா?',
+      delete: 'நீக்கு',
+      passwordReset: 'கடவுச்சொல் மீட்டமைக்கப்பட்டது',
+      passwordSet: 'புதிய கடவுச்சொல் அமைக்கப்பட்டது',
+      memberCreated: 'உறுப்பினர் உருவாக்கப்பட்டது',
+      activityLogged: 'செயல்பாடு பதிவு செய்யப்பட்டது.',
+      loginCreated: 'உள்நுழைவு உருவாக்கப்பட்டது.',
+      memberDeleted: 'உறுப்பினர் நீக்கப்பட்டார்',
+      deleteSuccess: 'உறுப்பினர் வெற்றிகரமாக நீக்கப்பட்டார்',
+      error: 'பிழை',
+      deleteFailed: 'உறுப்பினரை நீக்க முடியவில்லை',
+      blockFailed: 'உறுப்பினரை தடுக்க முடியவில்லை',
+      unblockFailed: 'உறுப்பினரை தடைநீக்க முடியவில்லை',
+      noPermission: 'உறுப்பினர்களைப் பார்க்க உங்களுக்கு அனுமதி இல்லை'
+    },
+    english: {
+      management: 'Members Management',
+      viewMembers: 'View Members',
+      memberEntry: 'Member Entry',
+      logs: 'Member Logs',
+      editMember: 'Edit Member',
+      resetPassword: 'Reset Password',
+      newPassword: 'New password',
+      cancel: 'Cancel',
+      reset: 'Reset',
+      deleteConfirm: 'Delete Member?',
+      deleteMessage: 'Are you sure you want to permanently delete this member?',
+      delete: 'Delete',
+      passwordReset: 'Password reset',
+      passwordSet: 'New password has been set',
+      memberCreated: 'Member created',
+      activityLogged: 'Activity logged.',
+      loginCreated: 'Login created.',
+      memberDeleted: 'Member deleted',
+      deleteSuccess: 'Member was successfully deleted',
+      error: 'Error',
+      deleteFailed: 'Failed to delete member',
+      blockFailed: 'Failed to block member',
+      unblockFailed: 'Failed to unblock member',
+      noPermission: 'You don\'t have permission to view members'
+    }
+  } as const;
+
   const memberEntryPerm = (userPermissions || []).find(p => p.permission_id === 'member_entry');
   const memberEntryLevel = memberEntryPerm?.access_level as ('view' | 'edit' | 'full' | undefined);
   const hasViewAccess = !!memberEntryLevel; // any level grants view
@@ -58,7 +113,7 @@ export default function MembersPage() {
   );
 
   if (!canViewMembers) {
-    return <div>You don't have permission to view members</div>;
+    return <div>{t[language].noPermission}</div>;
   }
 
   const filteredMembers = members.filter(member => 
@@ -121,8 +176,8 @@ export default function MembersPage() {
 
       const data = await response.json();
       toast({
-        title: language === 'tamil' ? 'உறுப்பினர் உருவாக்கப்பட்டது' : 'Member created',
-        description: `${language === 'tamil' ? 'செயல்பாடு பதிவு செய்யப்பட்டது.' : 'Activity logged.'} ` + (data.createdUserId ? (language === 'tamil' ? 'உள்நுழைவு உருவாக்கப்பட்டது.' : 'Login created.') : '')
+        title: t[language].memberCreated,
+        description: `${t[language].activityLogged} ` + (data.createdUserId ? (t[language].loginCreated) : '')
       });
       // Map returned member
       const created = data.member ? {
@@ -212,20 +267,16 @@ export default function MembersPage() {
       if (response.ok) {
         setMembers(members.filter(m => m.id !== memberToDelete));
         toast({
-          title: language === 'tamil' ? 'உறுப்பினர் நீக்கப்பட்டார்' : 'Member deleted',
-          description: language === 'tamil'
-            ? 'உறுப்பினர் வெற்றிகரமாக நீக்கப்பட்டார்'
-            : 'Member was successfully deleted'
+          title: t[language].memberDeleted,
+          description: t[language].deleteSuccess
         });
       } else {
         throw new Error('Failed to delete member');
       }
     } catch (error) {
       toast({
-        title: language === 'tamil' ? 'பிழை' : 'Error',
-        description: language === 'tamil'
-          ? 'உறுப்பினரை நீக்க முடியவில்லை'
-          : 'Failed to delete member',
+        title: t[language].error,
+        description: t[language].deleteFailed,
         variant: 'destructive'
       });
       console.error('Error deleting member:', error);
@@ -238,50 +289,28 @@ export default function MembersPage() {
     fetchMembers();
   }, []);
 
+  // No tabs; separate pages handle entry and logs
+
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-bold">
-        {language === 'tamil' ? 'உறுப்பினர்கள் நிர்வாகம்' : 'Members Management'}
+        {t[language].management}
       </h1>
       
-      <div className="flex border-b border-gray-200">
-        <button
-          className={`px-4 py-2 font-medium ${activeTab === 'view' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-gray-500'}`}
-          onClick={() => setActiveTab('view')}
-        >
-          {language === 'tamil' ? 'காட்சி' : 'View Members'}
-        </button>
-        {canAddMembers && (
-          <button
-            className={`px-4 py-2 font-medium ${activeTab === 'entry' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-gray-500'}`}
-            onClick={() => setActiveTab('entry')}
-          >
-            {language === 'tamil' ? 'நுழைவு' : 'Member Entry'}
-          </button>
-        )}
-        {canViewLogs && (
-          <button
-            className={`px-4 py-2 font-medium ${activeTab === 'logs' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-gray-500'}`}
-            onClick={() => setActiveTab('logs')}
-          >
-            {language === 'tamil' ? 'பதிவுகள்' : 'Member Logs'}
-          </button>
-        )}
-      </div>
+      {/* No tabs; navigation happens via sidebar links */}
       
-      {activeTab === 'view' && (
-        <MemberListView
-          members={filteredByRole}
-          searchTerm={searchTerm}
-          filterRole={filterRole}
-          language={language}
-          canEditMembers={canEditMembers}
-          canDeleteMembers={canDeleteMembers}
-          canBlockMembers={canBlockMembers}
-          canResetPasswords={canResetPasswords}
-          onEdit={handleEditMember}
-          onDelete={handleDeleteMember}
-          onBlock={async (id, userId) => {
+      <MemberListView
+        members={filteredByRole}
+        searchTerm={searchTerm}
+        filterRole={filterRole}
+        language={language}
+        canEditMembers={canEditMembers}
+        canDeleteMembers={canDeleteMembers}
+        canBlockMembers={canBlockMembers}
+        canResetPasswords={canResetPasswords}
+        onEdit={handleEditMember}
+        onDelete={handleDeleteMember}
+        onBlock={async (id, userId) => {
             try {
               // Optimistic update
               setMembers(prev => prev.map(m => 
@@ -309,16 +338,14 @@ export default function MembersPage() {
               fetchMembers();
             } catch (err) {
               toast({
-                title: language === 'tamil' ? 'பிழை' : 'Error',
-                description: language === 'tamil'
-                  ? 'உறுப்பினரை தடுக்க முடியவில்லை'
-                  : 'Failed to block member',
+                title: t[language].error,
+                description: t[language].blockFailed,
                 variant: 'destructive'
               });
               console.error('Error blocking member:', err);
             }
           }}
-          onUnblock={async (id, userId) => {
+        onUnblock={async (id, userId) => {
             try {
               // Optimistic update
               setMembers(prev => prev.map(m => 
@@ -346,42 +373,24 @@ export default function MembersPage() {
               fetchMembers();
             } catch (err) {
               toast({
-                title: language === 'tamil' ? 'பிழை' : 'Error',
-                description: language === 'tamil'
-                  ? 'உறுப்பினரை தடைநீக்க முடியவில்லை'
-                  : 'Failed to unblock member',
+                title: t[language].error,
+                description: t[language].unblockFailed,
                 variant: 'destructive'
               });
               console.error('Error unblocking member:', err);
             }
           }}
-          onResetPassword={async (id) => {
+        onResetPassword={async (id) => {
             setResetMemberId(id);
             setResetPassword('');
             setShowResetPwModal(true);
           }}
-          onSearch={setSearchTerm}
-          onFilter={setFilterRole}
-        />
-      )}
-      {activeTab === 'entry' && (
-        <MemberEntryView
-          newMember={newMember}
-          setNewMember={setNewMember}
-          editingMember={editingMember as Member}
-          language={language}
-          user={user}
-          handleAddMember={handleAddMember}
-          handleUpdateMember={handleUpdateMember}
-          isEditing={false}
-        />
-      )}
-      {activeTab === 'logs' && canViewLogs && (
-        <MemberLogsView token={token} language={language as any} />
-      )}
+        onSearch={setSearchTerm}
+        onFilter={setFilterRole}
+      />
       {showEditModal && editingMember && (
         <Modal
-          title={language === 'tamil' ? 'உறுப்பினர் திருத்தம்' : 'Edit Member'}
+          title={t[language].editMember}
           onClose={() => setShowEditModal(false)}
         >
           <MemberEntryView
@@ -397,7 +406,7 @@ export default function MembersPage() {
       )}
       {showResetPwModal && resetMemberId !== null && (
         <Modal
-          title={language === 'tamil' ? 'கடவுச்சொல் மீட்டமை' : 'Reset Password'}
+          title={t[language].resetPassword}
           onClose={() => setShowResetPwModal(false)}
         >
           <div className="space-y-4">
@@ -407,14 +416,14 @@ export default function MembersPage() {
               onChange={(e) => setResetPassword(e.target.value)}
               className="w-full px-3 py-2 border rounded"
               minLength={6}
-              placeholder={language === 'tamil' ? 'புதிய கடவுச்சொல்' : 'New password'}
+              placeholder={t[language].newPassword}
             />
             <div className="flex justify-end gap-2">
               <button
                 className="px-4 py-2 rounded border"
                 onClick={() => setShowResetPwModal(false)}
               >
-                {language === 'tamil' ? 'ரத்து செய்' : 'Cancel'}
+                {t[language].cancel}
               </button>
               <button
                 className="px-4 py-2 rounded bg-blue-600 text-white"
@@ -430,8 +439,8 @@ export default function MembersPage() {
                       body: JSON.stringify({ newPassword: resetPassword })
                     });
                     toast({
-                      title: language === 'tamil' ? 'கடவுச்சொல் மீட்டமைக்கப்பட்டது' : 'Password reset',
-                      description: language === 'tamil' ? 'புதிய கடவுச்சொல் அமைக்கப்பட்டது' : 'New password has been set'
+                      title: t[language].passwordReset,
+                      description: t[language].passwordSet
                     });
                     setShowResetPwModal(false);
                     setResetPassword('');
@@ -441,7 +450,7 @@ export default function MembersPage() {
                   }
                 }}
               >
-                {language === 'tamil' ? 'மீட்டமை' : 'Reset'}
+                {t[language].reset}
               </button>
             </div>
           </div>
@@ -449,7 +458,7 @@ export default function MembersPage() {
       )}
       {showDeleteModal && (
         <Modal
-          title={language === 'tamil' ? 'உறுப்பினரை நீக்கவா?' : 'Delete Member?'}
+          title={t[language].deleteConfirm}
           onClose={() => {
             setShowDeleteModal(false);
             setMemberToDelete(null);
@@ -457,9 +466,7 @@ export default function MembersPage() {
         >
           <div className="space-y-4">
             <p>
-              {language === 'tamil'
-                ? 'இந்த உறுப்பினரை நிரந்தரமாக நீக்க விரும்புகிறீர்களா?'
-                : 'Are you sure you want to permanently delete this member?'}
+              {t[language].deleteMessage}
             </p>
             <div className="flex justify-end gap-2">
               <button
@@ -469,13 +476,13 @@ export default function MembersPage() {
                   setMemberToDelete(null);
                 }}
               >
-                {language === 'tamil' ? 'ரத்து செய்' : 'Cancel'}
+                {t[language].cancel}
               </button>
               <button
                 className="px-4 py-2 rounded bg-red-600 text-white"
                 onClick={confirmDeleteMember}
               >
-                {language === 'tamil' ? 'நீக்கு' : 'Delete'}
+                {t[language].delete}
               </button>
             </div>
           </div>
