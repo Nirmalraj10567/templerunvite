@@ -697,7 +697,7 @@ try {
 
 // Mount tax registrations CRUD (multipart create, list, export)
 try {
-  const taxRegistrationsRouter = require('./components/tax-registrations');
+  const taxRegistrationsRouter = require('./components/tax-registrations/index.js');
   app.use('/api/tax-registrations', taxRegistrationsRouter);
 } catch (e) {
   console.error('Failed to mount tax registrations router:', e);
@@ -3738,8 +3738,8 @@ app.listen(PORT, () => {
   console.error('Server startup error:', err);
 });
 
-// Mount tax registrations router
-const taxRegistrationsRouter = require('./components/tax-registrations');
+// Mount tax registrations router (ensure correct index.js is used)
+const taxRegistrationsRouter = require('./components/tax-registrations/index.js');
 app.use('/api/tax-registrations', taxRegistrationsRouter);
 
 // Master Clans endpoints

@@ -156,25 +156,35 @@ module.exports = function(deps = {}) {
       const inserted = await db('pooja').insert(record).returning('*');
       const row = inserted[0];
 
-      // Mirror to ledger as a credit if amount present
+      // Mirror to journal so balances reflect in reports
       try {
-        const under = row.transfer_to_account || p.transferTo || 'CASH A/C';
+        const hasJournal = await db.schema.hasTable('journal_entries');
         const amountNum = Number(p.amount || row.amount || 0);
-        if (!isNaN(amountNum) && amountNum > 0) {
-          await db('ledger_entries').insert({
-            date: row.from_date || new Date().toISOString().slice(0,10),
-            name: row.name ? `Pooja - ${row.name}` : 'Pooja',
-            type: 'credit',
-            under,
-            amount: amountNum,
-            remarks: row.remarks || null,
-            temple_id: row.temple_id,
-            created_at: db.fn.now(),
-            updated_at: db.fn.now(),
-          });
+        if (hasJournal && !isNaN(amountNum) && amountNum > 0) {
+          const fromAccount = 'INCOME A/C';
+          const toAccount = row.transfer_to_account || p.transferTo || 'CASH A/C';
+          // Prevent duplicate mirror just in case
+          const existing = await db('journal_entries')
+            .where({ reference_type: 'pooja', reference_id: row.id, temple_id: row.temple_id })
+            .first();
+          if (!existing) {
+            await db('journal_entries').insert({
+              date: row.from_date || new Date().toISOString().slice(0,10),
+              from_account: fromAccount,
+              to_account: toAccount,
+              amount: amountNum,
+              entry_type: 'transfer',
+              remarks: row.remarks || null,
+              reference_type: 'pooja',
+              reference_id: row.id,
+              temple_id: row.temple_id,
+              created_by: row.created_by,
+              created_at: db.fn.now(),
+            });
+          }
         }
       } catch (e) {
-        console.error('Failed to insert ledger entry for pooja:', e);
+        console.error('Failed to mirror pooja into journal_entries:', e);
         // Do not fail the main request
       }
 
@@ -235,6 +245,37 @@ module.exports = function(deps = {}) {
       }
       
       const pooja = await db('pooja').where({ id }).first();
+
+      // Sync journal mirror: delete old and recreate if amount present
+      try {
+        const hasJournal = await db.schema.hasTable('journal_entries');
+        if (hasJournal) {
+          await db('journal_entries')
+            .where({ reference_type: 'pooja', reference_id: Number(id), temple_id: req.user.templeId })
+            .del();
+          const amountNum = Number(p.amount || pooja.amount || 0);
+          if (!isNaN(amountNum) && amountNum > 0) {
+            const fromAccount = 'INCOME A/C';
+            const toAccount = pooja.transfer_to_account || p.transferTo || 'CASH A/C';
+            await db('journal_entries').insert({
+              date: pooja.from_date || new Date().toISOString().slice(0,10),
+              from_account: fromAccount,
+              to_account: toAccount,
+              amount: amountNum,
+              entry_type: 'transfer',
+              remarks: pooja.remarks || null,
+              reference_type: 'pooja',
+              reference_id: Number(id),
+              temple_id: req.user.templeId,
+              created_by: req.user.id,
+              created_at: db.fn.now(),
+            });
+          }
+        }
+      } catch (e) {
+        console.error('Failed to sync journal mirror for pooja update:', e);
+      }
+
       res.json({ success: true, data: pooja });
     } catch (err) {
       console.error('PUT /api/pooja/:id error:', err);
@@ -255,6 +296,18 @@ module.exports = function(deps = {}) {
         return res.status(404).json({ error: 'Pooja entry not found' });
       }
       
+      // Cleanup mirrored journal entries
+      try {
+        const hasJournal = await db.schema.hasTable('journal_entries');
+        if (hasJournal) {
+          await db('journal_entries')
+            .where({ reference_type: 'pooja', reference_id: Number(id), temple_id: req.user.templeId })
+            .del();
+        }
+      } catch (e) {
+        console.warn('Failed to cleanup journal mirror for pooja delete:', id, e);
+      }
+
       res.json({ success: true });
     } catch (err) {
       console.error('DELETE /api/pooja/:id error:', err);

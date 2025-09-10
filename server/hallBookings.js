@@ -222,6 +222,37 @@ module.exports = function(deps = {}) {
         // Do not fail the main request
       }
 
+      // Mirror to journal: INCOME A/C -> selected account for collected money
+      try {
+        const hasJournal = await db.schema.hasTable('journal_entries');
+        const amountNum = Number(p.advanceAmount || p.totalAmount || 0);
+        if (hasJournal && !isNaN(amountNum) && amountNum > 0) {
+          const fromAccount = 'INCOME A/C';
+          const toAccount = row.transfer_to_account || p.transferTo || 'CASH A/C';
+          // prevent duplicate mirror
+          const existing = await db('journal_entries')
+            .where({ reference_type: 'hall_booking', reference_id: row.id, temple_id: row.temple_id })
+            .first();
+          if (!existing) {
+            await db('journal_entries').insert({
+              date: row.date || new Date().toISOString().slice(0,10),
+              from_account: fromAccount,
+              to_account: toAccount,
+              amount: amountNum,
+              entry_type: 'transfer',
+              remarks: row.remarks || null,
+              reference_type: 'hall_booking',
+              reference_id: row.id,
+              temple_id: row.temple_id,
+              created_by: req.user.id,
+              created_at: db.fn.now(),
+            });
+          }
+        }
+      } catch (e) {
+        console.error('Failed to mirror hall booking into journal_entries:', e);
+      }
+
       res.json({ success: true, data: row });
     } catch (err) {
       console.error('POST /api/hall-bookings error:', err);
@@ -263,6 +294,37 @@ module.exports = function(deps = {}) {
       }
       
       const booking = await db('marriage_hall_bookings').where({ id }).first();
+
+      // Sync journal mirror on update
+      try {
+        const hasJournal = await db.schema.hasTable('journal_entries');
+        if (hasJournal) {
+          await db('journal_entries')
+            .where({ reference_type: 'hall_booking', reference_id: Number(id), temple_id: req.user.templeId })
+            .del();
+          const amountNum = Number(p.advanceAmount || p.totalAmount || booking.total_amount || 0);
+          if (!isNaN(amountNum) && amountNum > 0) {
+            const fromAccount = 'INCOME A/C';
+            const toAccount = booking.transfer_to_account || p.transferTo || 'CASH A/C';
+            await db('journal_entries').insert({
+              date: booking.date || new Date().toISOString().slice(0,10),
+              from_account: fromAccount,
+              to_account: toAccount,
+              amount: amountNum,
+              entry_type: 'transfer',
+              remarks: booking.remarks || null,
+              reference_type: 'hall_booking',
+              reference_id: Number(id),
+              temple_id: req.user.templeId,
+              created_by: req.user.id,
+              created_at: db.fn.now(),
+            });
+          }
+        }
+      } catch (e) {
+        console.error('Failed to sync hall booking journal mirror:', e);
+      }
+
       res.json({ success: true, data: booking });
     } catch (err) {
       console.error('PUT /api/hall-bookings/:id error:', err);
@@ -281,6 +343,18 @@ module.exports = function(deps = {}) {
       
       if (!result) {
         return res.status(404).json({ error: 'Hall booking not found' });
+      }
+
+      // Cleanup journal mirror
+      try {
+        const hasJournal = await db.schema.hasTable('journal_entries');
+        if (hasJournal) {
+          await db('journal_entries')
+            .where({ reference_type: 'hall_booking', reference_id: Number(id), temple_id: req.user.templeId })
+            .del();
+        }
+      } catch (e) {
+        console.warn('Failed to cleanup hall booking journal mirror:', e);
       }
       
       res.json({ success: true });

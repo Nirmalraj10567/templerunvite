@@ -43,7 +43,7 @@ interface ApiResponse<T> {
 }
 
 class PoojaService {
-  private baseUrl = 'http://localhost:4000/api/pooja';
+  private baseUrl = `${import.meta.env.VITE_API_BASE_URL || ''}/api/pooja`;
   private token: string | null = null;
 
   constructor() {

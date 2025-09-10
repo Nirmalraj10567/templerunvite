@@ -185,14 +185,6 @@ export default function DashboardLayout() {
         ]
       },
       {
-        label: 'Marriage Hall',
-        icon: HomeIcon,
-        children: [
-          { to: '/dashboard/hall/entry', label: 'Hall Entry', permissionId: 'edit_hall' },
-          { to: '/dashboard/hall/list', label: 'Hall List', permissionId: 'view_hall' },
-        ]
-      },
-      {
         label: 'Properties',
         icon: HomeIcon,
         children: [
