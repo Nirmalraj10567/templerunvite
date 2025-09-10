@@ -94,6 +94,8 @@ export default function DashboardLayout() {
           { to: '/dashboard/reports/daily', label: 'Daily Report', permissionId: 'reports' },
           { to: '/dashboard/reports/monthly', label: 'Monthly Report', permissionId: 'reports' },
           { to: '/dashboard/reports/journal-log', label: 'Journal Log', permissionId: 'reports' },
+          { to: '/dashboard/reports/trial-balance', label: 'Trial Balance', permissionId: 'reports' },
+          { to: '/dashboard/reports/balance-sheet', label: 'Balance Sheet', permissionId: 'reports' },
         ]
       },
       { to: '/dashboard/balance-sheet', label: 'Balance Sheet', icon: LandmarkIcon, permissionId: 'balance_sheet' },

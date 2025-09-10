@@ -60,6 +60,8 @@ import ProfitAndLossPage from './pages/ledger/ProfitAndLossPage';
 import CashflowByCategoryPage from './pages/ledger/CashflowByCategoryPage';
 import CategoryStatementPage from './pages/ledger/CategoryStatementPage';
 import JournalLogPage from './pages/reports/JournalLogPage';
+import TrialBalancePage from './pages/reports/TrialBalancePage';
+import BalanceSheetPage from './pages/reports/BalanceSheetPage';
 
 function App() {
   return (
@@ -301,6 +303,22 @@ function App() {
                     element={
                       <PermissionGuard requiredPermission="reports" accessLevel="view">
                         <JournalLogPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/dashboard/reports/trial-balance"
+                    element={
+                      <PermissionGuard requiredPermission="reports" accessLevel="view">
+                        <TrialBalancePage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/dashboard/reports/balance-sheet"
+                    element={
+                      <PermissionGuard requiredPermission="reports" accessLevel="view">
+                        <BalanceSheetPage />
                       </PermissionGuard>
                     }
                   />

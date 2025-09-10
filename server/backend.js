@@ -895,6 +895,224 @@ const ledgerCategoriesCompat = (() => {
     }
   });
 
+  // GET /api/journal/trial-balance
+  // Computes per-account inflow (credits to the account) and outflow (debits from the account)
+  // Returns debit/credit columns by sign of net (without a chart of accounts)
+  r.get('/trial-balance', authenticateToken, authorizePermission('ledger_management', 'view'), async (req, res) => {
+    try {
+      const { from, to } = req.query;
+      const base = db('journal_entries').where('temple_id', req.user.templeId);
+      if (from) base.andWhere('date', '>=', String(from));
+      if (to) base.andWhere('date', '<=', String(to));
+
+      // Aggregate inflow by to_account
+      const inflows = await base
+        .clone()
+        .select('to_account as account')
+        .sum({ inflow: 'amount' })
+        .groupBy('to_account');
+
+      // Aggregate outflow by from_account
+      const outflows = await base
+        .clone()
+        .select('from_account as account')
+        .sum({ outflow: 'amount' })
+        .groupBy('from_account');
+
+      const map = new Map();
+      inflows.forEach((r) => {
+        const k = r.account || '';
+        if (!k) return;
+        const prev = map.get(k) || { account: k, inflow: 0, outflow: 0 };
+        prev.inflow += Number(r.inflow || r.sum || 0);
+        map.set(k, prev);
+      });
+      outflows.forEach((r) => {
+        const k = r.account || '';
+        if (!k) return;
+        const prev = map.get(k) || { account: k, inflow: 0, outflow: 0 };
+        prev.outflow += Number(r.outflow || r.sum || 0);
+        map.set(k, prev);
+      });
+
+      const rows = Array.from(map.values()).map((r) => {
+        const net = (r.inflow || 0) - (r.outflow || 0);
+        return {
+          account: r.account,
+          inflow: Number(r.inflow || 0),
+          outflow: Number(r.outflow || 0),
+          balance: Math.round((net + Number.EPSILON) * 100) / 100,
+          debit: net < 0 ? Math.round((Math.abs(net) + Number.EPSILON) * 100) / 100 : 0,
+          credit: net > 0 ? Math.round((net + Number.EPSILON) * 100) / 100 : 0,
+        };
+      }).sort((a, b) => a.account.localeCompare(b.account));
+
+      const totals = rows.reduce((acc, r) => {
+        acc.debit += r.debit;
+        acc.credit += r.credit;
+        return acc;
+      }, { debit: 0, credit: 0 });
+      totals.debit = Math.round((totals.debit + Number.EPSILON) * 100) / 100;
+      totals.credit = Math.round((totals.credit + Number.EPSILON) * 100) / 100;
+
+      res.json({ success: true, data: rows, totals });
+    } catch (err) {
+      console.error('Error computing trial balance:', err);
+      res.status(500).json({ error: 'Failed to compute trial balance' });
+    }
+  });
+
+  // GET /api/journal/trial-balance.pdf
+  // Same data as JSON, rendered as a simple PDF table. Token expected in query (?token=)
+  r.get('/trial-balance.pdf', verifyQueryToken, async (req, res) => {
+    try {
+      const { from, to } = req.query;
+      const base = db('journal_entries').where('temple_id', req.user.templeId);
+      if (from) base.andWhere('date', '>=', String(from));
+      if (to) base.andWhere('date', '<=', String(to));
+
+      const inflows = await base.clone().select('to_account as account').sum({ inflow: 'amount' }).groupBy('to_account');
+      const outflows = await base.clone().select('from_account as account').sum({ outflow: 'amount' }).groupBy('from_account');
+
+      const map = new Map();
+      inflows.forEach((r) => {
+        const k = r.account || '';
+        if (!k) return;
+        const prev = map.get(k) || { account: k, inflow: 0, outflow: 0 };
+        prev.inflow += Number(r.inflow || r.sum || 0);
+        map.set(k, prev);
+      });
+      outflows.forEach((r) => {
+        const k = r.account || '';
+        if (!k) return;
+        const prev = map.get(k) || { account: k, inflow: 0, outflow: 0 };
+        prev.outflow += Number(r.outflow || r.sum || 0);
+        map.set(k, prev);
+      });
+
+      const rows = Array.from(map.values()).map((r) => {
+        const net = (r.inflow || 0) - (r.outflow || 0);
+        return {
+          account: r.account,
+          inflow: Number(r.inflow || 0),
+          outflow: Number(r.outflow || 0),
+          balance: Math.round((net + Number.EPSILON) * 100) / 100,
+          debit: net < 0 ? Math.round((Math.abs(net) + Number.EPSILON) * 100) / 100 : 0,
+          credit: net > 0 ? Math.round((net + Number.EPSILON) * 100) / 100 : 0,
+        };
+      }).sort((a, b) => a.account.localeCompare(b.account));
+
+      const totals = rows.reduce((acc, r) => { acc.debit += r.debit; acc.credit += r.credit; return acc; }, { debit: 0, credit: 0 });
+      totals.debit = Math.round((totals.debit + Number.EPSILON) * 100) / 100;
+      totals.credit = Math.round((totals.credit + Number.EPSILON) * 100) / 100;
+
+      // Create PDF
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="trial-balance_${from || 'start'}_${to || 'end'}.pdf"`);
+      const doc = new PDFDocument({ margin: 40, size: 'A4' });
+      doc.pipe(res);
+
+      doc.fontSize(16).text('Trial Balance', { align: 'center' });
+      doc.moveDown(0.5);
+      doc.fontSize(10).text(`Temple ID: ${req.user.templeId}   Range: ${from || '-'} to ${to || '-'}`, { align: 'center' });
+      doc.moveDown();
+
+      const headers = ['Account', 'Inflow', 'Outflow', 'Debit', 'Credit', 'Balance'];
+      const colWidths = [180, 70, 70, 70, 70, 70];
+      const startX = doc.x;
+      let y = doc.y;
+
+      const drawRow = (vals, bold = false) => {
+        let x = startX;
+        vals.forEach((v, i) => {
+          doc.fontSize(10).font(bold ? 'Helvetica-Bold' : 'Helvetica');
+          const isNum = i > 0;
+          const txt = typeof v === 'number' ? v.toFixed(2) : String(v);
+          doc.text(txt, x + 2, y, { width: colWidths[i] - 4, align: isNum ? 'right' : 'left' });
+          x += colWidths[i];
+        });
+        y += 18;
+        if (y > doc.page.height - 60) { doc.addPage(); y = doc.y; }
+      };
+
+      // Header
+      drawRow(headers, true);
+      // Divider
+      doc.moveTo(startX, y - 4).lineTo(startX + colWidths.reduce((a,b)=>a+b,0), y - 4).strokeColor('#999').stroke();
+
+      // Body
+      rows.forEach(r => drawRow([r.account, r.inflow, r.outflow, r.debit, r.credit, r.balance]));
+
+      // Totals
+      doc.moveDown(0.5);
+      drawRow(['Total', '', '', totals.debit, totals.credit, rows.reduce((s, r) => s + r.balance, 0)], true);
+
+      doc.end();
+    } catch (err) {
+      console.error('Error generating trial balance PDF:', err);
+      res.status(500).json({ error: 'Failed to generate PDF' });
+    }
+  });
+
+  // GET /api/journal/balance-sheet
+  // Heuristic grouping using only net sign (no chart of accounts):
+  // assets = accounts with positive balance; liabilities = accounts with negative balance
+  r.get('/balance-sheet', authenticateToken, authorizePermission('ledger_management', 'view'), async (req, res) => {
+    try {
+      const { from, to } = req.query;
+      const base = db('journal_entries').where('temple_id', req.user.templeId);
+      if (from) base.andWhere('date', '>=', String(from));
+      if (to) base.andWhere('date', '<=', String(to));
+
+      const inflows = await base
+        .clone()
+        .select('to_account as account')
+        .sum({ inflow: 'amount' })
+        .groupBy('to_account');
+      const outflows = await base
+        .clone()
+        .select('from_account as account')
+        .sum({ outflow: 'amount' })
+        .groupBy('from_account');
+
+      const map = new Map();
+      inflows.forEach((r) => {
+        const k = r.account || '';
+        if (!k) return;
+        const prev = map.get(k) || { account: k, inflow: 0, outflow: 0 };
+        prev.inflow += Number(r.inflow || r.sum || 0);
+        map.set(k, prev);
+      });
+      outflows.forEach((r) => {
+        const k = r.account || '';
+        if (!k) return;
+        const prev = map.get(k) || { account: k, inflow: 0, outflow: 0 };
+        prev.outflow += Number(r.outflow || r.sum || 0);
+        map.set(k, prev);
+      });
+
+      const assets = [];
+      const liabilities = [];
+      Array.from(map.values()).forEach((r) => {
+        const net = (r.inflow || 0) - (r.outflow || 0);
+        const item = {
+          account: r.account,
+          balance: Math.round((net + Number.EPSILON) * 100) / 100,
+        };
+        if (net >= 0) assets.push(item); else liabilities.push({ account: r.account, balance: Math.round((Math.abs(net) + Number.EPSILON) * 100) / 100 });
+      });
+
+      const sum = (list) => Math.round((list.reduce((s, x) => s + (x.balance || 0), 0) + Number.EPSILON) * 100) / 100;
+      const totalAssets = sum(assets);
+      const totalLiabilities = sum(liabilities);
+
+      res.json({ success: true, data: { assets, liabilities, totals: { assets: totalAssets, liabilities: totalLiabilities } } });
+    } catch (err) {
+      console.error('Error computing balance sheet:', err);
+      res.status(500).json({ error: 'Failed to compute balance sheet' });
+    }
+  });
+
   app.use('/api/journal', r);
 })();
 // Create receipt
