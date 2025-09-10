@@ -71,6 +71,45 @@ const db = knex({
   }
 });
 
+// Next Reference Number (year-based, per temple)
+app.get('/api/tax-registrations/next-ref', authenticateToken, async (req, res) => {
+  try {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const templeId = req.user.templeId;
+    // Prefer max suffix if reference_number is stored like YYYY-0001, else fallback to count
+    let seq = 0;
+    try {
+      const rows = await db('user_tax_registrations')
+        .where({ temple_id: templeId, year })
+        .whereNotNull('reference_number')
+        .andWhere('reference_number', 'like', `${year}-%`)
+        .select('reference_number');
+      const nums = rows
+        .map(r => String(r.reference_number || ''))
+        .map(ref => {
+          const m = ref.match(/^(\d{4})-(\d+)$/);
+          return m ? Number(m[2]) : null;
+        })
+        .filter(n => Number.isFinite(n));
+      seq = nums.length ? Math.max(...nums) : 0;
+    } catch (e) {
+      // ignore and fallback
+      seq = 0;
+    }
+    if (!Number.isFinite(seq) || seq <= 0) {
+      const cRow = await db('user_tax_registrations').where({ temple_id: templeId, year }).count({ c: '*' }).first();
+      const c = Number(cRow?.c || cRow?.count || 0);
+      seq = c;
+    }
+    const next = seq + 1;
+    const ref = `${year}-${String(next).padStart(4, '0')}`;
+    res.json({ success: true, ref, year });
+  } catch (err) {
+    console.error('Error computing next ref:', err);
+    res.status(500).json({ error: 'Failed to compute next reference number' });
+  }
+});
+
 // Function to retry database operations on SQLITE_BUSY
 const retryOnBusy = async (fn, maxRetries = 5, delay = 100) => {
   for (let i = 0; i < maxRetries; i++) {
@@ -525,10 +564,10 @@ app.get('/api/mobile/events', async (req, res) => {
       const [id] = await db('money_donations').insert(payload);
       const row = await db('money_donations').where({ id }).first();
 
-      // Also record a journal entry: move funds from selected from_account to transfer_to_account
+      // Also record a journal entry: record income flowing into CASH A/C (or selected account)
       try {
+        const fromAccount = 'INCOME A/C';
         const toAccount = row.transfer_to_account || b.transferTo || 'CASH A/C';
-        const fromAccount = b.fromAccount || b.transferFrom || 'DONATION A/C';
         const hasJournal = await db.schema.hasTable('journal_entries');
         if (hasJournal) {
           await db('journal_entries').insert({
@@ -654,6 +693,14 @@ try {
   app.use(taxRegistrationReceiptRouter);
 } catch (e) {
   console.error('Failed to mount tax registration receipt router:', e);
+}
+
+// Mount tax registrations CRUD (multipart create, list, export)
+try {
+  const taxRegistrationsRouter = require('./components/tax-registrations');
+  app.use('/api/tax-registrations', taxRegistrationsRouter);
+} catch (e) {
+  console.error('Failed to mount tax registrations router:', e);
 }
 
 // Mount annadhanam receipt route (PDF)
@@ -822,7 +869,8 @@ const ledgerCategoriesCompat = (() => {
       const outflowRow = await db('journal_entries').where({ temple_id: req.user.templeId, from_account: account }).sum({ s: 'amount' }).first();
       const inflow = Number(inflowRow?.s || inflowRow?.sum || 0);
       const outflow = Number(outflowRow?.s || outflowRow?.sum || 0);
-      const balance = inflow - outflow;
+      const balanceRaw = inflow - outflow;
+      const balance = Math.round((balanceRaw + Number.EPSILON) * 100) / 100;
       res.json({ account, balance });
     } catch (err) {
       console.error('Error computing balance:', err);
@@ -879,19 +927,25 @@ app.post('/api/receipts', authenticateToken, authorizePermission('receipts', 'ed
       const toAccount = isExpense ? (row.to_person || 'EXPENSE A/C') : (row.to_person || 'CASH A/C');
       const hasJournal = await db.schema.hasTable('journal_entries');
       if (hasJournal) {
-        await db('journal_entries').insert({
-          date: row.date,
-          from_account: fromAccount,
-          to_account: toAccount,
-          amount: row.amount,
-          entry_type: isExpense ? 'expense' : 'income',
-          remarks: row.remarks || null,
-          reference_type: 'receipt',
-          reference_id: row.id,
-          temple_id: req.user.templeId,
-          created_by: req.user.id,
-          created_at: db.fn.now(),
-        });
+        const existing = await db('journal_entries')
+          .where({ reference_type: 'receipt', reference_id: row.id, temple_id: req.user.templeId })
+          .first();
+        if (!existing) {
+          await db('journal_entries').insert({
+            date: row.date,
+            from_account: fromAccount,
+            to_account: toAccount,
+            amount: row.amount,
+            // Use 'transfer' to satisfy DB CHECK constraint reliably
+            entry_type: 'transfer',
+            remarks: row.remarks || null,
+            reference_type: 'receipt',
+            reference_id: row.id,
+            temple_id: req.user.templeId,
+            created_by: req.user.id,
+            created_at: db.fn.now(),
+          });
+        }
       }
     } catch (e) {
       console.error('Failed to mirror receipt into journal_entries:', e);
@@ -1000,8 +1054,19 @@ app.get('/api/receipts', authenticateToken, authorizePermission('receipts', 'vie
 app.delete('/api/receipts/:id', authenticateToken, authorizePermission('receipts', 'edit'), async (req, res) => {
   try {
     const { id } = req.params;
+    // Delete receipt and any mirrored journal entries
     const del = await db('receipts').where({ id }).andWhere('temple_id', req.user.templeId).del();
     if (!del) return res.status(404).json({ error: 'Receipt not found' });
+    try {
+      const hasJournal = await db.schema.hasTable('journal_entries');
+      if (hasJournal) {
+        await db('journal_entries')
+          .where({ reference_type: 'receipt', reference_id: Number(id), temple_id: req.user.templeId })
+          .del();
+      }
+    } catch (e) {
+      console.warn('Failed to cleanup mirrored journal for receipt', id, e);
+    }
     res.json({ success: true });
   } catch (err) {
     console.error('Error deleting receipt:', err);

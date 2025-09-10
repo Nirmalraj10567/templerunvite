@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from 'react-i18next'; // Import the useTranslation hook
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Modal } from '@/components/ui/modal';
+import { useLanguage } from '@/lib/language';
 import axios from 'axios';
 
 interface Heir {
@@ -18,6 +19,7 @@ interface Heir {
 
 export default function TaxUserEntryPage() {
   const { t, i18n } = useTranslation(); // Initialize the translation hook
+  const { language } = useLanguage();
   const { user, token } = useAuth();
   const navigate = useNavigate();
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -25,7 +27,6 @@ export default function TaxUserEntryPage() {
   const [form, setForm] = useState({
     referenceNumber: '',
     date: today,
-    subdivision: '',
     name: '',
     alternativeName: '',
     wifeName: '',
@@ -58,6 +59,7 @@ export default function TaxUserEntryPage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [lookingUp, setLookingUp] = useState(false);
+  const [nameLookingUp, setNameLookingUp] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [categories, setCategories] = useState<Array<{ id: number; value: string; label: string }>>([]);
@@ -67,6 +69,22 @@ export default function TaxUserEntryPage() {
   const [initialDue, setInitialDue] = useState<number>(0); // current year tax + previous unpaid, from backend settings
   const [lastCreatedId, setLastCreatedId] = useState<number | null>(null);
   const [showPrintPrompt, setShowPrintPrompt] = useState<boolean>(false);
+  const [nameResults, setNameResults] = useState<any[]>([]);
+  const [showNameResults, setShowNameResults] = useState<boolean>(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const suppressNameLookupRef = useRef<number>(0);
+  // Focus target for fast entry after selection
+  const amountPaidRef = useRef<HTMLInputElement>(null);
+  // Existing photo from autofill (when no new upload)
+  const [existingPhotoUrl, setExistingPhotoUrl] = useState<string | null>(null);
+  // When data is autofilled, lock personal/id/address sections by default
+  const [autoLocked, setAutoLocked] = useState<boolean>(false);
+  // Collapsible sections to reduce scrolling
+  const [showAddress, setShowAddress] = useState<boolean>(false);
+  const [showIdDetails, setShowIdDetails] = useState<boolean>(false);
+  const [showHeirs, setShowHeirs] = useState<boolean>(false);
+  const [showCumulative, setShowCumulative] = useState<boolean>(false);
+  const [showPhoto, setShowPhoto] = useState<boolean>(false);
 
   // Master data for dropdowns
   const [masterClans, setMasterClans] = useState<string[]>([]);
@@ -74,13 +92,7 @@ export default function TaxUserEntryPage() {
   const [masterOccupations, setMasterOccupations] = useState<string[]>([]);
   const [masterEducations, setMasterEducations] = useState<string[]>([]);
 
-  // Subdivision options
-  const subdivisions = [
-    { value: 'subdivision1', label: 'Sub 1', tamil: 'உட்பிரிவு 1' },
-    { value: 'subdivision2', label: 'Sub 2', tamil: 'உட்பிரிவு 2' },
-    { value: 'subdivision3', label: 'Sub 3', tamil: 'உட்பிரிவு 3' },
-    { value: 'subdivision4', label: 'Sub 4', tamil: 'உட்பிரிவு 4' }
-  ];
+  // Subdivision removed
 
   // Master data for races
   const masterRaces = [
@@ -184,17 +196,18 @@ export default function TaxUserEntryPage() {
     })();
   }, [token]);
 
-  // Load tax amount for current year on mount
+  // Load tax amount and next Ref No for current year on mount
   useEffect(() => {
     if (user?.templeId && token && !loading) {
       fetchTaxAmountForYear(form.year);
+      fetchNextReferenceNumber(form.year);
     }
   }, [user?.templeId, token, loading]);
 
   const set = (k: string, v: any) => setForm(p => ({ ...p, [k]: v }));
 
   // Helper to show text in current language only
-  const L = (en: string, ta: string) => (i18n.language?.startsWith('ta') ? ta : en);
+  const L = (en: string, ta: string) => (language === 'english' ? ta : en);
 
   // Input formatting functions
   const formatMobileNumber = (value: string) => {
@@ -202,6 +215,82 @@ export default function TaxUserEntryPage() {
     if (clean.length >= 6) return `${clean.slice(0, 3)}-${clean.slice(3, 6)}-${clean.slice(6)}`;
     if (clean.length >= 3) return `${clean.slice(0, 3)}-${clean.slice(3)}`;
     return clean;
+  };
+
+  // Derived remaining due after payment
+  const remainingDue = Math.max(
+    0,
+    Number(form.outstandingAmount || 0) - Number(form.amountPaid || 0)
+  );
+
+  // Debounced auto-lookup for Name and Mobile (replaces search buttons)
+  useEffect(() => {
+    // Suppress lookup shortly after a selection to avoid reopening dropdown
+    if (suppressNameLookupRef.current && Date.now() < suppressNameLookupRef.current) return;
+    const q = form.name?.trim() || '';
+    if (!q || q.length < 2) return;
+    const t = setTimeout(() => {
+      try {
+        (lookupUsersByName as any)?.(q);
+      } catch (e) {
+        // no-op if function not present
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [form.name]);
+
+  useEffect(() => {
+    const digits = form.mobileNumber?.replace(/\D/g, '') || '';
+    if (digits.length !== 10) return;
+    const t = setTimeout(() => {
+      try {
+        (lookupUserByMobile as any)?.(form.mobileNumber);
+      } catch (e) {}
+    }, 300);
+    return () => clearTimeout(t);
+  }, [form.mobileNumber]);
+
+  // Auto-fill: default Amount to be paid from Outstanding (or Tax Amount) if empty
+  useEffect(() => {
+    const due = Number(form.outstandingAmount || form.taxAmount || 0);
+    if ((!form.amountPaid || Number(form.amountPaid) <= 0) && Number.isFinite(due) && due > 0) {
+      setForm(prev => ({ ...prev, amountPaid: String(due) }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.outstandingAmount, form.taxAmount]);
+
+  // Fast navigation: treat Enter as Tab to move to next field
+  const handleFormKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Enter') return;
+    const t = e.target as HTMLElement;
+    const tag = t.tagName?.toLowerCase();
+    if (!tag || ['button'].includes(tag)) return; // allow buttons to click
+    e.preventDefault();
+    const selectors = 'input, select, textarea, button';
+    const tabbables = Array.from(document.querySelectorAll<HTMLElement>(selectors))
+      .filter(el => !el.hasAttribute('disabled') && el.tabIndex !== -1 && el.offsetParent !== null);
+    const idx = tabbables.indexOf(t);
+    if (idx > -1 && idx + 1 < tabbables.length) {
+      tabbables[idx + 1].focus();
+    }
+  };
+
+  // Fetch next yearly reference number (read-only Ref No)
+  const fetchNextReferenceNumber = async (year: number) => {
+    if (!token || !year) return;
+    try {
+      const res = await fetch(`/api/tax-registrations/next-ref?year=${year}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.success && data?.ref) {
+          setForm(prev => ({ ...prev, referenceNumber: data.ref }));
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch next reference number', e);
+    }
   };
 
   const formatAadhaarNumber = (value: string) => {
@@ -215,6 +304,58 @@ export default function TaxUserEntryPage() {
     const formatted = formatter(value);
     setForm(prev => ({ ...prev, [field]: formatted }));
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
+  };
+
+  // Helper: fill form fields from a registration row
+  const fillFormFromRegistration = (userData: any) => {
+    setForm(prev => ({
+      ...prev,
+      name: userData.name || '',
+      alternativeName: userData.alternative_name || '',
+      wifeName: userData.wife_name || '',
+      fatherName: userData.father_name || '',
+      address: userData.address || '',
+      birthDate: userData.birth_date || '',
+      village: userData.village || '',
+      aadhaarNumber: userData.aadhaar_number ? formatAadhaarNumber(userData.aadhaar_number) : '',
+      panNumber: userData.pan_number || '',
+      clan: userData.clan || '',
+      group: userData.group || '',
+      postalCode: userData.postal_code || '',
+      education: userData.education || '',
+      occupation: userData.occupation || '',
+      maleHeirs: userData.male_heirs || 0,
+      femaleHeirs: userData.female_heirs || 0,
+      mobileNumber: userData.mobile_number ? formatMobileNumber(userData.mobile_number) : prev.mobileNumber,
+    }));
+    // Enable lock after autofill
+    setAutoLocked(true);
+    // Try to capture existing photo URL from various possible keys
+    const resolveImageUrl = (raw?: string | null) => {
+      if (!raw) return null;
+      // helper: backend base (dev: force :4000 for local hosts irrespective of FE port)
+      const getBackendBase = () => {
+        const { origin } = window.location;
+        try {
+          const url = new URL(origin);
+          const host = url.hostname;
+          const isLocal = host === 'localhost' || host === '127.0.0.1' || /^192\.168\./.test(host);
+          if (isLocal) {
+            return `${url.protocol}//${host}:4000`;
+          }
+        } catch {}
+        return origin; // same-origin in prod or if parsing fails
+      };
+      // Absolute URL
+      if (/^https?:\/\//i.test(raw)) return raw;
+      const path = raw.startsWith('/public/') ? raw : (raw.startsWith('/uploads/') ? `/public${raw}` : null);
+      if (!path) return null;
+      return `${getBackendBase()}${path}`;
+    };
+    const img = resolveImageUrl(
+      userData.photo_path || userData.photoUrl || userData.image_path || userData.photo || userData.image
+    );
+    setExistingPhotoUrl(img || null);
   };
 
   // Mobile number lookup function
@@ -235,28 +376,8 @@ export default function TaxUserEntryPage() {
         const data = await response.json();
         if (data.success && data.data && data.data.length > 0) {
           const userData = data.data[0]; // Get the first matching record
-          
           // Auto-fill form with existing user data
-          setForm(prev => ({
-            ...prev,
-            name: userData.name || '',
-            alternativeName: userData.alternative_name || '',
-            wifeName: userData.wife_name || '',
-            fatherName: userData.father_name || '',
-            address: userData.address || '',
-            birthDate: userData.birth_date || '',
-            village: userData.village || '',
-            aadhaarNumber: userData.aadhaar_number ? formatAadhaarNumber(userData.aadhaar_number) : '',
-            panNumber: userData.pan_number || '',
-            clan: userData.clan || '',
-            group: userData.group || '',
-            postalCode: userData.postal_code || '',
-            education: userData.education || '',
-            occupation: userData.occupation || '',
-            maleHeirs: userData.male_heirs || 0,
-            femaleHeirs: userData.female_heirs || 0,
-          }));
-
+          fillFormFromRegistration(userData);
           setMsg(`✅ Found: ${userData.name} - Registration ID ${userData.id} / கண்டுபிடிக்கப்பட்டது: ${userData.name} - பதிவு ID ${userData.id}`);
           setTimeout(() => setMsg(null), 5000);
         } else {
@@ -271,6 +392,62 @@ export default function TaxUserEntryPage() {
     } finally {
       setLookingUp(false);
     }
+  };
+
+  // Name lookup: search registrations by name (or partial)
+  const lookupUsersByName = async (query: string) => {
+    const q = (query || '').trim();
+    if (!q || q.length < 2 || !token) {
+      setNameResults([]);
+      setShowNameResults(false);
+      return;
+    }
+
+    setNameLookingUp(true);
+    setErr(null);
+    try {
+      const response = await fetch(`/api/registrations?search=${encodeURIComponent(q)}&pageSize=10`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const rows = (data?.data && Array.isArray(data.data)) ? data.data : [];
+        setNameResults(rows);
+        setShowNameResults(rows.length > 0);
+        if (rows.length === 0) {
+          setMsg(L('No matches found', 'பொருந்தும் பதிவுகள் இல்லை'));
+          setTimeout(() => setMsg(null), 3000);
+        }
+      }
+    } catch (error) {
+      console.error('Error looking up by name:', error);
+    } finally {
+      setNameLookingUp(false);
+    }
+  };
+
+  const handleSelectRegistration = (userData: any) => {
+    fillFormFromRegistration(userData);
+    // If mobile found, also fetch cumulative tax
+    const mobile = userData?.mobile_number ? formatMobileNumber(userData.mobile_number) : '';
+    if (mobile && user?.templeId && token) {
+      fetchCumulativeTax(mobile, form.year);
+    }
+    setMsg(`✅ Selected: ${userData.name} - Registration ID ${userData.id}`);
+    setTimeout(() => setMsg(null), 4000);
+    setShowNameResults(false);
+    setNameResults([]);
+    // Briefly suppress auto-lookup to prevent dropdown from reopening
+    suppressNameLookupRef.current = Date.now() + 800;
+    // Blur name input to close any native suggestions and move on
+    if (nameInputRef.current) nameInputRef.current.blur();
+    // Move focus to Amount to be paid for quick collection entry
+    setTimeout(() => {
+      if (amountPaidRef.current) {
+        amountPaidRef.current.focus();
+        amountPaidRef.current.select();
+      }
+    }, 0);
   };
 
   // Handle mobile number change with lookup and cumulative calculation
@@ -388,6 +565,8 @@ export default function TaxUserEntryPage() {
     } else {
       fetchTaxAmountForYear(year);
     }
+    // Update reference number for the selected year
+    fetchNextReferenceNumber(year);
   };
 
   // Calculate outstanding amount when amount paid changes
@@ -444,12 +623,22 @@ export default function TaxUserEntryPage() {
         return;
       }
       setNewUser(prev => ({ ...prev, photo: file }));
+      // Once user selects a new photo, ignore existing URL preview
+      if (existingPhotoUrl) setExistingPhotoUrl(null);
       setErr(null);
     }
   };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
+
+    if (!form.referenceNumber || !form.referenceNumber.trim()) {
+      newErrors.referenceNumber = 'Ref No not generated yet / குறிப்பு எண் இல்லை';
+    }
+
+    if (!form.year || isNaN(Number(form.year))) {
+      newErrors.year = 'Year is required / வருடம் அவசியம்';
+    }
 
     if (!form.name.trim()) {
       newErrors.name = 'Name is required / பெயர் அவசியம்';
@@ -469,6 +658,15 @@ export default function TaxUserEntryPage() {
 
     if (form.aadhaarNumber && form.aadhaarNumber.replace(/\D/g, '').length !== 12) {
       newErrors.aadhaarNumber = 'Aadhaar number must be 12 digits / ஆதார் எண் 12 இலக்கமாக இருக்க வேண்டும்';
+    }
+
+    // Transfer and amounts
+    if (!(form as any).transferTo || String((form as any).transferTo).trim() === '') {
+      newErrors.transferTo = 'Please select the account to transfer to / எந்த கணக்கிற்கு மாற்றுவது என்பதைத் தேர்ந்தெடுக்கவும்';
+    }
+    const paid = Number(form.amountPaid);
+    if (!form.amountPaid || isNaN(paid) || paid <= 0) {
+      newErrors.amountPaid = 'Enter a valid amount to be paid (> 0) / செலுத்தும் தொகையை சரியாக உள்ளிடவும்';
     }
 
     newUser.heirs.forEach((heir, index) => {
@@ -506,7 +704,6 @@ export default function TaxUserEntryPage() {
       // Append all form fields
       formData.append('referenceNumber', form.referenceNumber);
       formData.append('date', form.date);
-      formData.append('subdivision', form.subdivision);
       formData.append('name', form.name);
       formData.append('alternativeName', form.alternativeName);
       formData.append('wifeName', form.wifeName);
@@ -527,9 +724,9 @@ export default function TaxUserEntryPage() {
       formData.append('year', form.year.toString());
       formData.append('taxAmount', form.taxAmount);
       formData.append('amountPaid', form.amountPaid);
-      formData.append('outstandingAmount', form.outstandingAmount);
+      // Send remaining due as outstandingAmount
+      formData.append('outstandingAmount', String(remainingDue));
       formData.append('transferTo', (form as any).transferTo || '');
-      if ((form as any).donationAmount) formData.append('donationAmount', (form as any).donationAmount);
       formData.append('templeId', user.templeId.toString());
 
       // Append heirs as JSON array if present
@@ -558,8 +755,16 @@ export default function TaxUserEntryPage() {
         body: formData,
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || 'Failed to save / சேமிக்க முடியவில்லை');
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch (e) {
+        // ignore parse errors
+      }
+      if (!res.ok) {
+        const message = data?.error || data?.message || `Failed to save (${res.status})`;
+        throw new Error(message);
+      }
 
       setMsg(`Tax registration ID ${data.id} saved successfully / வரி பதிவு ID ${data.id} வெற்றிகரமாக சேமிக்கப்பட்டது`);
       if (typeof data?.id === 'number') {
@@ -572,7 +777,6 @@ export default function TaxUserEntryPage() {
       setForm({
         referenceNumber: '',
         date: today,
-        subdivision: '',
         name: '',
         alternativeName: '',
         wifeName: '',
@@ -595,13 +799,15 @@ export default function TaxUserEntryPage() {
         amountPaid: '',
         outstandingAmount: '',
         transferTo: '',
-        donationAmount: '',
       });
 
       setNewUser({
         heirs: [],
         photo: null,
       });
+      setExistingPhotoUrl(null);
+      // Prepare next reference number for the next entry
+      fetchNextReferenceNumber(new Date().getFullYear());
 
     } catch (e: any) {
       setErr(e.message || 'Failed to save / சேமிக்க முடியவில்லை');
@@ -615,7 +821,6 @@ export default function TaxUserEntryPage() {
     setForm({
       referenceNumber: '',
       date: today,
-      subdivision: '',
       name: '',
       alternativeName: '',
       wifeName: '',
@@ -638,14 +843,16 @@ export default function TaxUserEntryPage() {
       amountPaid: '',
       outstandingAmount: '',
       transferTo: '',
-      donationAmount: '',
     });
     // Fetch tax amount for current year after clearing
     fetchTaxAmountForYear(currentYear);
+    fetchNextReferenceNumber(currentYear);
     setNewUser({
       heirs: [],
       photo: null,
     });
+    setExistingPhotoUrl(null);
+    setAutoLocked(false);
     setErrors({});
     setMsg(null);
     setErr(null);
@@ -658,83 +865,25 @@ export default function TaxUserEntryPage() {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">{L('Loading master data...', 'முதன்மை தரவு ஏற்றுகிறது...')}</p>
         </div>
-    {showPrintPrompt && lastCreatedId != null && (
-      <Modal
-        title={L('Print Receipt', 'ரசீதை அச்சிடவா?')}
-        onClose={() => setShowPrintPrompt(false)}
-      >
-        <p className="mb-4 text-sm">
-          {L('Do you want to open the PDF receipt for printing?', 'PDF ரசீதை அச்சிட திறக்க விரும்புகிறீர்களா?')}
-        </p>
-        <div className="flex justify-end gap-2">
-          <button
-            className="px-4 py-2 rounded border"
-            onClick={() => setShowPrintPrompt(false)}
-          >
-            {L('No', 'இல்லை')}
-          </button>
-          <button
-            className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
-            onClick={() => {
-              const t = token ? encodeURIComponent(token) : '';
-              const url = `http://localhost:4000/api/tax-registrations/${lastCreatedId}/receipt.pdf${t ? `?token=${t}` : ''}`;
-              window.open(url, '_blank');
-              setShowPrintPrompt(false);
-            }}
-          >
-            {L('Yes, Print', 'ஆம், அச்சிடு')}
-          </button>
-        </div>
-      </Modal>
-    )}
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-4 px-3">
+    <div className="min-h-screen bg-gray-50 py-0.5 px-3">
       <div className="max-w-7xl mx-auto">
         {/* Language Toggle + Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3">
           <div className="text-center flex-1">
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-lg font-bold text-gray-900">
               {L('Tax Registration', 'வரி பதிவு')}
             </h1>
           </div>
-          <div className="ml-4 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => i18n.changeLanguage('en')}
-              className={`px-2 py-1 text-xs rounded border ${i18n.language?.startsWith('ta') ? 'bg-white text-gray-700' : 'bg-blue-600 text-white border-blue-600'}`}
-              title="Switch to English"
-            >
-              EN
-            </button>
-            <button
-              type="button"
-              onClick={() => i18n.changeLanguage('ta')}
-              className={`px-2 py-1 text-xs rounded border ${i18n.language?.startsWith('ta') ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700'}`}
-              title="தமிழ்க்கு மாற்று"
-            >
-              தமிழ்
-            </button>
-          </div>
-          <div className="ml-4">
-            <button
-              type="button"
-              onClick={() => {
-                const d = form.date || new Date().toISOString().slice(0,10);
-                navigate(`/dashboard/reports/daily?date=${d}`);
-              }}
-              className="px-3 py-1 text-xs rounded border bg-white text-gray-700 hover:bg-gray-50"
-            >
-              {L('Go to Daily Report', 'தினசரி அறிக்கைக்கு செல்ல')}
-            </button>
-          </div>
+     
         </div>
 
         {/* Main Container */}
-        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-4">
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-2" onKeyDown={handleFormKeyDown}>
           {/* Status Messages */}
           {(msg || err) && (
             <div className="mb-3">
@@ -745,12 +894,12 @@ export default function TaxUserEntryPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-2">
             {/* Left Column - Main Form Fields (3/4 width) */}
-            <div className="lg:col-span-3 space-y-4">
+            <div className="lg:col-span-3 space-y-2">
               {/* Basic Info Section */}
-              <div className="bg-gray-50 rounded-lg p-3">
-                <div className="flex items-center justify-between mb-3">
+              <div className="bg-gray-50 rounded-lg p-1.5">
+                <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-semibold text-gray-900">{L('Basic Information', 'அடிப்படை தகவல்')}</h3>
                   <button
                     type="button"
@@ -761,12 +910,12 @@ export default function TaxUserEntryPage() {
                     🗑️ {L('Clear', 'அழிக்க')}
                   </button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Date', 'தேதி')}</label>
                     <input
                       type="date"
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       value={form.date}
                       onChange={e => set('date', e.target.value)}
                     />
@@ -774,7 +923,7 @@ export default function TaxUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Year', 'வருடம்')} *</label>
                     <select
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       value={form.year}
                       onChange={e => handleYearChange(parseInt(e.target.value))}
                     >
@@ -786,103 +935,73 @@ export default function TaxUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Ref No', 'குறிப்பு எண்')}</label>
                     <input
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
                       value={form.referenceNumber}
-                      onChange={e => set('referenceNumber', e.target.value)}
+                      readOnly
+                      title={L('Auto-generated per year', 'வருடத்திற்கு தானாக உருவாக்கப்படும்')}
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Subdivision', 'உட்பிரிவு')}</label>
-                    <select
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-                      value={form.subdivision}
-                      onChange={e => set('subdivision', e.target.value)}
-                    >
-                      <option value="">{L('Select', 'தேர்ந்தெடு')}</option>
-                      {subdivisions.map((sub) => (
-                        <option key={sub.value} value={sub.value}>
-                          {L(sub.label, sub.tamil)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  
                 </div>
               </div>
-
-              {/* Transfer To Account */}
-              <div className="bg-gray-50 rounded-lg p-3">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">{L('Transfer To Account', 'எந்த கணக்கிற்கு மாற்றுவது')}</h3>
-                <select
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-                  value={(form as any).transferTo || ''}
-                  onChange={e => set('transferTo' as any, e.target.value)}
-                >
-                  <option value="">{L('Select', 'தேர்ந்தெடு')}</option>
-                  {categories.map(c => (
-                    <option key={c.id} value={c.value}>{c.label}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 mt-1">{L('Choose the ledger account to transfer this amount into.', 'இந்தத் தொகை மாற்றப்படும் லெட்ஜர் கணக்கைத் தேர்ந்தெடுக்கவும்.')}</p>
-              </div>
-
-              {/* Amounts Summary */}
-              <div className="bg-gray-50 rounded-lg p-3">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">{L('Amounts', 'தொகைகள்')}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Amount', 'தொகை')}</label>
-                    <input
-                      readOnly
-                      value={form.taxAmount}
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded bg-gray-100"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Amount due', 'நிறுவை தொகை')}</label>
-                    <input
-                      readOnly
-                      value={form.outstandingAmount}
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded bg-gray-100"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Amount to be paid', 'செலுத்தும் தொகை')}</label>
-                    <input
-                      value={form.amountPaid}
-                      onChange={e => handleAmountPaidChange(e.target.value)}
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Donation amount', 'நன்கொடை தொகை')}</label>
-                    <input
-                      value={(form as any).donationAmount || ''}
-                      onChange={e => set('donationAmount' as any, e.target.value)}
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
-                    />
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">{L('Amount due includes previous unpaid amounts based on year-wise settings.', 'நிறுவை தொகையில் ஆண்டு-அமைப்பின் அடிப்படையில் முந்தைய நிலுவையும் சேர்க்கப்பட்டுள்ளது.')}</p>
-              </div>
-
               {/* Personal Details */}
-              <div className="bg-gray-50 rounded-lg p-3">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">{L('Personal Details', 'தனிப்பட்ட விவரங்கள்')}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Name', 'பெயர்')} *</label>
-                    <input
-                      className={`w-full px-2 py-1.5 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                        }`}
-                      value={form.name}
-                      onChange={e => set('name', e.target.value)}
-                    />
+              <div className="bg-gray-50 rounded-lg p-1.5">
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-sm font-semibold text-gray-900">{L('Personal Details', 'தனிப்பட்ட விவரங்கள்')}</h3>
+                  <button
+                    type="button"
+                    onClick={() => setAutoLocked(v => !v)}
+                    className={`text-xs px-2 py-0.5 rounded border ${autoLocked ? 'text-orange-700 border-orange-300 bg-orange-50' : 'text-gray-600 border-gray-300 bg-white'}`}
+                    title={autoLocked ? L('Unlock to edit autofilled fields', 'தானாக நிரப்பப்பட்டவற்றை திருத்த திறக்க') : L('Lock autofilled fields', 'தானாக நிரப்பப்பட்டவற்றை பூட்டு')}
+                  >
+                    {autoLocked ? L('Locked', 'பூட்டப்பட்டது') : L('Unlock', 'திற')}
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
+                  <div className="relative">
+                    <label className="block text-xs font-medium text-gray-900 mb-1">
+                      {L('Name', 'பெயர்')} *
+                      {nameLookingUp && <span className="ml-2 text-blue-600 text-xs">🔍 {L('Searching...', 'தேடுகிறது...')}</span>}
+                    </label>
+                    <div>
+                      <input
+                        className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                          }`}
+                        value={form.name}
+                        onChange={e => set('name', e.target.value)}
+                        placeholder={L('Type a name to search', 'பெயரைத் தட்டச்சு செய்து தேடு')}
+                        ref={nameInputRef}
+                      />
+                    </div>
+                    {showNameResults && nameResults.length > 0 && (
+                      <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded shadow max-h-56 overflow-auto text-sm">
+                        {nameResults.map((row: any) => (
+                          <button
+                            key={row.id}
+                            type="button"
+                            onClick={() => handleSelectRegistration(row)}
+                            className="w-full text-left px-2 py-1 hover:bg-gray-50 border-b last:border-b-0"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium">{row.name}</span>
+                              <span className="text-xs text-gray-500">#{row.id}</span>
+                            </div>
+                            <div className="text-xs text-gray-600">
+                              {(row.mobile_number ? `📱 ${formatMobileNumber(row.mobile_number)} · ` : '')}
+                              {(row.village ? `${row.village}` : '')}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
                   </div>
+                  {/* Begin locked fields */}
+                  <fieldset disabled={autoLocked} className="contents">
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Alt Name', 'மாற்று பெயர்')}</label>
                     <input
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       value={form.alternativeName}
                       onChange={e => set('alternativeName', e.target.value)}
                     />
@@ -890,7 +1009,7 @@ export default function TaxUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Spouse', 'மனைவி')}</label>
                     <input
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       value={form.wifeName}
                       onChange={e => set('wifeName', e.target.value)}
                     />
@@ -898,7 +1017,7 @@ export default function TaxUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Father', 'தந்தை')} *</label>
                     <input
-                      className={`w-full px-2 py-1.5 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.fatherName ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.fatherName ? 'border-red-500 bg-red-50' : 'border-gray-300'
                         }`}
                       value={form.fatherName}
                       onChange={e => set('fatherName', e.target.value)}
@@ -909,7 +1028,7 @@ export default function TaxUserEntryPage() {
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Birth Date', 'பிறந்த தேதி')}</label>
                     <input
                       type="date"
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       value={form.birthDate}
                       onChange={e => set('birthDate', e.target.value)}
                     />
@@ -917,7 +1036,7 @@ export default function TaxUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Education', 'கல்வி')}</label>
                     <select
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       value={form.education}
                       onChange={e => set('education', e.target.value)}
                     >
@@ -928,81 +1047,78 @@ export default function TaxUserEntryPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Occupation', 'தொழில்')}</label>
-                    <select
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-                      value={form.occupation}
-                      onChange={e => set('occupation', e.target.value)}
-                    >
-                      <option value="">{L('Select', 'தேர்ந்தெடு')}</option>
-                      {masterOccupations.map((occ) => (
-                        <option key={occ} value={occ}>{occ}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Village', 'கிராமம்')}</label>
                     <input
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       value={form.village}
                       onChange={e => set('village', e.target.value)}
                     />
                   </div>
+                  </fieldset>
+                  {/* End locked fields */}
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">
                       {L('Mobile', 'கைபேசி')}
                       {lookingUp && <span className="ml-2 text-blue-600 text-xs">🔍 {L('Looking up...', 'தேடுகிறது...')}</span>}
                     </label>
-                    <div className="flex gap-2">
+                    <div>
                       <input
                         type="tel"
-                        className={`flex-1 px-2 py-1.5 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.mobileNumber ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.mobileNumber ? 'border-red-500 bg-red-50' : 'border-gray-300'
                           }`}
                         value={form.mobileNumber}
                         onChange={e => handleMobileChange(e.target.value)}
                         placeholder={L('Enter 10-digit mobile', '10 இலக்க கைபேசி எண்')}
                         maxLength={12}
                       />
-                      <button
-                        type="button"
-                        onClick={() => lookupUserByMobile(form.mobileNumber)}
-                        disabled={lookingUp || form.mobileNumber.replace(/\D/g, '').length !== 10}
-                        className="px-2 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title={L('Lookup user details', 'பயனர் விவரங்களைத் தேடு')}
-                      >
-                        🔍
-                      </button>
                     </div>
                     {errors.mobileNumber && <p className="text-red-500 text-xs mt-1">{errors.mobileNumber}</p>}
-                    <p className="text-xs text-gray-500 mt-1">
-                      💡 {L('Auto-fills details from existing registrations when mobile is entered', 'கைபேசியை உள்ளிட்டவுடன் பதிவுகளில் இருந்து விவரங்கள் தானாக நிரப்படும்')}
-                    </p>
+                
                   </div>
                 </div>
               </div>
+              
 
-              {/* Address */}
-              <div className="bg-gray-50 rounded-lg p-3">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">{L('Address', 'முகவரி')} *</h3>
-                <textarea
-                  className={`w-full px-2 py-1.5 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.address ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                    }`}
-                  rows={2}
-                  value={form.address}
-                  onChange={e => set('address', e.target.value)}
-                />
-                {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address}</p>}
+           
+
+              {/* Address (collapsible) */}
+              <div className="bg-gray-50 rounded-lg p-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-900">{L('Address', 'முகவரி')} *</h3>
+                  <button type="button" className="text-xs text-blue-600" onClick={() => setShowAddress(v => !v)}>
+                    {showAddress ? L('Hide', 'மறை') : L('Show', 'காட்டு')}
+                  </button>
+                </div>
+                {showAddress && (
+                  <fieldset disabled={autoLocked} className="contents">
+                    <textarea
+                      className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.address ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
+                      rows={2}
+                      value={form.address}
+                      onChange={e => set('address', e.target.value)}
+                    />
+                    {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address}</p>}
+                  </fieldset>
+                )}
               </div>
 
-              {/* ID Numbers & Other Info */}
-              <div className="bg-gray-50 rounded-lg p-3">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">{L('ID & Other Details', 'அடையாள விவரங்கள்')}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* ID Numbers & Other Info (collapsible) */}
+              <div className="bg-gray-50 rounded-lg p-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-900">{L('ID & Other Details', 'அடையாள விவரங்கள்')}</h3>
+                  <button type="button" className="text-xs text-blue-600" onClick={() => setShowIdDetails(v => !v)}>
+                    {showIdDetails ? L('Hide', 'மறை') : L('Show', 'காட்டு')}
+                  </button>
+                </div>
+                {showIdDetails && (
+                  <fieldset disabled={autoLocked} className="contents">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Aadhaar', 'ஆதார்')}</label>
                     <input
                       type="text"
-                      className={`w-full px-2 py-1.5 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.aadhaarNumber ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.aadhaarNumber ? 'border-red-500 bg-red-50' : 'border-gray-300'
                         }`}
                       value={form.aadhaarNumber}
                       onChange={e => handleFormattedInput('aadhaarNumber', e.target.value, formatAadhaarNumber)}
@@ -1014,7 +1130,7 @@ export default function TaxUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('PAN', 'பான்')}</label>
                     <input
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       value={form.panNumber}
                       onChange={e => set('panNumber', e.target.value)}
                     />
@@ -1022,7 +1138,7 @@ export default function TaxUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Clan', 'குலம்')}</label>
                     <select
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       value={form.clan}
                       onChange={e => set('clan', e.target.value)}
                     >
@@ -1035,7 +1151,7 @@ export default function TaxUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Group', 'குழு')}</label>
                     <select
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       value={form.group}
                       onChange={e => set('group', e.target.value)}
                     >
@@ -1048,7 +1164,7 @@ export default function TaxUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Postal Code', 'அஞ்சல் குறியீடு')}</label>
                     <input
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       value={form.postalCode}
                       onChange={e => set('postalCode', e.target.value)}
                     />
@@ -1057,7 +1173,7 @@ export default function TaxUserEntryPage() {
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Male Heirs', 'ஆண் வாரிசு')}</label>
                     <input
                       type="number"
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       value={form.maleHeirs}
                       onChange={e => set('maleHeirs', parseInt(e.target.value) || 0)}
                       min="0"
@@ -1067,89 +1183,110 @@ export default function TaxUserEntryPage() {
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Female Heirs', 'பெண் வாரிசு')}</label>
                     <input
                       type="number"
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                       value={form.femaleHeirs}
                       onChange={e => set('femaleHeirs', parseInt(e.target.value) || 0)}
                       min="0"
                     />
                   </div>
                 </div>
+                </fieldset>
+                )}
               </div>
 
-              {/* Cumulative Tax Breakdown */}
+              {/* Cumulative Tax Breakdown (collapsible) */}
               {cumulativeInfo && taxBreakdown.length > 0 && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                  <h3 className="text-sm font-semibold text-yellow-900 mb-3">
-                    📊 {L('Outstanding Balance Calculation', 'நிலுவை கணக்கீடு')}
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <h4 className="text-xs font-medium text-yellow-800 mb-2">{L('Year-wise Breakdown:', 'ஆண்டு வாரியாக:')}</h4>
-                      <div className="space-y-1">
-                        {taxBreakdown.map((item: any) => (
-                          <div key={item.year} className="flex justify-between text-xs">
-                            <span className={`${item.status.includes('current') ? 'font-semibold text-blue-700' : 'text-gray-700'}`}>
-                              {item.year} {
-                                item.status === 'new_registration_previous_year' ? L('(NEW - Previous Year)', '(புதியது - முந்தைய ஆண்டு)') :
-                                item.status === 'registered' ? L('(Registered)', '(பதிவு செய்யப்பட்டது)') : 
-                                item.status === 'current_new' ? L('(NEW - Current)', '(புதியது - தற்போதைய)') : 
-                                item.status === 'current_registered' ? L('(Current - Registered)', '(தற்போதைய - பதிவு)') :
-                                L('(Not Paid)', '(செலுத்தப்படவில்லை)')
-                              }:
-                            </span>
-                            <span className={`font-medium ${item.outstanding > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                              ₹{item.outstanding.toLocaleString()}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-medium text-yellow-800 mb-2">{L('Summary:', 'சுருக்கம்:')}</h4>
-                      <div className="space-y-1 text-xs">
-                        <div className="flex justify-between">
-                          <span>{L('Previous Years Outstanding:', 'முந்தைய ஆண்டுகளின் நிலுவை:')}</span>
-                          <span className="font-medium text-red-600">₹{cumulativeInfo.cumulativeOutstanding.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>{L('Current Year', 'தற்போதைய ஆண்டு')} ({form.year}):</span>
-                          <span className="font-medium text-blue-600">₹{cumulativeInfo.currentYearTax.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between border-t pt-1 font-bold">
-                          <span>{L('Total Due:', 'மொத்த நிலுவை:')}</span>
-                          <span className="text-green-600">₹{cumulativeInfo.totalTaxDue.toLocaleString()}</span>
-                        </div>
-                      </div>
-                    </div>
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-1.5">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="text-sm font-semibold text-yellow-900">
+                      📊 {L('Outstanding Balance Calculation', 'நிலுவை கணக்கீடு')}
+                    </h3>
+                    <button type="button" className="text-xs text-blue-700" onClick={() => setShowCumulative(v => !v)}>
+                      {showCumulative ? L('Hide', 'மறை') : L('Show', 'காட்டு')}
+                    </button>
                   </div>
-                  {cumulativeInfo.hasExistingRegistration ? (
-                    <p className="text-xs text-yellow-700 mt-2">
-                      ⚠️ {L('Existing user: Only actual unpaid amounts from registered years included.', 'ஏற்கனவே பதிவு செய்தவர்: பதிவு செய்யப்பட்ட ஆண்டுகளில் செலுத்தாத தொகைகள் மட்டும் சேர்க்கப்பட்டுள்ளது.')}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-green-700 mt-2">
-                      🆕 {L('NEW Registration: Previous years included based on Tax Settings (ON/OFF mode).', 'புதிய பதிவு: வரி அமைப்பின் அடிப்படையில் (ON/OFF) முந்தைய ஆண்டுகள் சேர்க்கப்பட்டுள்ளது.')}
-                    </p>
+                  {showCumulative && (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <h4 className="text-xs font-medium text-yellow-800 mb-2">{L('Year-wise Breakdown:', 'ஆண்டு வாரியாக:')}</h4>
+                          <div className="space-y-1">
+                            {taxBreakdown.map((item: any) => (
+                              <div key={item.year} className="flex justify-between text-xs">
+                                <span className={`${item.status.includes('current') ? 'font-semibold text-blue-700' : 'text-gray-700'}`}>
+                                  {item.year}{' '}
+                                  {
+                                    item.status === 'new_registration_previous_year' ? L('(NEW - Previous Year)', '(புதியது - முந்தைய ஆண்டு)') :
+                                    item.status === 'registered' ? L('(Registered)', '(பதிவு செய்யப்பட்டது)') : 
+                                    item.status === 'current_new' ? L('(NEW - Current)', '(புதியது - தற்போதைய)') : 
+                                    item.status === 'current_registered' ? L('(Current - Registered)', '(தற்போதைய - பதிவு)') :
+                                    L('(Not Paid)', '(செலுத்தப்படவில்லை)')
+                                  }
+                                  {':'}
+                                </span>
+                                <span className={`font-medium ${item.outstanding > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                  ₹{item.outstanding.toLocaleString()}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-medium text-yellow-800 mb-2">{L('Summary:', 'சுருக்கம்:')}</h4>
+                          <div className="space-y-1 text-xs">
+                            <div className="flex justify-between">
+                              <span>{L('Previous Years Outstanding:', 'முந்தைய ஆண்டுகளின் நிலுவை:')}</span>
+                              <span className="font-medium text-red-600">₹{cumulativeInfo.cumulativeOutstanding.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>{L('Current Year', 'தற்போதைய ஆண்டு')} ({form.year}):</span>
+                              <span className="font-medium text-blue-600">₹{cumulativeInfo.currentYearTax.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between border-t pt-1 font-bold">
+                              <span>{L('Total Due:', 'மொத்த நிலுவை:')}</span>
+                              <span className="text-green-600">₹{cumulativeInfo.totalTaxDue.toLocaleString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {cumulativeInfo.hasExistingRegistration ? (
+                        <p className="text-xs text-yellow-700 mt-2">
+                          ⚠️ {L('Existing user: Only actual unpaid amounts from registered years included.', 'ஏற்கனவே பதிவு செய்தவர்: பதிவு செய்யப்பட்ட ஆண்டுகளில் செலுத்தாத தொகைகள் மட்டும் சேர்க்கப்பட்டுள்ளது.')}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-green-700 mt-2">
+                          🆕 {L('NEW Registration: Previous years included based on Tax Settings (ON/OFF mode).', 'புதிய பதிவு: வரி அமைப்பின் அடிப்படையில் (ON/OFF) முந்தைய ஆண்டுகள் சேர்க்கப்பட்டுள்ளது.')}
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               )}
 
-              {/* Heirs Section - Compact Table */}
-              <div className="bg-gray-50 rounded-lg p-3">
-                <div className="flex items-center justify-between mb-3">
+              {/* Heirs Section - Compact Table (collapsible) */}
+              <div className="bg-gray-50 rounded-lg p-2">
+                <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-semibold text-gray-900">
                     {L('Heirs Details', 'வாரிசு விவரம்')}
                   </h3>
-                  <button
-                    type="button"
-                    onClick={addHeir}
-                    className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
-                  >
-                    + {L('Add', 'சேர்க்க')}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="text-xs text-blue-600"
+                      onClick={() => setShowHeirs(v => !v)}
+                    >
+                      {showHeirs ? L('Hide', 'மறை') : L('Show', 'காட்டு')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={addHeir}
+                      className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+                    >
+                      + {L('Add', 'சேர்க்க')}
+                    </button>
+                  </div>
                 </div>
-
-                {newUser.heirs && newUser.heirs.length > 0 ? (
+                {showHeirs && newUser.heirs && newUser.heirs.length > 0 ? (
                   <div className="overflow-x-auto">
                     <table className="min-w-full bg-white border border-gray-300 rounded text-xs">
                       <thead className="bg-gray-100">
@@ -1238,49 +1375,108 @@ export default function TaxUserEntryPage() {
                     </table>
                   </div>
                 ) : (
-                  <div className="text-center py-4 text-gray-500 text-xs bg-white rounded border border-gray-200">
-                    <p>{L('No heirs added', 'வாரிசுகள் இல்லை')}</p>
-                  </div>
+                  showHeirs && (
+                    <div className="text-center py-4 text-gray-500 text-xs bg-white rounded border border-gray-200">
+                      <p>{L('No heirs added', 'வாரிசுகள் இல்லை')}</p>
+                    </div>
+                  )
                 )}
               </div>
             </div>
 
-            {/* Right Column - Photo & Action Buttons (1/4 width) */}
-            <div className="space-y-4">
-              {/* Photo Upload - Compact */}
-              <div className="bg-gray-50 rounded-lg p-3">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">{L('Photo', 'புகைப்படம்')}</h3>
-                <div className="flex flex-col items-center">
-                  <div className="w-24 h-32 bg-white border-2 border-dashed border-gray-300 rounded flex items-center justify-center mb-2">
-                    {newUser.photo ? (
-                      <img
-                        src={URL.createObjectURL(newUser.photo)}
-                        alt="Preview"
-                        className="w-full h-full object-cover rounded"
-                      />
-                    ) : (
-                      <div className="text-center text-gray-500">
-                        <svg className="w-8 h-8 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                        <p className="text-xs">{L('Photo', 'புகைப்படம்')}</p>
-                      </div>
-                    )}
+            {/* Right Column - Photo, Amounts & Actions (1/4 width) */}
+            <div className="space-y-2">
+              {/* Photo Upload - Toggleable */}
+              <div className="bg-gray-50 rounded-lg p-2">
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-sm font-semibold text-gray-900">{L('Photo', 'புகைப்படம்')}</h3>
+                  <button type="button" className="text-xs text-blue-600" onClick={() => setShowPhoto(v => !v)}>
+                    {showPhoto ? L('Hide', 'மறை') : L('Show', 'காட்டு')}
+                  </button>
+                </div>
+                {showPhoto && (
+                  <div className="flex flex-col items-center">
+                    <div className="w-24 h-28 bg-white border-2 border-dashed border-gray-300 rounded flex items-center justify-center mb-2">
+                      {(!newUser.photo && existingPhotoUrl) ? (
+                        <img src={existingPhotoUrl} alt="Profile" className="w-full h-full object-cover rounded" />
+                      ) : newUser.photo ? (
+                        <img src={URL.createObjectURL(newUser.photo)} alt="Preview" className="w-full h-full object-cover rounded" />
+                      ) : (
+                        <div className="text-center text-gray-500">
+                          <svg className="w-8 h-8 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          <p className="text-xs">{L('Photo', 'புகைப்படம்')}</p>
+                        </div>
+                      )}
+                    </div>
+                
                   </div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoChange}
-                    className="hidden"
-                    id="photo-upload"
-                  />
-                  <label
-                    htmlFor="photo-upload"
-                    className="px-2 py-1 bg-blue-600 text-white text-xs rounded cursor-pointer hover:bg-blue-700"
-                  >
-                    {L('Upload', 'பதிவேற்று')}
-                  </label>
-                  <p className="text-xs text-gray-500 mt-1 text-center">{L('Max: 100KB', 'அதிகபட்சம்: 100KB')}</p>
+                )}
+              </div>
+
+              {/* Transfer To Account */}
+              <div className="bg-gray-50 rounded-lg p-2">
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">{L('Transfer To Account', 'எந்த கணக்கிற்கு மாற்றுவது')}</h3>
+                <label htmlFor="transfer-to" className="block text-xs font-medium text-gray-900 mb-1">
+                  {L('Account', 'கணக்கு')} <span className="text-red-600">*</span>
+                </label>
+                <select
+                  id="transfer-to"
+                  required
+                  className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.transferTo ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                  value={(form as any).transferTo || ''}
+                  onChange={e => set('transferTo' as any, e.target.value)}
+                >
+                  <option value="">{L('Select', 'தேர்ந்தெடு')}</option>
+                  {categories.map(c => (
+                    <option key={c.id} value={c.value}>{c.label}</option>
+                  ))}
+                </select>
+                {errors.transferTo && (
+                  <p className="text-red-500 text-xs mt-1">{errors.transferTo}</p>
+                )}
+              </div>
+
+              {/* Amounts Summary */}
+              <div className="bg-gray-50 rounded-lg p-2">
+                <h3 className="text-sm font-semibold text-gray-900 mb-2">{L('Amounts', 'தொகைகள்')}</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Amount', 'தொகை')}</label>
+                    <input
+                      readOnly
+                      value={form.taxAmount}
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Amount due', 'நிறுவை தொகை')}</label>
+                    <input
+                      readOnly
+                      value={remainingDue.toString()}
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Amount to be paid', 'செலுத்தும் தொகை')}</label>
+                    <input
+                      type="number"
+                      value={form.amountPaid}
+                      onFocus={(e) => e.currentTarget.select()}
+                      onChange={e => handleAmountPaidChange(e.target.value)}
+                      ref={amountPaidRef}
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Remaining due', 'மீதமுள்ள நிலுவை')}</label>
+                    <input
+                      readOnly
+                      value={remainingDue.toString()}
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-100"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -1303,8 +1499,37 @@ export default function TaxUserEntryPage() {
               </div>
             </div>
           </div>
-        </div>
+        {showPrintPrompt && lastCreatedId != null && (
+          <Modal
+            title={L('Print Receipt', 'ரசீதை அச்சிடவா?')}
+            onClose={() => setShowPrintPrompt(false)}
+          >
+            <p className="mb-4 text-sm">
+              {L('Do you want to open the PDF receipt for printing?', 'PDF ரசீதை அச்சிட திறக்க விரும்புகிறீர்களா?')}
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                className="px-4 py-2 rounded border"
+                onClick={() => setShowPrintPrompt(false)}
+              >
+                {L('No', 'இல்லை')}
+              </button>
+              <button
+                className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+                onClick={() => {
+                  const t = token ? encodeURIComponent(token) : '';
+                  const url = `/api/tax-registrations/${lastCreatedId}/receipt.pdf${t ? `?token=${t}` : ''}`;
+                  window.open(url, '_blank');
+                  setShowPrintPrompt(false);
+                }}
+              >
+                {L('Yes, Print', 'ஆம், அச்சிடு')}
+              </button>
+            </div>
+          </Modal>
+        )}
       </div>
     </div>
-  );
+  </div>
+);
 }

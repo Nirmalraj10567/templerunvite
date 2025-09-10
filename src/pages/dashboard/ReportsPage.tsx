@@ -1,4 +1,6 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 
 export default function ReportsPage() {
   return (
@@ -12,6 +14,13 @@ export default function ReportsPage() {
         <div className="rounded-xl border border-orange-100 bg-white p-4 shadow-sm">
           <h3 className="font-semibold text-orange-900 mb-2">Top Donors</h3>
           <p className="text-gray-700 text-sm">Recognizing supporters with the highest contributions.</p>
+        </div>
+        <div className="rounded-xl border border-orange-100 bg-white p-4 shadow-sm">
+          <h3 className="font-semibold text-orange-900 mb-2">Journal Log</h3>
+          <p className="text-gray-700 text-sm mb-3">View all journal transfers: date | from | to | amount | reference.</p>
+          <Link to="/dashboard/reports/journal-log">
+            <Button className="bg-orange-600 hover:bg-orange-700">Open Journal Log</Button>
+          </Link>
         </div>
       </div>
       <div className="rounded-2xl border border-orange-100 bg-orange-50 p-6">

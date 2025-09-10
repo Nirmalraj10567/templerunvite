@@ -22,12 +22,49 @@ export interface JournalEntryPayload {
   reference_id?: number;
 }
 
+export interface JournalEntryItem {
+  id: number;
+  date: string; // YYYY-MM-DD
+  from_account: string;
+  to_account: string;
+  amount: number;
+  entry_type?: 'transfer' | 'income' | 'expense';
+  remarks?: string | null;
+  reference_type?: string | null;
+  reference_id?: number | null;
+  created_at?: string;
+}
+
+interface Paginated<T> {
+  data: T[];
+  pagination?: {
+    total?: number;
+    page?: number;
+    limit?: number;
+    totalPages?: number;
+  };
+}
+
 type ApiOk<T> = { success?: boolean; data?: T } | T | any;
 
 export const journalService = {
   async createEntry(payload: JournalEntryPayload): Promise<any> {
     const resp = await api.post<ApiOk<any>>('/api/journal/entries', payload);
     return resp.data;
+  },
+
+  async listEntries(params?: {
+    startDate?: string;
+    endDate?: string;
+    account?: string; // filter either from or to includes
+    page?: number;
+    limit?: number;
+  }): Promise<Paginated<JournalEntryItem>> {
+    const resp = await api.get<ApiOk<Paginated<JournalEntryItem> | JournalEntryItem[]>>('/api/journal/entries', { params });
+    const body: any = resp.data;
+    if (Array.isArray(body)) return { data: body };
+    if (Array.isArray(body?.data)) return { data: body.data, pagination: body.pagination };
+    return { data: [] };
   },
 
   async getBalance(account: string): Promise<number> {

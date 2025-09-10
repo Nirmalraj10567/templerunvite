@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
@@ -8,9 +8,9 @@ import { Modal } from '@/components/ui/modal';
 import { ledgerService } from '@/services/ledgerService';
 import { journalService } from '@/services/journalService';
 
-const initialState: MoneyDonationFormData = {
+const createInitialState = (): MoneyDonationFormData => ({
   registerNo: '',
-  date: '',
+  date: new Date().toISOString().slice(0,10),
   name: '',
   fatherName: '',
   address: '',
@@ -19,22 +19,21 @@ const initialState: MoneyDonationFormData = {
   amount: '',
   reason: '',
   transferTo: ''
-};
+});
 
 export default function MoneyDonationEntry() {
   const { token } = useAuth();
   const { language } = useLanguage();
   const navigate = useNavigate();
-  const [form, setForm] = useState<MoneyDonationFormData>(initialState);
+  const [form, setForm] = useState<MoneyDonationFormData>(createInitialState());
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string|undefined>();
   const [isError, setIsError] = useState(false);
   const [accounts, setAccounts] = useState<Array<{ id?: number; value: string; label: string }>>([]);
-  const [fromAccount, setFromAccount] = useState<string>('CASH A/C');
   const [lastCreatedId, setLastCreatedId] = useState<number | null>(null);
   const [showPrintPrompt, setShowPrintPrompt] = useState(false);
 
-  const t = (en: string, ta: string) => language === 'tamil' ? ta : en;
+  const t = (en: string, ta: string) => language === 'english' ? ta : en;
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -53,8 +52,6 @@ export default function MoneyDonationEntry() {
         }
         const mapped = (names || []).map((n: string, idx: number) => ({ id: idx + 1, value: n, label: n }));
         setAccounts(mapped);
-        // Default sensible from account
-        if (names.includes('CASH A/C')) setFromAccount('CASH A/C');
       } catch (e) {
         console.error('Failed to load ledger names', e);
         setAccounts([]);
@@ -62,6 +59,76 @@ export default function MoneyDonationEntry() {
     };
     loadAccounts();
   }, []);
+
+  // Compute next register number by year using existing records (reusable)
+  const computeNextRegisterNo = useCallback(async (): Promise<string | null> => {
+    try {
+      // Determine Financial Year (Apr–Mar) based on selected date or today
+      const dStr = form.date && form.date.length >= 4 ? form.date : new Date().toISOString().slice(0,10);
+      const yyyy = Number(dStr.slice(0,4));
+      const mm = Number(dStr.slice(5,7));
+      if (!yyyy || isNaN(yyyy) || !mm || isNaN(mm)) return null;
+
+      // FY start year: if month >= 4 use current year, else previous year
+      const fyStartYear = mm >= 4 ? yyyy : yyyy - 1;
+      const fyStart = `${fyStartYear}-04-01`;
+      const fyEnd = `${fyStartYear + 1}-03-31`;
+
+      // Fetch existing donations and compute the next sequence for the FY
+      const resp = await moneyDonationService.list(token);
+      const items = resp?.data || [];
+      const sameFY = items.filter((it:any) => {
+        const d = (it.date || '');
+        return d >= fyStart && d <= fyEnd; // compare ISO strings
+      });
+
+      // Parse register_no expecting pattern YYYY-XXXX where YYYY is FY start year (fallback to count)
+      let maxSeq = 0;
+      for (const it of sameFY) {
+        const rn = String(it.register_no || '').trim();
+        const m = rn.match(new RegExp(`^${fyStartYear}-([0-9]+)$`));
+        if (m) {
+          const n = parseInt(m[1], 10);
+          if (!isNaN(n)) maxSeq = Math.max(maxSeq, n);
+        }
+      }
+      const nextSeq = maxSeq > 0 ? maxSeq + 1 : sameFY.length + 1;
+      return `${fyStartYear}-${String(nextSeq).padStart(4,'0')}`;
+    } catch (e) {
+      console.warn('Failed to compute register number', e);
+      return null;
+    }
+  }, [form.date, token]);
+
+  // Prefill register no on mount and when date changes
+  useEffect(() => {
+    (async () => {
+      const rn = await computeNextRegisterNo();
+      if (rn) {
+        setForm(prev => {
+          const year = rn.slice(0,4);
+          const prevYear = (prev.registerNo || '').slice(0,4);
+          if (!prev.registerNo || prevYear !== year) return { ...prev, registerNo: rn };
+          return prev;
+        });
+      }
+    })();
+  }, [computeNextRegisterNo]);
+
+  const regenerateRegisterNo = useCallback(async () => {
+    const rn = await computeNextRegisterNo();
+    if (rn) setForm(prev => ({ ...prev, registerNo: rn }));
+  }, [computeNextRegisterNo]);
+
+  const clearForm = () => {
+    setForm(createInitialState());
+    // Regenerate register number after clearing form
+    computeNextRegisterNo().then(newRegisterNo => {
+      if (newRegisterNo) {
+        setForm(prev => ({ ...prev, registerNo: newRegisterNo }));
+      }
+    });
+  };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,12 +151,40 @@ export default function MoneyDonationEntry() {
         setMessage(t('Please select an account to transfer to', 'எந்த கணக்கிற்கு மாற்றுவது என்பதைத் தேர்ந்தெடுக்கவும்'));
         return;
       }
-      // Include fromAccount so backend can create proper journal entry
-      const resp = await moneyDonationService.create(token, { ...form, transferFrom: fromAccount });
+      // Finalize register number right before submit to reduce collision risk
+      const freshRN = await computeNextRegisterNo();
+      const payload = { ...form, registerNo: freshRN || form.registerNo };
+      const resp = await moneyDonationService.create(token, payload);
       const newId = resp?.data?.id;
       const createdId = typeof newId === 'number' ? newId : null;
       setLastCreatedId(createdId);
-      setForm(initialState);
+
+      // Create corresponding journal entry so balances reflect this donation dynamically
+      // Accounting: Debit selected account (e.g., CASH A/C), Credit DONATIONS INCOME
+      try {
+        const amt = Number(form.amount);
+        if (!Number.isNaN(amt) && amt > 0 && form.transferTo) {
+          await journalService.createEntry({
+            date: form.date,
+            from_account: 'DONATIONS INCOME',
+            to_account: form.transferTo,
+            amount: amt,
+            entry_type: 'income',
+            remarks: `Donation ${freshRN || form.registerNo} - ${form.name || ''} ${form.reason || ''}`.trim(),
+            reference_type: 'money_donation',
+            reference_id: createdId ?? undefined,
+          });
+        }
+      } catch (jErr) {
+        // Do not block the UI on journal failure, but log for investigation
+        console.warn('Journal entry creation failed for donation', jErr);
+      }
+      setForm(createInitialState());
+      // Regenerate register number after successful submission
+      const newRegisterNo = await computeNextRegisterNo();
+      if (newRegisterNo) {
+        setForm(prev => ({ ...prev, registerNo: newRegisterNo }));
+      }
       setIsError(false);
       setMessage(t('Saved successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது'));
       if (createdId != null) {
@@ -105,69 +200,67 @@ export default function MoneyDonationEntry() {
   };
 
   return (
-    <div className="max-w-xl mx-auto bg-white p-4 rounded shadow">
-      <h1 className="text-xl font-semibold mb-4 text-center">
+    <div className="w-full max-w-4xl mx-auto bg-white p-4 rounded shadow text-sm">
+      <h1 className="text-lg font-semibold mb-4 text-center">
         {t('Money Donation Entry', 'பண நன்கொடைக் பதிவு')}
       </h1>
       {message && (
-        <div className="mb-3">
+        <div className="mb-4">
           <Alert variant={isError ? 'destructive' : 'default'}>
             <AlertTitle>{isError ? t('Error', 'பிழை') : t('Success', 'வெற்றி')}</AlertTitle>
             <AlertDescription>{message}</AlertDescription>
           </Alert>
-          {/* Print prompt moved to modal */}
         </div>
       )}
-      <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div>
-          <label className="block text-sm mb-1">{t('Register No', 'பதிவு எண்')}</label>
-          <input className="w-full border p-2 rounded" name="registerNo" value={form.registerNo} onChange={onChange} />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">{t('Date', 'தேதி')}</label>
-          <input type="date" className="w-full border p-2 rounded" name="date" value={form.date} onChange={onChange} />
-        </div>
-        <div className="md:col-span-2">
-          <label className="block text-sm mb-1">{t('Name', 'பெயர்')}</label>
-          <input className="w-full border p-2 rounded" name="name" value={form.name} onChange={onChange} />
-        </div>
-        <div className="md:col-span-2">
-          <label className="block text-sm mb-1">{t('Father Name', 'தந்தை பெயர்')}</label>
-          <input className="w-full border p-2 rounded" name="fatherName" value={form.fatherName} onChange={onChange} />
-        </div>
-        <div className="md:col-span-2">
-          <label className="block text-sm mb-1">{t('Address', 'முகவரி')}</label>
-          <textarea className="w-full border p-2 rounded" name="address" value={form.address} onChange={onChange} rows={2} />
+          <label className="block text-xs mb-1">{t('Register No', 'பதிவு எண்')}</label>
+          <div className="flex gap-1">
+            <input
+              className="flex-1 border p-1 rounded bg-gray-50 text-xs"
+              name="registerNo"
+              value={form.registerNo}
+              readOnly
+            />
+            <button type="button" onClick={regenerateRegisterNo} className="px-2 py-1 rounded border bg-white hover:bg-gray-50 text-xs whitespace-nowrap">
+              {t('Regenerate', 'மீண்டும்')}
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">{t('Auto-generated per FY', 'தானாக உருவாக்கப்படும்')}</p>
         </div>
         <div>
-          <label className="block text-sm mb-1">{t('Village', 'ஊர்')}</label>
-          <input className="w-full border p-2 rounded" name="village" value={form.village} onChange={onChange} />
+          <label className="block text-xs mb-1">{t('Date', 'தேதி')}</label>
+          <input type="date" className="w-full border p-1 rounded text-xs" name="date" value={form.date} onChange={onChange} />
         </div>
         <div>
-          <label className="block text-sm mb-1">{t('Phone', 'கைபேசி எண்')}</label>
-          <input className="w-full border p-2 rounded" name="phone" value={form.phone} onChange={onChange} />
+          <label className="block text-xs mb-1">{t('Name', 'பெயர்')}</label>
+          <input className="w-full border p-1 rounded text-xs" name="name" value={form.name} onChange={onChange} />
         </div>
-        <div className="md:col-span-2">
-          <label className="block text-sm mb-1">{t('Amount', 'வருமானம்')}*</label>
-          <input className="w-full border p-2 rounded" name="amount" value={form.amount} onChange={onChange} placeholder={t('Enter amount only', 'பணம் மட்டும் உள்ளிடவும்')} />
+        <div>
+          <label className="block text-xs mb-1">{t('Father Name', 'தந்தை பெயர்')}</label>
+          <input className="w-full border p-1 rounded text-xs" name="fatherName" value={form.fatherName} onChange={onChange} />
         </div>
-        <div className="md:col-span-2">
-          <label className="block text-sm mb-1">{t('Transfer From Account', 'எந்த கணக்கிலிருந்து மாற்றுவது')}</label>
+        <div>
+          <label className="block text-xs mb-1">{t('Village', 'ஊர்')}</label>
+          <input className="w-full border p-1 rounded text-xs" name="village" value={form.village} onChange={onChange} />
+        </div>
+        <div>
+          <label className="block text-xs mb-1">{t('Phone', 'கைபேசி எண்')}</label>
+          <input className="w-full border p-1 rounded text-xs" name="phone" value={form.phone} onChange={onChange} />
+        </div>
+        <div className="md:col-span-3">
+          <label className="block text-xs mb-1">{t('Address', 'முகவரி')}</label>
+          <input className="w-full border p-1 rounded text-xs" name="address" value={form.address} onChange={onChange} />
+        </div>
+        <div>
+          <label className="block text-xs mb-1">{t('Amount', 'வருமானம்')}*</label>
+          <input className="w-full border p-1 rounded text-xs" name="amount" value={form.amount} onChange={onChange} placeholder={t('Enter amount', 'தொகை')} />
+        </div>
+        
+        <div>
+          <label className="block text-xs mb-1">{t('Transfer To', 'எங்கு')}</label>
           <select
-            className="w-full border p-2 rounded"
-            name="transferFrom"
-            value={fromAccount}
-            onChange={(e) => setFromAccount(e.target.value)}
-          >
-            {accounts.map(acc => (
-              <option key={acc.id ?? acc.value} value={acc.value}>{acc.label}</option>
-            ))}
-          </select>
-        </div>
-        <div className="md:col-span-2">
-          <label className="block text-sm mb-1">{t('Transfer To Account', 'எந்த கணக்கிற்கு மாற்றுவது')}</label>
-          <select
-            className="w-full border p-2 rounded"
+            className="w-full border p-1 rounded text-xs"
             name="transferTo"
             value={form.transferTo || ''}
             onChange={(e) => setForm(prev => ({ ...prev, transferTo: e.target.value }))}
@@ -178,25 +271,25 @@ export default function MoneyDonationEntry() {
             ))}
           </select>
         </div>
-        <div className="md:col-span-2">
-          <label className="block text-sm mb-1">{t('Reason', 'காரணம்')}</label>
-          <textarea className="w-full border p-2 rounded" name="reason" value={form.reason} onChange={onChange} rows={2} />
+        <div className="md:col-span-3">
+          <label className="block text-xs mb-1">{t('Reason', 'காரணம்')}</label>
+          <input className="w-full border p-1 rounded text-xs" name="reason" value={form.reason} onChange={onChange} />
         </div>
-        <div className="md:col-span-2 flex gap-2 justify-center">
-          <button disabled={saving} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700" type="submit">
+        <div className="md:col-span-3 flex gap-2 justify-center mt-2">
+          <button disabled={saving} className="bg-green-600 text-white px-4 py-1 rounded hover:bg-green-700 text-xs" type="submit">
             {saving ? t('Saving...', 'சேமிக்கிறது...') : t('Save', 'பதிவு')}
           </button>
           <button
             type="button"
-            className="border px-4 py-2 rounded"
+            className="border px-4 py-1 rounded text-xs"
             onClick={() => {
               const d = form.date || new Date().toISOString().slice(0,10);
               navigate(`/dashboard/reports/daily?date=${d}`);
             }}
           >
-            {t('Go to Daily Report', 'தினசரி அறிக்கைக்கு செல்ல')}
+            {t('Daily Report', 'தினசரி அறிக்கை')}
           </button>
-          <button type="button" className="border px-4 py-2 rounded" onClick={() => setForm(initialState)}>
+          <button type="button" className="border px-4 py-1 rounded text-xs" onClick={clearForm}>
             {t('Clear', 'வெளியே')}
           </button>
         </div>

@@ -231,18 +231,18 @@ export default function DonationProductList() {
   };
 
   return (
-    <div className="p-6 bg-white rounded-lg shadow">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold text-gray-800">{t('Good Deed Donation List', 'பொருள் நன்கொடைக் பட்டியல்')}</h1>
+    <div className="p-4 bg-white rounded shadow text-sm">
+      <div className="flex justify-between items-center mb-2">
+        <h1 className="text-lg font-semibold text-gray-800">{t('Good Deed Donation List', 'பொருள் நன்கொடைக் பட்டியல்')}</h1>
       </div>
 
       {/* Filters: single horizontal row with actions */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-        <div className="flex flex-col md:flex-row gap-3 items-center">
+      <div className="bg-white rounded border border-gray-200 p-2 mb-4">
+        <div className="flex flex-col md:flex-row gap-2 items-center">
           {/* Search */}
           <div className="relative flex-1 w-full">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+              <svg className="h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
               </svg>
             </div>
@@ -252,32 +252,32 @@ export default function DonationProductList() {
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={onKeyDownSearch}
               placeholder={t('Search by donor/product/category/phone', 'தானயாளர்/பொருள்/வகை/தொலைபேசி மூலம் தேடுக')}
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              className="block w-full pl-8 pr-2 py-1 border border-gray-300 rounded leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
             />
           </div>
 
           {/* Date range */}
-          <div className="flex items-center gap-2 w-full md:w-auto">
+          <div className="flex items-center gap-1 w-full md:w-auto">
             <input
               type="date"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              className="px-2 py-1 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
             />
-            <span className="text-gray-600">{t('to', 'வரை')}</span>
+            <span className="text-gray-600 text-xs">{t('to', 'வரை')}</span>
             <input
               type="date"
               value={to}
               onChange={(e) => setTo(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              className="px-2 py-1 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
             />
           </div>
 
           {/* Actions */}
-          <div className="flex flex-wrap gap-2 w-full md:w-auto">
+          <div className="flex flex-wrap gap-1 w-full md:w-auto">
             <button
               onClick={load}
-              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="px-3 py-1 border border-gray-300 rounded shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
               type="button"
             >
               {t('Search', 'தேடு')}
@@ -289,21 +289,21 @@ export default function DonationProductList() {
                 setTo('');
                 load();
               }}
-              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="px-3 py-1 border border-gray-300 rounded shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
               type="button"
             >
               {t('Clear', 'அழி')}
             </button>
             <button
               onClick={onExport}
-              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="px-3 py-1 border border-gray-300 rounded shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
               type="button"
             >
               {t('Export CSV', 'CSV ஏற்றுமதி')}
             </button>
             <button
               onClick={() => window.print()}
-              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="px-3 py-1 border border-gray-300 rounded shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
               type="button"
             >
               {t('Export PDF', 'PDF ஏற்றுமதி')}
@@ -314,7 +314,7 @@ export default function DonationProductList() {
 
       {/* Table with context menu for columns */}
       <div
-        className="bg-white rounded-lg border border-gray-200 overflow-hidden"
+        className="bg-white rounded border border-gray-200 overflow-hidden"
         onContextMenu={onContextMenu}
       >
         <div className="overflow-x-auto">
@@ -326,7 +326,7 @@ export default function DonationProductList() {
                     visibleCols[col.key] && (
                       <th
                         key={col.key}
-                        className={`${col.key === 'print' ? 'px-3 w-16' : 'px-6'} py-3 text-xs font-medium text-gray-500 uppercase tracking-wider align-middle ${
+                        className={`${col.key === 'print' ? 'px-2 w-12' : 'px-3'} py-2 text-xs font-medium text-gray-500 uppercase tracking-wider align-middle ${
                           col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'
                         }`}
                       >
@@ -341,7 +341,7 @@ export default function DonationProductList() {
                 <tr>
                   <td
                     colSpan={visibleColCount}
-                    className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center"
+                    className="px-3 py-2 whitespace-nowrap text-xs text-gray-500 text-center"
                   >
                     {t('Loading...', 'ஏற்றுகிறது...')}
                   </td>
@@ -350,7 +350,7 @@ export default function DonationProductList() {
                 <tr>
                   <td
                     colSpan={visibleColCount}
-                    className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center"
+                    className="px-3 py-2 whitespace-nowrap text-xs text-gray-500 text-center"
                   >
                     {t('No data found', 'தரவு கிடைக்கவில்லை')}
                   </td>
@@ -359,45 +359,44 @@ export default function DonationProductList() {
                 items.map((r, idx) => (
                   <tr key={r.id} className="hover:bg-gray-50">
                     {visibleCols['#'] && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{idx + 1}</td>
+                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">{idx + 1}</td>
                     )}
                     {visibleCols.contact && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
                         {r.donor_contact || '-'}
                       </td>
                     )}
                     {visibleCols.date && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
                         {r.donation_date || '-'}
                       </td>
                     )}
                     {visibleCols.donor && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{r.donor_name || '-'}</td>
+                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">{r.donor_name || '-'}</td>
                     )}
                     {visibleCols.category && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{r.category || '-'}</td>
+                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">{r.category || '-'}</td>
                     )}
                     {visibleCols.product && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{r.product_name || '-'}</td>
+                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">{r.product_name || '-'}</td>
                     )}
                     {visibleCols.qty && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900 text-right">
                         {toNum((r as any).quantity).toLocaleString()}
                       </td>
                     )}
                     {visibleCols.price && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900 text-right">
                         ₹{toNum((r as any).price).toLocaleString()}
                       </td>
                     )}
                     {visibleCols.description && (
-                      <td className="px-6 py-4 text-sm text-gray-900">{r.description || '-'}</td>
+                      <td className="px-3 py-2 text-xs text-gray-900">{r.description || '-'}</td>
                     )}
                     {visibleCols.print && (
-                      <td className="px-3 py-4 whitespace-nowrap text-center text-sm font-medium align-middle w-16">
+                      <td className="px-2 py-2 whitespace-nowrap text-center text-xs font-medium align-middle w-12">
                         <div className="flex justify-center items-center gap-1">
                           <PrintButton onClick={() => onPrint(r)} />
-
                         </div>
                       </td>
                     )}
@@ -409,14 +408,14 @@ export default function DonationProductList() {
         </div>
 
         {/* Pagination and summary */}
-        <div className="px-6 py-4 flex items-center justify-between border-t border-gray-200">
-          <div className="text-sm text-gray-700">
+        <div className="px-3 py-2 flex items-center justify-between border-t border-gray-200">
+          <div className="text-xs text-gray-700">
             {t('Showing', 'காட்டப்படுகிறது')}{' '}
             <span className="font-medium">1</span> {t('to', 'இலிருந்து')}{' '}
             <span className="font-medium">{items.length}</span> {t('of', 'மொத்தம்')}{' '}
             <span className="font-medium">{items.length}</span> {t('results', 'முடிவுகள்')}
           </div>
-          <div className="flex gap-4 text-sm text-gray-700">
+          <div className="flex gap-2 text-xs text-gray-700">
             <span>
               {t('Total Qty', 'மொத்த அளவு')}: <span className="font-medium">{totals.qty.toLocaleString()}</span>
             </span>

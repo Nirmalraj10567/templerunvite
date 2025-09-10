@@ -177,6 +177,8 @@ export default function ReceiptEntryPage() {
       const result = await res.json();
       if (!result.success) throw new Error(result.error || 'Failed to save receipt');
 
+      // Note: Journal entry will be created by backend mirror logic. Avoid creating here to prevent duplicates.
+
       toast({ title: t('Success', 'வெற்றி'), description: id ? t('Receipt updated', 'ரசீது புதுப்பிக்கப்பட்டது') : t('Receipt created', 'ரசீது உருவாக்கப்பட்டது') });
 
       if (!id) {

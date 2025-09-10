@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Modal } from '@/components/ui/modal';
 
 type Heir = {
   id: number;
@@ -18,21 +20,24 @@ export default function TempleUserEntryPage() {
   const { language } = useLanguage();
   const { id } = useParams<{ id: string }>();
   const editId = id ? parseInt(id, 10) : null;
+ 
 
   const t = {
-    tamil: {
+    english: {
       pageTitle: 'காணியாளர்கள் வரி பதிவு',
-      pageSubtitle: 'காணியாளர்கள் வரி பதிவு', // keep tamil only if desired
-      generalInfo: 'பொது தகவல்',
-      clearForm: 'அனைத்தையும் அழி',
+      pageSubtitle: 'காணியாளர்கள் வரி பதிவு',
+      generalInfo: 'பொது தகவல்',
+      clearForm: 'அழிக்க',
       clearFormTitle: 'அனைத்தையும் அழி',
       landownerFinancials: 'காணியாளர் விவரங்கள் & நிதி',
       personalHeirDetails: 'தனிப்பட்ட & வாரிசு விவரங்கள்',
-      outstandingAmount: 'நிலுவை தொகை',
+      outstandingAmount: 'நிலுவை தொகை',
       heirsTitle: 'வாரிசுதாரர்கள் (குடும்ப விவரங்கள்)',
-      addHeir: 'வாரிசு சேர்',
+      addHeir: '+ வாரிசு சேர்',
       exit: 'வெளியேறு',
       register: 'பதிவு',
+      save: 'சேமிக்க',
+      saving: 'சேமிக்கிறது...',
       lookingUp: 'தேடுகிறது...',
       autofillHint: 'கைபேசியை உள்ளிட்டவுடன் பதிவுகளில் இருந்து விவரங்கள் தானாக நிரப்படும்',
       receiptNumber: 'ரசீது எண்',
@@ -96,12 +101,20 @@ export default function TempleUserEntryPage() {
         removeHeirTitle: 'வாரிசை நீக்கு',
         adding: 'சேர்க்கப்படுகிறது...',
       },
+      success: {
+        saved: 'வெற்றிகரமாக சேமிக்கப்பட்டது',
+        updated: 'புதுப்பிக்கப்பட்டது',
+      },
+      errors: {
+        general: 'சேமிக்க முடியவில்லை',
+        required: 'அவசியம்',
+      },
     },
-    english: {
+    tamil: {
       pageTitle: 'Landowners User Registration',
-      pageSubtitle:'',
+      pageSubtitle: '',
       generalInfo: 'General Info',
-      clearForm: 'Clear Form',
+      clearForm: 'Clear',
       clearFormTitle: 'Clear all fields',
       landownerFinancials: 'Landowner Details & Financials',
       personalHeirDetails: 'Personal & Heir Details',
@@ -110,6 +123,8 @@ export default function TempleUserEntryPage() {
       addHeir: '+ Add Heir',
       exit: 'Exit',
       register: 'Register',
+      save: 'Save',
+      saving: 'Saving...',
       lookingUp: 'Looking up...',
       autofillHint: 'Auto-fills details from existing registrations when mobile is entered',
       receiptNumber: 'Receipt Number',
@@ -173,16 +188,23 @@ export default function TempleUserEntryPage() {
         removeHeirTitle: 'Remove Heir',
         adding: 'Adding...',
       },
+      success: {
+        saved: 'Saved successfully',
+        updated: 'Updated successfully',
+      },
+      errors: {
+        general: 'Failed to save',
+        required: 'Required',
+      },
     },
   } as const;
 
-  // UI feature flags (backend not ready yet for these)
+  // UI feature flags
   const enablePhotoUpload = true;
-
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const [newUser, setNewUser] = useState({
-    receiptNumber: '6672',
+    receiptNumber: '',
     date: today,
     landownerNo: '',
     mobileNumber: '',
@@ -212,15 +234,24 @@ export default function TempleUserEntryPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
   const [existingPhotoUrl, setExistingPhotoUrl] = useState<string | null>(null);
+  const [showPrintPrompt, setShowPrintPrompt] = useState<boolean>(false);
+  const [lastCreatedId, setLastCreatedId] = useState<number | null>(null);
 
   // Master data
   const [masterClans, setMasterClans] = useState<string[]>([]);
   const [masterGroups, setMasterGroups] = useState<string[]>([]);
   const [masterOccupations, setMasterOccupations] = useState<string[]>([]);
   const [masterEducations, setMasterEducations] = useState<string[]>([]);
-  const [masterRaces, setMasterRaces] = useState<string[]>([]);
+  const [categories, setCategories] = useState<Array<{ id: number; value: string; label: string }>>([]);
+
+  // Collapsible sections
+  const [showAddress, setShowAddress] = useState<boolean>(false);
+  const [showIdDetails, setShowIdDetails] = useState<boolean>(false);
+  const [showHeirs, setShowHeirs] = useState<boolean>(false);
+  const [showPhoto, setShowPhoto] = useState<boolean>(true);
 
   useEffect(() => {
     if (user?.templeId && token) {
@@ -232,22 +263,57 @@ export default function TempleUserEntryPage() {
             fetch(`/api/master/occupations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
             fetch(`/api/master/educations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } })
           ]);
-
           if (clansRes.ok) {
             const clans = (await clansRes.json()).map((x: any) => x.name);
             setMasterClans(clans);
-            setMasterRaces(clans); // Use clans data for races
           }
           if (groupsRes.ok) setMasterGroups((await groupsRes.json()).map((x: any) => x.name));
           if (occupationsRes.ok) setMasterOccupations((await occupationsRes.json()).map((x: any) => x.name));
-          if (educationsRes.ok) setMasterEducations((await educationsRes.json()).map((x: any) => x.name));
-
+          if (educationsRes.ok) {
+            setMasterEducations((await educationsRes.json()).map((x: any) => x.name));
+          } else {
+            // Fallback static education options
+            setMasterEducations([
+              'Illiterate',
+              'Primary',
+              'Secondary',
+              'Higher Secondary',
+              'Diploma',
+              'Bachelor Degree',
+              'Master Degree',
+              'PhD',
+              'Professional Course',
+              'Technical Training',
+              'Other',
+            ]);
+          }
         } catch (e) {
           console.error('Error loading master data', e);
+          setErr(language === 'tamil' ? 'முதன்மை தரவு ஏற்ற முடியவில்லை' : 'Failed to load master data');
         }
       })();
     }
-  }, [user, token]);
+  }, [user, token, language]);
+
+  // Load ledger categories
+  useEffect(() => {
+    if (!token) return;
+    (async () => {
+      try {
+        const resp = await fetch('/api/ledger/categories', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await resp.json();
+        const mapped = (Array.isArray(data) ? data : []).map((item: any, index: number) => {
+          if (typeof item === 'string') return { id: index + 1, value: item, label: item };
+          return { id: item.id || index + 1, value: item.value || item.label, label: item.label || item.value };
+        });
+        setCategories(mapped);
+      } catch (e) {
+        console.error('Failed to load ledger categories', e);
+      }
+    })();
+  }, [token]);
 
   // Load existing registration for edit mode
   useEffect(() => {
@@ -297,7 +363,7 @@ export default function TempleUserEntryPage() {
       }
     };
     loadForEdit();
-  }, [editId, token]);
+  }, [editId, token, today]);
 
   const handleFieldChange = (field: string, value: any) => {
     setNewUser((prev) => ({ ...prev, [field]: value }));
@@ -332,22 +398,16 @@ export default function TempleUserEntryPage() {
   const lookupUserByMobile = async (mobileNumber: string) => {
     const cleanMobile = mobileNumber.replace(/\D/g, '');
     if (cleanMobile.length !== 10) return;
-
     setLookingUp(true);
-    setSuccessMessage(null);
-
+    setErr(null);
     try {
-      // Search in user_registrations table for existing user data using the search parameter
       const response = await fetch(`/api/registrations?search=${cleanMobile}&pageSize=1`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data && data.data.length > 0) {
-          const userData = data.data[0]; // Get the first matching record
-
-          // Auto-fill form with existing user data
+          const userData = data.data[0];
           setNewUser(prev => ({
             ...prev,
             name: userData.name || '',
@@ -364,18 +424,19 @@ export default function TempleUserEntryPage() {
             maleHeirs: userData.male_heirs || 0,
             femaleHeirs: userData.female_heirs || 0,
           }));
-
-          // Leave form filled for review; do not clear
-          setSuccessMessage(null);
+          setMsg(language === 'tamil' ? 
+            `✅ கண்டுபிடிக்கப்பட்டது: ${userData.name} - பதிவு ID ${userData.id}` : 
+            `✅ Found: ${userData.name} - Registration ID ${userData.id}`);
+          setTimeout(() => setMsg(null), 5000);
         } else {
-          // No existing registration found - show info message
-          setSuccessMessage(`ℹ️ No existing registration found for this mobile / இந்த கைபேசி எண்ணுக்கு பதிவு இல்லை`);
-          setTimeout(() => setSuccessMessage(null), 3000);
+          setMsg(language === 'tamil' ? 
+            'இந்த கைபேசி எண்ணுக்கு பதிவு இல்லை' : 
+            'No existing registration found for this mobile');
+          setTimeout(() => setMsg(null), 3000);
         }
       }
     } catch (error) {
       console.error('Error looking up user:', error);
-      // Don't show error for lookup failure, just continue with manual entry
     } finally {
       setLookingUp(false);
     }
@@ -386,13 +447,9 @@ export default function TempleUserEntryPage() {
     const formatted = formatMobileNumber(value);
     setNewUser(prev => ({ ...prev, mobileNumber: formatted }));
     if (errors.mobileNumber) setErrors(prev => ({ ...prev, mobileNumber: '' }));
-
-    // Trigger lookup when mobile number is complete (10 digits) with debounce
     const cleanMobile = value.replace(/\D/g, '');
     if (cleanMobile.length === 10 && user?.templeId && token) {
-      // Add a small delay to avoid rapid API calls
       setTimeout(() => {
-        // Check if mobile number is still the same (user hasn't changed it)
         if (newUser.mobileNumber === formatted) {
           lookupUserByMobile(formatted);
         }
@@ -404,11 +461,12 @@ export default function TempleUserEntryPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 100 * 1024) {
-      alert('File size must be less than 100kb');
-      e.currentTarget.value = '';
+      setErr(language === 'tamil' ? 'புகைப்படம் 100KB-க்கும் குறைவாக இருக்க வேண்டும்' : 'Photo size must be less than 100KB');
       return;
     }
     setNewUser((prev) => ({ ...prev, photo: file }));
+    if (existingPhotoUrl) setExistingPhotoUrl(null);
+    setErr(null);
   };
 
   const addHeir = () => {
@@ -425,7 +483,11 @@ export default function TempleUserEntryPage() {
   };
 
   const removeHeir = (id: number) => {
-    setNewUser((prev) => ({ ...prev, heirs: prev.heirs.filter((h) => h.id !== id) }));
+    setNewUser((prev) => ({ 
+      ...prev, 
+      heirs: prev.heirs.filter((h) => h.id !== id)
+        .map((heir, index) => ({ ...heir, serialNumber: index + 1 }))
+    }));
   };
 
   const updateHeir = (id: number, field: keyof Heir, value: any) => {
@@ -437,51 +499,45 @@ export default function TempleUserEntryPage() {
 
   const validateForm = () => {
     const e: Record<string, string> = {};
-    
-    // Basic information validation
     if (!newUser.receiptNumber.trim()) 
-      e.receiptNumber = t[language as 'tamil' | 'english'].receiptNumber + ' required';
+      e.receiptNumber = `${t[language as 'tamil' | 'english'].receiptNumber} ${t[language as 'tamil' | 'english'].errors.required}`;
     if (!newUser.date.trim()) 
-      e.date = t[language as 'tamil' | 'english'].date + ' required';
-  
-    // Personal details validation
+      e.date = `${t[language as 'tamil' | 'english'].date} ${t[language as 'tamil' | 'english'].errors.required}`;
     if (!newUser.name.trim()) 
-      e.name = t[language as 'tamil' | 'english'].name + ' required';
+      e.name = `${t[language as 'tamil' | 'english'].name} ${t[language as 'tamil' | 'english'].errors.required}`;
     if (!newUser.fatherName.trim()) 
-      e.fatherName = t[language as 'tamil' | 'english'].fatherName + ' required';
-  
-    // Contact validation
+      e.fatherName = `${t[language as 'tamil' | 'english'].fatherName} ${t[language as 'tamil' | 'english'].errors.required}`;
     const cleanMobile = newUser.mobileNumber.replace(/\D/g, '');
     if (!cleanMobile || cleanMobile.length !== 10) 
-      e.mobileNumber = t[language as 'tamil' | 'english'].mobileNumber + ' (10 digits required)';
+      e.mobileNumber = `${t[language as 'tamil' | 'english'].mobileNumber} (10 digits required)`;
     if (!newUser.address.trim()) 
-      e.address = t[language as 'tamil' | 'english'].address + ' required';
-  
-    // Education and occupation
+      e.address = `${t[language as 'tamil' | 'english'].address} ${t[language as 'tamil' | 'english'].errors.required}`;
     if (!newUser.education.trim()) 
-      e.education = t[language as 'tamil' | 'english'].educationLabel + ' required';
+      e.education = `${t[language as 'tamil' | 'english'].educationLabel} ${t[language as 'tamil' | 'english'].errors.required}`;
     if (!newUser.occupation.trim()) 
-      e.occupation = t[language as 'tamil' | 'english'].occupationLabel + ' required';
-  
-    // Heirs validation
+      e.occupation = `${t[language as 'tamil' | 'english'].occupationLabel} ${t[language as 'tamil' | 'english'].errors.required}`;
+    
     newUser.heirs?.forEach((h, i) => {
       if (!h.name.trim()) 
-        e[`heir_${i}_name`] = t[language as 'tamil' | 'english'].heirsTable.name + ' required';
+        e[`heir_${i}_name`] = `${t[language as 'tamil' | 'english'].heirsTable.name} ${t[language as 'tamil' | 'english'].errors.required}`;
       if (!h.race.trim()) 
-        e[`heir_${i}_race`] = t[language as 'tamil' | 'english'].heirsTable.race + ' required';
+        e[`heir_${i}_race`] = `${t[language as 'tamil' | 'english'].heirsTable.race} ${t[language as 'tamil' | 'english'].errors.required}`;
     });
-  
+    
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
   const handleAddUser = async () => {
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      setErr(t[language as 'tamil' | 'english'].errors.general);
+      return;
+    }
     setIsSubmitting(true);
+    setErr(null);
+    setMsg(null);
     try {
       const formData = new FormData();
-      
-      // Add all fields as strings
       const fields = {
         referenceNumber: newUser.receiptNumber,
         date: newUser.date,
@@ -509,7 +565,6 @@ export default function TempleUserEntryPage() {
         formData.append(key, value);
       });
 
-      // Add heirs as JSON
       const heirsPayload = newUser.heirs.map(h => ({
         serialNumber: h.serialNumber,
         name: h.name,
@@ -519,15 +574,13 @@ export default function TempleUserEntryPage() {
         birthDate: h.birthDate,
       }));
       formData.append('heirs', JSON.stringify(heirsPayload));
-      
-      // Add photo if exists
+
       if (newUser.photo) {
         formData.append('photo', newUser.photo);
       }
-      
+
       let res: Response;
       if (editId) {
-        // Update via JSON
         const payload = Object.fromEntries(formData.entries());
         res = await fetch(`/api/registrations/${editId}`, {
           method: 'PUT',
@@ -538,7 +591,6 @@ export default function TempleUserEntryPage() {
           body: JSON.stringify(payload),
         });
       } else {
-        // Create with optional photo
         res = await fetch('/api/registrations', {
           method: 'POST',
           headers: {
@@ -547,49 +599,39 @@ export default function TempleUserEntryPage() {
           body: formData,
         });
       }
-      
+
       const data = await res.json();
       if (!res.ok) {
-        if (data.errors) {
-          // Map backend errors to form fields
-          setErrors({
-            ...data.errors,
-            general: data.message
-          });
-        }
-        throw new Error(data.message || 'Registration failed');
+        throw new Error(data.message || t[language as 'tamil' | 'english'].errors.general);
       }
-      
-      // After successful save, if a new photo was chosen in edit mode, upload it
+
       if (editId && newUser.photo) {
         try {
           const photoFd = new FormData();
           photoFd.append('photo', newUser.photo);
-          const upRes = await fetch(`/api/registrations/${editId}/photo`, {
+          await fetch(`/api/registrations/${editId}/photo`, {
             method: 'POST',
             headers: { Authorization: `Bearer ${token}` },
             body: photoFd,
           });
-          if (upRes.ok) {
-            setExistingPhotoUrl(null); // will be refreshed if needed
-          }
         } catch (e) {
           console.error('Photo upload after update failed:', e);
         }
       }
 
-      if (editId) {
-        setSuccessMessage(language === 'tamil' ? 'பதிவு புதுப்பிக்கப்பட்டது' : 'Registration updated');
-      } else {
-        setSuccessMessage(`User "${newUser.name}" registered. ID: ${data.id || ''}`);
+      const successMsg = editId ? 
+        t[language as 'tamil' | 'english'].success.updated : 
+        `${t[language as 'tamil' | 'english'].success.saved} - ID: ${data.id || ''}`;
+      
+      setMsg(successMsg);
+      setLastCreatedId(data.id || null);
+      setShowPrintPrompt(true);
+      
+      if (!editId) {
         clearForm();
       }
     } catch (err: any) {
-      console.error('Registration error:', err);
-      setErrors(prev => ({
-        ...prev,
-        general: err.message
-      }));
+      setErr(err.message || t[language as 'tamil' | 'english'].errors.general);
     } finally {
       setIsSubmitting(false);
     }
@@ -597,7 +639,7 @@ export default function TempleUserEntryPage() {
 
   const clearForm = () => {
     setNewUser({
-      receiptNumber: '6672',
+      receiptNumber: '',
       date: today,
       landownerNo: '',
       mobileNumber: '',
@@ -624,478 +666,511 @@ export default function TempleUserEntryPage() {
       heirs: [],
     });
     setErrors({});
+    setMsg(null);
+    setErr(null);
+    setExistingPhotoUrl(null);
   };
 
   return (
-    <div className="p-6 space-y-6">
-      {successMessage && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <span className="text-green-600 mr-2">✅</span>
-            <p className="text-sm text-green-800">{successMessage}</p>
-            <button onClick={() => setSuccessMessage(null)} className="ml-auto text-green-600 hover:text-green-800">
-              ×
-            </button>
+    <div className="min-h-screen bg-gray-50 py-0.5 px-3">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-center flex-1">
+            <h1 className="text-lg font-bold text-gray-900">
+              {t[language as 'tamil' | 'english'].pageTitle}
+            </h1>
           </div>
         </div>
-      )}
 
-      {errors.general && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <span className="text-red-600 mr-2">❌</span>
-            <p className="text-sm text-red-800">{errors.general}</p>
-          </div>
-        </div>
-      )}
+        {/* Main Container */}
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-2">
+          {/* Status Messages */}
+          {(msg || err) && (
+            <div className="mb-3">
+              <Alert variant={err ? 'destructive' : 'default'}>
+                <AlertTitle>{err ? 'Error / பிழை' : 'Success / வெற்றி'}</AlertTitle>
+                <AlertDescription>{err ? err : msg}</AlertDescription>
+              </Alert>
+            </div>
+          )}
 
-      <div className="bg-blue-50 p-4 rounded-lg text-center">
-        <h3 className="text-2xl font-bold text-blue-800 mb-2">{t[language as 'tamil' | 'english'].pageTitle}</h3>
-    
-      </div>
-
-      <div className="bg-gray-50 p-4 rounded-lg">
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="text-lg font-medium text-gray-800">{t[language as 'tamil' | 'english'].generalInfo}</h4>
-          <button
-            type="button"
-            onClick={clearForm}
-            className="px-3 py-1 bg-gray-500 text-white text-sm rounded hover:bg-gray-600"
-            title={t[language as 'tamil' | 'english'].clearFormTitle}
-          >
-            🗑️ {t[language as 'tamil' | 'english'].clearForm}
-          </button>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t[language as 'tamil' | 'english'].receiptNumber} <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={newUser.receiptNumber}
-              onChange={(e) => handleFieldChange('receiptNumber', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.receiptNumber ? 'border-red-300' : 'border-gray-300'
-                }`}
-              required
-            />
-            {errors.receiptNumber && <p className="text-xs text-red-500 mt-1">{errors.receiptNumber}</p>}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t[language as 'tamil' | 'english'].date} <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="date"
-              value={newUser.date}
-              onChange={(e) => handleFieldChange('date', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.date ? 'border-red-300' : 'border-gray-300'
-                }`}
-              required
-            />
-            {errors.date && <p className="text-xs text-red-500 mt-1">{errors.date}</p>}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="space-y-6">
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <h4 className="text-lg font-medium text-blue-800 mb-4">{t[language as 'tamil' | 'english'].landownerFinancials}</h4>
-            <div className="space-y-4">
-              
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t[language as 'tamil' | 'english'].mobileNumber} <span className="text-red-500">*</span>
-                  {lookingUp && <span className="ml-2 text-blue-600 text-xs">🔍 {t[language as 'tamil' | 'english'].lookingUp}</span>}
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="tel"
-                    value={newUser.mobileNumber}
-                    onChange={(e) => handleMobileChange(e.target.value)}
-                    className={`flex-1 px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.mobileNumber ? 'border-red-300' : 'border-gray-300'
-                      }`}
-                    placeholder={t[language as 'tamil' | 'english'].placeholderMobile}
-                    maxLength={12}
-                    required
-                  />
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-2">
+            {/* Left Column - Main Form Fields (3/4 width) */}
+            <div className="lg:col-span-3 space-y-2">
+              {/* Basic Info Section */}
+              <div className="bg-gray-50 rounded-lg p-1.5">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-semibold text-gray-900">{t[language as 'tamil' | 'english'].generalInfo}</h3>
                   <button
                     type="button"
-                    onClick={() => lookupUserByMobile(newUser.mobileNumber)}
-                    disabled={lookingUp || newUser.mobileNumber.replace(/\D/g, '').length !== 10}
-                    className="px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={t[language as 'tamil' | 'english'].buttons.lookupTitle}
+                    onClick={clearForm}
+                    className="px-2 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600"
+                    title={t[language as 'tamil' | 'english'].clearFormTitle}
                   >
-                    🔍
+                    🗑️ {t[language as 'tamil' | 'english'].clearForm}
                   </button>
                 </div>
-                {errors.mobileNumber && <p className="text-xs text-red-500 mt-1">{errors.mobileNumber}</p>}
-                <p className="text-xs text-gray-500 mt-1">
-                  💡 {t[language as 'tamil' | 'english'].autofillHint}
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t[language as 'tamil' | 'english'].name} <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={newUser.name}
-                  onChange={(e) => handleFieldChange('name', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.name ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                  required
-                />
-                {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t[language as 'tamil' | 'english'].alternativeName}</label>
-                <input
-                  type="text"
-                  value={newUser.alternativeName}
-                  onChange={(e) => handleFieldChange('alternativeName', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t[language as 'tamil' | 'english'].wifeName}</label>
-                <input
-                  type="text"
-                  value={newUser.wifeName}
-                  onChange={(e) => handleFieldChange('wifeName', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t[language as 'tamil' | 'english'].fatherName} <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={newUser.fatherName}
-                  onChange={(e) => handleFieldChange('fatherName', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.fatherName ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                  required
-                />
-                {errors.fatherName && <p className="text-xs text-red-500 mt-1">{errors.fatherName}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t[language as 'tamil' | 'english'].address} <span className="text-red-500">*</span></label>
-                <textarea
-                  value={newUser.address}
-                  onChange={(e) => handleFieldChange('address', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.address ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                  rows={3}
-                  placeholder={t[language as 'tamil' | 'english'].placeholderAddress}
-                  required
-                />
-                {errors.address && <p className="text-xs text-red-500 mt-1">{errors.address}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t[language as 'tamil' | 'english'].postalCode}</label>
-                <input
-                  type="text"
-                  value={newUser.postalCode}
-                  onChange={(e) => handleFieldChange('postalCode', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder={t[language as 'tamil' | 'english'].placeholderPostal}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t[language as 'tamil' | 'english'].year}</label>
-                <input
-                  type="text"
-                  value={newUser.year}
-                  onChange={(e) => handleFieldChange('year', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <div className="bg-green-50 p-4 rounded-lg">
-            <h4 className="text-lg font-medium text-green-800 mb-4">{t[language as 'tamil' | 'english'].personalHeirDetails}</h4>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t[language as 'tamil' | 'english'].educationLabel} <span className="text-red-500">*</span></label>
-                <select
-                  value={newUser.education}
-                  onChange={(e) => handleFieldChange('education', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.education ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                  required
-                >
-                  <option value="">{t[language as 'tamil' | 'english'].selectEducation}</option>
-                  {masterEducations.map((edu) => (
-                    <option key={edu} value={edu}>
-                      {edu}
-                    </option>
-                  ))}
-                </select>
-                {errors.education && <p className="text-xs text-red-500 mt-1">{errors.education}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t[language as 'tamil' | 'english'].occupationLabel} <span className="text-red-500">*</span></label>
-                <select
-                  value={newUser.occupation}
-                  onChange={(e) => handleFieldChange('occupation', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.occupation ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                  required
-                >
-                  <option value="">{t[language as 'tamil' | 'english'].selectOccupation}</option>
-                  {masterOccupations.map((occ) => (
-                    <option key={occ} value={occ}>
-                      {occ}
-                    </option>
-                  ))}
-                </select>
-                {errors.occupation && <p className="text-xs text-red-500 mt-1">{errors.occupation}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t[language as 'tamil' | 'english'].aadhaarNumber}</label>
-                <input
-                  type="text"
-                  value={newUser.aadhaarNumber}
-                  onChange={(e) => handleFormattedInput('aadhaarNumber', e.target.value, formatAadhaarNumber)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder={t[language as 'tamil' | 'english'].placeholderAadhaar}
-                  maxLength={14}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t[language as 'tamil' | 'english'].clan}</label>
-                <select
-                  value={newUser.clan}
-                  onChange={(e) => handleFieldChange('clan', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">{t[language as 'tamil' | 'english'].selectClan}</option>
-                  {masterClans.map((clan) => (
-                    <option key={clan} value={clan}>
-                      {clan}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t[language as 'tamil' | 'english'].group}</label>
-                <select
-                  value={newUser.group}
-                  onChange={(e) => handleFieldChange('group', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">{t[language as 'tamil' | 'english'].selectGroup}</option>
-                  {masterGroups.map((g) => (
-                    <option key={g} value={g}>
-                      {g}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t[language as 'tamil' | 'english'].maleHeirs}</label>
-                  <input
-                    type="number"
-                    value={newUser.maleHeirs}
-                    onChange={(e) => handleFieldChange('maleHeirs', parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    min="0"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t[language as 'tamil' | 'english'].femaleHeirs}</label>
-                  <input
-                    type="number"
-                    value={newUser.femaleHeirs}
-                    onChange={(e) => handleFieldChange('femaleHeirs', parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    min="0"
-                  />
-                </div>
-              </div>
-
-              {enablePhotoUpload && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">{t[language as 'tamil' | 'english'].photo}</label>
-                  <div className="w-full h-32 bg-gray-200 rounded-lg border-2 border-dashed border-gray-300 relative overflow-hidden">
-                    {newUser.photo ? (
-                      <div className="absolute inset-0 flex items-center justify-center p-2">
-                        <img
-                          src={URL.createObjectURL(newUser.photo)}
-                          alt="Preview"
-                          className="max-h-full max-w-full object-contain rounded"
-                        />
-                      </div>
-                    ) : existingPhotoUrl ? (
-                      <div className="absolute inset-0 flex items-center justify-center p-2">
-                        <img
-                          src={existingPhotoUrl}
-                          alt="Saved"
-                          className="max-h-full max-w-full object-contain rounded"
-                        />
-                      </div>
-                    ) : (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-2">
-                        <div className="text-4xl text-gray-400 mb-2">📷</div>
-                        <p className="text-xs text-gray-500">{t[language as 'tamil' | 'english'].photoNote}</p>
-                      </div>
-                    )}
-                    <input type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" id="photo-upload" />
-                    <label
-                      htmlFor="photo-upload"
-                      className="absolute bottom-2 right-2 inline-block px-3 py-1 bg-blue-500 text-white text-xs rounded cursor-pointer hover:bg-blue-600 shadow"
-                    >
-                      {newUser.photo
-                        ? t[language as 'tamil' | 'english'].replacePhoto
-                        : t[language as 'tamil' | 'english'].uploadPhoto}
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">
+                      {t[language as 'tamil' | 'english'].receiptNumber} *
                     </label>
+                    <input
+                      type="text"
+                      className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.receiptNumber ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                      value={newUser.receiptNumber}
+                      onChange={(e) => handleFieldChange('receiptNumber', e.target.value)}
+                      required
+                    />
+                    {errors.receiptNumber && <p className="text-red-500 text-xs mt-1">{errors.receiptNumber}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">
+                      {t[language as 'tamil' | 'english'].date} *
+                    </label>
+                    <input
+                      type="date"
+                      className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.date ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                      value={newUser.date}
+                      onChange={(e) => handleFieldChange('date', e.target.value)}
+                      required
+                    />
+                    {errors.date && <p className="text-red-500 text-xs mt-1">{errors.date}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].landownerNo}</label>
+                    <input
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      value={newUser.landownerNo}
+                      onChange={(e) => handleFieldChange('landownerNo', e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">
+                      {t[language as 'tamil' | 'english'].year}
+                    </label>
+                    <input
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      value={newUser.year}
+                      onChange={(e) => handleFieldChange('year', e.target.value)}
+                    />
                   </div>
                 </div>
-              )}
+              </div>
 
-            </div>
-          </div>
-        </div>
-      </div>
+              {/* Personal Details */}
+              <div className="bg-gray-50 rounded-lg p-1.5">
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">{t[language as 'tamil' | 'english'].landownerFinancials}</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">
+                      {t[language as 'tamil' | 'english'].mobileNumber} *
+                      {lookingUp && <span className="ml-2 text-blue-600 text-xs">🔍 {t[language as 'tamil' | 'english'].lookingUp}</span>}
+                    </label>
+                    <div>
+                      <input
+                        type="tel"
+                        className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.mobileNumber ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                        value={newUser.mobileNumber}
+                        onChange={(e) => handleMobileChange(e.target.value)}
+                        placeholder={t[language as 'tamil' | 'english'].placeholderMobile}
+                        maxLength={12}
+                        required
+                      />
+                    </div>
+                    {errors.mobileNumber && <p className="text-red-500 text-xs mt-1">{errors.mobileNumber}</p>}
+                    <p className="text-xs text-gray-500 mt-1">
+                      💡 {t[language as 'tamil' | 'english'].autofillHint}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">
+                      {t[language as 'tamil' | 'english'].name} *
+                    </label>
+                    <input
+                      type="text"
+                      className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                      value={newUser.name}
+                      onChange={(e) => handleFieldChange('name', e.target.value)}
+                      required
+                    />
+                    {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].alternativeName}</label>
+                    <input
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      value={newUser.alternativeName}
+                      onChange={(e) => handleFieldChange('alternativeName', e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].wifeName}</label>
+                    <input
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      value={newUser.wifeName}
+                      onChange={(e) => handleFieldChange('wifeName', e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">
+                      {t[language as 'tamil' | 'english'].fatherName} *
+                    </label>
+                    <input
+                      className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.fatherName ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                      value={newUser.fatherName}
+                      onChange={(e) => handleFieldChange('fatherName', e.target.value)}
+                      required
+                    />
+                    {errors.fatherName && <p className="text-red-500 text-xs mt-1">{errors.fatherName}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].educationLabel} *</label>
+                    <select
+                      className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.education ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                      value={newUser.education}
+                      onChange={(e) => handleFieldChange('education', e.target.value)}
+                      required
+                    >
+                      <option value="">{t[language as 'tamil' | 'english'].selectEducation}</option>
+                      {masterEducations.map((edu) => (
+                        <option key={edu} value={edu}>{edu}</option>
+                      ))}
+                    </select>
+                    {errors.education && <p className="text-red-500 text-xs mt-1">{errors.education}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].occupationLabel} *</label>
+                    <select
+                      className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.occupation ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                      value={newUser.occupation}
+                      onChange={(e) => handleFieldChange('occupation', e.target.value)}
+                      required
+                    >
+                      <option value="">{t[language as 'tamil' | 'english'].selectOccupation}</option>
+                      {masterOccupations.map((occ) => (
+                        <option key={occ} value={occ}>{occ}</option>
+                      ))}
+                    </select>
+                    {errors.occupation && <p className="text-red-500 text-xs mt-1">{errors.occupation}</p>}
+                  </div>
+                </div>
+              </div>
 
-      <div className="bg-purple-50 p-4 rounded-lg">
-        <div className="flex items-center justify-between mb-4">
-          <h4 className="text-lg font-medium text-purple-800">{t[language as 'tamil' | 'english'].heirsTitle}</h4>
-          <button type="button" onClick={addHeir} className="px-4 py-2 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700">
-            {t[language as 'tamil' | 'english'].addHeir}
-          </button>
-        </div>
+              {/* Address (collapsible) */}
+              <div className="bg-gray-50 rounded-lg p-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-900">{t[language as 'tamil' | 'english'].address} *</h3>
+                  <button type="button" className="text-xs text-blue-600" onClick={() => setShowAddress(v => !v)}>
+                    {showAddress ? t[language as 'tamil' | 'english'].clearForm : t[language as 'tamil' | 'english'].register}
+                  </button>
+                </div>
+                {showAddress && (
+                  <textarea
+                    className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.address ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                    rows={2}
+                    value={newUser.address}
+                    onChange={(e) => handleFieldChange('address', e.target.value)}
+                    placeholder={t[language as 'tamil' | 'english'].placeholderAddress}
+                    required
+                  />
+                )}
+                {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address}</p>}
+              </div>
 
-        {newUser.heirs && newUser.heirs.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-purple-100">
-                <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-purple-800 uppercase tracking-wider">{t[language as 'tamil' | 'english'].heirsTable.sno}</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-purple-800 uppercase tracking-wider">{t[language as 'tamil' | 'english'].heirsTable.name}</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-purple-800 uppercase tracking-wider">{t[language as 'tamil' | 'english'].heirsTable.race}</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-purple-800 uppercase tracking-wider">{t[language as 'tamil' | 'english'].heirsTable.marriage}</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-purple-800 uppercase tracking-wider">{t[language as 'tamil' | 'english'].heirsTable.education}</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-purple-800 uppercase tracking-wider">{t[language as 'tamil' | 'english'].heirsTable.bdate}</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-purple-800 uppercase tracking-wider">{t[language as 'tamil' | 'english'].heirsTable.action}</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {newUser.heirs.map((heir, index) => (
-                  <tr key={heir.id} className="hover:bg-purple-50">
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{heir.serialNumber}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">
+              {/* ID Numbers & Other Info (collapsible) */}
+              <div className="bg-gray-50 rounded-lg p-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-900">{t[language as 'tamil' | 'english'].personalHeirDetails}</h3>
+                  <button type="button" className="text-xs text-blue-600" onClick={() => setShowIdDetails(v => !v)}>
+                    {showIdDetails ? t[language as 'tamil' | 'english'].clearForm : t[language as 'tamil' | 'english'].register}
+                  </button>
+                </div>
+                {showIdDetails && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].aadhaarNumber}</label>
                       <input
                         type="text"
-                        value={heir.name}
-                        onChange={(e) => updateHeir(heir.id, 'name', e.target.value)}
-                        className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-purple-500 focus:border-transparent ${errors[`heir_${index}_name`] ? 'border-red-300' : 'border-gray-300'
-                          }`}
-                        placeholder={t[language as 'tamil' | 'english'].placeholderHeirName}
+                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        value={newUser.aadhaarNumber}
+                        onChange={(e) => handleFormattedInput('aadhaarNumber', e.target.value, formatAadhaarNumber)}
+                        placeholder={t[language as 'tamil' | 'english'].placeholderAadhaar}
+                        maxLength={14}
                       />
-                      {errors[`heir_${index}_name`] && <p className="text-xs text-red-500 mt-1">{errors[`heir_${index}_name`]}</p>}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap">
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].clan}</label>
                       <select
-                        value={heir.race}
-                        onChange={(e) => updateHeir(heir.id, 'race', e.target.value)}
-                        className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-purple-500 focus:border-transparent ${errors[`heir_${index}_race`] ? 'border-red-300' : 'border-gray-300'
-                          }`}
+                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        value={newUser.clan}
+                        onChange={(e) => handleFieldChange('clan', e.target.value)}
                       >
-                        <option value="">{t[language as 'tamil' | 'english'].selectRace}</option>
-                        {masterClans.map((race) => (
-                          <option key={race} value={race}>
-                            {race}
-                          </option>
+                        <option value="">{t[language as 'tamil' | 'english'].selectClan}</option>
+                        {masterClans.map((clan) => (
+                          <option key={clan} value={clan}>{clan}</option>
                         ))}
                       </select>
-                      {errors[`heir_${index}_race`] && <p className="text-xs text-red-500 mt-1">{errors[`heir_${index}_race`]}</p>}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap">
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].group}</label>
                       <select
-                        value={heir.maritalStatus}
-                        onChange={(e) => updateHeir(heir.id, 'maritalStatus', e.target.value)}
-                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-purple-500 focus:border-transparent"
+                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        value={newUser.group}
+                        onChange={(e) => handleFieldChange('group', e.target.value)}
                       >
-                        <option value="unmarried">{t[language as 'tamil' | 'english'].heirsTable.maritalStatus.unmarried}</option>
-                        <option value="married">{t[language as 'tamil' | 'english'].heirsTable.maritalStatus.married}</option>
-                        <option value="divorced">{t[language as 'tamil' | 'english'].heirsTable.maritalStatus.divorced}</option>
-                        <option value="widowed">{t[language as 'tamil' | 'english'].heirsTable.maritalStatus.widowed}</option>
+                        <option value="">{t[language as 'tamil' | 'english'].selectGroup}</option>
+                        {masterGroups.map((g) => (
+                          <option key={g} value={g}>{g}</option>
+                        ))}
                       </select>
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap">
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].postalCode}</label>
                       <input
-                        type="text"
-                        value={heir.education}
-                        onChange={(e) => updateHeir(heir.id, 'education', e.target.value)}
-                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-purple-500 focus:border-transparent"
-                        placeholder={t[language as 'tamil' | 'english'].placeholderHeirEducation}
+                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        value={newUser.postalCode}
+                        onChange={(e) => handleFieldChange('postalCode', e.target.value)}
+                        placeholder={t[language as 'tamil' | 'english'].placeholderPostal}
                       />
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap">
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].maleHeirs}</label>
                       <input
-                        type="date"
-                        value={heir.birthDate}
-                        onChange={(e) => updateHeir(heir.id, 'birthDate', e.target.value)}
-                        className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-purple-500 focus:border-transparent ${errors[`heir_${index}_birthDate`] ? 'border-red-300' : 'border-gray-300'
-                          }`}
+                        type="number"
+                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        value={newUser.maleHeirs}
+                        onChange={(e) => handleFieldChange('maleHeirs', parseInt(e.target.value) || 0)}
+                        min="0"
                       />
-                      {errors[`heir_${index}_birthDate`] && <p className="text-xs text-red-500 mt-1">{errors[`heir_${index}_birthDate`]}</p>}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium">
-                      <button onClick={() => removeHeir(heir.id)} className="text-red-600 hover:text-red-900 p-1" title={t[language as 'tamil' | 'english'].buttons.removeHeirTitle}>
-                        ✕
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="text-center py-6 text-gray-500">
-            <p className="text-sm">{t[language as 'tamil' | 'english'].heirsTable.noHeirs}</p>
-            <p className="text-xs mt-1">{t[language as 'tamil' | 'english'].heirsTable.addHeirHint}</p>
-          </div>
-        )}
-      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].femaleHeirs}</label>
+                      <input
+                        type="number"
+                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        value={newUser.femaleHeirs}
+                        onChange={(e) => handleFieldChange('femaleHeirs', parseInt(e.target.value) || 0)}
+                        min="0"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
 
-      <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
-        <button type="button" onClick={clearForm} className="px-4 py-2 text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200">
-          {t[language as 'tamil' | 'english'].exit}
-        </button>
-        <button
-          type="button"
-          onClick={handleAddUser}
-          disabled={isSubmitting}
-          className={`px-6 py-2 text-white rounded-md ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
-        >
-          {isSubmitting ? t[language as 'tamil' | 'english'].buttons.adding : t[language as 'tamil' | 'english'].register}
-        </button>
+              {/* Heirs Section - Compact Table (collapsible) */}
+              <div className="bg-gray-50 rounded-lg p-2">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    {t[language as 'tamil' | 'english'].heirsTitle}
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="text-xs text-blue-600"
+                      onClick={() => setShowHeirs(v => !v)}
+                    >
+                      {showHeirs ? t[language as 'tamil' | 'english'].clearForm : t[language as 'tamil' | 'english'].register}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={addHeir}
+                      className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+                    >
+                      {t[language as 'tamil' | 'english'].addHeir}
+                    </button>
+                  </div>
+                </div>
+                {showHeirs && newUser.heirs && newUser.heirs.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full bg-white border border-gray-300 rounded text-xs">
+                      <thead className="bg-gray-100">
+                        <tr>
+                          <th className="px-2 py-1 text-left font-medium text-gray-900 border-b">{t[language as 'tamil' | 'english'].heirsTable.sno}</th>
+                          <th className="px-2 py-1 text-left font-medium text-gray-900 border-b">{t[language as 'tamil' | 'english'].heirsTable.name}</th>
+                          <th className="px-2 py-1 text-left font-medium text-gray-900 border-b">{t[language as 'tamil' | 'english'].heirsTable.race}</th>
+                          <th className="px-2 py-1 text-left font-medium text-gray-900 border-b">{t[language as 'tamil' | 'english'].heirsTable.marriage}</th>
+                          <th className="px-2 py-1 text-left font-medium text-gray-900 border-b">{t[language as 'tamil' | 'english'].heirsTable.education}</th>
+                          <th className="px-2 py-1 text-left font-medium text-gray-900 border-b">{t[language as 'tamil' | 'english'].heirsTable.bdate}</th>
+                          <th className="px-2 py-1 text-center font-medium text-gray-900 border-b">{t[language as 'tamil' | 'english'].heirsTable.action}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {newUser.heirs.map((heir, index) => (
+                          <tr key={heir.id} className="hover:bg-gray-50">
+                            <td className="px-2 py-1 text-center border-b">{heir.serialNumber}</td>
+                            <td className="px-2 py-1 border-b">
+                              <input
+                                type="text"
+                                value={heir.name}
+                                onChange={(e) => updateHeir(heir.id, 'name', e.target.value)}
+                                className={`w-full px-1 py-0.5 text-xs border rounded ${errors[`heir_${index}_name`] ? 'border-red-300' : 'border-gray-300'}`}
+                                placeholder={t[language as 'tamil' | 'english'].placeholderHeirName}
+                              />
+                              {errors[`heir_${index}_name`] && <p className="text-red-500 text-xs mt-1">{errors[`heir_${index}_name`]}</p>}
+                            </td>
+                            <td className="px-2 py-1 border-b">
+                              <select
+                                value={heir.race}
+                                onChange={(e) => updateHeir(heir.id, 'race', e.target.value)}
+                                className={`w-full px-1 py-0.5 text-xs border rounded ${errors[`heir_${index}_race`] ? 'border-red-300' : 'border-gray-300'}`}
+                              >
+                                <option value="">{t[language as 'tamil' | 'english'].selectRace}</option>
+                                {masterClans.map((race) => (
+                                  <option key={race} value={race}>
+                                    {race}
+                                  </option>
+                                ))}
+                              </select>
+                              {errors[`heir_${index}_race`] && <p className="text-red-500 text-xs mt-1">{errors[`heir_${index}_race`]}</p>}
+                            </td>
+                            <td className="px-2 py-1 border-b">
+                              <select
+                                value={heir.maritalStatus}
+                                onChange={(e) => updateHeir(heir.id, 'maritalStatus', e.target.value)}
+                                className="w-full px-1 py-0.5 text-xs border border-gray-300 rounded"
+                              >
+                                <option value="unmarried">{t[language as 'tamil' | 'english'].heirsTable.maritalStatus.unmarried}</option>
+                                <option value="married">{t[language as 'tamil' | 'english'].heirsTable.maritalStatus.married}</option>
+                                <option value="divorced">{t[language as 'tamil' | 'english'].heirsTable.maritalStatus.divorced}</option>
+                                <option value="widowed">{t[language as 'tamil' | 'english'].heirsTable.maritalStatus.widowed}</option>
+                              </select>
+                            </td>
+                            <td className="px-2 py-1 border-b">
+                              <input
+                                type="text"
+                                value={heir.education}
+                                onChange={(e) => updateHeir(heir.id, 'education', e.target.value)}
+                                className="w-full px-1 py-0.5 text-xs border border-gray-300 rounded"
+                                placeholder={t[language as 'tamil' | 'english'].placeholderHeirEducation}
+                              />
+                            </td>
+                            <td className="px-2 py-1 border-b">
+                              <input
+                                type="date"
+                                value={heir.birthDate}
+                                onChange={(e) => updateHeir(heir.id, 'birthDate', e.target.value)}
+                                className="w-full px-1 py-0.5 text-xs border border-gray-300 rounded"
+                              />
+                            </td>
+                            <td className="px-2 py-1 border-b text-center">
+                              <button
+                                onClick={() => removeHeir(heir.id)}
+                                className="text-red-600 hover:text-red-800 text-sm"
+                                title={t[language as 'tamil' | 'english'].buttons.removeHeirTitle}
+                              >
+                                ×
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  showHeirs && (
+                    <div className="text-center py-4 text-gray-500 text-xs bg-white rounded border border-gray-200">
+                      <p>{t[language as 'tamil' | 'english'].heirsTable.noHeirs}</p>
+                    </div>
+                  )
+                )}
+              </div>
+            </div>
+
+            {/* Right Column - Photo, Amounts & Actions (1/4 width) */}
+            <div className="space-y-2">
+              {/* Photo Upload - Toggleable */}
+              <div className="bg-gray-50 rounded-lg p-2">
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-sm font-semibold text-gray-900">{t[language as 'tamil' | 'english'].photo}</h3>
+                  <button type="button" className="text-xs text-blue-600" onClick={() => setShowPhoto(v => !v)}>
+                    {showPhoto ? t[language as 'tamil' | 'english'].clearForm : t[language as 'tamil' | 'english'].register}
+                  </button>
+                </div>
+                {showPhoto && (
+                  <div className="flex flex-col items-center">
+                    <div className="w-24 h-28 bg-white border-2 border-dashed border-gray-300 rounded flex items-center justify-center mb-2">
+                      {(!newUser.photo && existingPhotoUrl) ? (
+                        <img src={existingPhotoUrl} alt="Profile" className="w-full h-full object-cover rounded" />
+                      ) : newUser.photo ? (
+                        <img src={URL.createObjectURL(newUser.photo)} alt="Preview" className="w-full h-full object-cover rounded" />
+                      ) : (
+                        <div className="text-center text-gray-500">
+                          <svg className="w-8 h-8 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          <p className="text-xs">{t[language as 'tamil' | 'english'].photo}</p>
+                        </div>
+                      )}
+                    </div>
+                    <label
+                      htmlFor="photo-upload"
+                      className="w-full px-2 py-1 bg-blue-500 text-white text-xs rounded cursor-pointer hover:bg-blue-600 text-center"
+                    >
+                      {newUser.photo ? t[language as 'tamil' | 'english'].replacePhoto : t[language as 'tamil' | 'english'].uploadPhoto}
+                    </label>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={handlePhotoChange} 
+                      className="hidden" 
+                      id="photo-upload" 
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons - Compact */}
+              <div className="space-y-2">
+                <button
+                  disabled={isSubmitting}
+                  onClick={handleAddUser}
+                  className="w-full px-4 py-2 bg-blue-600 text-white font-medium rounded shadow hover:bg-blue-700 disabled:opacity-50 text-sm"
+                >
+                  {isSubmitting ? t[language as 'tamil' | 'english'].saving : t[language as 'tamil' | 'english'].save}
+                </button>
+                <button
+                  onClick={clearForm}
+                  className="w-full px-4 py-2 bg-gray-200 text-gray-800 font-medium rounded shadow hover:bg-gray-300 text-sm"
+                >
+                  {t[language as 'tamil' | 'english'].clearForm}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Print Receipt Modal */}
+          {showPrintPrompt && lastCreatedId != null && (
+            <Modal
+              title={language === 'tamil' ? 'ரசீதை அச்சிடவா?' : 'Print Receipt'}
+              onClose={() => setShowPrintPrompt(false)}
+            >
+              <p className="mb-4 text-sm">
+                {language === 'tamil' ? 'PDF ரசீதை அச்சிட திறக்க விரும்புகிறீர்களா?' : 'Do you want to open the PDF receipt for printing?'}
+              </p>
+              <div className="flex justify-end gap-2">
+                <button
+                  className="px-4 py-2 rounded border"
+                  onClick={() => setShowPrintPrompt(false)}
+                >
+                  {language === 'tamil' ? 'இல்லை' : 'No'}
+                </button>
+                <button
+                  className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+                  onClick={() => {
+                    const t = token ? encodeURIComponent(token) : '';
+                    const url = `/api/registrations/${lastCreatedId}/receipt.pdf${t ? `?token=${t}` : ''}`;
+                    window.open(url, '_blank');
+                    setShowPrintPrompt(false);
+                  }}
+                >
+                  {language === 'tamil' ? 'ஆம், அச்சிடு' : 'Yes, Print'}
+                </button>
+              </div>
+            </Modal>
+          )}
+        </div>
       </div>
     </div>
   );

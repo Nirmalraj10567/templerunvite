@@ -59,6 +59,7 @@ import LedgerListPage from './pages/ledger/LedgerListPage';
 import ProfitAndLossPage from './pages/ledger/ProfitAndLossPage';
 import CashflowByCategoryPage from './pages/ledger/CashflowByCategoryPage';
 import CategoryStatementPage from './pages/ledger/CategoryStatementPage';
+import JournalLogPage from './pages/reports/JournalLogPage';
 
 function App() {
   return (
@@ -292,6 +293,14 @@ function App() {
                     element={
                       <PermissionGuard requiredPermission="reports" accessLevel="view">
                         <MonthlyReportPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/dashboard/reports/journal-log"
+                    element={
+                      <PermissionGuard requiredPermission="reports" accessLevel="view">
+                        <JournalLogPage />
                       </PermissionGuard>
                     }
                   />
