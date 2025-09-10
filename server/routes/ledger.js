@@ -402,16 +402,21 @@ router.get('/cashflow/statement', authenticateToken, async (req, res) => {
     const { under, startDate, endDate } = req.query;
     if (!under) return res.status(400).json({ error: "Parameter 'under' (category) is required" });
 
-    // Opening balance = credits - debits before startDate for this category
-    let openBase = db('ledger_entries').where('under', under);
-    if (startDate) openBase = openBase.andWhere('date', '<', startDate);
-    const opening = await openBase
-      .select(
-        db.raw("COALESCE(SUM(CASE WHEN type='credit' THEN amount ELSE 0 END), 0) as cr"),
-        db.raw("COALESCE(SUM(CASE WHEN type='debit' THEN amount ELSE 0 END), 0) as dr")
-      )
-      .first();
-    const opening_balance = Number(opening?.cr || 0) - Number(opening?.dr || 0);
+    // Opening balance logic:
+    // If a startDate is provided, opening = net (credits - debits) strictly BEFORE startDate.
+    // If startDate is NOT provided, treat opening as 0 so that the closing balance
+    // reflects net within the requested period (typically up to endDate) only.
+    let opening_balance = 0;
+    if (startDate) {
+      let openBase = db('ledger_entries').where('under', under).andWhere('date', '<', startDate);
+      const opening = await openBase
+        .select(
+          db.raw("COALESCE(SUM(CASE WHEN type='credit' THEN amount ELSE 0 END), 0) as cr"),
+          db.raw("COALESCE(SUM(CASE WHEN type='debit' THEN amount ELSE 0 END), 0) as dr")
+        )
+        .first();
+      opening_balance = Number(opening?.cr || 0) - Number(opening?.dr || 0);
+    }
 
     // Entries within the period
     let periodBase = db('ledger_entries').where('under', under);

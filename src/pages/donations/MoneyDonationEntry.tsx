@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import { moneyDonationService, MoneyDonationFormData } from '@/services/moneyDonationService';
-import axios from 'axios';
-import { getAuthToken } from '@/lib/auth';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Modal } from '@/components/ui/modal';
+import { ledgerService } from '@/services/ledgerService';
+import { journalService } from '@/services/journalService';
 
 const initialState: MoneyDonationFormData = {
   registerNo: '',
@@ -30,6 +30,7 @@ export default function MoneyDonationEntry() {
   const [message, setMessage] = useState<string|undefined>();
   const [isError, setIsError] = useState(false);
   const [accounts, setAccounts] = useState<Array<{ id?: number; value: string; label: string }>>([]);
+  const [fromAccount, setFromAccount] = useState<string>('CASH A/C');
   const [lastCreatedId, setLastCreatedId] = useState<number | null>(null);
   const [showPrintPrompt, setShowPrintPrompt] = useState(false);
 
@@ -43,17 +44,19 @@ export default function MoneyDonationEntry() {
   useEffect(() => {
     const loadAccounts = async () => {
       try {
-        const resp = await axios.get<any>('/api/ledger/accounts', {
-          headers: { Authorization: `Bearer ${getAuthToken()}` }
-        });
-        const data = (resp?.data && Array.isArray(resp.data.data)) ? resp.data.data : (Array.isArray(resp?.data) ? resp.data : []);
-        const mapped = (data || []).map((item: any, index: number) => {
-          if (typeof item === 'string') return { id: index + 1, value: item, label: item };
-          return { id: item.id ?? index + 1, value: item.value || item.label, label: item.label || item.value };
-        });
+        // Prefer journal accounts to align with double-entry accounting
+        let names: string[] = [];
+        try {
+          names = await journalService.getAccounts();
+        } catch {
+          names = await ledgerService.getNames();
+        }
+        const mapped = (names || []).map((n: string, idx: number) => ({ id: idx + 1, value: n, label: n }));
         setAccounts(mapped);
+        // Default sensible from account
+        if (names.includes('CASH A/C')) setFromAccount('CASH A/C');
       } catch (e) {
-        console.error('Failed to load accounts', e);
+        console.error('Failed to load ledger names', e);
         setAccounts([]);
       }
     };
@@ -66,12 +69,23 @@ export default function MoneyDonationEntry() {
     setMessage(undefined);
 
     try {
-      if (!form.amount || isNaN(Number(form.amount))) {
+      if (!form.date) {
         setIsError(true);
-        setMessage(t('Enter a valid amount', 'செல்லுப்படியான தொகையை உள்ளிடவும்'));
+        setMessage(t('Please select a date', 'தேதியைத் தேர்ந்தெடுக்கவும்'));
         return;
       }
-      const resp = await moneyDonationService.create(token, form);
+      if (!form.amount || isNaN(Number(form.amount)) || Number(form.amount) <= 0) {
+        setIsError(true);
+        setMessage(t('Enter a valid amount greater than 0', '0-ஐ விட அதிகமான செல்லுபடியான தொகையை உள்ளிடவும்'));
+        return;
+      }
+      if (!form.transferTo || form.transferTo.trim() === '') {
+        setIsError(true);
+        setMessage(t('Please select an account to transfer to', 'எந்த கணக்கிற்கு மாற்றுவது என்பதைத் தேர்ந்தெடுக்கவும்'));
+        return;
+      }
+      // Include fromAccount so backend can create proper journal entry
+      const resp = await moneyDonationService.create(token, { ...form, transferFrom: fromAccount });
       const newId = resp?.data?.id;
       const createdId = typeof newId === 'number' ? newId : null;
       setLastCreatedId(createdId);
@@ -136,6 +150,19 @@ export default function MoneyDonationEntry() {
         <div className="md:col-span-2">
           <label className="block text-sm mb-1">{t('Amount', 'வருமானம்')}*</label>
           <input className="w-full border p-2 rounded" name="amount" value={form.amount} onChange={onChange} placeholder={t('Enter amount only', 'பணம் மட்டும் உள்ளிடவும்')} />
+        </div>
+        <div className="md:col-span-2">
+          <label className="block text-sm mb-1">{t('Transfer From Account', 'எந்த கணக்கிலிருந்து மாற்றுவது')}</label>
+          <select
+            className="w-full border p-2 rounded"
+            name="transferFrom"
+            value={fromAccount}
+            onChange={(e) => setFromAccount(e.target.value)}
+          >
+            {accounts.map(acc => (
+              <option key={acc.id ?? acc.value} value={acc.value}>{acc.label}</option>
+            ))}
+          </select>
         </div>
         <div className="md:col-span-2">
           <label className="block text-sm mb-1">{t('Transfer To Account', 'எந்த கணக்கிற்கு மாற்றுவது')}</label>

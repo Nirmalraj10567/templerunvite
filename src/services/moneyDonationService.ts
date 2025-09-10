@@ -9,6 +9,7 @@ export interface MoneyDonationFormData {
   amount: string; // keep as string in form, cast to number server-side
   reason: string;
   transferTo?: string;
+  transferFrom?: string;
 }
 
 export interface MoneyDonationItem {

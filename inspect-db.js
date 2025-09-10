@@ -1,5 +1,6 @@
 const sqlite3 = require('sqlite3').verbose();
-const db = new sqlite3.Database('./server/database.sqlite3');
+// Use the same DB file as the app (see server/db.js)
+const db = new sqlite3.Database('./server/deev.sqlite3');
 
 // Get all tables
 db.all("SELECT name FROM sqlite_master WHERE type='table'", (err, tables) => {

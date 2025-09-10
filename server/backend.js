@@ -286,6 +286,24 @@ app.use('/api/ledger', ledgerRouter);
     }
   });
 
+// Provide /api/ledger/balance for compatibility (computed from journal_entries)
+app.get('/api/ledger/balance', authenticateToken, async (req, res) => {
+  try {
+    const account = (req.query.account ? String(req.query.account) : 'CASH A/C').trim();
+    const hasJournal = await db.schema.hasTable('journal_entries');
+    if (!hasJournal) return res.json({ balance: 0, account });
+    const inflowRow = await db('journal_entries').where({ temple_id: req.user.templeId, to_account: account }).sum({ s: 'amount' }).first();
+    const outflowRow = await db('journal_entries').where({ temple_id: req.user.templeId, from_account: account }).sum({ s: 'amount' }).first();
+    const inflow = Number(inflowRow?.s || inflowRow?.sum || 0);
+    const outflow = Number(outflowRow?.s || outflowRow?.sum || 0);
+    const balance = inflow - outflow;
+    res.json({ balance, account });
+  } catch (err) {
+    console.error('Error in /api/ledger/balance:', err);
+    res.status(500).json({ error: 'Failed to compute balance' });
+  }
+});
+
   // PUT /api/ledger/categories/:id
   r.put('/categories/:id', authenticateToken, authorizePermission('ledger_management', 'edit'), async (req, res) => {
     try {
@@ -314,6 +332,36 @@ app.use('/api/ledger', ledgerRouter);
 
   app.use('/api/ledger', r);
 })();
+
+// Provide /api/ledger/names for frontend compatibility
+app.get('/api/ledger/names', authenticateToken, async (req, res) => {
+  try {
+    let names = [];
+    try {
+      const hasJournal = await db.schema.hasTable('journal_entries');
+      if (hasJournal) {
+        const froms = await db('journal_entries').distinct('from_account as name').where('temple_id', req.user.templeId);
+        const tos = await db('journal_entries').distinct('to_account as name').where('temple_id', req.user.templeId);
+        const set = new Set();
+        [...froms, ...tos].forEach(r => { if (r.name) set.add(r.name); });
+        names = Array.from(set).sort();
+      }
+    } catch {}
+    if (!names.length) {
+      try {
+        const rows = await db('ledger_entries').distinct('under as name').whereNotNull('under').andWhere('under', '!=', '');
+        names = rows.map(r => r.name).filter(Boolean).sort();
+      } catch {}
+    }
+    if (!names.length) {
+      names = ['CASH A/C', 'BANK A/C'];
+    }
+    res.json({ data: names });
+  } catch (err) {
+    console.error('Error in /api/ledger/names:', err);
+    res.status(500).json({ error: 'Failed to fetch names' });
+  }
+});
 
 // Public Mobile Events endpoint (simplified format, no JWT)
 app.get('/api/mobile/events', async (req, res) => {
@@ -477,23 +525,29 @@ app.get('/api/mobile/events', async (req, res) => {
       const [id] = await db('money_donations').insert(payload);
       const row = await db('money_donations').where({ id }).first();
 
-      // Also record a credit in ledger_entries for the selected account so balances reflect this donation
+      // Also record a journal entry: move funds from selected from_account to transfer_to_account
       try {
-        const under = row.transfer_to_account || b.transferTo || 'CASH A/C';
-        await db('ledger_entries').insert({
-          date: row.date,
-          name: row.name ? `Donation - ${row.name}` : 'Donation',
-          type: 'credit',
-          under,
-          amount: row.amount,
-          remarks: row.reason || null,
-          temple_id: row.temple_id,
-          created_at: db.fn.now(),
-          updated_at: db.fn.now(),
-        });
+        const toAccount = row.transfer_to_account || b.transferTo || 'CASH A/C';
+        const fromAccount = b.fromAccount || b.transferFrom || 'DONATION A/C';
+        const hasJournal = await db.schema.hasTable('journal_entries');
+        if (hasJournal) {
+          await db('journal_entries').insert({
+            date: row.date,
+            from_account: fromAccount,
+            to_account: toAccount,
+            amount: row.amount,
+            entry_type: 'transfer',
+            remarks: row.reason || null,
+            reference_type: 'money_donation',
+            reference_id: row.id,
+            temple_id: req.user.templeId,
+            created_by: req.user.id,
+            created_at: db.fn.now(),
+          });
+        }
       } catch (e) {
-        console.error('Failed to insert ledger entry for donation:', e);
-        // Do not fail the main request; frontend balances may not reflect until manual entry
+        console.error('Failed to insert journal entry for donation:', e);
+        // Do not fail the main request
       }
       res.json({ success: true, data: row });
     } catch (err) {
@@ -696,6 +750,105 @@ const ledgerCategoriesCompat = (() => {
   return router;
 })();
 
+// Journal entries router
+(() => {
+  const express = require('express');
+  const r = express.Router();
+
+  // POST /api/journal/entries
+  r.post('/entries', authenticateToken, authorizePermission('ledger_management', 'edit'), async (req, res) => {
+    try {
+      const b = req.body || {};
+      const amount = Number(b.amount);
+      if (!b.date) return res.status(400).json({ error: 'Date is required' });
+      if (!b.from_account || !b.to_account) return res.status(400).json({ error: 'Both from_account and to_account are required' });
+      if (!amount || !Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: 'Valid amount is required' });
+      const entry = {
+        date: b.date,
+        from_account: b.from_account,
+        to_account: b.to_account,
+        amount,
+        entry_type: b.entry_type || 'transfer',
+        remarks: b.remarks || null,
+        reference_type: b.reference_type || null,
+        reference_id: b.reference_id || null,
+        temple_id: req.user.templeId,
+        created_by: req.user.id,
+        created_at: db.fn.now(),
+      };
+      const [id] = await db('journal_entries').insert(entry);
+      const row = await db('journal_entries').where({ id }).first();
+      res.json({ success: true, data: row });
+    } catch (err) {
+      console.error('Error creating journal entry:', err);
+      res.status(500).json({ error: 'Failed to create journal entry' });
+    }
+  });
+
+  // GET /api/journal/accounts -> distinct account names
+  r.get('/accounts', authenticateToken, authorizePermission('ledger_management', 'view'), async (req, res) => {
+    try {
+      const hasJournal = await db.schema.hasTable('journal_entries');
+      let accounts = [];
+      if (hasJournal) {
+        const froms = await db('journal_entries').distinct('from_account as name').where('temple_id', req.user.templeId);
+        const tos = await db('journal_entries').distinct('to_account as name').where('temple_id', req.user.templeId);
+        const set = new Set();
+        [...froms, ...tos].forEach(r => { if (r.name) set.add(r.name); });
+        accounts = Array.from(set).sort().map(n => ({ name: n }));
+      }
+      // Fallback to ledger entries name/under if empty
+      if (!accounts.length) {
+        try {
+          const rows = await db('ledger_entries').distinct('under as name').whereNotNull('under').andWhere('under', '!=', '');
+          accounts = rows.map(r => ({ name: r.name }));
+        } catch {}
+      }
+      res.json({ data: accounts });
+    } catch (err) {
+      console.error('Error fetching journal accounts:', err);
+      res.status(500).json({ error: 'Failed to fetch accounts' });
+    }
+  });
+
+  // GET /api/journal/balance?account=NAME
+  r.get('/balance', authenticateToken, authorizePermission('ledger_management', 'view'), async (req, res) => {
+    try {
+      const account = String(req.query.account || '').trim();
+      if (!account) return res.status(400).json({ error: 'account is required' });
+      const hasJournal = await db.schema.hasTable('journal_entries');
+      if (!hasJournal) return res.json({ account, balance: 0 });
+      const inflowRow = await db('journal_entries').where({ temple_id: req.user.templeId, to_account: account }).sum({ s: 'amount' }).first();
+      const outflowRow = await db('journal_entries').where({ temple_id: req.user.templeId, from_account: account }).sum({ s: 'amount' }).first();
+      const inflow = Number(inflowRow?.s || inflowRow?.sum || 0);
+      const outflow = Number(outflowRow?.s || outflowRow?.sum || 0);
+      const balance = inflow - outflow;
+      res.json({ account, balance });
+    } catch (err) {
+      console.error('Error computing balance:', err);
+      res.status(500).json({ error: 'Failed to compute balance' });
+    }
+  });
+
+  // GET /api/journal/entries (simple list with pagination)
+  r.get('/entries', authenticateToken, authorizePermission('ledger_management', 'view'), async (req, res) => {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit || req.query.pageSize) || 20;
+      const offset = (page - 1) * limit;
+      const base = db('journal_entries').where('temple_id', req.user.templeId);
+      const countRow = await base.clone().count({ c: '*' }).first();
+      const total = Number(countRow?.c || countRow?.count || 0);
+      const rows = await base.clone().orderBy('date', 'desc').orderBy('id', 'desc').limit(limit).offset(offset);
+      res.json({ success: true, data: rows, pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) } });
+    } catch (err) {
+      console.error('Error fetching journal entries:', err);
+      res.status(500).json({ error: 'Failed to fetch journal entries' });
+    }
+  });
+
+  app.use('/api/journal', r);
+})();
 // Create receipt
 app.post('/api/receipts', authenticateToken, authorizePermission('receipts', 'edit'), async (req, res) => {
   try {
@@ -719,6 +872,31 @@ app.post('/api/receipts', authenticateToken, authorizePermission('receipts', 'ed
     };
     const [id] = await db('receipts').insert(payload);
     const row = await db('receipts').where({ id }).first();
+    // Reflect into journal so balances are accurate
+    try {
+      const isExpense = row.type === 'payment';
+      const fromAccount = isExpense ? (row.from_person || 'CASH A/C') : (row.from_person || 'INCOME A/C');
+      const toAccount = isExpense ? (row.to_person || 'EXPENSE A/C') : (row.to_person || 'CASH A/C');
+      const hasJournal = await db.schema.hasTable('journal_entries');
+      if (hasJournal) {
+        await db('journal_entries').insert({
+          date: row.date,
+          from_account: fromAccount,
+          to_account: toAccount,
+          amount: row.amount,
+          entry_type: isExpense ? 'expense' : 'income',
+          remarks: row.remarks || null,
+          reference_type: 'receipt',
+          reference_id: row.id,
+          temple_id: req.user.templeId,
+          created_by: req.user.id,
+          created_at: db.fn.now(),
+        });
+      }
+    } catch (e) {
+      console.error('Failed to mirror receipt into journal_entries:', e);
+      // don't fail the main response
+    }
     res.json({ success: true, data: row });
   } catch (err) {
     console.error('Error creating receipt:', err);

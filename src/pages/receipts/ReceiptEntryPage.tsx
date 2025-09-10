@@ -10,6 +10,7 @@ import { toast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ledgerService } from '@/services/ledgerService';
+import { journalService } from '@/services/journalService';
 
 const generateReceiptNo = () => {
   const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -39,7 +40,6 @@ export default function ReceiptEntryPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { register, handleSubmit, reset, setValue, watch } = useForm<ReceiptFormData>();
   const [ledgerNames, setLedgerNames] = useState<string[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
   const [fromBalance, setFromBalance] = useState<number | null>(null);
 
   const t = (en: string, ta: string) => (language === 'tamil' ? ta : en);
@@ -95,23 +95,18 @@ export default function ReceiptEntryPage() {
       };
       fetchReceipt();
     }
-    // Load distinct ledger names for donor suggestions
+    // Load distinct account names (journal accounts preferred)
     (async () => {
       try {
-        const names = await ledgerService.getNames();
+        let names: string[] = [];
+        try {
+          names = await journalService.getAccounts();
+        } catch {
+          names = await ledgerService.getNames();
+        }
         setLedgerNames(names);
       } catch (e) {
         console.warn('Failed to load ledger names', e);
-      }
-    })();
-
-    // Load ledger categories for "To" selection
-    (async () => {
-      try {
-        const cats = await ledgerService.getCategories();
-        setCategories(cats);
-      } catch (e) {
-        console.warn('Failed to load ledger categories', e);
       }
     })();
   }, [id, reset, setValue, token, language]);
@@ -135,18 +130,9 @@ export default function ReceiptEntryPage() {
           toast({ title: t('Validation', 'சரிபார்ப்பு'), description: t('Please select a From category for expense', 'செலவிற்கு வரவு (From) வகையைத் தேர்ந்தெடுக்கவும்'), variant: 'destructive' });
           return;
         }
-        // Always fetch latest balance for donor
+        // Always fetch latest balance for donor (from journal)
         try {
-          const today = new Date().toISOString().slice(0, 10);
-          const params = new URLSearchParams({ under: data.donor, endDate: today });
-          const res = await fetch(`/api/ledger/cashflow/statement?${params.toString()}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (!res.ok) throw new Error('Failed to fetch balance');
-          const body = await res.json();
-          const latestBal = typeof body?.closing_balance === 'number'
-            ? Number(body.closing_balance)
-            : (typeof body?.opening_balance === 'number' ? Number(body.opening_balance) : NaN);
+          const latestBal = await journalService.getBalance(data.donor);
           if (!Number.isNaN(latestBal)) setFromBalance(latestBal);
           if (!Number.isNaN(latestBal)) {
             if (latestBal === 0) {
@@ -274,17 +260,7 @@ export default function ReceiptEntryPage() {
                       setFromBalance(null);
                       if (!under) return;
                       try {
-                        const today = new Date().toISOString().slice(0, 10);
-                        const params = new URLSearchParams({ under, endDate: today });
-                        const res = await fetch(`/api/ledger/cashflow/statement?${params.toString()}`, {
-                          headers: { Authorization: `Bearer ${token}` },
-                        });
-                        if (!res.ok) throw new Error('Failed to fetch balance');
-                        const body = await res.json();
-                        // Prefer closing_balance if present; fallback to opening_balance
-                        const bal = typeof body?.closing_balance === 'number'
-                          ? Number(body.closing_balance)
-                          : (typeof body?.opening_balance === 'number' ? Number(body.opening_balance) : NaN);
+                        const bal = await journalService.getBalance(under);
                         if (!Number.isNaN(bal)) {
                           setFromBalance(bal);
                           if (bal === 0) {
@@ -302,9 +278,9 @@ export default function ReceiptEntryPage() {
                     }
                   })}
                 >
-                  <option value="">{t('Select category', 'வகையைத் தேர்ந்தெடுக்கவும்')}</option>
-                  {categories.map((c) => (
-                    <option key={c} value={c}>{c}</option>
+                  <option value="">{t('Select name', 'பெயரைத் தேர்ந்தெடுக்கவும்')}</option>
+                  {ledgerNames.map((n) => (
+                    <option key={n} value={n}>{n}</option>
                   ))}
                 </select>
                 {fromBalance !== null && (
