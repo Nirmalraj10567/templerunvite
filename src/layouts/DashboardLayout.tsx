@@ -2,6 +2,8 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Header } from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
+import { useSettings } from '../contexts/SettingsContext';
+import { sidebarItems as sharedSidebarItems } from '../config/navigation';
 import {
   HomeIcon,
   UsersIcon,
@@ -20,6 +22,7 @@ import {
 export default function DashboardLayout() {
   const navigate = useNavigate();
   const { user, userPermissions, isSuperAdmin } = useAuth();
+  const { settings } = useSettings();
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isHoveringSidebar, setIsHoveringSidebar] = useState(false);
@@ -81,129 +84,72 @@ export default function DashboardLayout() {
     };
   }, [isSidebarCollapsed, isMobileMenuOpen, isHoveringSidebar]);
 
+  // Apply default collapsed from user settings when settings change
+  useEffect(() => {
+    if (typeof settings?.sidebar_collapsed_default === 'boolean') {
+      setSidebarCollapsed(!!settings.sidebar_collapsed_default);
+    }
+  }, [settings?.sidebar_collapsed_default]);
+ 
   
 
-  const sidebarItems = useMemo(
-    () => [
-      { to: '/dashboard', label: 'Overview', icon: HomeIcon },
-      { to: '/dashboard/members', label: 'Members', icon: UsersIcon, permissionId: 'member_entry' },
-      {
-        label: 'Reports',
-        icon: BarChartIcon,
-        children: [
-          { to: '/dashboard/reports/daily', label: 'Daily Report', permissionId: 'reports' },
-          { to: '/dashboard/reports/monthly', label: 'Monthly Report', permissionId: 'reports' },
-          { to: '/dashboard/reports/journal-log', label: 'Journal Log', permissionId: 'reports' },
-          { to: '/dashboard/reports/trial-balance', label: 'Trial Balance', permissionId: 'reports' },
-          { to: '/dashboard/reports/balance-sheet', label: 'Balance Sheet', permissionId: 'reports' },
-        ]
-      },
-      { to: '/dashboard/balance-sheet', label: 'Balance Sheet', icon: LandmarkIcon, permissionId: 'balance_sheet' },
-      { to: '/dashboard/master-data', label: 'Master Data', icon: LandmarkIcon, permissionId: 'master_data' },
-      {
-        label: 'Ledger',
-        icon: CreditCardIcon,
-        children: [
-          { to: '/dashboard/ledger/entry', label: 'New Entry', permissionId: 'ledger_management', accessLevel: 'edit' },
-          { to: '/dashboard/ledger/list', label: 'View Entries', permissionId: 'ledger_management', accessLevel: 'view' },
-          { to: '/dashboard/ledger/profit-and-loss', label: 'Profit & Loss', permissionId: 'reports', accessLevel: 'view' },
-          { to: '/dashboard/ledger/cashflow-by-category', label: 'Cashflow by Category', permissionId: 'reports', accessLevel: 'view' },
-          { to: '/dashboard/ledger/category-statement', label: 'Category Statement', permissionId: 'reports', accessLevel: 'view' },
-        ]
-      },
-      { to: '/dashboard/session-logs', label: 'Session Logs', icon: HistoryIcon, permissionId: 'view_session_logs' },
-      {
-        label: 'Settings',
-        icon: SettingsIcon,
-        children: [
-          { to: '/dashboard/settings', label: 'General Settings', permissionId: 'settings' },
-          { to: '/dashboard/tax/settings', label: 'Tax Settings', permissionId: 'tax_registrations' },
-        ]
-      },
-      {
-        label: 'Pooja',
-        icon: CalendarIcon,
-        children: [
-          { to: '/dashboard/pooja/list', label: 'Pooja List', permissionId: 'pooja_registrations' },
-          { to: '/dashboard/pooja/entry', label: 'Pooja Entry', permissionId: 'pooja_registrations' },
-          { to: '/dashboard/pooja/approval', label: 'Pooja Approval', permissionId: 'pooja_approval' },
-        ]
-      },
-      {
-        label: 'Hall Booking',
-        icon: CalendarIcon,
-        children: [
-          { to: '/dashboard/hall/list', label: 'Hall Bookings', permissionId: 'hall_booking', accessLevel: 'view' },
-          { to: '/dashboard/hall/entry', label: 'New Booking', permissionId: 'hall_booking', accessLevel: 'edit' },
-          { to: '/dashboard/hall/approvals', label: 'Hall Approvals', permissionId: 'hall_approval', accessLevel: 'view' },
-        ]
-      },
-      {
-        label: 'Donations',
-        icon: HeartIcon,
-        children: [
-          { to: '/dashboard/donation-product/list', label: 'Donations - List', permissionId: 'view_donations' },
-          { to: '/dashboard/donation-product/entry', label: 'Donations - Entry', permissionId: 'edit_donations' },
-          { to: '/dashboard/donations/money-list', label: 'Money Donation List', permissionId: 'view_donations' },
-          { to: '/dashboard/donations/money-entry', label: 'Money Donation Entry', permissionId: 'edit_donations' },
-          { to: '/dashboard/donations/approval', label: 'Donations Approval', permissionId: 'donation_approval', accessLevel: 'view' },
-        ]
-      },
-      {
-        label: 'Events',
-        icon: CalendarIcon,
-        children: [
-          { to: '/dashboard/events', label: 'Event List', permissionId: 'view_events' },
-          { to: '/dashboard/events/new', label: 'New Event', permissionId: 'edit_events' },
-          { to: '/dashboard/calendar/new-moon-days', label: 'New Moon Days', permissionId: 'view_events' },
-        ]
-      },
-      {
-        label: 'Annadhanam',
-        icon: HeartIcon,
-        children: [
-          { to: '/dashboard/annadhanam/list', label: 'Annadhanam List', permissionId: 'view_annadhanam' },
-          { to: '/dashboard/annadhanam/entry', label: 'Annadhanam Entry', permissionId: 'edit_annadhanam' },
-          { to: '/dashboard/annadhanam/approval', label: 'Annadhanam Approval', permissionId: 'annadhanam_approval' },
-        ]
-      },
-      {
-        label: 'Receipts',
-        icon: LandmarkIcon,
-        children: [
-          { to: '/dashboard/receipt/list', label: 'Receipt List', permissionId: 'receipts', accessLevel: 'view' },
-          { to: '/dashboard/receipt/entry', label: 'Receipt Entry', permissionId: 'receipts', accessLevel: 'edit' },
-        ]
-      },
-      {
-        label: 'Tax',
-        icon: LandmarkIcon,
-        permissionId: 'tax_registrations',
-        children: [
-          { to: '/dashboard/registrations/text-entry', label: 'User Register', permissionId: 'user_registrations' },
-          { to: '/dashboard/registrations/list', label: 'User List', permissionId: 'user_registrations' },
-          { to: '/dashboard/tax/entry', label: 'Tax Entry', permissionId: 'tax_registrations' },
-          { to: '/dashboard/tax/list', label: 'Tax List', permissionId: 'tax_registrations' },
-        ]
-      },
-      {
-        label: 'Properties',
-        icon: HomeIcon,
-        children: [
-          { to: '/dashboard/properties', label: 'Properties List', permissionId: 'view_properties' },
-          { to: '/dashboard/properties/new', label: 'New Property', permissionId: 'edit_properties' },
-        ]
-      },
-    ],
-    []
-  );
+  const sidebarItems = useMemo(() => sharedSidebarItems, []);
 
   const allowedSidebarItems = useMemo(() => {
-    if (isSuperAdmin) return sidebarItems;
-    return sidebarItems.filter(item => 
-      userPermissions?.some(p => p.permission_id === item.permissionId && p.access_level === 'full')
-    );
-  }, [userPermissions, isSuperAdmin, sidebarItems]);
+    const hiddenKeys = new Set((settings?.hidden_menu_keys || []).map((s) => String(s)));
+
+    const levelRank = (lvl?: string) => {
+      if (lvl === 'full') return 3;
+      if (lvl === 'edit') return 2;
+      if (lvl === 'view') return 1;
+      return 0;
+    };
+
+    const hasPerm = (permissionId?: string, requiredLevel?: string) => {
+      if (!permissionId) return true;
+      if (isSuperAdmin) return true;
+      const need = levelRank(requiredLevel || 'view');
+      const found = userPermissions?.find((p) => p.permission_id === permissionId);
+      if (!found) return false;
+      return levelRank(found.access_level) >= need;
+    };
+
+    const isHidden = (sectionLabel?: string, itemLabel?: string, to?: string) => {
+      const candidates = [sectionLabel, itemLabel, to, [sectionLabel, itemLabel].filter(Boolean).join('/')].filter(Boolean) as string[];
+      return candidates.some((c) => hiddenKeys.has(c));
+    };
+
+    const result: any[] = [];
+    for (const item of sidebarItems) {
+      // If this is a direct link item (no children)
+      if ((item as any).to) {
+        const direct = item as any;
+        const allowed = hasPerm(direct.permissionId as any, (direct as any).accessLevel as any);
+        if (!allowed) continue;
+        if (isHidden(undefined, direct.label, direct.to)) continue;
+        result.push(direct);
+        continue;
+      }
+
+      // Group with children
+      if ((item as any).children) {
+        const group = { ...item } as any;
+        const children = (group.children || [])
+          .filter((child: any) => hasPerm(child.permissionId, child.accessLevel))
+          .filter((child: any) => !isHidden(group.label, child.label, child.to));
+        if (children.length === 0) {
+          // Hide empty groups, or group explicitly hidden by label
+          if (isHidden(group.label, undefined, undefined)) continue;
+          else continue;
+        }
+        // If group itself hidden by label, skip the group entirely
+        if (isHidden(group.label, undefined, undefined)) continue;
+        group.children = children;
+        result.push(group);
+      }
+    }
+    return result;
+  }, [settings?.hidden_menu_keys, isSuperAdmin, userPermissions, sidebarItems]);
 
   // Command palette helpers (defined after allowedSidebarItems)
   const flatRoutes = useMemo(() => {

@@ -5,6 +5,7 @@ import { LoginPage } from './pages/login';
 import RegisterPage from './pages/RegisterPage';
 import { LanguageProvider } from './lib/language';
 import { AuthProvider } from './contexts/AuthContext';
+import { SettingsProvider } from './contexts/SettingsContext';
 import ProtectedRoute from './routes/ProtectedRoute';
 import PermissionGuard from './routes/PermissionGuard';
 import DashboardLayout from './layouts/DashboardLayout';
@@ -15,6 +16,7 @@ import DailyReportPage from './pages/reports/DailyReportPage';
 import MonthlyReportPage from './pages/reports/MonthlyReportPage';
 import SettingsPage from './pages/dashboard/SettingsPage';
 import PdfSettingsPage from './pages/settings/PdfSettings';
+import MyPreferences from './pages/settings/MyPreferences';
 import MasterDataPage from '@/pages/masterdata/MasterDataPage';
 import MembersPage from './pages/MembersPage';
 import MemberEntryPage from './pages/MemberEntryPage';
@@ -67,6 +69,7 @@ function App() {
   return (
     <LanguageProvider>
       <AuthProvider>
+        <SettingsProvider>
         <BrowserRouter>
           <main>
             <Routes>
@@ -335,6 +338,14 @@ function App() {
                     element={
                       <PermissionGuard requiredPermission="pdf_settings" accessLevel="edit">
                         <PdfSettingsPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/dashboard/settings/my-preferences"
+                    element={
+                      <PermissionGuard requiredPermission="setting" accessLevel="view">
+                        <MyPreferences />
                       </PermissionGuard>
                     }
                   />
@@ -640,6 +651,7 @@ function App() {
             </Routes>
           </main>
         </BrowserRouter>
+        </SettingsProvider>
       </AuthProvider>
     </LanguageProvider>
   );

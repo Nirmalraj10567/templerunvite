@@ -26,7 +26,7 @@ export default function DonationProductList() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
 
-  const t = (en: string, ta: string) => (language === 'tamil' ? ta : en);
+  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
   // Column keys and labels
   type ColKey =
@@ -233,7 +233,7 @@ export default function DonationProductList() {
   return (
     <div className="p-4 bg-white rounded shadow text-sm">
       <div className="flex justify-between items-center mb-2">
-        <h1 className="text-lg font-semibold text-gray-800">{t('Good Deed Donation List', 'பொருள் நன்கொடைக் பட்டியல்')}</h1>
+        <h1 className="text-lg font-semibold text-gray-800">{t('Donation List', 'பொருள் நன்கொடைக் பட்டியல்')}</h1>
       </div>
 
       {/* Filters: single horizontal row with actions */}

@@ -30,7 +30,7 @@ export default function DonationProductEntry() {
   const [products, setProducts] = useState<DonationProduct[]>([]);
   const [accounts, setAccounts] = useState<Array<{ id?: number; value: string; label: string }>>([]);
 
-  const t = (en: string, ta: string) => language === 'tamil' ? ta : en;
+  const t = (en: string, ta: string) => language === 'english' ? ta : en;
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;

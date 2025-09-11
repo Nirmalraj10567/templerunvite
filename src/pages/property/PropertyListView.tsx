@@ -27,7 +27,7 @@ export default function PropertyListView() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { language } = useLanguage();
-  const t = (en: string, ta: string) => (language === 'tamil' ? ta : en);
+  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");

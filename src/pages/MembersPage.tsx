@@ -80,6 +80,8 @@ export default function MembersPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10); // Number of items per page
   const [newMember, setNewMember] = useState<Member>({ 
     id: 0,
     fullName: '',
@@ -123,6 +125,20 @@ export default function MembersPage() {
   const filteredByRole = filterRole === 'all' 
     ? filteredMembers 
     : filteredMembers.filter(member => member.role === filterRole);
+    
+  // Get current members for pagination
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentMembers = filteredByRole.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredByRole.length / itemsPerPage);
+  
+  // Change page
+  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+  
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterRole]);
 
   const fetchMembers = async () => {
     try {
@@ -300,7 +316,7 @@ export default function MembersPage() {
       {/* No tabs; navigation happens via sidebar links */}
       
       <MemberListView
-        members={filteredByRole}
+        members={currentMembers}
         searchTerm={searchTerm}
         filterRole={filterRole}
         language={language}
@@ -308,8 +324,12 @@ export default function MembersPage() {
         canDeleteMembers={canDeleteMembers}
         canBlockMembers={canBlockMembers}
         canResetPasswords={canResetPasswords}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalMembers={filteredByRole.length}
         onEdit={handleEditMember}
         onDelete={handleDeleteMember}
+        onPageChange={paginate}
         onBlock={async (id, userId) => {
             try {
               // Optimistic update

@@ -32,6 +32,7 @@ app.use(cors({
       'http://localhost:4002',
       'http://localhost:4000',
       'http://localhost:8080',
+      "http://192.168.1.3:8080/",
       'http://localhost:5173',
       'http://localhost:64095/',
     ];
@@ -685,6 +686,14 @@ try {
   app.use(pdfSettingsRouter);
 } catch (e) {
   console.error('Failed to mount PDF settings router:', e);
+}
+
+// Mount user settings API
+try {
+  const userSettingsRouter = require('./routes/user-settings')({ db, authenticateToken });
+  app.use(userSettingsRouter);
+} catch (e) {
+  console.error('Failed to mount user settings router:', e);
 }
 
 // Mount tax registration receipt route (PDF)
@@ -1821,6 +1830,10 @@ async function migrate() {
     // Import and run tax_settings table migration
     const createTaxSettingsTable = require('./db/migrations/createTaxSettingsTable');
     await createTaxSettingsTable(db);
+
+    // Import and run user_settings table migration
+    const createUserSettingsTable = require('./db/migrations/createUserSettingsTable');
+    await createUserSettingsTable(db);
 
     // Import and run migration to add include_previous_years to tax_settings
     const addIncludePreviousYearsToTaxSettings = require('./db/migrations/addIncludePreviousYearsToTaxSettings');

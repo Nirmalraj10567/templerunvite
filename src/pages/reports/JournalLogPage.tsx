@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
+const PAGE_SIZE = 20;
+
 export default function JournalLogPage() {
   const { language } = useLanguage();
   const t = (en: string, ta: string) => (language === 'tamil' ? ta : en);
@@ -16,6 +18,8 @@ export default function JournalLogPage() {
   const [entries, setEntries] = useState<JournalEntryItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
   const startDate = params.get('startDate') || new Date().toISOString().slice(0,10);
   const endDate = params.get('endDate') || new Date().toISOString().slice(0,10);
@@ -31,12 +35,15 @@ export default function JournalLogPage() {
         startDate: query.startDate,
         endDate: query.endDate,
         account: query.account || undefined,
-        limit: 500,
+        page,
+        limit: PAGE_SIZE,
       });
       setEntries(res.data || []);
+      setTotalCount(res.pagination?.total || 0);
     } catch (e: any) {
       setError(e?.message || 'Failed to load entries');
       setEntries([]);
+      setTotalCount(0);
     } finally {
       setIsLoading(false);
     }
@@ -45,12 +52,16 @@ export default function JournalLogPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query.startDate, query.endDate, query.account]);
+  }, [query.startDate, query.endDate, query.account, page]);
 
   const onFilterChange = (key: 'startDate' | 'endDate' | 'account', value: string) => {
     const next = new URLSearchParams(params);
     if (value) next.set(key, value); else next.delete(key);
     setParams(next, { replace: true });
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
   };
 
   return (
@@ -76,10 +87,30 @@ export default function JournalLogPage() {
           </div>
           <div className="flex justify-between items-center mb-3">
             <div className="text-sm text-gray-600">
-              {isLoading ? t('Loading...', 'ஏற்றுகிறது...') : t('Total', 'மொத்தம்') + `: ${entries.length}`}
+              {isLoading ? t('Loading...', 'ஏற்றுகிறது...') : t('Total', 'மொத்தம்') + `: ${entries.length} / ${totalCount}`}
               {error && <span className="text-red-600 ml-2">{error}</span>}
             </div>
             <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => handlePageChange(page - 1)} 
+                disabled={isLoading || page <= 1}
+              >
+                {t('Previous', 'முந்தைய')}
+              </Button>
+              <Button 
+                variant="outline" 
+                disabled
+              >
+                {page}
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => handlePageChange(page + 1)} 
+                disabled={isLoading || entries.length < PAGE_SIZE}
+              >
+                {t('Next', 'அடுத்து')}
+              </Button>
               <Button variant="outline" onClick={() => navigate(-1)}>{t('Back', 'பின் செல்ல')}</Button>
               <Button onClick={load} disabled={isLoading}>{t('Refresh', 'புதுப்பிக்க')}</Button>
             </div>
@@ -114,6 +145,15 @@ export default function JournalLogPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="flex justify-between items-center mt-3">
+            <div className="text-sm text-gray-600">
+              {t('Showing', 'காட்டுகிறது')} {entries.length} {t('of', 'இல்')} {totalCount}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => handlePageChange(page - 1)} disabled={page === 1}>{t('Previous', 'முந்தைய')}</Button>
+              <Button onClick={() => handlePageChange(page + 1)} disabled={entries.length < PAGE_SIZE}>{t('Next', 'அடுத்த')}</Button>
+            </div>
           </div>
         </CardContent>
       </Card>

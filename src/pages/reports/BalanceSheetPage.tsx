@@ -5,19 +5,23 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { getAuthToken } from '@/lib/auth';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { Loader2, RefreshCw, IndianRupee } from 'lucide-react';
 
-interface Item { account: string; balance: number; }
+interface Item {
+  account: string;
+  balance: number;
+}
 
 export default function BalanceSheetPage() {
   const [params, setParams] = useSearchParams();
-  const startDate = params.get('from') || new Date().toISOString().slice(0,10);
-  const endDate = params.get('to') || new Date().toISOString().slice(0,10);
+  const startDate = params.get('from') || new Date().toISOString().slice(0, 10);
+  const endDate = params.get('to') || new Date().toISOString().slice(0, 10);
   const query = useMemo(() => ({ startDate, endDate }), [startDate, endDate]);
 
   const [assets, setAssets] = useState<Item[]>([]);
   const [liabilities, setLiabilities] = useState<Item[]>([]);
   const [totals, setTotals] = useState<{ assets: number; liabilities: number }>({ assets: 0, liabilities: 0 });
+  const [openingDiff, setOpeningDiff] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<keyof Item>('account');
@@ -29,13 +33,15 @@ export default function BalanceSheetPage() {
       setError(null);
       const token = getAuthToken();
       const resp = await fetch(`/api/journal/balance-sheet?from=${query.startDate}&to=${query.endDate}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!resp.ok) throw new Error('Failed to load');
       const data = await resp.json();
       setAssets(data?.data?.assets || []);
       setLiabilities(data?.data?.liabilities || []);
       setTotals(data?.data?.totals || { assets: 0, liabilities: 0 });
+      const od = (data?.data?.openingDiff ?? data?.data?.opening_balance_diff ?? 0) as number;
+      setOpeningDiff(Number.isFinite(od) ? od : 0);
     } catch (e: any) {
       setError(e?.message || 'Failed to load');
       setAssets([]);
@@ -45,11 +51,14 @@ export default function BalanceSheetPage() {
     }
   };
 
-  useEffect(() => { load(); }, [query.startDate, query.endDate]);
+  useEffect(() => {
+    load();
+  }, [query.startDate, query.endDate]);
 
   const onFilterChange = (key: 'from' | 'to', value: string) => {
     const next = new URLSearchParams(params);
-    if (value) next.set(key, value); else next.delete(key);
+    if (value) next.set(key, value);
+    else next.delete(key);
     setParams(next, { replace: true });
   };
 
@@ -57,20 +66,23 @@ export default function BalanceSheetPage() {
     const now = new Date();
     let from: string;
     let to: string;
+
     if (range === 'today') {
-      const d = now.toISOString().slice(0,10);
-      from = d; to = d;
+      const d = now.toISOString().slice(0, 10);
+      from = d;
+      to = d;
     } else if (range === 'thisMonth') {
       const y = now.getFullYear();
-      const m = String(now.getMonth()+1).padStart(2, '0');
+      const m = String(now.getMonth() + 1).padStart(2, '0');
       from = `${y}-${m}-01`;
-      const last = new Date(y, now.getMonth()+1, 0).toISOString().slice(0,10);
+      const last = new Date(y, now.getMonth() + 1, 0).toISOString().slice(0, 10);
       to = last;
     } else {
       const y = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
       from = `${y}-04-01`;
-      to = `${y+1}-03-31`;
+      to = `${y + 1}-03-31`;
     }
+
     const next = new URLSearchParams(params);
     next.set('from', from);
     next.set('to', to);
@@ -87,7 +99,9 @@ export default function BalanceSheetPage() {
       if (typeof va === 'number' && typeof vb === 'number') {
         return sortDir === 'asc' ? va - vb : vb - va;
       }
-      return sortDir === 'asc' ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+      return sortDir === 'asc'
+        ? String(va).localeCompare(String(vb))
+        : String(vb).localeCompare(String(va));
     });
     return copy;
   };
@@ -107,11 +121,14 @@ export default function BalanceSheetPage() {
   }, [sortedAssets, sortedLiabilities]);
 
   const exportCSV = () => {
-    const headers = ['Section','Account','Amount'];
-    const lines = [headers.join(',')]
-      .concat(sortedAssets.map(r => ['Assets', r.account, r.balance].map(v => typeof v === 'string' ? `"${v.replace(/"/g,'""')}"` : v).join(',')))
-      .concat(sortedLiabilities.map(r => ['Liabilities', r.account, r.balance].map(v => typeof v === 'string' ? `"${v.replace(/"/g,'""')}"` : v).join(',')))
-      .concat([['Totals','Assets', totalsRow.assets].join(','), ['Totals','Liabilities', totalsRow.liabilities].join(',')]);
+    const headers = ['Section', 'Account', 'Amount'];
+    const lines = [
+      headers.join(','),
+      ...sortedAssets.map(r => ['Assets', r.account, r.balance].map(v => typeof v === 'string' ? `"${v.replace(/"/g, '""')}"` : v).join(',')),
+      ...sortedLiabilities.map(r => ['Liabilities', r.account, r.balance].map(v => typeof v === 'string' ? `"${v.replace(/"/g, '""')}"` : v).join(',')),
+      ['Totals', 'Assets', totalsRow.assets].join(','),
+      ['Totals', 'Liabilities', totalsRow.liabilities].join(','),
+    ];
     const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -121,44 +138,83 @@ export default function BalanceSheetPage() {
     URL.revokeObjectURL(url);
   };
 
-  const table = (title: string, rows: Item[]) => (
-    <div className="w-full">
-      <h3 className="text-sm font-semibold mb-1">{title}</h3>
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead className="bg-gray-50 sticky top-0">
+  const maxRows = useMemo(() => Math.max(sortedLiabilities.length, sortedAssets.length), [sortedLiabilities, sortedAssets]);
+  const netResult = useMemo(() => (totalsRow.assets - totalsRow.liabilities) || 0, [totalsRow.assets, totalsRow.liabilities]);
+  const profit = useMemo(() => Math.max(0, -netResult), [netResult]); // liabilities > assets
+  const loss = useMemo(() => Math.max(0, netResult), [netResult]);     // assets > liabilities
+  const obCredit = useMemo(() => Math.max(0, openingDiff), [openingDiff]);
+  const obDebit = useMemo(() => Math.max(0, -openingDiff), [openingDiff]);
+
+  const combinedTable = () => (
+    <div className="w-full overflow-x-auto">
+      <table className="w-full text-sm border-collapse border">
+        <thead>
+          <tr>
+            <th className="bg-purple-700 text-white px-3 py-2 text-left border-b border-gray-300">Liabilities</th>
+            <th className="bg-purple-700 text-white px-3 py-2 text-right border-b border-gray-300">Amount</th>
+            <th className="bg-purple-700 text-white px-3 py-2 text-left border-b border-gray-300">Assets</th>
+            <th className="bg-purple-700 text-white px-3 py-2 text-right border-b border-gray-300">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {!isLoading && maxRows === 0 && (
             <tr>
-              <th className="text-left px-2 py-1 border-b cursor-pointer" onClick={() => onSort('account')}>Account</th>
-              <th className="text-right px-2 py-1 border-b cursor-pointer" onClick={() => onSort('balance')}>Amount</th>
+              <td colSpan={4} className="px-3 py-3 text-center text-gray-500 border">No data</td>
             </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && !isLoading && (
-              <tr><td colSpan={2} className="px-2 py-2 text-center text-gray-500 text-xs">No data</td></tr>
-            )}
-            {isLoading && (
-              Array.from({ length: 3 }).map((_, i) => (
-                <tr key={`sk-${i}`}>
-                  <td className="px-2 py-1 border-b"><div className="h-3 w-24 bg-gray-200 animate-pulse rounded"/></td>
-                  <td className="px-2 py-1 border-b"><div className="h-3 w-16 bg-gray-200 animate-pulse rounded ml-auto"/></td>
+          )}
+          {isLoading && Array.from({ length: 6 }).map((_, i) => (
+            <tr key={`sk-${i}`}>
+              <td className="px-3 py-2 border"><div className="h-3 w-32 bg-gray-200 animate-pulse rounded"></div></td>
+              <td className="px-3 py-2 border"><div className="h-3 w-16 bg-gray-200 animate-pulse rounded ml-auto"></div></td>
+              <td className="px-3 py-2 border"><div className="h-3 w-32 bg-gray-200 animate-pulse rounded"></div></td>
+              <td className="px-3 py-2 border"><div className="h-3 w-16 bg-gray-200 animate-pulse rounded ml-auto"></div></td>
+            </tr>
+          ))}
+          {!isLoading &&
+            Array.from({ length: maxRows }).map((_, i) => {
+              const l = sortedLiabilities[i];
+              const a = sortedAssets[i];
+              return (
+                <tr
+                  key={`row-${i}`}
+                  className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                >
+                  <td className="px-3 py-2 border text-left">{l?.account ?? ''}</td>
+                  <td className="px-3 py-2 border text-right">{l ? nf.format(l.balance) : ''}</td>
+                  <td className="px-3 py-2 border text-left">{a?.account ?? ''}</td>
+                  <td className="px-3 py-2 border text-right">{a ? nf.format(a.balance) : ''}</td>
                 </tr>
-              ))
-            )}
-            {!isLoading && sortList(rows).map((r) => (
-              <tr key={r.account} className="hover:bg-gray-50">
-                <td className="px-2 py-1 border-b">{r.account}</td>
-                <td className="px-2 py-1 border-b text-right">{nf.format(r.balance)}</td>
+              );
+            })}
+          {(sortedLiabilities.length > 0 || sortedAssets.length > 0) && (
+            <>
+              {/* Opening Balance Diff */}
+              <tr className="bg-gray-50">
+                <td className="px-3 py-2 border text-left font-medium">Opening Balance Diff</td>
+                <td className="px-3 py-2 border text-right">{obCredit > 0 ? nf.format(obCredit) : ''}</td>
+                <td className="px-3 py-2 border text-left font-medium">Opening Balance Diff</td>
+                <td className="px-3 py-2 border text-right">{obDebit > 0 ? nf.format(obDebit) : ''}</td>
               </tr>
-            ))}
-            {rows.length > 0 && (
-              <tr className="bg-gray-100 font-medium">
-                <td className="px-2 py-1 border-t font-semibold">Total</td>
-                <td className="px-2 py-1 border-t text-right font-semibold">{nf.format(rows.reduce((s, r) => s + (r.balance || 0), 0))}</td>
+
+              {/* Net Loss / Profit */}
+              <tr>
+                <td className="px-3 py-2 border text-left font-medium text-red-600">Net Loss</td>
+                <td className="px-3 py-2 border text-right text-red-600">{loss > 0 ? nf.format(loss) : ''}</td>
+                <td className="px-3 py-2 border text-left font-medium text-green-600">Net Profit</td>
+                <td className="px-3 py-2 border text-right text-green-600">{profit > 0 ? nf.format(profit) : ''}</td>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+
+              {/* Total Amount */}
+              <tr className="font-bold bg-purple-100">
+                <td className="px-3 py-2 border text-left">Total Amount</td>
+                <td className="px-3 py-2 border text-right">{nf.format(totalsRow.liabilities + profit + obCredit)}</td>
+                <td className="px-3 py-2 border text-left">Total Amount</td>
+                <td className="px-3 py-2 border text-right">{nf.format(totalsRow.assets + loss + obDebit)}</td>
+              </tr>
+            </>
+          )}
+        </tbody>
+      </table>
     </div>
   );
 
@@ -167,10 +223,13 @@ export default function BalanceSheetPage() {
       <Card className="shadow-lg">
         <CardHeader className="py-3 px-4 border-b">
           <div className="flex justify-between items-center">
-            <CardTitle className="text-lg font-semibold">Balance Sheet</CardTitle>
             <div className="flex gap-2">
-              <Button variant="secondary" size="sm" onClick={exportCSV} disabled={!assets.length && !liabilities.length}>CSV</Button>
-              <Button variant="secondary" size="sm" onClick={() => window.print()} disabled={!assets.length && !liabilities.length}>Print</Button>
+              <Button variant="secondary" size="sm" onClick={exportCSV} disabled={!assets.length && !liabilities.length}>
+                CSV
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => window.print()} disabled={!assets.length && !liabilities.length}>
+                Print
+              </Button>
             </div>
           </div>
         </CardHeader>
@@ -191,13 +250,17 @@ export default function BalanceSheetPage() {
               </Button>
             </div>
             <div>
-              <Button variant="outline" size="sm" onClick={() => setRange('today')} className="w-full">Today</Button>
+              <Button variant="outline" size="sm" onClick={() => setRange('today')} className="w-full">
+                Today
+              </Button>
             </div>
             <div>
-              <Button variant="outline" size="sm" onClick={() => setRange('thisMonth')} className="w-full">This Month</Button>
+              <Button variant="outline" size="sm" onClick={() => setRange('thisMonth')} className="w-full">
+                This Month
+              </Button>
             </div>
           </div>
-          
+
           <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
             <div className="text-xs text-gray-600">
               {isLoading ? 'Loading...' : error ? <span className="text-red-600">{error}</span> : ''}
@@ -208,9 +271,8 @@ export default function BalanceSheetPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {table('Assets', sortedAssets)}
-            {table('Liabilities', sortedLiabilities)}
+          <div className="mt-2">
+            {combinedTable()}
           </div>
         </CardContent>
       </Card>

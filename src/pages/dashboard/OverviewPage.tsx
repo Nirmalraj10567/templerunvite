@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSettings } from '../../contexts/SettingsContext';
 import { useLanguage } from '../../lib/language'; // Added for language support
+import { sidebarItems } from '../../config/navigation';
 import {
   UsersIcon,
   BarChartIcon,
@@ -11,7 +13,8 @@ import {
 
 export default function OverviewPage() {
   const navigate = useNavigate();
-  const { user, token } = useAuth();
+  const { user, token, userPermissions, isSuperAdmin } = useAuth();
+  const { settings } = useSettings();
   const { language } = useLanguage(); // Get current language
 
   // Translation object
@@ -208,102 +211,65 @@ export default function OverviewPage() {
         </div>
       </div>
 
-      {/* Two columns: Recent Members and Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Members */}
-        <div className="rounded-2xl bg-white border border-slate-200/60 backdrop-blur-sm shadow-sm p-4 sm:p-6">
-          <h3 className="font-semibold text-slate-900 mb-4">{t[language as 'tamil' | 'english'].recentMembers}</h3>
-          <div className="space-y-3">
-            {(recentMembers || []).map((m) => (
-              <div
-                key={m.id}
-                className="flex items-center justify-between rounded-xl border border-slate-200 p-3 hover:bg-slate-50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  {/* Avatar circle - Blue */}
-                  <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 font-semibold flex items-center justify-center">
-                    {m.name?.split(' ').map(n => n[0]).join('')}
-                  </div>
-                  <div>
-                    <div className="font-medium text-slate-900">{m.name}</div>
-                    <div className="text-xs text-slate-500">
-                      {m.created_at ? new Date(m.created_at).toLocaleString() : ''}
-                    </div>
-                  </div>
-                </div>
-                <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600 font-medium">
-                  {t[language as 'tamil' | 'english'].newLabel}
-                </span>
-              </div>
-            ))}
-            {!loading && recentMembers.length === 0 && (
-              <div className="text-sm text-slate-500">{t[language as 'tamil' | 'english'].noRecentMembers}</div>
-            )}
-            {loading && (
-              <div className="text-sm text-slate-500">{t[language as 'tamil' | 'english'].loading}</div>
-            )}
-          </div>
-        </div>
+      {/* Quick actions from user settings (optional) */}
+      {Array.isArray(settings?.quick_actions) && settings.quick_actions.length > 0 && (
+        <div className="mt-6">
+          <h3 className="text-lg font-semibold text-slate-900 mb-3">{t[language as 'tamil' | 'english'].quickActions}</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {(() => {
+              const levelRank = (lvl?: string) => (lvl === 'full' ? 3 : lvl === 'edit' ? 2 : lvl === 'view' ? 1 : 0);
+              const hasPerm = (permissionId?: string, requiredLevel?: string) => {
+                if (!permissionId) return true;
+                if (isSuperAdmin) return true;
+                const need = levelRank(requiredLevel || 'view');
+                const found = userPermissions?.find((p) => p.permission_id === permissionId);
+                if (!found) return false;
+                return levelRank(found.access_level) >= need;
+              };
 
-        {/* Quick Actions */}
-        <div className="rounded-2xl bg-white border border-slate-200/60 backdrop-blur-sm shadow-sm p-4 sm:p-6">
-          <h3 className="font-semibold text-slate-900 mb-4">{t[language as 'tamil' | 'english'].quickActions}</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <button
-              onClick={() => navigate('/dashboard/registrations/entry')}
-              aria-label={t[language as 'tamil' | 'english'].addMember}
-              className="group rounded-2xl p-6 text-left text-white bg-gradient-to-br from-green-500 via-green-600 to-green-600 shadow hover:shadow-lg hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400 transition"
-            >
-              <div className="flex items-start gap-3">
-                <UsersIcon className="h-6 w-6 opacity-90" />
-                <div>
-                  <div className="text-lg font-semibold">{t[language as 'tamil' | 'english'].addMember}</div>
-                  <p className="text-xs mt-1 opacity-90">{t[language as 'tamil' | 'english'].addMemberDesc}</p>
-                </div>
-              </div>
-            </button>
-            <button
-              onClick={() => navigate('/dashboard/reports/daily')}
-              aria-label={t[language as 'tamil' | 'english'].viewReports}
-              className="group rounded-2xl p-6 text-left text-white bg-gradient-to-br from-indigo-500 via-indigo-600 to-blue-600 shadow hover:shadow-lg hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 transition"
-            >
-              <div className="flex items-start gap-3">
-                <BarChartIcon className="h-6 w-6 opacity-90" />
-                <div>
-                  <div className="text-lg font-semibold">{t[language as 'tamil' | 'english'].viewReports}</div>
-                  <p className="text-xs mt-1 opacity-90">{t[language as 'tamil' | 'english'].viewReportsDesc}</p>
-                </div>
-              </div>
-            </button>
-            <button
-              onClick={() => navigate('/dashboard/receipt/entry')}
-              aria-label={t[language as 'tamil' | 'english'].collectPayment}
-              className="group rounded-2xl p-6 text-left text-white bg-gradient-to-br from-indigo-500 via-indigo-600 to-blue-600 shadow hover:shadow-lg hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 transition"
-            >
-              <div className="flex items-start gap-3">
-                <CreditCardIcon className="h-6 w-6 opacity-90" />
-                <div>
-                  <div className="text-lg font-semibold">{t[language as 'tamil' | 'english'].collectPayment}</div>
-                  <p className="text-xs mt-1 opacity-90">{t[language as 'tamil' | 'english'].collectPaymentDesc}</p>
-                </div>
-              </div>
-            </button>
-            <button
-              onClick={() => navigate('/dashboard/events/new')}
-              aria-label={t[language as 'tamil' | 'english'].scheduleEvent}
-              className="group rounded-2xl p-6 text-left text-white bg-gradient-to-br from-green-500 via-green-600 to-green-600 shadow hover:shadow-lg hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 transition"
-            >
-              <div className="flex items-start gap-3">
-                <CalendarIcon className="h-6 w-6 opacity-90" />
-                <div>
-                  <div className="text-lg font-semibold">{t[language as 'tamil' | 'english'].scheduleEvent}</div>
-                  <p className="text-xs mt-1 opacity-90">{t[language as 'tamil' | 'english'].scheduleEventDesc}</p>
-                </div>
-              </div>
-            </button>
+              type Leaf = { to: string; label: string; section?: string; Icon: React.FC<React.SVGProps<SVGSVGElement>> };
+              const leaves: Leaf[] = [];
+              for (const item of sidebarItems) {
+                const GroupIcon = (item as any).icon || UsersIcon;
+                if ((item as any).to) {
+                  const it = item as any;
+                  if (hasPerm(it.permissionId, it.accessLevel)) {
+                    leaves.push({ to: it.to, label: it.label, Icon: GroupIcon });
+                  }
+                } else if ((item as any).children) {
+                  const group = item as any;
+                  for (const child of group.children) {
+                    if (hasPerm(child.permissionId, child.accessLevel)) {
+                      leaves.push({ to: child.to, label: child.label, section: group.label, Icon: GroupIcon });
+                    }
+                  }
+                }
+              }
+              const byPath = new Map(leaves.map((l) => [l.to, l] as const));
+              return settings.quick_actions
+                .map((path) => byPath.get(String(path)))
+                .filter(Boolean)
+                .map((conf) => {
+                  const c = conf as Leaf;
+                  const IconComp = c.Icon;
+                  return (
+                    <button
+                      key={c.to}
+                      onClick={() => navigate(c.to)}
+                      className="w-full rounded-2xl p-5 bg-white border border-slate-200 hover:shadow-md text-left transition-all duration-200"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm text-slate-600">{c.section || t[language as 'tamil' | 'english'].quickActions}</div>
+                        <IconComp className="h-6 w-6 text-blue-600" />
+                      </div>
+                      <div className="text-lg font-semibold text-slate-900 mt-2">{c.label}</div>
+                    </button>
+                  );
+                });
+            })()}
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
