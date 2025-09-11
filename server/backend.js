@@ -897,13 +897,44 @@ const ledgerCategoriesCompat = (() => {
 
   // GET /api/journal/trial-balance
   // Computes per-account inflow (credits to the account) and outflow (debits from the account)
-  // Returns debit/credit columns by sign of net (without a chart of accounts)
+  // Groups accounts by their category if available
   r.get('/trial-balance', authenticateToken, authorizePermission('ledger_management', 'view'), async (req, res) => {
     try {
       const { from, to } = req.query;
-      const base = db('journal_entries').where('temple_id', req.user.templeId);
-      if (from) base.andWhere('date', '>=', String(from));
-      if (to) base.andWhere('date', '<=', String(to));
+      const base = db('journal_entries').where('journal_entries.temple_id', req.user.templeId);
+      if (from) base.andWhere('journal_entries.date', '>=', String(from));
+      if (to) base.andWhere('journal_entries.date', '<=', String(to));
+
+      // Get all distinct accounts from both from_account and to_account
+      const fromAccounts = await base
+        .clone()
+        .distinct('from_account as account')
+        .whereNotNull('from_account')
+        .where('from_account', '!=', '');
+      
+      const toAccounts = await base
+        .clone()
+        .distinct('to_account as account')
+        .whereNotNull('to_account')
+        .where('to_account', '!=', '');
+      
+      // Combine and deduplicate accounts
+      const allAccounts = [...new Set([...fromAccounts, ...toAccounts].map(a => a.account))];
+      
+      // Get categories for all accounts
+      const accountCategories = await db('ledger_entries')
+        .distinct('under as category', 'name as account')
+        .whereIn('name', allAccounts)
+        .whereNotNull('under')
+        .where('under', '!=', '');
+      
+      // Create a map of account to category
+      const accountToCategory = new Map();
+      accountCategories.forEach(ac => {
+        if (ac.account && ac.category) {
+          accountToCategory.set(ac.account, ac.category);
+        }
+      });
 
       // Aggregate inflow by to_account
       const inflows = await base
@@ -923,39 +954,65 @@ const ledgerCategoriesCompat = (() => {
       inflows.forEach((r) => {
         const k = r.account || '';
         if (!k) return;
-        const prev = map.get(k) || { account: k, inflow: 0, outflow: 0 };
+        const prev = map.get(k) || { account: k, category: accountToCategory.get(k) || 'Uncategorized', inflow: 0, outflow: 0 };
         prev.inflow += Number(r.inflow || r.sum || 0);
         map.set(k, prev);
       });
       outflows.forEach((r) => {
         const k = r.account || '';
         if (!k) return;
-        const prev = map.get(k) || { account: k, inflow: 0, outflow: 0 };
+        const prev = map.get(k) || { account: k, category: accountToCategory.get(k) || 'Uncategorized', inflow: 0, outflow: 0 };
         prev.outflow += Number(r.outflow || r.sum || 0);
         map.set(k, prev);
       });
 
+      // Convert map to array and calculate balances
       const rows = Array.from(map.values()).map((r) => {
         const net = (r.inflow || 0) - (r.outflow || 0);
         return {
           account: r.account,
+          category: r.category,
           inflow: Number(r.inflow || 0),
           outflow: Number(r.outflow || 0),
           balance: Math.round((net + Number.EPSILON) * 100) / 100,
           debit: net < 0 ? Math.round((Math.abs(net) + Number.EPSILON) * 100) / 100 : 0,
           credit: net > 0 ? Math.round((net + Number.EPSILON) * 100) / 100 : 0,
         };
-      }).sort((a, b) => a.account.localeCompare(b.account));
+      });
 
-      const totals = rows.reduce((acc, r) => {
-        acc.debit += r.debit;
-        acc.credit += r.credit;
-        return acc;
-      }, { debit: 0, credit: 0 });
-      totals.debit = Math.round((totals.debit + Number.EPSILON) * 100) / 100;
-      totals.credit = Math.round((totals.credit + Number.EPSILON) * 100) / 100;
+      // Group by category
+      const categories = {};
+      rows.forEach(row => {
+        const category = row.category || 'Uncategorized';
+        if (!categories[category]) {
+          categories[category] = [];
+        }
+        categories[category].push(row);
+      });
 
-      res.json({ success: true, data: rows, totals });
+      // Calculate category totals
+      const categoryTotals = {};
+      Object.entries(categories).forEach(([category, items]) => {
+        categoryTotals[category] = items.reduce((acc, item) => {
+          acc.debit += item.debit;
+          acc.credit += item.credit;
+          return acc;
+        }, { debit: 0, credit: 0 });
+      });
+
+      // Calculate grand totals
+      const totals = {
+        debit: Object.values(categoryTotals).reduce((sum, cat) => sum + cat.debit, 0),
+        credit: Object.values(categoryTotals).reduce((sum, cat) => sum + cat.credit, 0)
+      };
+
+      res.json({ 
+        success: true, 
+        data: categories, 
+        categoryTotals,
+        totals,
+        allRows: rows // Keep flat list for backward compatibility
+      });
     } catch (err) {
       console.error('Error computing trial balance:', err);
       res.status(500).json({ error: 'Failed to compute trial balance' });
