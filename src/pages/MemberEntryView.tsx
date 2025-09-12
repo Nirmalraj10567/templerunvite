@@ -27,6 +27,8 @@ export default function MemberEntryForm({
   // 👇 Override passed `language` with context for consistency
   const { language: currentLanguage } = useLanguage();
   const lang = currentLanguage as 'tamil' | 'english';
+  const [showSummary, setShowSummary] = useState(false);
+  const [showLoginDetails, setShowLoginDetails] = useState(true);
 
   // Translation object
   const t = {
@@ -133,10 +135,10 @@ export default function MemberEntryForm({
   
   const handleSubmit = isEditing ? handleUpdateMember : handleAddMember;
 
-  // Professional, consistent control styles
-  const inputClass = "w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition bg-white placeholder:text-slate-400";
-  const labelClass = "block text-sm font-medium mb-1 text-slate-700";
-  const sectionTitleClass = "text-lg font-semibold text-slate-800";
+  // Professional, compact control styles
+  const inputClass = "w-full px-2.5 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition bg-white placeholder:text-slate-400";
+  const labelClass = "block text-xs font-medium mb-1 text-slate-700";
+  const sectionTitleClass = "text-base font-semibold text-slate-800";
 
   // Comprehensive permission options aligned with backend permission IDs and routing guards
   const PERMISSION_OPTIONS = [
@@ -219,15 +221,15 @@ export default function MemberEntryForm({
   };
 
   return (
-    <div className="max-w-3xl mx-auto p-2 md:p-4">
-      <h2 className="text-2xl md:text-2xl font-semibold mb-5 tracking-tight text-slate-800">
+    <div className="max-w-5xl mx-auto p-2 md:p-3">
+      <h2 className="text-xl md:text-xl font-semibold mb-4 tracking-tight text-slate-800">
         {isEditing ? t[lang].updateMember : t[lang].memberEntry}
       </h2>
-      <form onSubmit={handleSubmit} className="space-y-8 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+      <form onSubmit={handleSubmit} className="space-y-6 bg-white rounded-xl border border-slate-200 shadow-sm p-4">
         {/* Basic Details */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           <h3 className={sectionTitleClass}>{t[lang].basicDetails}</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div>
               <label className={labelClass}>{t[lang].fullName} *</label>
               <input
@@ -237,7 +239,7 @@ export default function MemberEntryForm({
                 className={inputClass}
                 required
               />
-              <p className="mt-1 text-xs text-slate-500">{t[lang].nameNote}</p>
+              <p className="mt-1 text-[11px] text-slate-500 hidden sm:block">{t[lang].nameNote}</p>
             </div>
             <div>
               <label className={labelClass}>{t[lang].mobile} *</label>
@@ -251,7 +253,7 @@ export default function MemberEntryForm({
                 maxLength={10}
                 required
               />
-              <p className="mt-1 text-xs text-slate-500">{t[lang].mobileNote}</p>
+              <p className="mt-1 text-[11px] text-slate-500 hidden sm:block">{t[lang].mobileNote}</p>
             </div>
             <div>
               <label className={labelClass}>{t[lang].email}</label>
@@ -262,7 +264,7 @@ export default function MemberEntryForm({
                 className={inputClass}
                 placeholder="name@example.com"
               />
-              <p className="mt-1 text-xs text-slate-500">{t[lang].emailNote}</p>
+              <p className="mt-1 text-[11px] text-slate-500 hidden sm:block">{t[lang].emailNote}</p>
             </div>
             <div>
               <label className={labelClass}>{t[lang].username}</label>
@@ -273,16 +275,27 @@ export default function MemberEntryForm({
                 className={inputClass}
                 required={member?.createLogin}
               />
-              <p className="mt-1 text-xs text-slate-500">{t[lang].createAdmin}</p>
+              <p className="mt-1 text-[11px] text-slate-500 hidden sm:block">{t[lang].createAdmin}</p>
             </div>
           </div>
         </div>
 
         <hr className="border-slate-200" />
 
-        <div className="space-y-4">
-          <h3 className={sectionTitleClass}>{t[lang].loginAccess}</h3>
-          <label className="flex items-center gap-3 select-none cursor-pointer">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className={sectionTitleClass}>{t[lang].loginAccess}</h3>
+            {member?.createLogin && (
+              <button
+                type="button"
+                onClick={() => setShowLoginDetails(v => !v)}
+                className="text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-600"
+              >
+                {showLoginDetails ? 'Hide details' : 'Show details'}
+              </button>
+            )}
+          </div>
+          <label className="flex items-center gap-2 select-none cursor-pointer text-sm">
             <input
               type="checkbox"
               className="accent-orange-600 w-4 h-4"
@@ -294,12 +307,52 @@ export default function MemberEntryForm({
             </span>
           </label>
 
-          {member?.createLogin && (
-            <div className="space-y-4 pl-6">
+          {member?.createLogin && showLoginDetails && (
+            <div className="space-y-3 pl-4">
+              {/* Row 1: Permission Level (left) and Role (right) */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>{t[lang].permissionLevel}</label>
+                  <select
+                    value={member?.permissionLevel || ''}
+                    onChange={(e) => {
+                      const level = e.target.value as 'view' | 'edit' | 'full' | '';
+                      const base = { ...member, permissionLevel: level } as any;
+                      if (level) {
+                        const existing = member?.customPermissions || [];
+                        const hasMemberEntry = existing.some((p: any) => p.id === 'member_entry');
+                        const updated = hasMemberEntry
+                          ? existing.map((p: any) => p.id === 'member_entry' ? { ...p, access: level } : p)
+                          : [...existing, { id: 'member_entry', access: level }];
+                        setMember({ ...base, customPermissions: updated });
+                      } else {
+                        setMember(base);
+                      }
+                    }}
+                    className={inputClass}
+                  >
+                    <option value="">{t[lang].selectLevel}</option>
+                    <option value="view">{t[lang].viewOnly}</option>
+                    <option value="edit">{t[lang].editAccess}</option>
+                    <option value="full">{t[lang].fullAccess}</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>{t[lang].role}</label>
+                  <select
+                    value={member?.role || 'member'}
+                    onChange={(e) => setMember({ ...member, role: e.target.value })}
+                    className={inputClass}
+                  >
+                    <option value="member">{t[lang].member}</option>
+                    <option value="admin">{t[lang].admin}</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Password: full width below */}
               <div>
-                <label className={labelClass}>
-                  {t[lang].password}
-                </label>
+                <label className={labelClass}>{t[lang].password}</label>
                 <input
                   type="password"
                   value={member?.password || ''}
@@ -309,52 +362,11 @@ export default function MemberEntryForm({
                   required
                 />
               </div>
-              <div>
-                <label className={labelClass}>
-                  {t[lang].role}
-                </label>
-                <select
-                  value={member?.role || 'member'}
-                  onChange={(e) => setMember({ ...member, role: e.target.value })}
-                  className={inputClass}
-                >
-                  <option value="member">{t[lang].member}</option>
-                  <option value="admin">{t[lang].admin}</option>
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>
-                  {t[lang].permissionLevel}
-                </label>
-                <select
-                  value={member?.permissionLevel || ''}
-                  onChange={(e) => {
-                    const level = e.target.value as 'view' | 'edit' | 'full' | '';
-                    const base = { ...member, permissionLevel: level } as any;
-                    if (level) {
-                      const existing = member?.customPermissions || [];
-                      const hasMemberEntry = existing.some((p: any) => p.id === 'member_entry');
-                      const updated = hasMemberEntry
-                        ? existing.map((p: any) => p.id === 'member_entry' ? { ...p, access: level } : p)
-                        : [...existing, { id: 'member_entry', access: level }];
-                      setMember({ ...base, customPermissions: updated });
-                    } else {
-                      setMember(base);
-                    }
-                  }}
-                  className={inputClass}
-                >
-                  <option value="">{t[lang].selectLevel}</option>
-                  <option value="view">{t[lang].viewOnly}</option>
-                  <option value="edit">{t[lang].editAccess}</option>
-                  <option value="full">{t[lang].fullAccess}</option>
-                </select>
-              </div>
-              <div className="space-y-3 mt-2">
+
+              {/* Permissions list */}
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="block text-sm font-medium">
-                    {t[lang].privileges}
-                  </label>
+                  <label className="block text-sm font-medium">{t[lang].privileges}</label>
                   {member?.mobile !== '9999999999' && (
                     <div className="flex gap-2">
                       <button
@@ -363,195 +375,161 @@ export default function MemberEntryForm({
                           const allPermissions = PERMISSION_OPTIONS.map(opt => ({ id: opt.id, access: 'view' }));
                           setMember({ ...member, customPermissions: allPermissions });
                         }}
-                        className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                        className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
                       >
                         {t[lang].selectAll}
                       </button>
                       <button
                         type="button"
                         onClick={() => setMember({ ...member, customPermissions: [] })}
-                        className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                        className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
                       >
                         {t[lang].clearAll}
                       </button>
                     </div>
                   )}
                 </div>
-                {member?.mobile === '9999999999' ? (
-                  <div className="text-sm text-gray-500 p-3 bg-yellow-50 border border-yellow-200 rounded">
-                    {t[lang].superadminNote}
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <div className="max-h-80 overflow-y-auto pr-2 space-y-3 scrollbar-thin smooth-scroll">
-                      {PERMISSION_OPTIONS.map((opt, index) => {
-                        const enabled = (member?.customPermissions || []).some((p: any) => p.id === opt.id);
-                        const current = (member?.customPermissions || []).find((p: any) => p.id === opt.id);
-                        return (
-                          <div 
-                            key={opt.id} 
-                            className={`
-                              permission-card relative border rounded-xl p-4
+                <div className="max-h-72 overflow-y-auto pr-2 grid grid-cols-1 md:grid-cols-2 gap-2.5 scrollbar-thin smooth-scroll">
+                  {PERMISSION_OPTIONS.map((opt, index) => {
+                    const enabled = (member?.customPermissions || []).some((p: any) => p.id === opt.id);
+                    const current = (member?.customPermissions || []).find((p: any) => p.id === opt.id);
+                    return (
+                      <div 
+                        key={opt.id}
+                        className={`
+                          permission-card relative border rounded-lg p-3
+                          ${enabled 
+                            ? 'enabled shadow-sm' 
+                            : 'bg-white border-gray-200 hover:border-gray-300'
+                          }
+                        `}
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className={`
+                              w-8 h-8 rounded-md flex items-center justify-center text-base
                               ${enabled 
-                                ? 'enabled shadow-sm' 
-                                : 'bg-white border-gray-200 hover:border-gray-300'
+                                ? 'bg-blue-100 border-2 border-blue-300' 
+                                : 'bg-gray-100 border-2 border-gray-200'
                               }
-                            `}
-                          >
-                            <div className="flex items-start gap-4">
-                              <div className="flex items-center gap-3">
-                                <div className={`
-                                  w-10 h-10 rounded-lg flex items-center justify-center text-lg
-                                  ${enabled 
-                                    ? 'bg-blue-100 border-2 border-blue-300' 
-                                    : 'bg-gray-100 border-2 border-gray-200'
-                                  }
-                                  transition-all duration-200
-                                `}>
-                                  {opt.icon}
-                                </div>
-                                <div className="relative flex items-center">
-                                  <input
-                                    type="checkbox"
-                                    checked={!!enabled}
-                                    onChange={(e) => togglePermission(opt.id, e.target.checked)}
-                                    className="sr-only"
-                                    id={`perm-${opt.id}`}
-                                  />
-                                  <label 
-                                    htmlFor={`perm-${opt.id}`}
-                                    className={`
-                                      w-6 h-6 rounded-lg border-2 cursor-pointer transition-all duration-200
-                                      flex items-center justify-center shadow-sm
-                                      ${enabled 
-                                        ? 'bg-blue-500 border-blue-500 text-white shadow-blue-200' 
-                                        : 'border-gray-300 hover:border-blue-400 bg-white hover:shadow-md'
-                                      }
-                                    `}
-                                  >
-                                    {enabled && (
-                                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                      </svg>
-                                    )}
-                                  </label>
-                                </div>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-start justify-between gap-4">
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <span className={`text-base font-semibold ${enabled ? 'text-blue-900' : 'text-gray-700'}`}>
-                                        {getPermissionLabel(opt.id, 'label')}
-                                      </span>
-                                      {enabled && (
-                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 animate-pulse">
-                                          ✓ Active
-                                        </span>
-                                      )}
-                                    </div>
-                                    <p className={`text-sm leading-relaxed ${enabled ? 'text-blue-700' : 'text-gray-500'}`}>
-                                      {getPermissionLabel(opt.id, 'description')}
-                                    </p>
-                                  </div>
-                                  <div className="flex-shrink-0">
-                                    <select
-                                      disabled={!enabled}
-                                      value={(current?.access as any) || 'view'}
-                                      onChange={(e) => setPermissionLevel(opt.id, e.target.value as any)}
-                                      className={`
-                                        px-4 py-2 text-sm border-2 rounded-xl transition-all duration-200
-                                        min-w-[130px] font-semibold shadow-sm
-                                        ${enabled 
-                                          ? 'border-blue-300 bg-white text-blue-900 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 hover:border-blue-400' 
-                                          : 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
-                                        }
-                                      `}
-                                    >
-                                      <option value="view">{t[lang].viewOnly}</option>
-                                      <option value="edit">{t[lang].editAccess}</option>
-                                      <option value="full">{t[lang].fullAccess}</option>
-                                    </select>
-                                  </div>
-                                </div>
-                              </div>
+                              transition-all duration-200
+                           `}>
+                              {opt.icon}
                             </div>
-                            <div className="absolute top-3 right-3">
-                              <span className={`
-                                inline-flex items-center justify-center w-7 h-7 text-xs font-bold rounded-full
-                                shadow-sm border-2 transition-all duration-200
-                                ${enabled 
-                                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-300 shadow-blue-200' 
-                                  : 'bg-gray-100 text-gray-500 border-gray-200'
-                                }
-                              `}>
-                                {index + 1}
-                              </span>
+                            <div className="relative flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={!!enabled}
+                                onChange={(e) => togglePermission(opt.id, e.target.checked)}
+                                className="sr-only"
+                                id={`perm-${opt.id}`}
+                              />
+                              <label 
+                                htmlFor={`perm-${opt.id}`}
+                                className={`
+                                  w-5 h-5 rounded-md border-2 cursor-pointer transition-all duration-200
+                                  flex items-center justify-center shadow-sm
+                                  ${enabled 
+                                    ? 'bg-blue-500 border-blue-500 text-white shadow-blue-200' 
+                                    : 'border-gray-300 hover:border-blue-400 bg-white hover:shadow-md'
+                                  }
+                                `}
+                              >
+                                {enabled && (
+                                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
+                                )}
+                              </label>
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
-                    <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none"></div>
-                    <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-100 shadow-sm">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-2xl">📊</span>
-                          <span className="text-sm font-semibold text-gray-700">
-                            {t[lang].permissionSummary}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className={`
-                            w-3 h-3 rounded-full 
-                            ${(member?.customPermissions || []).length > 0 ? 'bg-green-400 animate-pulse' : 'bg-gray-300'}
-                          `}></div>
-                          <span className="font-bold text-blue-600 text-lg">
-                            {(member?.customPermissions || []).length} / {PERMISSION_OPTIONS.length}
-                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className={`text-sm font-semibold ${enabled ? 'text-blue-900' : 'text-gray-700'}`}>
+                                    {getPermissionLabel(opt.id, 'label')}
+                                  </span>
+                                  {enabled && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-800 animate-pulse">
+                                      ✓ Active
+                                    </span>
+                                  )}
+                                </div>
+                                <p className={`text-[13px] leading-relaxed ${enabled ? 'text-blue-700' : 'text-gray-500'}`}>
+                                  {getPermissionLabel(opt.id, 'description')}
+                                </p>
+                              </div>
+                              <div className="flex-shrink-0">
+                                <select
+                                  disabled={!enabled}
+                                  value={(current?.access as any) || 'view'}
+                                  onChange={(e) => setPermissionLevel(opt.id, e.target.value as any)}
+                                  className={`
+                                    px-3 py-1.5 text-sm border rounded-lg transition-all duration-200
+                                    min-w-[120px] font-medium shadow-sm
+                                    ${enabled 
+                                      ? 'border-blue-300 bg-white text-blue-900 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 hover:border-blue-400' 
+                                      : 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                                    }
+                                  `}
+                                >
+                                  <option value="view">{t[lang].viewOnly}</option>
+                                  <option value="edit">{t[lang].editAccess}</option>
+                                  <option value="full">{t[lang].fullAccess}</option>
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="absolute top-2 right-2">
+                            <span className={`
+                              inline-flex items-center justify-center w-6 h-6 text-[11px] font-bold rounded-full
+                              shadow-sm border transition-all duration-200
+                              ${enabled 
+                                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-300 shadow-blue-200' 
+                                : 'bg-gray-100 text-gray-500 border-gray-200'
+                              }
+                            `}>
+                              {index + 1}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                      {(member?.customPermissions || []).length > 0 ? (
-                        <div className="space-y-2">
-                          <div className="text-xs text-gray-600 mb-2">{t[lang].activePermissions}</div>
-                          <div className="flex flex-wrap gap-2">
-                            {(member?.customPermissions || []).map((perm: any) => {
-                              const permOption = PERMISSION_OPTIONS.find(opt => opt.id === perm.id);
-                              const accessColor = perm.access === 'full' ? 'bg-red-100 text-red-800' : 
-                                                perm.access === 'edit' ? 'bg-yellow-100 text-yellow-800' : 
-                                                'bg-green-100 text-green-800';
-                              const label = getPermissionLabel(perm.id, 'label');
-                              return (
-                                <span 
-                                  key={perm.id}
-                                  className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold shadow-sm ${accessColor}`}
-                                >
-                                  {permOption?.icon} {label}
-                                  <span className="ml-1 opacity-75">
-                                    ({perm.access})
-                                  </span>
-                                </span>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-center py-2">
-                          <span className="text-gray-500 text-sm">{t[lang].noPermissions}</span>
-                        </div>
-                      )}
+                    );
+                  })}
+                  {(member?.customPermissions || []).length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="text-[11px] text-gray-600 mb-2">{t[lang].activePermissions}</div>
+                      <div className="flex flex-wrap gap-2">
+                        {(member?.customPermissions || []).map((perm: any) => {
+                          const permOption = PERMISSION_OPTIONS.find(opt => opt.id === perm.id);
+                          const accessColor = perm.access === 'full' ? 'bg-red-100 text-red-800' : 
+                                            perm.access === 'edit' ? 'bg-yellow-100 text-yellow-800' : 
+                                            'bg-green-100 text-green-800';
+                          const label = getPermissionLabel(perm.id, 'label');
+                          return (
+                            <span 
+                              key={perm.id}
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium shadow-sm ${accessColor}`}
+                            >
+                              {permOption?.icon} {label}
+                              <span className="ml-1 opacity-75">
+                                ({perm.access})
+                              </span>
+                            </span>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="text-center py-2">
+                      <span className="text-gray-500 text-[13px]">{t[lang].noPermissions}</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
-        </div>
-
-        <div className="pt-2 sticky bottom-0 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-t border-slate-200 -mx-6 px-6 py-4 flex justify-end">
-          <button type="submit" className="bg-orange-600 hover:bg-orange-700 text-white px-5 py-2.5 rounded-lg shadow-sm transition font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-400">
-            {isEditing ? t[lang].update : t[lang].addMember}
-          </button>
         </div>
       </form>
     </div>

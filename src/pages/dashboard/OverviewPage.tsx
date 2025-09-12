@@ -9,6 +9,7 @@ import {
   BarChartIcon,
   CreditCardIcon,
   CalendarIcon,
+  HeartIcon,
 } from '../../components/icons';
 
 export default function OverviewPage() {
@@ -43,6 +44,10 @@ export default function OverviewPage() {
       paidThisMonth: 'Paid this month',
       unpaidThisMonth: 'Unpaid this month',
       fromTodayOnwards: 'From today onwards',
+      approvalRequests: 'Approval Requests',
+      poojaApproval: 'Pooja Approval',
+      hallApprovals: 'Hall Approvals',
+      annadhanamApproval: 'Annadhanam Approval',
   
     },
     english: {
@@ -69,6 +74,10 @@ export default function OverviewPage() {
       paidThisMonth: 'இந்த மாதம் செலுத்தியது',
       unpaidThisMonth: 'இந்த மாதம் செலுத்தவில்லை',
       fromTodayOnwards: 'இன்று முதல்',
+      approvalRequests: 'அனுமதி கோரிக்கைகள்',
+      poojaApproval: 'பூஜை அங்கீகாரம்',
+      hallApprovals: 'ஹால் அங்கீகாரங்கள்',
+      annadhanamApproval: 'அன்னதானம் அங்கீகாரம்',
     },
   } as const;
 
@@ -142,6 +151,17 @@ export default function OverviewPage() {
       cancelled = true;
     };
   }, [token, todayStr]);
+
+  // Permission helpers (shared with approvals section)
+  const levelRank = (lvl?: string) => (lvl === 'full' ? 3 : lvl === 'edit' ? 2 : lvl === 'view' ? 1 : 0);
+  const hasPerm = (permissionId?: string, requiredLevel?: 'view' | 'edit' | 'full') => {
+    if (!permissionId) return true;
+    if (isSuperAdmin) return true;
+    const need = levelRank(requiredLevel || 'view');
+    const found = userPermissions?.find((p) => p.permission_id === permissionId);
+    if (!found) return false;
+    return levelRank(found.access_level) >= need;
+  };
 
   return (
     <div className="space-y-6">
@@ -270,6 +290,56 @@ export default function OverviewPage() {
           </div>
         </div>
       )}
-    </div>
-  );
+
+    {/* Approval Requests - render only if at least one permission is available */}
+    {(hasPerm('pooja_approval', 'view') || hasPerm('hall_approval', 'view') || hasPerm('annadhanam_approval', 'view')) && (
+      <div className="mt-6">
+        <h3 className="text-lg font-semibold text-slate-900 mb-3">{t[language as 'tamil' | 'english'].approvalRequests}</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Pooja Approval */}
+          {hasPerm('pooja_approval', 'view') && (
+            <button
+              onClick={() => navigate('/dashboard/pooja/approval')}
+              className="w-full rounded-2xl p-5 bg-white border border-slate-200 hover:shadow-md text-left transition-all duration-200"
+            >
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-slate-600">{t[language as 'tamil' | 'english'].approvalRequests}</div>
+                <CalendarIcon className="h-6 w-6 text-blue-600" />
+              </div>
+              <div className="text-lg font-semibold text-slate-900 mt-2">{t[language as 'tamil' | 'english'].poojaApproval}</div>
+            </button>
+          )}
+
+          {/* Hall Approvals */}
+          {hasPerm('hall_approval', 'view') && (
+            <button
+              onClick={() => navigate('/dashboard/hall/approvals')}
+              className="w-full rounded-2xl p-5 bg-white border border-slate-200 hover:shadow-md text-left transition-all duration-200"
+            >
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-slate-600">{t[language as 'tamil' | 'english'].approvalRequests}</div>
+                <CalendarIcon className="h-6 w-6 text-blue-600" />
+              </div>
+              <div className="text-lg font-semibold text-slate-900 mt-2">{t[language as 'tamil' | 'english'].hallApprovals}</div>
+            </button>
+          )}
+
+          {/* Annadhanam Approval */}
+          {hasPerm('annadhanam_approval', 'view') && (
+            <button
+              onClick={() => navigate('/dashboard/annadhanam/approval')}
+              className="w-full rounded-2xl p-5 bg-white border border-slate-200 hover:shadow-md text-left transition-all duration-200"
+            >
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-slate-600">{t[language as 'tamil' | 'english'].approvalRequests}</div>
+                <HeartIcon className="h-6 w-6 text-blue-600" />
+              </div>
+              <div className="text-lg font-semibold text-slate-900 mt-2">{t[language as 'tamil' | 'english'].annadhanamApproval}</div>
+            </button>
+          )}
+        </div>
+      </div>
+    )}
+  </div>
+);
 }

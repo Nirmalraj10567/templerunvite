@@ -33,6 +33,19 @@ export default function MoneyDonationEntry() {
   const [lastCreatedId, setLastCreatedId] = useState<number | null>(null);
   const [showPrintPrompt, setShowPrintPrompt] = useState(false);
 
+  // Approval logs state
+  interface ApprovalLog {
+    id: number;
+    action: string;
+    performed_by?: number;
+    performed_at: string;
+    notes?: string;
+    old_status?: string;
+    new_status?: string;
+    performed_by_name?: string; // from backend join
+  }
+  const [approvalLogs, setApprovalLogs] = useState<ApprovalLog[]>([]);
+
   const t = (en: string, ta: string) => language === 'english' ? ta : en;
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -59,6 +72,24 @@ export default function MoneyDonationEntry() {
     };
     loadAccounts();
   }, []);
+
+  // Load approval logs for the newly created donation (if applicable)
+  useEffect(() => {
+    const loadLogs = async () => {
+      try {
+        if (!lastCreatedId || !token) return;
+        const res = await fetch(`/api/donations-approval/request/${lastCreatedId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setApprovalLogs(data?.data?.logs || []);
+      } catch (e) {
+        setApprovalLogs([]);
+      }
+    };
+    loadLogs();
+  }, [lastCreatedId, token]);
 
   // Compute next register number by year using existing records (reusable)
   const computeNextRegisterNo = useCallback(async (): Promise<string | null> => {

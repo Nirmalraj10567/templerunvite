@@ -37,6 +37,7 @@ interface ApprovalLog {
   notes?: string;
   old_status?: string;
   new_status?: string;
+  performed_by_name?: string;
 }
 
 interface ApprovalStats {
@@ -81,6 +82,7 @@ export default function PoojaApprovalPage() {
   const [isBulkActionDialogOpen, setIsBulkActionDialogOpen] = useState(false);
   const [bulkAction, setBulkAction] = useState<'approve' | 'reject'>('approve');
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [requestLogs, setRequestLogs] = useState<ApprovalLog[]>([]);
 
   // Column Keys
   type ColKey = 'receipt' | 'name' | 'mobile' | 'dateRange' | 'time' | 'submitted' | 'actions';
@@ -387,6 +389,25 @@ export default function PoojaApprovalPage() {
       minute: '2-digit'
     });
   };
+
+  // Load request details with logs when opening the view dialog
+  useEffect(() => {
+    const loadDetails = async () => {
+      try {
+        if (!isViewDialogOpen || !selectedRequest) return;
+        const res = await fetch(`http://localhost:4000/api/pooja-approval/request/${selectedRequest.id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const logs: ApprovalLog[] = data?.data?.logs || [];
+        setRequestLogs(logs);
+      } catch {
+        setRequestLogs([]);
+      }
+    };
+    loadDetails();
+  }, [isViewDialogOpen, selectedRequest, token]);
 
   return (
     <div className="p-2 bg-gray-50">
@@ -905,6 +926,28 @@ export default function PoojaApprovalPage() {
                 <div>
                   <Label className="text-xs text-gray-500">{t('Remarks', 'கருத்துகள்')}</Label>
                   <p className="mt-1 p-2 bg-gray-50 rounded text-xs">{selectedRequest.remarks}</p>
+                </div>
+              )}
+              {/* Approval History */}
+              {requestLogs && requestLogs.length > 0 && (
+                <div>
+                  <Label className="text-xs text-gray-500">{t('Approval History', 'அனுமதி வரலாறு')}</Label>
+                  <div className="mt-1 space-y-2">
+                    {requestLogs.map((log) => (
+                      <div key={log.id} className="p-2 bg-gray-50 rounded text-xs text-gray-700">
+                        <div className="flex items-center justify-between">
+                          <div className="font-medium capitalize">{log.action}</div>
+                          <div className="text-gray-500">{formatDateTime(log.performed_at)}</div>
+                        </div>
+                        <div className="mt-1">
+                          {t('Approved by', 'அனுமதித்தவர்')}: {log.performed_by_name || ''} {log.performed_by ?? ''}
+                        </div>
+                        {log.notes && (
+                          <div className="mt-1 text-gray-600">{log.notes}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

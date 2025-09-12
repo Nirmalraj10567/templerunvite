@@ -1,7 +1,11 @@
+'use client';
+
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useLanguage } from  "@/lib/language"
+import { toast } from '@/hooks/use-toast';
+import { Modal } from '@/components/ui/modal';
 
 type DailyReport = {
   breakdown: {
@@ -18,7 +22,95 @@ type DailyReport = {
 export default function DailyReportPage() {
   const { token } = useAuth();
   const { language } = useLanguage();
-  const t = (en: string, ta: string) => (language === 'tamil' ? ta : en);
+
+  const t = {
+    english: {
+      title: 'தினசரி அறிக்கை',
+      date: 'தேதி',
+      type: 'வகை',
+      all: 'அனைத்து',
+      income: 'வரவு',
+      expense: 'செலவு',
+      search: 'தேடல்',
+      searchPlaceholder: 'கணக்கு/குறிப்பு தேடு',
+      load: 'ஏற்று',
+      loading: 'ஏற்றுகிறது...',
+      errorLoading: 'அறிக்கை ஏற்ற முடியவில்லை',
+      totalIncome: 'மொத்த வரவு',
+      totalExpenses: 'மொத்த செலவு',
+      net: 'நிகர',
+      exportCsv: 'CSV ஏற்றுமதி',
+      print: 'அச்சிடு',
+      sNo: 'எண்',
+      debit: 'பற்று',
+      credit: 'கடன்',
+      note: 'குறிப்பு',
+      totals: 'மொத்தம்',
+      previous: 'முந்தைய',
+      next: 'அடுத்தது',
+      page: 'பக்கம்',
+      of: 'இல்',
+      dayEndCalculator: 'நாள் முடிவு',
+      cashCount: 'பண எண்ணிக்கை',
+      extraIncome: 'கூடுதல் வரவு',
+      extraExpense: 'கூடுதல் செலவு',
+      systemNet: 'கணினி நிகர',
+      manualNet: 'கையேடு நிகர',
+      difference: 'வித்தியாசம்',
+      incomeBreakdown: 'வரவு',
+      expensesBreakdown: 'செலவு',
+      resetReport: 'மீட்டமை',
+      resetConfirm: 'மீட்டமைக்கவா?',
+      resetMessage: 'அனைத்து தரவும் அழிக்கப்படும்.',
+      reset: 'மீட்டமை',
+      cancel: 'ரத்து',
+      resetSuccess: 'மீட்டமைக்கப்பட்டது',
+      resetFailed: 'மீட்டமை தோல்வி',
+    },
+    tamil: {
+      title: 'Daily Report',
+      date: 'Date',
+      type: 'Type',
+      all: 'All',
+      income: 'Income',
+      expense: 'Expense',
+      search: 'Search',
+      searchPlaceholder: 'Search account/note',
+      load: 'Load',
+      loading: 'Loading...',
+      errorLoading: 'Failed to load report',
+      totalIncome: 'Total Income',
+      totalExpenses: 'Total Expenses',
+      net: 'Net',
+      exportCsv: 'Export CSV',
+      print: 'Print',
+      sNo: 'S.No',
+      debit: 'Debit',
+      credit: 'Credit',
+      note: 'Note',
+      totals: 'Totals',
+      previous: 'Previous',
+      next: 'Next',
+      page: 'Page',
+      of: 'of',
+      dayEndCalculator: 'Day-end',
+      cashCount: 'Cash Count',
+      extraIncome: 'Extra Income',
+      extraExpense: 'Extra Expense',
+      systemNet: 'System Net',
+      manualNet: 'Manual Net',
+      difference: 'Difference',
+      incomeBreakdown: 'Income',
+      expensesBreakdown: 'Expenses',
+      resetReport: 'Reset',
+      resetConfirm: 'Reset Report?',
+      resetMessage: 'All data will be deleted.',
+      reset: 'Reset',
+      cancel: 'Cancel',
+      resetSuccess: 'Reset successful',
+      resetFailed: 'Reset failed',
+    }
+  } as const;
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [date, setDate] = useState<string>(today);
@@ -31,9 +123,9 @@ export default function DailyReportPage() {
   const [cashCount, setCashCount] = useState<string>('');
   const [extraIncome, setExtraIncome] = useState<string>('');
   const [extraExpense, setExtraExpense] = useState<string>('');
-  // Client-side filters
   const [filterText, setFilterText] = useState<string>('');
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
+  const [showResetModal, setShowResetModal] = useState(false);
 
   const fetchReport = async (d: string) => {
     if (!token) return;
@@ -48,15 +140,36 @@ export default function DailyReportPage() {
       if (!json.success) throw new Error(json.error || 'Failed to load report');
       setData(json.data);
     } catch (e: any) {
-      setError(e.message || 'Failed to load report');
+      setError(e.message || t[language].errorLoading);
       setData(null);
     } finally {
       setLoading(false);
     }
   };
 
+  const resetReport = async () => {
+    if (!token || !date) return;
+    try {
+      const res = await fetch(`/api/reports/daily?date=${encodeURIComponent(date)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Failed to reset report');
+      setData(null);
+      toast({ title: t[language].resetSuccess });
+      fetchReport(date);
+    } catch (err) {
+      toast({
+        title: t[language].error,
+        description: t[language].resetFailed,
+        variant: 'destructive',
+      });
+    } finally {
+      setShowResetModal(false);
+    }
+  };
+
   useEffect(() => {
-    // If URL has ?date=YYYY-MM-DD use it, else use state
     const params = new URLSearchParams(location.search);
     const d = params.get('date') || date;
     if (d !== date) setDate(d);
@@ -68,13 +181,12 @@ export default function DailyReportPage() {
   const totalExpense = useMemo(() => data?.totals.grand_total_expense || 0, [data]);
   const net = useMemo(() => data?.totals.net || 0, [data]);
 
-  // Build a simple day journal (Dr/Cr) view from the breakdown
   type JournalRow = {
     id: number;
     account: string;
     type: 'income' | 'expense';
-    debit: number; // Dr
-    credit: number; // Cr
+    debit: number;
+    credit: number;
     note?: string;
   };
 
@@ -82,27 +194,24 @@ export default function DailyReportPage() {
     if (!data) return [];
     const list: JournalRow[] = [];
     let i = 1;
-    // Expenses -> Debit
     Object.entries(data.breakdown.expenses).forEach(([k, v]) => {
       if (!v) return;
       list.push({ id: i++, account: k.replaceAll('_', ' '), type: 'expense', debit: v, credit: 0 });
     });
-    // Income -> Credit
     Object.entries(data.breakdown.income).forEach(([k, v]) => {
       if (!v) return;
       list.push({ id: i++, account: k.replaceAll('_', ' '), type: 'income', debit: 0, credit: v });
     });
-    // Apply client-side filters
+
     const ft = filterText.trim().toLowerCase();
     const t = filterType;
-    const filtered = list.filter((r) => {
+    return list.filter((r) => {
       const typeOk = t === 'all' ? true : r.type === t;
       const textOk = !ft ||
         r.account.toLowerCase().includes(ft) ||
         (r.note || '').toLowerCase().includes(ft);
       return typeOk && textOk;
     });
-    return filtered;
   }, [data, filterText, filterType]);
 
   const debitTotal = useMemo(() => rows.reduce((s, r) => s + r.debit, 0), [rows]);
@@ -110,35 +219,40 @@ export default function DailyReportPage() {
 
   const toCurrency = (n: number) => `₹ ${n.toLocaleString()}`;
 
-  // Pagination for journal rows
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const itemsPerPage = 10;
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(rows.length / itemsPerPage)), [rows]);
+  const itemsPerPage = 12; // Increased to reduce pages
+  const totalPages = Math.max(1, Math.ceil(rows.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedRows = useMemo(() => rows.slice(startIndex, startIndex + itemsPerPage), [rows, startIndex]);
-  useEffect(() => { setCurrentPage(1); }, [date, data]);
+  const paginatedRows = rows.slice(startIndex, startIndex + itemsPerPage);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [date, data, filterText, filterType]);
 
   const onExportCSV = () => {
     const headers = [
-      t('S.No', 'எண்'),
-      t('Date', 'தேதி'),
+      t[language].sNo,
+      t[language].date,
       'Type',
-      t('Account', 'கணக்கு'),
-      t('Debit', 'பற்று'),
-      t('Credit', 'கடன்'),
-      t('Note', 'குறிப்பு'),
+      t[language].account,
+      t[language].debit,
+      t[language].credit,
+      t[language].note,
     ];
     const lines = rows.map((r) => [
       r.id,
       date,
-      r.type === 'income' ? t('Income', 'வரவு') : t('Expense', 'செலவு'),
+      r.type === 'income' ? t[language].income : t[language].expense,
       r.account,
       r.debit,
       r.credit,
       r.note || '',
     ]);
-    const all = [headers, ...lines, ['', '', t('Totals', 'மொத்தம்'), '', debitTotal, creditTotal, '']];
-    const csv = all.map((row) => row.map((x) => (typeof x === 'string' ? `"${x.replaceAll('"', '""')}"` : x)).join(',')).join('\n');
+    const all = [...lines, ['', '', t[language].totals, '', debitTotal, creditTotal, '']];
+    const csv = [headers, ...all]
+      .map(row => row.map(x => typeof x === 'string' ? `"${x.replaceAll('"', '""')}"` : x).join(','))
+      .join('\n');
+
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -148,9 +262,7 @@ export default function DailyReportPage() {
     URL.revokeObjectURL(url);
   };
 
-  const onPrint = () => {
-    window.print();
-  };
+  const onPrint = () => window.print();
 
   const manualIncome = (parseFloat(extraIncome) || 0) + (parseFloat(cashCount) || 0);
   const manualExpense = parseFloat(extraExpense) || 0;
@@ -158,193 +270,273 @@ export default function DailyReportPage() {
   const difference = manualNet - net;
 
   return (
-    <div className="max-w-7xl mx-auto bg-white p-4 md:p-6 rounded shadow print:p-0">
-      <h1 className="text-2xl font-semibold mb-4 text-center">{t('Daily Report', 'தினசரி அறிக்கை')}</h1>
+    <div className="max-w-7xl mx-auto bg-white p-3 md:p-4 print:p-2 print:shadow-none">
+      {/* Title */}
+      <h1 className="text-xl font-bold text-center mb-3 text-gray-800">{t[language].title}</h1>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 items-end mb-4">
-        <div>
-          <label className="block text-sm mb-1">{t('Date', 'தேதி')}</label>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="border rounded p-2" />
+      {/* Filters Row — Tight */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        <div className="flex-1 min-w-[140px]">
+          <label className="block text-xs font-medium text-gray-600 mb-1">{t[language].date}</label>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="w-full px-2 py-1 text-xs border border-gray-300 rounded-sm focus:ring-1 focus:ring-orange-500"
+          />
         </div>
-        <div>
-          <label className="block text-sm mb-1">{t('Type', 'வகை')}</label>
+
+        <div className="flex-1 min-w-[100px]">
+          <label className="block text-xs font-medium text-gray-600 mb-1">{t[language].type}</label>
           <select
-            className="border rounded p-2"
+            className="w-full px-2 py-1 text-xs border border-gray-300 rounded-sm focus:ring-1 focus:ring-orange-500"
             value={filterType}
             onChange={(e) => setFilterType(e.target.value as any)}
           >
-            <option value="all">{t('All', 'அனைத்து')}</option>
-            <option value="income">{t('Income', 'வரவு')}</option>
-            <option value="expense">{t('Expense', 'செலவு')}</option>
+            <option value="all">{t[language].all}</option>
+            <option value="income">{t[language].income}</option>
+            <option value="expense">{t[language].expense}</option>
           </select>
         </div>
-        <div className="flex-1 min-w-[200px]">
-          <label className="block text-sm mb-1">{t('Search', 'தேடல்')}</label>
+
+        <div className="flex-1 min-w-[180px]">
+          <label className="block text-xs font-medium text-gray-600 mb-1">{t[language].search}</label>
           <input
-            placeholder={t('Search account or note', 'கணக்கு அல்லது குறிப்பில் தேடவும்')}
+            placeholder={t[language].searchPlaceholder}
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
-            className="w-full border rounded p-2"
+            className="w-full px-2 py-1 text-xs border border-gray-300 rounded-sm focus:ring-1 focus:ring-orange-500"
           />
         </div>
+
         <button
           onClick={() => fetchReport(date)}
-          className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700"
+          className="bg-orange-600 hover:bg-orange-700 text-white text-xs px-3 py-1.5 rounded-sm transition-colors"
         >
-          {t('Load', 'ஏற்று')}
+          {t[language].load}
+        </button>
+
+        <button
+          onClick={() => setShowResetModal(true)}
+          className="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 rounded-sm ml-1 transition-colors"
+          disabled={!data}
+        >
+          {t[language].resetReport}
         </button>
       </div>
 
-      {loading && <div className="p-4">{t('Loading...', 'ஏற்றுகிறது...')}</div>}
-      {error && <div className="p-3 bg-red-50 text-red-700 rounded mb-3">{error}</div>}
+      {/* Loading/Error */}
+      {loading && (
+        <div className="py-3 text-center text-sm text-gray-600">{t[language].loading}</div>
+      )}
+
+      {error && (
+        <div className="p-2 bg-red-50 border border-red-200 rounded-sm text-red-700 text-xs mb-4">
+          {error}
+        </div>
+      )}
 
       {data && (
-        <div className="space-y-6">
-          {/* Summary cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="border rounded p-4 bg-green-50">
-              <div className="text-sm text-green-700">{t('Total Income', 'மொத்த வரவு')}</div>
-              <div className="text-2xl font-semibold">{toCurrency(totalIncome)}</div>
+        <div className="space-y-3">
+          {/* Summary Cards — Compact */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
+            <div className="p-2 bg-green-50 border border-green-100 rounded-sm text-center">
+              <p className="text-xs text-green-700 font-medium">{t[language].totalIncome}</p>
+              <p className="text-sm font-bold text-green-800">{toCurrency(totalIncome)}</p>
             </div>
-            <div className="border rounded p-4 bg-red-50">
-              <div className="text-sm text-red-700">{t('Total Expenses', 'மொத்த செலவு')}</div>
-              <div className="text-2xl font-semibold">{toCurrency(totalExpense)}</div>
+            <div className="p-2 bg-red-50 border border-red-100 rounded-sm text-center">
+              <p className="text-xs text-red-700 font-medium">{t[language].totalExpenses}</p>
+              <p className="text-sm font-bold text-red-800">{toCurrency(totalExpense)}</p>
             </div>
-            <div className="border rounded p-4 bg-blue-50">
-              <div className="text-sm text-blue-700">{t('Net', 'நிகர')}</div>
-              <div className="text-2xl font-semibold">{toCurrency(net)}</div>
+            <div className="p-2 bg-blue-50 border border-blue-100 rounded-sm text-center">
+              <p className="text-xs text-blue-700 font-medium">{t[language].net}</p>
+              <p className="text-sm font-bold text-blue-800">{toCurrency(net)}</p>
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex flex-wrap gap-2 items-center">
-            <button onClick={onExportCSV} className="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded border">
-              {t('Export CSV', 'CSV ஏற்றுமதி')}
+          {/* Action Buttons — Tiny */}
+          <div className="flex flex-wrap gap-1 mb-3">
+            <button
+              onClick={onExportCSV}
+              className="px-2 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-sm"
+            >
+              {t[language].exportCsv}
             </button>
-            <button onClick={onPrint} className="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded border">
-              {t('Print', 'அச்சிடு')}
+            <button
+              onClick={onPrint}
+              className="px-2 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-sm"
+            >
+              {t[language].print}
             </button>
           </div>
 
-          {/* Journal table */}
-          <div className="overflow-auto border rounded">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 sticky top-0">
-                <tr className="text-left">
-                  <th className="px-3 py-2 border-b w-20">{t('S.No', 'எண்')}</th>
-                  <th className="px-3 py-2 border-b w-32">{t('Date', 'தேதி')}</th>
-                  <th className="px-3 py-2 border-b w-28">Type</th>
-                  <th className="px-3 py-2 border-b">{t('Account', 'கணக்கு')}</th>
-                  <th className="px-3 py-2 border-b text-right w-36">{t('Debit', 'பற்று')}</th>
-                  <th className="px-3 py-2 border-b text-right w-36">{t('Credit', 'கடன்')}</th>
-                  <th className="px-3 py-2 border-b w-56">{t('Note', 'குறிப்பு')}</th>
+          {/* Table — Ultra-Compact */}
+          <div className="overflow-x-auto border border-gray-200 rounded-sm">
+            <table className="min-w-full text-xs">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-1 py-1 text-left font-medium text-gray-700 w-10">{t[language].sNo}</th>
+                  <th className="px-1 py-1 text-left font-medium text-gray-700 w-20">{t[language].date}</th>
+                  <th className="px-1 py-1 text-left font-medium text-gray-700 w-24">Type</th>
+                  <th className="px-1 py-1 text-left font-medium text-gray-700 flex-1">{t[language].account}</th>
+                  <th className="px-1 py-1 text-right font-medium text-gray-700 w-24">{t[language].debit}</th>
+                  <th className="px-1 py-1 text-right font-medium text-gray-700 w-24">{t[language].credit}</th>
+                  <th className="px-1 py-1 text-left font-medium text-gray-700 w-40">{t[language].note}</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-100">
                 {paginatedRows.map((r, idx) => (
-                  <tr key={`${r.id}-${idx}`} className="odd:bg-white even:bg-slate-50">
-                    <td className="px-3 py-2 border-b">{startIndex + idx + 1}</td>
-                    <td className="px-3 py-2 border-b">{date}</td>
-                    <td className="px-3 py-2 border-b">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${r.type === 'income' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
-                        {r.type === 'income' ? t('Income', 'வரவு') : t('Expense', 'செலவு')}
+                  <tr key={`${r.id}-${idx}`} className="hover:bg-gray-50">
+                    <td className="px-1 py-1 text-gray-700">{startIndex + idx + 1}</td>
+                    <td className="px-1 py-1 text-gray-700">{date}</td>
+                    <td className="px-1 py-1">
+                      <span className={`inline-flex px-1.5 py-0.5 text-xs rounded ${
+                        r.type === 'income' 
+                          ? 'bg-emerald-100 text-emerald-800' 
+                          : 'bg-rose-100 text-rose-800'
+                      }`}>
+                        {r.type === 'income' ? t[language].income : t[language].expense}
                       </span>
                     </td>
-                    <td className="px-3 py-2 border-b capitalize">{r.account}</td>
-                    <td className="px-3 py-2 border-b text-right">{r.debit ? toCurrency(r.debit) : '-'}</td>
-                    <td className="px-3 py-2 border-b text-right">{r.credit ? toCurrency(r.credit) : '-'}</td>
-                    <td className="px-3 py-2 border-b">{r.note || ''}</td>
+                    <td className="px-1 py-1 text-gray-700 capitalize">{r.account}</td>
+                    <td className="px-1 py-1 text-right text-gray-700">{r.debit ? toCurrency(r.debit) : '-'}</td>
+                    <td className="px-1 py-1 text-right text-gray-700">{r.credit ? toCurrency(r.credit) : '-'}</td>
+                    <td className="px-1 py-1 text-gray-600 text-xs">{r.note || ''}</td>
                   </tr>
                 ))}
               </tbody>
-              <tfoot>
-                <tr className="font-semibold bg-slate-100">
-                  <td className="px-3 py-2 border-t" colSpan={4}>{t('Totals', 'மொத்தம்')}</td>
-                  <td className="px-3 py-2 border-t text-right">{toCurrency(debitTotal)}</td>
-                  <td className="px-3 py-2 border-t text-right">{toCurrency(creditTotal)}</td>
-                  <td className="px-3 py-2 border-t"></td>
+              <tfoot className="bg-gray-50">
+                <tr>
+                  <td colSpan={4} className="px-1 py-1 font-medium text-gray-800 text-left">{t[language].totals}</td>
+                  <td className="px-1 py-1 font-medium text-gray-800 text-right">{toCurrency(debitTotal)}</td>
+                  <td className="px-1 py-1 font-medium text-gray-800 text-right">{toCurrency(creditTotal)}</td>
+                  <td></td>
                 </tr>
               </tfoot>
             </table>
           </div>
 
-          {/* Pagination controls */}
-          <div className="flex items-center justify-between mt-3">
+          {/* Pagination — Tiny */}
+          <div className="flex items-center justify-between py-1 text-xs">
             <button
-              className="px-3 py-1.5 rounded border bg-white hover:bg-slate-50 disabled:opacity-50"
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage <= 1}
+              className="px-2 py-1 border border-gray-300 rounded-sm text-gray-700 disabled:opacity-50"
             >
-              {t('Previous', 'முந்தைய')}
+              {t[language].previous}
             </button>
-            <div className="text-sm text-slate-600">
-              {t('Page', 'பக்கம்')} {currentPage} {t('of', 'இல்')} {totalPages}
-            </div>
+            <span className="text-gray-600">
+              {t[language].page} {currentPage} {t[language].of} {totalPages}
+            </span>
             <button
-              className="px-3 py-1.5 rounded border bg-white hover:bg-slate-50 disabled:opacity-50"
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage >= totalPages}
+              className="px-2 py-1 border border-gray-300 rounded-sm text-gray-700 disabled:opacity-50"
             >
-              {t('Next', 'அடுத்தது')}
+              {t[language].next}
             </button>
           </div>
 
-          {/* Calculator */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="border rounded p-4">
-              <h2 className="text-lg font-semibold mb-2">{t('Day-end Calculator', 'நாள் முடிவு கணக்குபடுத்தி')}</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Calculator + Breakdown — Single Column, Ultra-Tight */}
+          <div className="grid grid-cols-1 gap-2 mt-3 print:grid-cols-1">
+            {/* Calculator */}
+            <div className="border border-gray-200 rounded-sm p-2 bg-gray-50">
+              <h3 className="text-xs font-semibold text-gray-800 mb-2">{t[language].dayEndCalculator}</h3>
+              <div className="grid grid-cols-2 gap-1 text-xs">
                 <div>
-                  <label className="block text-sm mb-1">{t('Cash Count (total)', 'பண எண்ணிக்கை (மொத்தம்)')}</label>
-                  <input className="w-full border p-2 rounded" value={cashCount} onChange={(e) => setCashCount(e.target.value)} placeholder="0" />
+                  <label className="block">{t[language].cashCount}</label>
+                  <input
+                    className="w-full px-1 py-0.5 border border-gray-300 rounded-sm text-xs"
+                    value={cashCount}
+                    onChange={(e) => setCashCount(e.target.value)}
+                    placeholder="0"
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm mb-1">{t('Extra Income (if any)', 'கூடுதல் வரவு (இருந்தால்)')}</label>
-                  <input className="w-full border p-2 rounded" value={extraIncome} onChange={(e) => setExtraIncome(e.target.value)} placeholder="0" />
+                  <label className="block">{t[language].extraIncome}</label>
+                  <input
+                    className="w-full px-1 py-0.5 border border-gray-300 rounded-sm text-xs"
+                    value={extraIncome}
+                    onChange={(e) => setExtraIncome(e.target.value)}
+                    placeholder="0"
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm mb-1">{t('Extra Expenses (if any)', 'கூடுதல் செலவு (இருந்தால்)')}</label>
-                  <input className="w-full border p-2 rounded" value={extraExpense} onChange={(e) => setExtraExpense(e.target.value)} placeholder="0" />
+                  <label className="block">{t[language].extraExpense}</label>
+                  <input
+                    className="w-full px-1 py-0.5 border border-gray-300 rounded-sm text-xs"
+                    value={extraExpense}
+                    onChange={(e) => setExtraExpense(e.target.value)}
+                    placeholder="0"
+                  />
                 </div>
               </div>
-              <div className="mt-4 space-y-1">
-                <div className="flex justify-between"><span>{t('System Net', 'கணினி நிகர')}</span><span>{toCurrency(net)}</span></div>
-                <div className="flex justify-between"><span>{t('Manual Net', 'கையேடு நிகர')}</span><span>{toCurrency(manualNet)}</span></div>
-                <div className={`flex justify-between font-semibold ${Math.abs(difference) < 0.01 ? 'text-green-700' : 'text-red-700'}`}>
-                  <span>{t('Difference', 'வித்தியாசம்')}</span><span>{toCurrency(difference)}</span>
+              <div className="mt-1 text-xs space-y-0.5">
+                <div className="flex justify-between">
+                  <span>{t[language].systemNet}</span>
+                  <span>{toCurrency(net)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>{t[language].manualNet}</span>
+                  <span>{toCurrency(manualNet)}</span>
+                </div>
+                <div className={`flex justify-between font-medium ${Math.abs(difference) < 0.01 ? 'text-green-700' : 'text-red-700'}`}>
+                  <span>{t[language].difference}</span>
+                  <span>{toCurrency(difference)}</span>
                 </div>
               </div>
             </div>
 
-            {/* Breakdown side card */}
-            <div className="grid grid-cols-1 gap-6">
-              <div className="border rounded p-4">
-                <h2 className="text-lg font-semibold mb-2">{t('Income Breakdown', 'வரவு விவரம்')}</h2>
-                <div className="space-y-1 text-sm">
-                  {Object.entries(data.breakdown.income).map(([k, v]) => (
-                    <div key={k} className="flex justify-between">
-                      <span className="capitalize">{k.replaceAll('_', ' ')}</span>
-                      <span>{toCurrency(v)}</span>
-                    </div>
-                  ))}
-                </div>
+            {/* Breakdown — Inline */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="border border-gray-200 rounded-sm p-2 bg-gray-50">
+                <h3 className="text-xs font-semibold text-gray-800 mb-1">{t[language].incomeBreakdown}</h3>
+                {Object.entries(data.breakdown.income).map(([k, v]) => (
+                  <div key={k} className="flex justify-between text-xs">
+                    <span className="capitalize">{k.replaceAll('_', ' ')}</span>
+                    <span className="text-green-700">{toCurrency(v)}</span>
+                  </div>
+                ))}
               </div>
-              <div className="border rounded p-4">
-                <h2 className="text-lg font-semibold mb-2">{t('Expenses Breakdown', 'செலவு விவரம்')}</h2>
-                <div className="space-y-1 text-sm">
-                  {Object.entries(data.breakdown.expenses).map(([k, v]) => (
-                    <div key={k} className="flex justify-between">
-                      <span className="capitalize">{k.replaceAll('_', ' ')}</span>
-                      <span>{toCurrency(v)}</span>
-                    </div>
-                  ))}
-                </div>
+              <div className="border border-gray-200 rounded-sm p-2 bg-gray-50">
+                <h3 className="text-xs font-semibold text-gray-800 mb-1">{t[language].expensesBreakdown}</h3>
+                {Object.entries(data.breakdown.expenses).map(([k, v]) => (
+                  <div key={k} className="flex justify-between text-xs">
+                    <span className="capitalize">{k.replaceAll('_', ' ')}</span>
+                    <span className="text-red-700">{toCurrency(v)}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         </div>
       )}
-      </div>
+
+      {/* Reset Confirmation Modal — Compact */}
+      {showResetModal && (
+        <Modal
+          title={t[language].resetConfirm}
+          onClose={() => setShowResetModal(false)}
+        >
+          <div className="space-y-3">
+            <p className="text-sm text-gray-700">{t[language].resetMessage}</p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                className="px-3 py-1 text-xs border border-gray-300 rounded-sm text-gray-700 hover:bg-gray-50"
+                onClick={() => setShowResetModal(false)}
+              >
+                {t[language].cancel}
+              </button>
+              <button
+                className="px-3 py-1 text-xs bg-red-600 text-white rounded-sm hover:bg-red-700"
+                onClick={resetReport}
+              >
+                {t[language].reset}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
   );
 }

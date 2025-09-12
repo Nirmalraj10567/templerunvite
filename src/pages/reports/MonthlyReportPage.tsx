@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useLanguage } from  "@/lib/language"
 
 type MonthlyReport = {
   breakdown: {
@@ -17,7 +17,7 @@ type MonthlyReport = {
 export default function MonthlyReportPage() {
   const { token } = useAuth();
   const { language } = useLanguage();
-  const t = (en: string, ta: string) => (language === 'tamil' ? ta : en);
+  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
   const now = new Date();
   const [year, setYear] = useState<number>(now.getFullYear());

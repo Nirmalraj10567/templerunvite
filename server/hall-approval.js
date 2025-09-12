@@ -28,7 +28,21 @@ module.exports = function({ db, authenticateToken, authorizePermission }) {
       const { id } = req.params;
       const row = await db('marriage_hall_bookings').where({ id }).first();
       if (!row) return res.status(404).json({ success: false, error: 'Not found' });
-      const logs = await db('hall_approval_logs').where('booking_id', id).orderBy('performed_at', 'desc');
+      const logs = await db('hall_approval_logs as l')
+        .leftJoin('users as u', 'l.performed_by', 'u.id')
+        .where('l.booking_id', id)
+        .orderBy('l.performed_at', 'desc')
+        .select(
+          'l.id',
+          'l.booking_id',
+          'l.action',
+          'l.performed_by',
+          'l.performed_at',
+          'l.notes',
+          'l.old_status',
+          'l.new_status',
+          db.raw("COALESCE(u.full_name, u.username, u.mobile) as performed_by_name")
+        );
       res.json({ success: true, data: { ...row, logs } });
     } catch (err) {
       console.error('GET /api/hall-approval/request/:id error:', err);

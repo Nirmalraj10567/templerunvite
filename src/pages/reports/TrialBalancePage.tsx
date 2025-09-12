@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { getAuthToken } from '@/lib/auth';
+import { useLanguage } from '@/lib/language';
 import { Loader2, RefreshCw, ChevronDown, ChevronRight, Download } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -41,6 +42,7 @@ export default function TrialBalancePage() {
 }
 
 function TrialBalanceContent() {
+  const { t } = useLanguage();
   const [params, setParams] = useSearchParams();
   const persisted = useMemo(() => {
     try {
@@ -194,11 +196,13 @@ function TrialBalanceContent() {
     if (!categoryQuery) return categories;
     const q = categoryQuery.toLowerCase();
     return Object.entries(categories).reduce<CategoryGroup>((acc, [category, rows]) => {
-      const hasMatch = rows.some(row => 
-        row.account.toLowerCase().includes(q) ||
-        (row.category?.toLowerCase().includes(q) || '').includes(q) ||
-        category.toLowerCase().includes(q)
-      );
+      const hasMatch = rows.some(row => {
+        const accountMatch = String(row.account || '').toLowerCase().includes(q);
+        const rowCategory = (row.category ? String(row.category) : '').toLowerCase();
+        const rowCategoryMatch = rowCategory.includes(q);
+        const groupCategoryMatch = String(category || '').toLowerCase().includes(q);
+        return accountMatch || rowCategoryMatch || groupCategoryMatch;
+      });
       if (hasMatch) acc[category] = rows;
       return acc;
     }, {});
@@ -228,8 +232,8 @@ function TrialBalanceContent() {
       }
 
       // Handle string comparison with category fallback
-      const strVa = sortKey === 'category' ? (va || 'Uncategorized') : String(va);
-      const strVb = sortKey === 'category' ? (vb || 'Uncategorized') : String(vb);
+      const strVa = String(va);
+      const strVb = String(vb);
       
       return sortDir === 'asc' 
         ? strVa.localeCompare(strVb) 
@@ -314,15 +318,15 @@ function TrialBalanceContent() {
       <Card className="shadow-lg">
         <CardHeader className="py-3 px-4 border-b">
           <div className="flex justify-between items-center">
-            <CardTitle className="text-lg font-semibold">Trial Balance</CardTitle>
+            <CardTitle className="text-lg font-semibold">{t('Trial Balance', 'டிரயல் பாலன்ஸ்')}</CardTitle>
             <div className="flex gap-2">
               <Button variant="secondary" size="sm" onClick={load} disabled={isLoading} className="flex items-center gap-1">
                 {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                <span className="sr-only md:not-sr-only">Refresh</span>
+                <span className="sr-only md:not-sr-only">{t('Refresh', 'புதுப்பி')}</span>
               </Button>
               <Button variant="secondary" size="sm" onClick={exportToCSV} disabled={!sortedRows.length}>CSV</Button>
               <Button variant="secondary" size="sm" onClick={exportToPDF} disabled={!sortedRows.length}>PDF</Button>
-              <Button variant="secondary" size="sm" onClick={() => window.print()} disabled={!sortedRows.length}>Print</Button>
+              <Button variant="secondary" size="sm" onClick={() => window.print()} disabled={!sortedRows.length}>{t('Print', 'அச்சிடு')}</Button>
             </div>
           </div>
         </CardHeader>
@@ -330,7 +334,7 @@ function TrialBalanceContent() {
           <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-3 items-end">
             {/* From Date Input */}
             <div>
-              <Label htmlFor="from" className="text-xs">From</Label>
+              <Label htmlFor="from" className="text-xs">{t('From', 'இருந்து')}</Label>
               <Input 
                 id="from" 
                 type="date" 
@@ -342,7 +346,7 @@ function TrialBalanceContent() {
             
             {/* To Date Input */}
             <div>
-              <Label htmlFor="to" className="text-xs">To</Label>
+              <Label htmlFor="to" className="text-xs">{t('To', 'வரை')}</Label>
               <Input 
                 id="to" 
                 type="date" 
@@ -355,10 +359,10 @@ function TrialBalanceContent() {
             {/* Preset Buttons */}
             <div className="md:col-span-2"></div> {/* Spacer */}
             <div>
-              <Button variant="outline" size="sm" onClick={() => setPresetRange('today')} className="w-full">Today</Button>
+              <Button variant="outline" size="sm" onClick={() => setPresetRange('today')} className="w-full">{t('Today', 'இன்று')}</Button>
             </div>
             <div>
-              <Button variant="outline" size="sm" onClick={() => setPresetRange('thisMonth')} className="w-full">This Month</Button>
+              <Button variant="outline" size="sm" onClick={() => setPresetRange('thisMonth')} className="w-full">{t('This Month', 'இந்த மாதம்')}</Button>
             </div>
           </div>
 
@@ -366,20 +370,20 @@ function TrialBalanceContent() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <Label htmlFor="categorySearch" className="text-xs whitespace-nowrap">Category:</Label>
+                <Label htmlFor="categorySearch" className="text-xs whitespace-nowrap">{t('Category:', 'வகை:')}</Label>
                 <Input 
                   id="categorySearch" 
-                  placeholder="Filter categories..." 
+                  placeholder={t('Filter categories...', 'வகைகளை வடிகட்டு...')} 
                   className="h-8 text-sm flex-1"
                   value={categoryQuery}
                   onChange={(e) => setCategoryQuery(e.target.value)}
                 />
               </div>
               <div className="flex items-center gap-2">
-                <Label htmlFor="accountSearch" className="text-xs whitespace-nowrap">Account:</Label>
+                <Label htmlFor="accountSearch" className="text-xs whitespace-nowrap">{t('Account:', 'கணக்கு:')}</Label>
                 <Input 
                   id="accountSearch" 
-                  placeholder="Filter accounts..." 
+                  placeholder={t('Filter accounts...', 'கணக்குகளை வடிகட்டு...')} 
                   className="h-8 text-sm flex-1"
                   value={accountQuery}
                   onChange={(e) => setAccountQuery(e.target.value)}
@@ -395,23 +399,23 @@ function TrialBalanceContent() {
                   size="sm"
                   onClick={() => toggleAllCategories(!hasExpandedCategories)}
                 >
-                  {hasExpandedCategories ? 'Collapse All' : 'Expand All'}
+                  {hasExpandedCategories ? t('Collapse All', 'அனைத்தையும் சுருக்கு') : t('Expand All', 'அனைத்தையும் விரித்து காட்டு')}
                 </Button>
                 <span className="text-gray-600">
-                  {!isLoading && `${Object.keys(filteredCategories).length} categories, ${allFilteredRows.length} accounts`}
+                  {!isLoading && `${Object.keys(filteredCategories).length} ${t('categories', 'வகைகள்')}, ${allFilteredRows.length} ${t('accounts', 'கணக்குகள்')}`}
                 </span>
               </div>
 
               {/* Column Visibility Toggle */}
               <div className="flex flex-wrap items-center gap-2 text-xs mt-2">
-                <span className="font-medium">Show columns:</span>
+                <span className="font-medium">{t('Show columns:', 'நெடுவரிசைகள்:')}</span>
                 <label className="flex items-center gap-1">
                   <input
                     type="checkbox"
                     checked={visible.inflow}
                     onChange={() => setVisible(prev => ({ ...prev, inflow: !prev.inflow }))}
                   />
-                  Inflow
+                  {t('Inflow', 'உள்வரவு')}
                 </label>
                 <label className="flex items-center gap-1">
                   <input
@@ -419,7 +423,7 @@ function TrialBalanceContent() {
                     checked={visible.outflow}
                     onChange={() => setVisible(prev => ({ ...prev, outflow: !prev.outflow }))}
                   />
-                  Outflow
+                  {t('Outflow', 'புறவரவு')}
                 </label>
                 <label className="flex items-center gap-1">
                   <input
@@ -427,7 +431,7 @@ function TrialBalanceContent() {
                     checked={visible.debit}
                     onChange={() => setVisible(prev => ({ ...prev, debit: !prev.debit }))}
                   />
-                  Debit
+                  {t('Debit', 'பற்று')}
                 </label>
                 <label className="flex items-center gap-1">
                   <input
@@ -435,7 +439,7 @@ function TrialBalanceContent() {
                     checked={visible.credit}
                     onChange={() => setVisible(prev => ({ ...prev, credit: !prev.credit }))}
                   />
-                  Credit
+                  {t('Credit', 'கடன்')}
                 </label>
                 <label className="flex items-center gap-1">
                   <input
@@ -443,7 +447,7 @@ function TrialBalanceContent() {
                     checked={visible.balance}
                     onChange={() => setVisible(prev => ({ ...prev, balance: !prev.balance }))}
                   />
-                  Balance
+                  {t('Balance', 'மீதம்')}
                 </label>
               </div>
             </div>
@@ -464,25 +468,25 @@ function TrialBalanceContent() {
                 onClick={load} 
                 disabled={isLoading}
               >
-                Retry
+                {t('Retry', 'மீண்டும் முயற்சி')}
               </Button>
             </div>
           ) : (
             <div className="overflow-x-auto">
               {sortedRows.length === 0 ? (
-                <div className="text-center py-4 text-gray-500">No data found for the current filters.</div>
+                <div className="text-center py-4 text-gray-500">{t('No data found for the current filters.', 'தற்போதைய வடிப்பான்களுக்கு தரவு இல்லை.')}</div>
               ) : (
                 <table className="w-full text-xs" aria-label="Trial balance data">
-                  <caption>Trial Balance ({query.startDate} to {query.endDate})</caption>
+                  <caption>{t('Trial Balance', 'டிரயல் பாலன்ஸ்')} ({query.startDate} {t('to', ' முதல் ')} {query.endDate} {t('', ' வரை')})</caption>
                   <thead className="bg-gray-50 sticky top-0">
                     <tr>
                       <th
                         className="text-left px-3 py-2 border-b border-r cursor-pointer hover:bg-gray-100 transition-colors"
                         onClick={() => setSortKey(prev => prev === 'account' ? prev : 'account')}
-                        aria-sort={sortKey === 'account' ? sortDir : 'none'}
+                        aria-sort={sortKey === 'account' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                       >
                         <div className="flex items-center justify-between">
-                          <span>Account</span>
+                          <span>{t('Account', 'கணக்கு')}</span>
                           {sortKey === 'account' && (
                             <span className="ml-1" aria-hidden="true">
                               {sortDir === 'asc' ? '↑' : '↓'}
@@ -495,10 +499,10 @@ function TrialBalanceContent() {
                         <th
                           className="text-right px-3 py-2 border-b border-r cursor-pointer hover:bg-gray-100 transition-colors"
                           onClick={() => setSortKey(prev => prev === 'inflow' ? prev : 'inflow')}
-                          aria-sort={sortKey === 'inflow' ? sortDir : 'none'}
+                          aria-sort={sortKey === 'inflow' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                         >
                           <div className="flex items-center justify-end">
-                            <span>Inflow</span>
+                            <span>{t('Inflow', 'உள்வரவு')}</span>
                             {sortKey === 'inflow' && (
                               <span className="ml-1" aria-hidden="true">
                                 {sortDir === 'asc' ? '↑' : '↓'}
@@ -512,10 +516,10 @@ function TrialBalanceContent() {
                         <th
                           className="text-right px-3 py-2 border-b border-r cursor-pointer hover:bg-gray-100 transition-colors"
                           onClick={() => setSortKey(prev => prev === 'outflow' ? prev : 'outflow')}
-                          aria-sort={sortKey === 'outflow' ? sortDir : 'none'}
+                          aria-sort={sortKey === 'outflow' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                         >
                           <div className="flex items-center justify-end">
-                            <span>Outflow</span>
+                            <span>{t('Outflow', 'புறவரவு')}</span>
                             {sortKey === 'outflow' && (
                               <span className="ml-1" aria-hidden="true">
                                 {sortDir === 'asc' ? '↑' : '↓'}
@@ -529,10 +533,10 @@ function TrialBalanceContent() {
                         <th
                           className="text-right px-3 py-2 border-b border-r cursor-pointer hover:bg-gray-100 transition-colors"
                           onClick={() => setSortKey(prev => prev === 'debit' ? prev : 'debit')}
-                          aria-sort={sortKey === 'debit' ? sortDir : 'none'}
+                          aria-sort={sortKey === 'debit' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                         >
                           <div className="flex items-center justify-end">
-                            <span>Debit</span>
+                            <span>{t('Debit', 'பற்று')}</span>
                             {sortKey === 'debit' && (
                               <span className="ml-1" aria-hidden="true">
                                 {sortDir === 'asc' ? '↑' : '↓'}
@@ -546,10 +550,10 @@ function TrialBalanceContent() {
                         <th
                           className="text-right px-3 py-2 border-b border-r cursor-pointer hover:bg-gray-100 transition-colors"
                           onClick={() => setSortKey(prev => prev === 'credit' ? prev : 'credit')}
-                          aria-sort={sortKey === 'credit' ? sortDir : 'none'}
+                          aria-sort={sortKey === 'credit' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                         >
                           <div className="flex items-center justify-end">
-                            <span>Credit</span>
+                            <span>{t('Credit', 'கடன்')}</span>
                             {sortKey === 'credit' && (
                               <span className="ml-1" aria-hidden="true">
                                 {sortDir === 'asc' ? '↑' : '↓'}
@@ -563,10 +567,10 @@ function TrialBalanceContent() {
                         <th
                           className="text-right px-3 py-2 border-b cursor-pointer hover:bg-gray-100 transition-colors"
                           onClick={() => setSortKey(prev => prev === 'balance' ? prev : 'balance')}
-                          aria-sort={sortKey === 'balance' ? sortDir : 'none'}
+                          aria-sort={sortKey === 'balance' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                         >
                           <div className="flex items-center justify-end">
-                            <span>Balance</span>
+                            <span>{t('Balance', 'மீதம்')}</span>
                             {sortKey === 'balance' && (
                               <span className="ml-1" aria-hidden="true">
                                 {sortDir === 'asc' ? '↑' : '↓'}
@@ -611,7 +615,7 @@ function TrialBalanceContent() {
                                   )}
                                   <span>{category}</span>
                                   <span className="text-gray-500 text-xs">
-                                    ({filteredRows.length} {filteredRows.length === 1 ? 'account' : 'accounts'})
+                                    ({filteredRows.length} {filteredRows.length === 1 ? t('account', 'கணக்கு') : t('accounts', 'கணக்குகள்')})
                                   </span>
                                 </div>
                                 <Button
@@ -667,7 +671,7 @@ function TrialBalanceContent() {
 
                               {/* Category Total Row */}
                               <tr className="bg-gray-50 font-medium border-t">
-                                <td className="px-6 py-1.5 text-sm">Total {category}</td>
+                                <td className="px-6 py-1.5 text-sm">{t('Total', 'மொத்தம்')} {category}</td>
                                 {visible.inflow && (
                                   <td className="text-right px-3 py-1.5">
                                     {nf.format(categoryTotals.inflow)}
@@ -705,10 +709,10 @@ function TrialBalanceContent() {
                       <tr className="bg-gray-100 font-medium border-t-2 border-gray-200">
                         <td className="px-3 py-2 font-semibold">
                           <div className="flex items-center justify-between">
-                            <span>GRAND TOTAL</span>
+                            <span>{t('GRAND TOTAL', 'மொத்தம்')}</span>
                             {totalsRow.debit !== totalsRow.credit && (
                               <span className="text-xs text-red-600 font-normal">
-                                {totalsRow.debit > totalsRow.credit ? 'Debit > Credit' : 'Credit > Debit'}
+                                {totalsRow.debit > totalsRow.credit ? t('Debit > Credit', 'பற்று > கடன்') : t('Credit > Debit', 'கடன் > பற்று')}
                               </span>
                             )}
                           </div>

@@ -34,7 +34,17 @@ export type NavItem =
 
 export const sidebarItems: NavItem[] = [
   { to: '/dashboard', label: 'Overview', icon: HomeIcon },
-  { to: '/dashboard/members', label: 'Members', icon: UsersIcon, permissionId: 'member_entry' },
+
+
+
+  {
+    label: 'Members',
+    icon: UsersIcon,
+    children: [
+      { to: '/dashboard/members/entry', label: 'Member Entry', permissionId: 'member_entry' },
+      { to: '/dashboard/members', label: 'Members', permissionId: 'member_entry' },
+    ],
+  },
   {
     label: 'Reports',
     icon: BarChartIcon,

@@ -8,6 +8,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import ProtectedRoute from './routes/ProtectedRoute';
 import PermissionGuard from './routes/PermissionGuard';
+import YearEndLockGuard from './routes/YearEndLockGuard';
 import DashboardLayout from './layouts/DashboardLayout';
 import OverviewPage from './pages/dashboard/OverviewPage';
 import TransactionsPage from './pages/dashboard/TransactionsPage';
@@ -25,6 +26,8 @@ import BalanceSheet from './pages/account/BalanceSheetPage';
 import SessionManagementPage from './pages/SessionManagementPage';
 import ActivityLogsPage from './pages/ActivityLogsPage';
 import SessionLogsPage from './pages/SessionLogsPage';
+import UpgradeNowPage from './pages/UpgradeNowPage';
+import MasterAdminPage from './pages/admin/MasterAdminPage';
 import MarriageEntryPage from './pages/marriage/MarriageEntryPage';
 import MarriageListPage from './pages/marriage/MarriageListPage';
 import HallEntryPage from './pages/hall/HallEntryPage';
@@ -100,7 +103,9 @@ function App() {
                       path="entry" 
                       element={
                         <PermissionGuard requiredPermission="edit_donations" accessLevel="edit">
-                          <DonationProductEntry />
+                          <YearEndLockGuard>
+                            <DonationProductEntry />
+                          </YearEndLockGuard>
                         </PermissionGuard>
                       }
                     />
@@ -109,7 +114,9 @@ function App() {
                     path="donations/money-entry" 
                     element={
                       <PermissionGuard requiredPermission="edit_donations" accessLevel="edit">
-                        <MoneyDonationEntry />
+                        <YearEndLockGuard>
+                          <MoneyDonationEntry />
+                        </YearEndLockGuard>
                       </PermissionGuard>
                     }
                   />
@@ -121,11 +128,29 @@ function App() {
                       </PermissionGuard>
                     }
                   />
+                  <Route
+                    path="/dashboard/upgrade-now"
+                    element={
+                      <PermissionGuard requiredPermission="dashboard" accessLevel="view">
+                        <UpgradeNowPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/dashboard/master-admin"
+                    element={
+                      <PermissionGuard requiredPermission="dashboard" accessLevel="view">
+                        <MasterAdminPage />
+                      </PermissionGuard>
+                    }
+                  />
                   <Route 
                     path="receipt/entry" 
                     element={
                       <PermissionGuard requiredPermission="receipts" accessLevel="edit">
-                        <ReceiptEntryPage />
+                        <YearEndLockGuard>
+                          <ReceiptEntryPage />
+                        </YearEndLockGuard>
                       </PermissionGuard>
                     } 
                   />
@@ -150,7 +175,9 @@ function App() {
                       path="new" 
                       element={
                         <PermissionGuard requiredPermission="edit_events" accessLevel="edit">
-                          <EventRegistrationForm />
+                          <YearEndLockGuard>
+                            <EventRegistrationForm />
+                          </YearEndLockGuard>
                         </PermissionGuard>
                       } 
                     />
@@ -158,7 +185,9 @@ function App() {
                       path="edit/:id" 
                       element={
                         <PermissionGuard requiredPermission="edit_events" accessLevel="edit">
-                          <EventRegistrationForm />
+                          <YearEndLockGuard>
+                            <EventRegistrationForm />
+                          </YearEndLockGuard>
                         </PermissionGuard>
                       } 
                     />
@@ -191,7 +220,9 @@ function App() {
                     path="/dashboard/registrations/entry"
                     element={
                       <PermissionGuard requiredPermission="user_registrations" accessLevel="edit">
-                        <TempleUserEntryPage />
+                        <YearEndLockGuard>
+                          <TempleUserEntryPage />
+                        </YearEndLockGuard>
                       </PermissionGuard>
                     }
                   />
@@ -199,7 +230,9 @@ function App() {
                     path="/dashboard/registrations/edit/:id"
                     element={
                       <PermissionGuard requiredPermission="user_registrations" accessLevel="edit">
-                        <TempleUserEntryPage />
+                        <YearEndLockGuard>
+                          <TempleUserEntryPage />
+                        </YearEndLockGuard>
                       </PermissionGuard>
                     }
                   />
@@ -207,7 +240,9 @@ function App() {
                     path="/dashboard/registrations/text-entry"
                     element={
                       <PermissionGuard requiredPermission="user_registrations" accessLevel="edit">
-                        <TempleUserEntryPage />
+                        <YearEndLockGuard>
+                          <TempleUserEntryPage />
+                        </YearEndLockGuard>
                       </PermissionGuard>
                     }
                   />
@@ -223,7 +258,9 @@ function App() {
                     path="/dashboard/tax/entry"
                     element={
                       <PermissionGuard requiredPermission="tax_registrations" accessLevel="edit">
-                        <TaxUserEntryPage />
+                        <YearEndLockGuard>
+                          <TaxUserEntryPage />
+                        </YearEndLockGuard>
                       </PermissionGuard>
                     }
                   />
@@ -239,7 +276,9 @@ function App() {
                     path="/dashboard/tax/settings"
                     element={
                       <PermissionGuard requiredPermission="tax_registrations" accessLevel="edit">
-                        <TaxSettingsPage />
+                        <YearEndLockGuard>
+                          <TaxSettingsPage />
+                        </YearEndLockGuard>
                       </PermissionGuard>
                     }
                   />
@@ -361,7 +400,9 @@ function App() {
                     path="/dashboard/members/entry"
                     element={
                       <PermissionGuard requiredPermission="member_entry" accessLevel="edit">
-                        <MemberEntryPage />
+                        <YearEndLockGuard>
+                          <MemberEntryPage />
+                        </YearEndLockGuard>
                       </PermissionGuard>
                     }
                   />
@@ -369,7 +410,9 @@ function App() {
                     path="/dashboard/members/edit/:id"
                     element={
                       <PermissionGuard requiredPermission="member_entry" accessLevel="edit">
-                        <MemberEntryPage />
+                        <YearEndLockGuard>
+                          <MemberEntryPage />
+                        </YearEndLockGuard>
                       </PermissionGuard>
                     }
                   />
@@ -385,7 +428,9 @@ function App() {
                     path="/dashboard/marriage/entry"
                     element={
                       <PermissionGuard requiredPermission="marriage_register" accessLevel="edit">
-                        <MarriageEntryPage />
+                        <YearEndLockGuard>
+                          <MarriageEntryPage />
+                        </YearEndLockGuard>
                       </PermissionGuard>
                     }
                   />
@@ -394,7 +439,9 @@ function App() {
                     path="/dashboard/ledger/entry"
                     element={
                       <PermissionGuard requiredPermission="ledger_management" accessLevel="edit">
-                        <LedgerEntryPage />
+                        <YearEndLockGuard>
+                          <LedgerEntryPage />
+                        </YearEndLockGuard>
                       </PermissionGuard>
                     }
                   />
@@ -402,7 +449,9 @@ function App() {
                     path="/dashboard/ledger/entry/:id"
                     element={
                       <PermissionGuard requiredPermission="ledger_management" accessLevel="edit">
-                        <LedgerEntryPage />
+                        <YearEndLockGuard>
+                          <LedgerEntryPage />
+                        </YearEndLockGuard>
                       </PermissionGuard>
                     }
                   />
@@ -450,7 +499,9 @@ function App() {
                     path="/dashboard/hall/entry"
                     element={
                       <PermissionGuard requiredPermission="hall_booking" accessLevel="edit">
-                        <HallEntryPage />
+                        <YearEndLockGuard>
+                          <HallEntryPage />
+                        </YearEndLockGuard>
                       </PermissionGuard>
                     }
                   />
@@ -474,7 +525,9 @@ function App() {
                     path="/dashboard/annadhanam/entry"
                     element={
                       <PermissionGuard requiredPermission="annadhanam_registrations" accessLevel="edit">
-                        <AnnadhanamEntryPage />
+                        <YearEndLockGuard>
+                          <AnnadhanamEntryPage />
+                        </YearEndLockGuard>
                       </PermissionGuard>
                     }
                   />
@@ -482,7 +535,9 @@ function App() {
                     path="/dashboard/annadhanam/new"
                     element={
                       <PermissionGuard requiredPermission="annadhanam_registrations" accessLevel="edit">
-                        <AnnadhanamEntryPage />
+                        <YearEndLockGuard>
+                          <AnnadhanamEntryPage />
+                        </YearEndLockGuard>
                       </PermissionGuard>
                     }
                   />
@@ -490,7 +545,9 @@ function App() {
                     path="/dashboard/annadhanam/edit/:id"
                     element={
                       <PermissionGuard requiredPermission="annadhanam_registrations" accessLevel="edit">
-                        <AnnadhanamEntryPage />
+                        <YearEndLockGuard>
+                          <AnnadhanamEntryPage />
+                        </YearEndLockGuard>
                       </PermissionGuard>
                     }
                   />
@@ -514,7 +571,9 @@ function App() {
                     path="/dashboard/pooja/entry"
                     element={
                       <PermissionGuard requiredPermission="pooja_registrations" accessLevel="edit">
-                        <PoojaEntryPage />
+                        <YearEndLockGuard>
+                          <PoojaEntryPage />
+                        </YearEndLockGuard>
                       </PermissionGuard>
                     }
                   />
@@ -522,7 +581,9 @@ function App() {
                     path="/dashboard/pooja/new"
                     element={
                       <PermissionGuard requiredPermission="pooja_registrations" accessLevel="edit">
-                        <PoojaEntryPage />
+                        <YearEndLockGuard>
+                          <PoojaEntryPage />
+                        </YearEndLockGuard>
                       </PermissionGuard>
                     }
                   />
@@ -530,7 +591,9 @@ function App() {
                     path="/dashboard/pooja/edit/:id"
                     element={
                       <PermissionGuard requiredPermission="pooja_registrations" accessLevel="edit">
-                        <PoojaEntryPage />
+                        <YearEndLockGuard>
+                          <PoojaEntryPage />
+                        </YearEndLockGuard>
                       </PermissionGuard>
                     }
                   />

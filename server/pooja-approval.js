@@ -80,10 +80,22 @@ module.exports = function(deps = {}) {
         });
       }
 
-      // Get approval logs
-      const logs = await db('pooja_approval_logs')
-        .where('pooja_id', id)
-        .orderBy('performed_at', 'desc');
+      // Get approval logs with approver name
+      const logs = await db('pooja_approval_logs as l')
+        .leftJoin('users as u', 'l.performed_by', 'u.id')
+        .where('l.pooja_id', id)
+        .orderBy('l.performed_at', 'desc')
+        .select(
+          'l.id',
+          'l.pooja_id',
+          'l.action',
+          'l.performed_by',
+          'l.performed_at',
+          'l.notes',
+          'l.old_status',
+          'l.new_status',
+          db.raw("COALESCE(u.full_name, u.username, u.mobile) as performed_by_name")
+        );
 
       res.json({ 
         success: true, 

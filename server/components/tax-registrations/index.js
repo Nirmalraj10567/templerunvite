@@ -1,6 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
+const PDFDocument = require('pdfkit');
 const router = express.Router();
 const db = require('../../db');
 const { authenticateToken, authorizePermission } = require('../../middleware');
@@ -115,6 +116,123 @@ router.post('/', authenticateToken, authorizePermission('tax_registrations', 'ed
       success: false,
       error: 'Internal server error'
     });
+  }
+});
+
+// GET list with pagination and filters
+router.get('/', authenticateToken, authorizePermission('tax_registrations', 'view'), async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const pageSize = Math.min(200, Math.max(1, parseInt(req.query.pageSize, 10) || 20));
+    const search = (req.query.search || '').toString().trim();
+    const pending = req.query.pending === '1' || req.query.pending === 'true';
+    const paid = req.query.paid === '1' || req.query.paid === 'true';
+
+    // Base query for this temple
+    let q = db('user_tax_registrations').where('temple_id', req.user.templeId);
+
+    // Text search across fields
+    if (search) {
+      q = q.andWhere(builder => {
+        builder
+          .where('name', 'like', `%${search}%`)
+          .orWhere('mobile_number', 'like', `%${search}%`)
+          .orWhere('aadhaar_number', 'like', `%${search}%`)
+          .orWhere('reference_number', 'like', `%${search}%`)
+          .orWhere('village', 'like', `%${search}%`);
+      });
+    }
+
+    // Status filter
+    if (pending && !paid) {
+      q = q.andWhere(builder => {
+        builder.whereRaw('(COALESCE(outstanding_amount, tax_amount - amount_paid)) > 0');
+      });
+    } else if (paid && !pending) {
+      q = q.andWhere(builder => {
+        builder.whereRaw('(COALESCE(outstanding_amount, tax_amount - amount_paid)) <= 0');
+      });
+    }
+
+    // Count total
+    const totalRow = await q.clone().count({ c: '*' }).first();
+    const total = Number(totalRow?.c || totalRow?.count || 0);
+
+    // Page
+    const rows = await q
+      .clone()
+      .orderBy('created_at', 'desc')
+      .limit(pageSize)
+      .offset((page - 1) * pageSize)
+      .select('*');
+
+    res.json({ success: true, data: rows, total, page, pageSize });
+  } catch (err) {
+    console.error('Error listing /api/tax-registrations:', err);
+    res.status(500).json({ error: 'Failed to fetch tax registrations' });
+  }
+});
+
+// GET single registration PDF (redirects to existing receipt generator using current JWT)
+router.get('/:id/pdf', authenticateToken, authorizePermission('tax_registrations', 'view'), async (req, res) => {
+  try {
+    const token = (req.headers['authorization'] || '').split(' ')[1];
+    if (!token) return res.status(400).json({ error: 'Missing token' });
+    const { id } = req.params;
+    return res.redirect(`/api/tax-registrations/${id}/receipt.pdf?token=${encodeURIComponent(token)}`);
+  } catch (err) {
+    console.error('Error redirecting to receipt PDF:', err);
+    res.status(500).json({ error: 'Failed to generate PDF' });
+  }
+});
+
+// GET export all as a simple consolidated PDF
+router.get('/export/pdf', authenticateToken, authorizePermission('tax_registrations', 'view'), async (req, res) => {
+  try {
+    const search = (req.query.search || '').toString().trim();
+    const pending = req.query.pending === '1' || req.query.pending === 'true';
+    const paid = req.query.paid === '1' || req.query.paid === 'true';
+
+    let q = db('user_tax_registrations').where('temple_id', req.user.templeId);
+    if (search) {
+      q = q.andWhere(builder => {
+        builder
+          .where('name', 'like', `%${search}%`)
+          .orWhere('mobile_number', 'like', `%${search}%`)
+          .orWhere('aadhaar_number', 'like', `%${search}%`)
+          .orWhere('reference_number', 'like', `%${search}%`)
+          .orWhere('village', 'like', `%${search}%`);
+      });
+    }
+    if (pending && !paid) {
+      q = q.andWhereRaw('(COALESCE(outstanding_amount, tax_amount - amount_paid)) > 0');
+    } else if (paid && !pending) {
+      q = q.andWhereRaw('(COALESCE(outstanding_amount, tax_amount - amount_paid)) <= 0');
+    }
+
+    const rows = await q.orderBy('created_at', 'desc').limit(1000);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=tax-registrations.pdf');
+    const doc = new PDFDocument({ size: 'A4', margin: 36 });
+    doc.pipe(res);
+
+    doc.fontSize(16).text('Tax Registrations', { align: 'center' });
+    doc.moveDown();
+
+    rows.forEach((r, idx) => {
+      const tax = Number(r.tax_amount || 0);
+      const paidAmt = Number(r.amount_paid || 0);
+      const outstanding = (r.outstanding_amount != null) ? Number(r.outstanding_amount) : Math.max(0, tax - paidAmt);
+      doc.fontSize(10).text(
+        `${idx + 1}. ${r.name} | Mobile: ${r.mobile_number || '-'} | Ref: ${r.reference_number || '-'} | Village: ${r.village || '-'} | Paid: ₹${paidAmt} / Tax: ₹${tax} | ${outstanding > 0 ? 'Pending' : 'Paid'}`
+      );
+    });
+
+    doc.end();
+  } catch (err) {
+    console.error('Error exporting tax registrations PDF:', err);
+    res.status(500).json({ error: 'Failed to export PDF' });
   }
 });
 

@@ -158,6 +158,57 @@ const authorizeRole = (allowedRoles) => {
   };
 };
 
+// ===============================
+// Year-End System Status Endpoints
+// ===============================
+// Get current year-end status (auth required)
+app.get('/api/system/year-end-status', authenticateToken, async (req, res) => {
+  try {
+    const enforcedRow = await db('system_settings').where({ key: 'year_end_enforced' }).first();
+    const lockedRow = await db('system_settings').where({ key: 'year_end_locked' }).first();
+    const parseVal = (row, def) => (row ? JSON.parse(row.value) : def);
+    res.json({
+      success: true,
+      data: {
+        enforced: parseVal(enforcedRow, false),
+        locked: parseVal(lockedRow, false)
+      }
+    });
+  } catch (err) {
+    console.error('year-end-status get error:', err);
+    res.status(500).json({ error: 'Failed to fetch status' });
+  }
+});
+
+// Update year-end status (superadmin only)
+app.post('/api/system/year-end-status', authenticateToken, authorizeRole(['superadmin']), async (req, res) => {
+  try {
+    const { enforced, locked } = req.body || {};
+    const updates = [];
+    if (typeof enforced === 'boolean') {
+      updates.push(
+        db('system_settings')
+          .insert({ key: 'year_end_enforced', value: JSON.stringify(enforced), updated_at: db.fn.now() })
+          .onConflict('key')
+          .merge({ value: JSON.stringify(enforced), updated_at: db.fn.now() })
+      );
+    }
+    if (typeof locked === 'boolean') {
+      updates.push(
+        db('system_settings')
+          .insert({ key: 'year_end_locked', value: JSON.stringify(locked), updated_at: db.fn.now() })
+          .onConflict('key')
+          .merge({ value: JSON.stringify(locked), updated_at: db.fn.now() })
+      );
+    }
+    await Promise.all(updates);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('year-end-status post error:', err);
+    res.status(500).json({ error: 'Failed to update status' });
+  }
+});
+
 // Middleware to check if user has access to specific temple
 const authorizeTempleAccess = (req, res, next) => {
   const userTempleId = req.user.templeId;
@@ -374,32 +425,113 @@ app.get('/api/ledger/balance', authenticateToken, async (req, res) => {
 })();
 
 // Provide /api/ledger/names for frontend compatibility
-app.get('/api/ledger/names', authenticateToken, async (req, res) => {
+app.get('/api/superadmin/tenants/stats', authenticateToken, authorizeRole(['superadmin']), async (req, res) => {
   try {
-    let names = [];
-    try {
-      const hasJournal = await db.schema.hasTable('journal_entries');
-      if (hasJournal) {
-        const froms = await db('journal_entries').distinct('from_account as name').where('temple_id', req.user.templeId);
-        const tos = await db('journal_entries').distinct('to_account as name').where('temple_id', req.user.templeId);
-        const set = new Set();
-        [...froms, ...tos].forEach(r => { if (r.name) set.add(r.name); });
-        names = Array.from(set).sort();
-      }
-    } catch {}
-    if (!names.length) {
+    const rows = await db('external_temple_databases').where({ status: 'active' }).select('*');
+    const results = [];
+    for (const t of rows) {
+      let k = null;
+      const out = { id: t.id, name: t.name, dbPath: t.db_path, totalMembers: 0, moneyDonations: 0, poojaCount: 0, activeSessions: 0, latestReceiptDate: null, dbSizeBytes: null };
       try {
-        const rows = await db('ledger_entries').distinct('under as name').whereNotNull('under').andWhere('under', '!=', '');
-        names = rows.map(r => r.name).filter(Boolean).sort();
-      } catch {}
+        k = knex({ client: 'sqlite3', connection: { filename: t.db_path }, useNullAsDefault: true });
+        // Count members
+        try {
+          const c = await k('user_registrations').count({ c: '*' }).first();
+          out.totalMembers = Number(c?.c || c?.count || 0);
+        } catch {}
+        // Count money donations
+        try {
+          const c2 = await k('money_donations').count({ c: '*' }).first();
+          out.moneyDonations = Number(c2?.c || c2?.count || 0);
+        } catch {}
+        // Count pooja
+        try {
+          const c3 = await k('pooja').count({ c: '*' }).first();
+          out.poojaCount = Number(c3?.c || c3?.count || 0);
+        } catch {}
+        // Active sessions (if sessions table exists, where logout_time is null or last_activity recent)
+        try {
+          const hasSessions = await k.schema.hasTable('sessions');
+          if (hasSessions) {
+            const act = await k('sessions').whereNull('logout_time').count({ c: '*' }).first();
+            out.activeSessions = Number(act?.c || act?.count || 0);
+          }
+        } catch {}
+        // Latest receipt date
+        try {
+          const hasReceipts = await k.schema.hasTable('receipts');
+          if (hasReceipts) {
+            const row = await k('receipts').max({ d: 'date' }).first();
+            out.latestReceiptDate = row?.d || row?.max || null;
+          }
+        } catch {}
+        // DB file size
+        try {
+          const fs = require('fs');
+          const stat = fs.statSync(t.db_path);
+          out.dbSizeBytes = stat.size;
+        } catch {}
+      } catch (e) {
+        console.error(`Failed to aggregate for ${t.name}:`, e.message);
+      } finally {
+        if (k && typeof k?.destroy === 'function') {
+          try { await k.destroy(); } catch {}
+        }
+      }
+      results.push(out);
     }
-    if (!names.length) {
-      names = ['CASH A/C', 'BANK A/C'];
-    }
-    res.json({ data: names });
+    res.json({ success: true, data: results });
   } catch (err) {
-    console.error('Error in /api/ledger/names:', err);
-    res.status(500).json({ error: 'Failed to fetch names' });
+    console.error('Failed to fetch tenant stats:', err);
+    res.status(500).json({ error: 'Failed to fetch tenant stats' });
+  }
+});
+
+// Health check per tenant: verifies required tables and last data update timestamps
+app.get('/api/superadmin/tenants/:id/health', authenticateToken, authorizeRole(['superadmin']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const t = await db('external_temple_databases').where({ id }).first();
+    if (!t) return res.status(404).json({ error: 'Tenant not found' });
+    const report = { id: t.id, name: t.name, dbPath: t.db_path, ok: true, checks: [] };
+    let k = null;
+    try {
+      k = knex({ client: 'sqlite3', connection: { filename: t.db_path }, useNullAsDefault: true });
+      const requiredTables = ['users','temples','user_registrations','receipts'];
+      for (const tbl of requiredTables) {
+        try {
+          const has = await k.schema.hasTable(tbl);
+          report.checks.push({ table: tbl, exists: !!has });
+          if (!has) report.ok = false;
+        } catch (e) {
+          report.checks.push({ table: tbl, exists: false, error: e.message });
+          report.ok = false;
+        }
+      }
+      // last data updates
+      try {
+        const r = await k('receipts').max({ d: 'date' }).first();
+        report.lastReceiptDate = r?.d || r?.max || null;
+      } catch {}
+      try {
+        const hasSessions = await k.schema.hasTable('sessions');
+        if (hasSessions) {
+          const s = await k('sessions').max({ d: 'last_activity' }).first();
+          report.lastSessionActivity = s?.d || s?.max || null;
+        }
+      } catch {}
+    } catch (e) {
+      report.ok = false;
+      report.error = e.message;
+    } finally {
+      if (k && typeof k?.destroy === 'function') {
+        try { await k.destroy(); } catch {}
+      }
+    }
+    res.json({ success: true, data: report });
+  } catch (err) {
+    console.error('Tenant health error:', err);
+    res.status(500).json({ error: 'Failed to check health' });
   }
 });
 
@@ -1967,6 +2099,38 @@ async function migrate() {
       });
       console.log('Created session_logs table.');
     }
+    
+    // Create external temple databases registry (for superadmin cross-tenant monitoring)
+    if (!(await db.schema.hasTable('external_temple_databases'))) {
+      await db.schema.createTable('external_temple_databases', (table) => {
+        table.increments('id').primary();
+        table.string('name').notNullable();
+        table.string('db_path').notNullable();
+        table.string('status').notNullable().defaultTo('active'); // active/inactive
+        table.timestamp('created_at').defaultTo(db.fn.now());
+        table.timestamp('updated_at').defaultTo(db.fn.now());
+      });
+      console.log('Created external_temple_databases table.');
+    }
+    
+    // Create simple key-value system settings table
+    if (!(await db.schema.hasTable('system_settings'))) {
+      await db.schema.createTable('system_settings', (table) => {
+        table.string('key').primary();
+        table.text('value');
+        table.timestamp('updated_at').defaultTo(db.fn.now());
+      });
+      console.log('Created system_settings table.');
+    }
+    // Seed default year-end flags if missing
+    const ensureSetting = async (key, defaultValue) => {
+      const row = await db('system_settings').where({ key }).first();
+      if (!row) {
+        await db('system_settings').insert({ key, value: JSON.stringify(defaultValue), updated_at: db.fn.now() });
+      }
+    };
+    await ensureSetting('year_end_enforced', false);
+    await ensureSetting('year_end_locked', false);
     
     // Ensure ledger_entries table and add registration_id linkage
     if (!(await db.schema.hasTable('ledger_entries'))) {

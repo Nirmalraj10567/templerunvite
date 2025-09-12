@@ -21,7 +21,7 @@ import {
 
 export default function DashboardLayout() {
   const navigate = useNavigate();
-  const { user, userPermissions, isSuperAdmin } = useAuth();
+  const { user, userPermissions, isSuperAdmin, token } = useAuth();
   const { settings } = useSettings();
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -174,6 +174,40 @@ export default function DashboardLayout() {
       r.label.toLowerCase().includes(q) || (r.section?.toLowerCase() || '').includes(q)
     );
   }, [flatRoutes, searchQuery]);
+
+  // Year-end window: entire March (month index 2) and April 1st
+  const isYearEndWindow = useMemo(() => {
+    const now = new Date();
+    const m = now.getMonth(); // 0=Jan
+    const d = now.getDate();
+    return m === 2 || (m === 3 && d === 1);
+  }, []);
+
+  // Backend-controlled year-end flags
+  const [yearEndEnforced, setYearEndEnforced] = useState(false);
+  const [yearEndLocked, setYearEndLocked] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch('/api/system/year-end-status', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => {
+        if (!mounted) return;
+        setYearEndEnforced(!!d?.data?.enforced);
+        setYearEndLocked(!!d?.data?.locked);
+      })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, [token]);
+
+  // Permission check for viewing the Upgrade page
+  const canViewUpgrade = useMemo(() => {
+    if (isSuperAdmin) return true;
+    const found = userPermissions?.find((p) => p.permission_id === 'dashboard');
+    if (!found) return false;
+    const rank = (lvl?: string) => (lvl === 'full' ? 3 : lvl === 'edit' ? 2 : lvl === 'view' ? 1 : 0);
+    return rank(found.access_level) >= rank('view');
+  }, [isSuperAdmin, userPermissions]);
 
   // Open palette on Ctrl+F, navigate with Enter, arrows to move
   useEffect(() => {
@@ -347,6 +381,48 @@ export default function DashboardLayout() {
               </NavLink>
             );
           })}
+
+          {/* Conditional year-end Upgrade link (appended without reordering existing items) */}
+          {(isYearEndWindow || yearEndEnforced) && canViewUpgrade && (
+            <NavLink
+              key="/dashboard/upgrade-now"
+              to="/dashboard/upgrade-now"
+              end
+              className={({ isActive }) =>
+                `group flex items-center p-3 rounded-xl transition-all duration-200 backdrop-blur-sm
+                ${isSidebarCollapsed ? 'justify-center' : ''} 
+                ${isActive 
+                  ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-orange-900/30' 
+                  : 'text-amber-200 hover:bg-gradient-to-r hover:from-amber-800/40 hover:to-orange-800/40 hover:text-white hover:shadow-lg hover:shadow-orange-900/20'
+                }`
+              }
+              onClick={() => isMobileMenuOpen && setMobileMenuOpen(false)}
+            >
+              <LandmarkIcon className="h-6 w-6" />
+              {!isSidebarCollapsed && <span className="ml-4 font-medium">Upgrade Now</span>}
+            </NavLink>
+          )}
+
+          {/* Superadmin-only Master Admin link */}
+          {isSuperAdmin && (
+            <NavLink
+              key="/dashboard/master-admin"
+              to="/dashboard/master-admin"
+              end
+              className={({ isActive }) =>
+                `group flex items-center p-3 rounded-xl transition-all duration-200 backdrop-blur-sm
+                ${isSidebarCollapsed ? 'justify-center' : ''} 
+                ${isActive 
+                  ? 'bg-gradient-to-r from-emerald-600 to-green-600 text-white shadow-lg shadow-emerald-900/30' 
+                  : 'text-emerald-200 hover:bg-gradient-to-r hover:from-emerald-800/40 hover:to-green-800/40 hover:text-white hover:shadow-lg hover:shadow-emerald-900/20'
+                }`
+              }
+              onClick={() => isMobileMenuOpen && setMobileMenuOpen(false)}
+            >
+              <SettingsIcon className="h-6 w-6" />
+              {!isSidebarCollapsed && <span className="ml-4 font-medium">Master Admin</span>}
+            </NavLink>
+          )}
         </nav>
 
         {/* User Profile */}
