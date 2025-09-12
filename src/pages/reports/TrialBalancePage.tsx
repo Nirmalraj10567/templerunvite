@@ -625,8 +625,7 @@ function TrialBalanceContent() {
                                     toast.info('Category export not implemented yet');
                                   }}
                                 >
-                                  <Download className="h-3 w-3 mr-1" />
-                                  Export
+                                 
                                 </Button>
                               </div>
                             </td>

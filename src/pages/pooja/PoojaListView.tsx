@@ -1,18 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, PlusCircle, Loader2, Eye, Edit, Trash2, Calendar, Clock, Filter, X } from "lucide-react";
+import { Search, Loader2, Eye, Edit, Trash2, Calendar, Clock, Filter, X, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,13 +25,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { poojaService, Pooja, PoojaFormData } from "@/services/poojaService";
-
-
 
 export default function PoojaListView() {
   const navigate = useNavigate();
@@ -47,11 +38,10 @@ export default function PoojaListView() {
   const t = (en: string, ta: string) => language === 'tamil' ? ta : en;
 
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
   const [data, setData] = useState<Pooja[]>([]);
   const [pagination, setPagination] = useState({
     pageIndex: 0,
-    pageSize: 10,
+    pageSize: 15,
     total: 0,
     totalPages: 1,
   });
@@ -63,115 +53,111 @@ export default function PoojaListView() {
   const [editedPooja, setEditedPooja] = useState<Partial<PoojaFormData>>({});
   const [categories, setCategories] = useState<Array<{ id: number; value: string; label: string }>>([]);
   
-  // Filter states
-  const [filters, setFilters] = useState({
-    name: "",
-    mobile: "",
-    receipt: "",
-    fromDate: "",
-    toDate: ""
-  });
-  const [showFilters, setShowFilters] = useState(false);
+  // Quick search filter
+  const [quickSearch, setQuickSearch] = useState("");
   
-  // Table column search states
-  const [columnFilters, setColumnFilters] = useState({
-    receipt: "",
-    name: "",
-    mobile: "",
-    dateRange: "",
-    time: ""
+  // Column Keys
+  type ColKey = 'receipt' | 'name' | 'mobile' | 'dateRange' | 'time' | 'actions';
+
+  const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' | 'center' }> = [
+    { key: 'receipt', label: t('Receipt No', 'ரசீது எண்') },
+    { key: 'name', label: t('Name', 'பெயர்') },
+    { key: 'mobile', label: t('Mobile', 'மொபைல்') },
+    { key: 'dateRange', label: t('Date Range', 'தேதி வரம்பு') },
+    { key: 'time', label: t('Time', 'நேரம்') },
+    { key: 'actions', label: t('Actions', 'செயல்கள்'), align: 'center' },
+  ];
+
+  const STORAGE_KEY = 'pooja_list_visible_columns_v1';
+  const defaultVisible: Record<ColKey, boolean> = {
+    receipt: true,
+    name: true,
+    mobile: true,
+    dateRange: true,
+    time: true,
+    actions: true,
+  };
+
+  const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? { ...defaultVisible, ...JSON.parse(saved) } : defaultVisible;
+    } catch {
+      return defaultVisible;
+    }
   });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(visibleCols));
+    } catch {}
+  }, [visibleCols]);
+
+  // Context Menu
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const onContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setMenuPos({ x: e.clientX, y: e.clientY });
+    setMenuOpen(true);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEsc);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEsc);
+    };
+  }, []);
+
+  const visibleColCount = useMemo(
+    () => Object.values(visibleCols).filter(Boolean).length,
+    [visibleCols]
+  );
 
   const isSuperAdmin = user?.role === "superadmin";
 
-  const canEdit =
-    isSuperAdmin ||
+  const canEdit = isSuperAdmin ||
     (user as any)?.permissions?.some(
       (p: any) =>
         p.permission_id === "pooja_registrations" &&
         (p.access_level === "edit" || p.access_level === "full")
     );
 
-  const canDelete =
-    isSuperAdmin ||
+  const canDelete = isSuperAdmin ||
     (user as any)?.permissions?.some(
       (p: any) =>
         p.permission_id === "pooja_registrations" &&
         p.access_level === "full"
     );
 
-  // Fetch pooja entries from API
   const fetchPooja = async () => {
     try {
       setLoading(true);
-
-      // Build search query from filters
-      let searchQuery = searchTerm;
-      if (filters.name || filters.mobile || filters.receipt) {
-        const filterParts = [];
-        if (filters.name) filterParts.push(`name:${filters.name}`);
-        if (filters.mobile) filterParts.push(`mobile:${filters.mobile}`);
-        if (filters.receipt) filterParts.push(`receipt:${filters.receipt}`);
-        searchQuery = filterParts.join(' ');
-      }
-
       const result = await poojaService.getPoojaList(
         pagination.pageIndex + 1,
         pagination.pageSize,
-        searchQuery
+        quickSearch
       );
       
       if (result.success) {
-        let filteredData = result.data;
-        
-        // Apply date range filter
-        if (filters.fromDate || filters.toDate) {
-          filteredData = filteredData.filter((pooja: Pooja) => {
-            const poojaFromDate = new Date(pooja.from_date);
-            const poojaToDate = new Date(pooja.to_date);
-            
-            if (filters.fromDate && filters.toDate) {
-              const filterFromDate = new Date(filters.fromDate);
-              const filterToDate = new Date(filters.toDate);
-              return (poojaFromDate >= filterFromDate && poojaFromDate <= filterToDate) ||
-                     (poojaToDate >= filterFromDate && poojaToDate <= filterToDate) ||
-                     (poojaFromDate <= filterFromDate && poojaToDate >= filterToDate);
-            } else if (filters.fromDate) {
-              const filterFromDate = new Date(filters.fromDate);
-              return poojaToDate >= filterFromDate;
-            } else if (filters.toDate) {
-              const filterToDate = new Date(filters.toDate);
-              return poojaFromDate <= filterToDate;
-            }
-            return true;
-          });
-        }
-
-        // Apply column filters
-        if (columnFilters.receipt || columnFilters.name || columnFilters.mobile || columnFilters.time || columnFilters.dateRange) {
-          filteredData = filteredData.filter((pooja: Pooja) => {
-            const matchesReceipt = !columnFilters.receipt || 
-              pooja.receipt_number.toLowerCase().includes(columnFilters.receipt.toLowerCase());
-            const matchesName = !columnFilters.name || 
-              pooja.name.toLowerCase().includes(columnFilters.name.toLowerCase());
-            const matchesMobile = !columnFilters.mobile || 
-              pooja.mobile_number.includes(columnFilters.mobile);
-            const matchesTime = !columnFilters.time || 
-              pooja.time.includes(columnFilters.time);
-            const matchesDateRange = !columnFilters.dateRange || 
-              pooja.from_date.includes(columnFilters.dateRange) ||
-              pooja.to_date.includes(columnFilters.dateRange) ||
-              `${pooja.from_date} - ${pooja.to_date}`.toLowerCase().includes(columnFilters.dateRange.toLowerCase());
-            
-            return matchesReceipt && matchesName && matchesMobile && matchesTime && matchesDateRange;
-          });
-        }
-        
-        setData(filteredData);
+        setData(result.data);
         setPagination((prev) => ({
           ...prev,
-          total: filteredData.length,
-          totalPages: Math.ceil(filteredData.length / prev.pageSize),
+          total: result.pagination?.total || result.data.length,
+          totalPages: result.pagination?.totalPages || Math.ceil((result.pagination?.total || result.data.length) / prev.pageSize),
         }));
       } else {
         throw new Error(result.error || 'Failed to fetch data');
@@ -180,7 +166,7 @@ export default function PoojaListView() {
       console.error("Error fetching pooja data:", error);
       toast({
         title: t("Error", "பிழை"),
-        description: t("Failed to fetch pooja data. Please try again.", "பூஜை தரவைப் பெற முடியவில்லை. மீண்டும் முயற்சிக்கவும்."),
+        description: t("Failed to fetch pooja data", "பூஜை தரவைப் பெற முடியவில்லை"),
         variant: "destructive",
       });
       setData([]);
@@ -192,9 +178,8 @@ export default function PoojaListView() {
   useEffect(() => {
     fetchPooja();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.pageIndex, pagination.pageSize, searchTerm, filters, columnFilters]);
+  }, [pagination.pageIndex, pagination.pageSize, quickSearch]);
 
-  // Load ledger categories for Transfer To Account
   useEffect(() => {
     const load = async () => {
       try {
@@ -213,51 +198,6 @@ export default function PoojaListView() {
     };
     load();
   }, [token]);
-
-  const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-    }
-  };
-
-  const handleFilterChange = (key: string, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-    setPagination(prev => ({ ...prev, pageIndex: 0 }));
-  };
-
-  const clearFilters = () => {
-    setFilters({
-      name: "",
-      mobile: "",
-      receipt: "",
-      fromDate: "",
-      toDate: ""
-    });
-    setSearchTerm("");
-    clearColumnFilters();
-    setPagination(prev => ({ ...prev, pageIndex: 0 }));
-  };
-
-  const hasActiveFilters = () => {
-    return filters.name || filters.mobile || filters.receipt || filters.fromDate || filters.toDate || searchTerm ||
-           columnFilters.receipt || columnFilters.name || columnFilters.mobile || columnFilters.time || columnFilters.dateRange;
-  };
-
-  const handleColumnFilterChange = (column: string, value: string) => {
-    setColumnFilters(prev => ({ ...prev, [column]: value }));
-    setPagination(prev => ({ ...prev, pageIndex: 0 }));
-  };
-
-  const clearColumnFilters = () => {
-    setColumnFilters({
-      receipt: "",
-      name: "",
-      mobile: "",
-      dateRange: "",
-      time: ""
-    });
-    setPagination(prev => ({ ...prev, pageIndex: 0 }));
-  };
 
   const handleViewClick = (pooja: Pooja) => {
     setViewEditPooja(pooja);
@@ -296,7 +236,6 @@ export default function PoojaListView() {
   const handleSaveEdit = async () => {
     if (!viewEditPooja || !editedPooja) return;
 
-    // Ensure all required fields are present
     const updateData: PoojaFormData = {
       receiptNumber: editedPooja.receiptNumber || viewEditPooja.receipt_number,
       name: editedPooja.name || '',
@@ -330,7 +269,7 @@ export default function PoojaListView() {
       console.error("Error updating pooja:", error);
       toast({
         title: t("Error", "பிழை"),
-        description: t("Failed to update pooja. Please try again.", "பூஜையை புதுப்பிக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்."),
+        description: t("Failed to update pooja", "பூஜையை புதுப்பிக்க முடியவில்லை"),
         variant: "destructive",
       });
     }
@@ -346,9 +285,7 @@ export default function PoojaListView() {
 
     try {
       await poojaService.deletePooja(deleteId);
-
       setData((prev) => prev.filter((item) => item.id !== deleteId));
-
       toast({
         title: t("Success", "வெற்றி"),
         description: t("Pooja deleted successfully", "பூஜை வெற்றிகரமாக நீக்கப்பட்டது"),
@@ -357,7 +294,7 @@ export default function PoojaListView() {
       console.error("Error deleting pooja:", error);
       toast({
         title: t("Error", "பிழை"),
-        description: t("Failed to delete pooja. Please try again.", "பூஜையை நீக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்."),
+        description: t("Failed to delete pooja", "பூஜையை நீக்க முடியவில்லை"),
         variant: "destructive",
       });
     } finally {
@@ -367,524 +304,477 @@ export default function PoojaListView() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
+    return new Date(dateString).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit'
+    });
   };
 
   const formatTime = (timeString: string) => {
     return timeString;
   };
 
+  const handleExportPdf = () => {
+    window.print();
+  };
+
+  // Use data directly since filtering is now done server-side
+  const filteredData = data;
+
   return (
-    <div className="container mx-auto py-6 px-4">
-      <div className="flex flex-col space-y-4">
-        {/* Header */}
-        <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              {t("Pooja List", "பூஜை பட்டியல்")}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {t("Manage pooja registrations", "பூஜை பதிவுகளை நிர்வகிக்கவும்")}
-            </p>
-          </div>
-        
+    <div className="p-2 bg-gray-50">
+      {/* Compact Header */}
+      <div className="flex justify-between items-center mb-2">
+        <h1 className="text-base font-bold text-gray-800">{t("Pooja List", "பூஜை பட்டியல்")}</h1>
+        <div className="text-xs text-gray-500">
+          {filteredData.length} {t("entries", "பதிவுகள்")}
         </div>
+      </div>
 
-        {/* Filters Card */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Filter className="h-5 w-5" />
-                {t("Filters", "வடிகட்டிகள்")}
-              </CardTitle>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowFilters(!showFilters)}
-                >
-                  {showFilters ? t("Hide Filters", "வடிகட்டிகளை மறை") : t("Show Filters", "வடிகட்டிகளை காட்டு")}
-                </Button>
-                {hasActiveFilters() && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={clearFilters}
-                    className="text-red-600 hover:text-red-700"
-                  >
-                    <X className="h-4 w-4 mr-1" />
-                    {t("Clear All", "அனைத்தையும் அழி")}
-                  </Button>
-                )}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
+      {/* Compact Filters */}
+      <Card className="mb-2">
+        <CardContent className="p-2">
+          <div className="flex gap-2 items-center">
             {/* Quick Search */}
-            <div className="mb-4">
-              <div className="relative max-w-md">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  type="search"
-                  placeholder={t("Quick search...", "விரைவு தேடல்...")}
-                  className="pl-9 w-full"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyDown={handleSearch}
-                />
-              </div>
+            <div className="relative flex-1">
+              <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400" />
+              <Input
+                type="search"
+                placeholder={t("Search receipt, name, mobile...", "ரசீது, பெயர், மொபைல் தேடு...")}
+                className="pl-7 text-xs h-7"
+                value={quickSearch}
+                onChange={(e) => setQuickSearch(e.target.value)}
+              />
             </div>
 
-            {/* Advanced Filters */}
-            {showFilters && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
-                <div className="space-y-2">
-                  <Label htmlFor="nameFilter">{t("Name", "பெயர்")}</Label>
-                  <Input
-                    id="nameFilter"
-                    placeholder={t("Filter by name...", "பெயரால் வடிகட்டு...")}
-                    value={filters.name}
-                    onChange={(e) => handleFilterChange('name', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="mobileFilter">{t("Mobile Number", "மொபைல் எண்")}</Label>
-                  <Input
-                    id="mobileFilter"
-                    placeholder={t("Filter by mobile...", "மொபைலால் வடிகட்டு...")}
-                    value={filters.mobile}
-                    onChange={(e) => handleFilterChange('mobile', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="receiptFilter">{t("Receipt Number", "ரசீது எண்")}</Label>
-                  <Input
-                    id="receiptFilter"
-                    placeholder={t("Filter by receipt...", "ரசீதால் வடிகட்டு...")}
-                    value={filters.receipt}
-                    onChange={(e) => handleFilterChange('receipt', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="fromDateFilter">{t("From Date", "தொடக்க தேதி")}</Label>
-                  <Input
-                    id="fromDateFilter"
-                    type="date"
-                    value={filters.fromDate}
-                    onChange={(e) => handleFilterChange('fromDate', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="toDateFilter">{t("To Date", "முடிவு தேதி")}</Label>
-                  <Input
-                    id="toDateFilter"
-                    type="date"
-                    value={filters.toDate}
-                    onChange={(e) => handleFilterChange('toDate', e.target.value)}
-                  />
-                </div>
-                <div className="flex items-end">
-                  <Button
-                    variant="outline"
-                    onClick={clearFilters}
-                    className="w-full"
-                  >
-                    <X className="h-4 w-4 mr-2" />
-                    {t("Clear Filters", "வடிகட்டிகளை அழி")}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            {/* Action Buttons */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setQuickSearch("")}
+              disabled={!quickSearch}
+              className="text-xs h-7 px-2"
+            >
+              <X className="h-3 w-3 mr-1" />
+              {t("Clear", "அழி")}
+            </Button>
 
-        {/* Table Card */}
-        <Card>
-          <CardContent className="pt-6">
+            <Button variant="outline" size="sm" onClick={handleExportPdf} className="text-xs h-7 px-2">
+              <FileDown className="h-3 w-3 mr-1" />
+              {t("Export", "ஏற்றுமதி")}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-            {/* Table */}
-            <div className="rounded-md border">
+      {/* Compact Table */}
+      <div
+        className="bg-white rounded border border-gray-200 overflow-hidden"
+        onContextMenu={onContextMenu}
+      >
+        <div className="overflow-x-auto text-xs max-h-[65vh]">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50 sticky top-0 z-10">
+              <tr>
+                {allColumns.map(
+                  (col) =>
+                    visibleCols[col.key] && (
+                      <th
+                        key={col.key}
+                        className={`px-2 py-1 text-xs font-medium text-gray-500 uppercase tracking-wider ${
+                          col.align === 'right'
+                            ? 'text-right'
+                            : col.align === 'center'
+                            ? 'text-center'
+                            : 'text-left'
+                        }`}
+                      >
+                        {col.label}
+                      </th>
+                    )
+                )}
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
-                <div className="flex items-center justify-center h-64">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium">{t("Receipt No", "ரசீது எண்")}</div>
-                          <Input
-                            placeholder={t("Search receipt...", "ரசீது தேடு...")}
-                            value={columnFilters.receipt}
-                            onChange={(e) => handleColumnFilterChange('receipt', e.target.value)}
-                            className="h-7 text-xs border-gray-300"
-                          />
-                        </div>
-                      </TableHead>
-                      <TableHead>
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium">{t("Name", "பெயர்")}</div>
-                          <Input
-                            placeholder={t("Search name...", "பெயர் தேடு...")}
-                            value={columnFilters.name}
-                            onChange={(e) => handleColumnFilterChange('name', e.target.value)}
-                            className="h-7 text-xs border-gray-300"
-                          />
-                        </div>
-                      </TableHead>
-                      <TableHead>
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium">{t("Mobile", "மொபைல்")}</div>
-                          <Input
-                            placeholder={t("Search mobile...", "மொபைல் தேடு...")}
-                            value={columnFilters.mobile}
-                            onChange={(e) => handleColumnFilterChange('mobile', e.target.value)}
-                            className="h-7 text-xs border-gray-300"
-                          />
-                        </div>
-                      </TableHead>
-                      <TableHead>
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium">{t("Date Range", "தேதி வரம்பு")}</div>
-                          <Input
-                            placeholder={t("Search date...", "தேதி தேடு...")}
-                            value={columnFilters.dateRange}
-                            onChange={(e) => handleColumnFilterChange('dateRange', e.target.value)}
-                            className="h-7 text-xs border-gray-300"
-                          />
-                        </div>
-                      </TableHead>
-                      <TableHead>
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium">{t("Time", "நேரம்")}</div>
-                          <Input
-                            placeholder={t("Search time...", "நேரம் தேடு...")}
-                            value={columnFilters.time}
-                            onChange={(e) => handleColumnFilterChange('time', e.target.value)}
-                            className="h-7 text-xs border-gray-300"
-                          />
-                        </div>
-                      </TableHead>
-                      <TableHead className="text-right">
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium">{t("Actions", "செயல்கள்")}</div>
-                          <div className="h-7 flex items-center justify-end">
-                            {hasActiveFilters() && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={clearFilters}
-                                className="h-6 px-2 text-xs text-red-600 hover:text-red-700"
-                              >
-                                <X className="h-3 w-3 mr-1" />
-                                {t("Clear", "அழி")}
-                              </Button>
+                <tr>
+                  <td colSpan={visibleColCount} className="px-2 py-4 text-center text-xs text-gray-500">
+                    <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
+                    {t("Loading...", "ஏற்றுகிறது...")}
+                  </td>
+                </tr>
+              ) : filteredData.length > 0 ? (
+                filteredData.map((pooja) => (
+                  <tr key={pooja.id} className="hover:bg-gray-50">
+                    {visibleCols.receipt && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs font-medium text-gray-900">
+                        {pooja.receipt_number}
+                      </td>
+                    )}
+                    {visibleCols.name && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900 max-w-32 truncate">
+                        {pooja.name}
+                      </td>
+                    )}
+                    {visibleCols.mobile && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                        {pooja.mobile_number}
+                      </td>
+                    )}
+                    {visibleCols.dateRange && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                        <div className="flex items-center">
+                          <Calendar className="h-3 w-3 mr-1 text-gray-400" />
+                          <div>
+                            <div>{formatDate(pooja.from_date)}</div>
+                            {pooja.from_date !== pooja.to_date && (
+                              <div className="text-gray-400">
+                                - {formatDate(pooja.to_date)}
+                              </div>
                             )}
                           </div>
                         </div>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.length > 0 ? (
-                      data.map((pooja) => (
-                        <TableRow key={pooja.id}>
-                          <TableCell className="font-medium">
-                            {pooja.receipt_number}
-                          </TableCell>
-                          <TableCell>{pooja.name}</TableCell>
-                          <TableCell>{pooja.mobile_number}</TableCell>
-                          <TableCell>
-                            <div className="flex items-center">
-                              <Calendar className="h-4 w-4 mr-1" />
-                              <div className="text-sm">
-                                <div>{formatDate(pooja.from_date)}</div>
-                                {pooja.from_date !== pooja.to_date && (
-                                  <div className="text-muted-foreground">
-                                    {t("to", "வரை")} {formatDate(pooja.to_date)}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center">
-                              <Clock className="h-4 w-4 mr-1" />
-                              {formatTime(pooja.time)}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end space-x-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleViewClick(pooja)}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              {canEdit && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleEditClick(pooja)}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                              )}
-                              {canDelete && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDeleteClick(pooja.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={6} className="h-24 text-center">
-                          {t("No pooja entries found", "பூஜை பதிவுகள் எதுவும் கிடைக்கவில்லை")}
-                        </TableCell>
-                      </TableRow>
+                      </td>
                     )}
-                  </TableBody>
-                </Table>
+                    {visibleCols.time && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                        <div className="flex items-center">
+                          <Clock className="h-3 w-3 mr-1 text-gray-400" />
+                          {formatTime(pooja.time)}
+                        </div>
+                      </td>
+                    )}
+                    {visibleCols.actions && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs text-center">
+                        <div className="flex justify-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewClick(pooja)}
+                            className="h-6 w-6 p-0"
+                          >
+                            <Eye className="h-3 w-3" />
+                          </Button>
+                          {canEdit && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditClick(pooja)}
+                              className="h-6 w-6 p-0"
+                            >
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                          )}
+                          {canDelete && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteClick(pooja.id)}
+                              className="h-6 w-6 p-0 text-red-600"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={visibleColCount} className="px-2 py-8 text-center text-xs text-gray-500">
+                    {t("No pooja entries found", "பூஜை பதிவுகள் எதுவும் கிடைக்கவில்லை")}
+                  </td>
+                </tr>
               )}
+            </tbody>
+          </table>
+        </div>
 
-              {/* Pagination */}
-              <div className="flex items-center justify-between px-4 py-3 border-t">
-                <div className="text-sm text-muted-foreground">
-                  {t("Showing", "காட்டப்படுகிறது")} {data.length} {t("of", "இல்")}{" "}
-                  <span className="font-medium">{pagination.total}</span> {t("items", "உருப்படிகள்")}
-                </div>
-                <div className="flex space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      setPagination((prev) => ({
-                        ...prev,
-                        pageIndex: Math.max(0, prev.pageIndex - 1),
-                      }))
-                    }
-                    disabled={pagination.pageIndex === 0}
-                  >
-                    {t("Previous", "முந்தைய")}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      setPagination((prev) => ({
-                        ...prev,
-                        pageIndex: prev.pageIndex + 1,
-                      }))
-                    }
-                    disabled={pagination.pageIndex >= pagination.totalPages - 1}
-                  >
-                    {t("Next", "அடுத்து")}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* View/Edit Modal */}
-        <Dialog open={isViewEditOpen} onOpenChange={setIsViewEditOpen}>
-          <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {editMode ? t("Edit Pooja", "பூஜையை திருத்து") : t("View Pooja", "பூஜையை பார்க்க")}
-              </DialogTitle>
-              <DialogDescription>
-                {editMode
-                  ? t("Edit the pooja details below", "கீழே உள்ள பூஜை விவரங்களை திருத்தவும்")
-                  : t("View the pooja details below", "கீழே உள்ள பூஜை விவரங்களை பார்க்கவும்")}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="receiptNumber" className="text-right">
-                  {t("Receipt Number", "ரசீது எண்")}
-                </Label>
-                <Input
-                  id="receiptNumber"
-                  value={editedPooja.receiptNumber || ""}
-                  onChange={(e) =>
-                    setEditedPooja({ ...editedPooja, receiptNumber: e.target.value })
-                  }
-                  className="col-span-3"
-                  disabled={!editMode}
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">
-                  {t("Name", "பெயர்")}
-                </Label>
-                <Input
-                  id="name"
-                  value={editedPooja.name || ""}
-                  onChange={(e) =>
-                    setEditedPooja({ ...editedPooja, name: e.target.value })
-                  }
-                  className="col-span-3"
-                  disabled={!editMode}
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="mobileNumber" className="text-right">
-                  {t("Mobile Number", "மொபைல் எண்")}
-                </Label>
-                <Input
-                  id="mobileNumber"
-                  value={editedPooja.mobileNumber || ""}
-                  onChange={(e) =>
-                    setEditedPooja({ ...editedPooja, mobileNumber: e.target.value })
-                  }
-                  className="col-span-3"
-                  disabled={!editMode}
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="time" className="text-right">
-                  {t("Time", "நேரம்")}
-                </Label>
-                <Input
-                  id="time"
-                  type="time"
-                  value={editedPooja.time || ""}
-                  onChange={(e) =>
-                    setEditedPooja({ ...editedPooja, time: e.target.value })
-                  }
-                  className="col-span-3"
-                  disabled={!editMode}
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="fromDate" className="text-right">
-                  {t("From Date", "தொடக்க தேதி")}
-                </Label>
-                <Input
-                  id="fromDate"
-                  type="date"
-                  value={editedPooja.fromDate || ""}
-                  onChange={(e) =>
-                    setEditedPooja({ ...editedPooja, fromDate: e.target.value })
-                  }
-                  className="col-span-3"
-                  disabled={!editMode}
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="toDate" className="text-right">
-                  {t("To Date", "முடிவு தேதி")}
-                </Label>
-                <Input
-                  id="toDate"
-                  type="date"
-                  value={editedPooja.toDate || ""}
-                  onChange={(e) =>
-                    setEditedPooja({ ...editedPooja, toDate: e.target.value })
-                  }
-                  className="col-span-3"
-                  disabled={!editMode}
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="remarks" className="text-right">
-                  {t("Remarks", "குறிப்புகள்")}
-                </Label>
-                <Textarea
-                  id="remarks"
-                  value={editedPooja.remarks || ""}
-                  onChange={(e) =>
-                    setEditedPooja({ ...editedPooja, remarks: e.target.value })
-                  }
-                  className="col-span-3"
-                  disabled={!editMode}
-                  rows={3}
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="transferTo" className="text-right">
-                  {t("Transfer To Account", "எந்த கணக்கிற்கு மாற்றுவது")}
-                </Label>
-                <select
-                  id="transferTo"
-                  value={editedPooja.transferTo || ''}
-                  onChange={(e) => setEditedPooja({ ...editedPooja, transferTo: e.target.value })}
-                  className="col-span-3 border rounded p-2"
-                  disabled={!editMode}
-                >
-                  <option value="">{t('Select', 'தேர்ந்தெடு')}</option>
-                  {categories.map(c => (
-                    <option key={c.id} value={c.value}>{c.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="amount" className="text-right">
-                  {t("Amount", "தொகை")}
-                </Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  value={editedPooja.amount || ''}
-                  onChange={(e) => setEditedPooja({ ...editedPooja, amount: e.target.value })}
-                  className="col-span-3"
-                  disabled={!editMode}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsViewEditOpen(false);
-                  setViewEditPooja(null);
-                  setEditedPooja({});
-                }}
-              >
-                {t("Cancel", "ரத்து செய்")}
-              </Button>
-              {editMode && (
-                <Button onClick={handleSaveEdit} className="bg-orange-600 hover:bg-orange-700">
-                  {t("Save Changes", "மாற்றங்களை சேமிக்க")}
-                </Button>
-              )}
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Delete Confirmation Modal */}
-        <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>{t("Are you sure?", "நீங்கள் உறுதியாகவா?")}</AlertDialogTitle>
-              <AlertDialogDescription>
-                {t("This action cannot be undone. This will permanently delete the pooja entry and remove all associated data.", "இந்த செயலை திரும்பப் பெற முடியாது. இது பூஜை பதிவை நிரந்தரமாக நீக்கி அனைத்து தொடர்புடைய தரவுகளையும் அகற்றும்.")}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>{t("Cancel", "ரத்து செய்")}</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={confirmDelete}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                {t("Delete", "நீக்கு")}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        {/* Footer */}
+        <div className="px-2 py-1 flex items-center justify-between border-t border-gray-200 text-xs">
+          <div className="text-gray-700">
+            {t("Showing", "காட்டப்படுகிறது")} <span className="font-medium">
+              {pagination.pageIndex * pagination.pageSize + 1}-{
+                Math.min((pagination.pageIndex + 1) * pagination.pageSize, pagination.total)
+              }
+            </span> {t("of", "இல்")}{" "}
+            <span className="font-medium">{pagination.total}</span> {t("items", "உருப்படிகள்")}
+          </div>
+          <div className="text-gray-700">
+            {t("Total", "மொத்தம்")}: <span className="font-medium">{pagination.total}</span>
+          </div>
+        </div>
       </div>
+
+      {/* Pagination */}
+      {pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between mt-2 text-xs">
+          <div className="text-gray-500 text-xs">
+            {t("Showing", "காட்டப்படுகிறது")} {pagination.pageSize} {t("per page", "ஒரு பக்கத்திற்கு")}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPagination(prev => ({ ...prev, pageIndex: 0 }))}
+              disabled={pagination.pageIndex === 0}
+              className="text-xs py-1 px-2 h-7"
+            >
+              {t("First", "முதல்")}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPagination(prev => ({ ...prev, pageIndex: Math.max(0, prev.pageIndex - 1) }))}
+              disabled={pagination.pageIndex === 0}
+              className="text-xs py-1 px-2 h-7"
+            >
+              {t("Previous", "முந்தைய")}
+            </Button>
+            <span className="text-xs">
+              {t("Page", "பக்கம்")} {pagination.pageIndex + 1} {t("of", "இல்")} {pagination.totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPagination(prev => ({ ...prev, pageIndex: Math.min(prev.pageIndex + 1, pagination.totalPages - 1) }))}
+              disabled={pagination.pageIndex >= pagination.totalPages - 1}
+              className="text-xs py-1 px-2 h-7"
+            >
+              {t("Next", "அடுத்து")}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPagination(prev => ({ ...prev, pageIndex: pagination.totalPages - 1 }))}
+              disabled={pagination.pageIndex >= pagination.totalPages - 1}
+              className="text-xs py-1 px-2 h-7"
+            >
+              {t("Last", "கடைசி")}
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500">{t("Rows per page", "ஒரு பக்கத்திற்கு")}:</span>
+            <Select
+              value={pagination.pageSize.toString()}
+              onValueChange={(value) => {
+                setPagination(prev => ({
+                  ...prev,
+                  pageSize: Number(value),
+                  pageIndex: 0 // Reset to first page
+                }));
+              }}
+            >
+              <SelectTrigger className="h-7 w-16 text-xs">
+                <SelectValue placeholder={pagination.pageSize} />
+              </SelectTrigger>
+              <SelectContent>
+                {[10, 15, 25, 50, 100].map((size) => (
+                  <SelectItem key={size} value={size.toString()} className="text-xs">
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
+
+      {/* Context Menu */}
+      {menuOpen && (
+        <div
+          ref={menuRef}
+          className="fixed z-50 bg-white rounded shadow border border-gray-200 w-48 text-xs"
+          style={{ left: menuPos.x, top: menuPos.y }}
+        >
+          <div className="px-3 py-2 border-b border-gray-200">
+            <h3 className="text-xs font-medium text-gray-900">{t('Columns', 'நெடுவரிசைகள்')}</h3>
+            <p className="text-xs text-gray-500">
+              {t('Visible', 'காட்டப்படும்')} {Object.values(visibleCols).filter(Boolean).length}/{allColumns.length}
+            </p>
+          </div>
+          <div className="max-h-48 overflow-y-auto p-1">
+            {allColumns.map((col) => (
+              <label
+                key={col.key}
+                className="flex items-center px-2 py-1 rounded hover:bg-gray-50 cursor-pointer select-none"
+              >
+                <input
+                  type="checkbox"
+                  checked={!!visibleCols[col.key]}
+                  onChange={() =>
+                    setVisibleCols((prev) => ({ ...prev, [col.key]: !prev[col.key] }))
+                  }
+                  className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <span className="ml-2 text-xs text-gray-700">{col.label}</span>
+              </label>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-1 p-1 border-t border-gray-200">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs py-0.5 px-1.5 h-auto"
+              onClick={() =>
+                setVisibleCols(Object.fromEntries(allColumns.map((c) => [c.key, true])) as any)
+              }
+            >
+              {t('Select all', 'அனைத்தையும் தேர்ந்தெடு')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs py-0.5 px-1.5 h-auto"
+              onClick={() =>
+                setVisibleCols(Object.fromEntries(allColumns.map((c) => [c.key, false])) as any)
+              }
+            >
+              {t('Clear all', 'அனைத்தையும் அழி')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs py-0.5 px-1.5 h-auto ml-auto"
+              onClick={() => setMenuOpen(false)}
+            >
+              {t('Close', 'மூடு')}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* View/Edit Modal */}
+      <Dialog open={isViewEditOpen} onOpenChange={setIsViewEditOpen}>
+        <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base">
+              {editMode ? t("Edit Pooja", "பூஜையை திருத்து") : t("View Pooja", "பூஜையை பார்க்க")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <div className="grid grid-cols-3 items-center gap-2">
+              <Label className="text-xs">{t("Receipt No", "ரசீது எண்")}</Label>
+              <Input
+                value={editedPooja.receiptNumber || ""}
+                onChange={(e) => setEditedPooja({ ...editedPooja, receiptNumber: e.target.value })}
+                className="col-span-2 text-xs h-7"
+                disabled={!editMode}
+              />
+            </div>
+            <div className="grid grid-cols-3 items-center gap-2">
+              <Label className="text-xs">{t("Name", "பெயர்")}</Label>
+              <Input
+                value={editedPooja.name || ""}
+                onChange={(e) => setEditedPooja({ ...editedPooja, name: e.target.value })}
+                className="col-span-2 text-xs h-7"
+                disabled={!editMode}
+              />
+            </div>
+            <div className="grid grid-cols-3 items-center gap-2">
+              <Label className="text-xs">{t("Mobile", "மொபைல்")}</Label>
+              <Input
+                value={editedPooja.mobileNumber || ""}
+                onChange={(e) => setEditedPooja({ ...editedPooja, mobileNumber: e.target.value })}
+                className="col-span-2 text-xs h-7"
+                disabled={!editMode}
+              />
+            </div>
+            <div className="grid grid-cols-3 items-center gap-2">
+              <Label className="text-xs">{t("Time", "நேரம்")}</Label>
+              <Input
+                type="time"
+                value={editedPooja.time || ""}
+                onChange={(e) => setEditedPooja({ ...editedPooja, time: e.target.value })}
+                className="col-span-2 text-xs h-7"
+                disabled={!editMode}
+              />
+            </div>
+            <div className="grid grid-cols-3 items-center gap-2">
+              <Label className="text-xs">{t("From Date", "தொடக்க தேதி")}</Label>
+              <Input
+                type="date"
+                value={editedPooja.fromDate || ""}
+                onChange={(e) => setEditedPooja({ ...editedPooja, fromDate: e.target.value })}
+                className="col-span-2 text-xs h-7"
+                disabled={!editMode}
+              />
+            </div>
+            <div className="grid grid-cols-3 items-center gap-2">
+              <Label className="text-xs">{t("To Date", "முடிவு தேதி")}</Label>
+              <Input
+                type="date"
+                value={editedPooja.toDate || ""}
+                onChange={(e) => setEditedPooja({ ...editedPooja, toDate: e.target.value })}
+                className="col-span-2 text-xs h-7"
+                disabled={!editMode}
+              />
+            </div>
+            <div className="grid grid-cols-3 items-center gap-2">
+              <Label className="text-xs">{t("Amount", "தொகை")}</Label>
+              <Input
+                type="number"
+                value={editedPooja.amount || ''}
+                onChange={(e) => setEditedPooja({ ...editedPooja, amount: e.target.value })}
+                className="col-span-2 text-xs h-7"
+                disabled={!editMode}
+              />
+            </div>
+            <div className="grid grid-cols-3 items-start gap-2">
+              <Label className="text-xs">{t("Remarks", "குறிப்புகள்")}</Label>
+              <Textarea
+                value={editedPooja.remarks || ""}
+                onChange={(e) => setEditedPooja({ ...editedPooja, remarks: e.target.value })}
+                className="col-span-2 text-xs"
+                disabled={!editMode}
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setIsViewEditOpen(false);
+                setViewEditPooja(null);
+                setEditedPooja({});
+              }}
+              className="text-xs"
+            >
+              {t("Cancel", "ரத்து செய்")}
+            </Button>
+            {editMode && (
+              <Button size="sm" onClick={handleSaveEdit} className="text-xs">
+                {t("Save", "சேமி")}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base">{t("Are you sure?", "நீங்கள் உறுதியாகவா?")}</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm">
+              {t("This will permanently delete the pooja entry.", "இது பூஜை பதிவை நிரந்தரமாக நீக்கும்.")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="text-xs">{t("Cancel", "ரத்து செய்")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="text-xs bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {t("Delete", "நீக்கு")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

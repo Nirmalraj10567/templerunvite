@@ -29,6 +29,7 @@ export default function DonationProductEntry() {
   const [message, setMessage] = useState<string|undefined>();
   const [products, setProducts] = useState<DonationProduct[]>([]);
   const [accounts, setAccounts] = useState<Array<{ id?: number; value: string; label: string }>>([]);
+  const [nextRegisterNo, setNextRegisterNo] = useState<string>('');
 
   const t = (en: string, ta: string) => language === 'english' ? ta : en;
 
@@ -66,9 +67,34 @@ export default function DonationProductEntry() {
         setAccounts([]);
       }
     };
+    const loadNextRegisterNo = async () => {
+      try {
+        const resp = await axios.get<any>('/api/donations/next-register-no', {
+          headers: { Authorization: `Bearer ${getAuthToken()}` }
+        });
+        const nextNo = resp.data?.nextRegisterNo || generateNextRegisterNo();
+        setNextRegisterNo(nextNo);
+        setForm(prev => ({ ...prev, registerNo: nextNo }));
+      } catch (e) {
+        console.error('Failed to load next register number', e);
+        const nextNo = generateNextRegisterNo();
+        setNextRegisterNo(nextNo);
+        setForm(prev => ({ ...prev, registerNo: nextNo }));
+      }
+    };
+    
     loadProducts();
     loadAccounts();
+    loadNextRegisterNo();
   }, []);
+
+  const generateNextRegisterNo = () => {
+    const currentYear = new Date().getFullYear();
+    const currentDate = new Date();
+    const startOfYear = new Date(currentYear, 0, 1);
+    const daysSinceStartOfYear = Math.floor((currentDate.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    return `${currentYear}-${String(daysSinceStartOfYear).padStart(4, '0')}`;
+  };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,7 +103,10 @@ export default function DonationProductEntry() {
     
     try {
       await donationService.createDonation(token, form);
-      setForm(initialState);
+      // Generate next register number after successful save
+      const nextNo = generateNextRegisterNo();
+      setNextRegisterNo(nextNo);
+      setForm(prev => ({ ...prev, ...initialState, registerNo: nextNo }));
       setMessage(t('Saved successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது'));
     } catch (err) {
       console.error('Save failed:', err);
@@ -101,7 +130,13 @@ export default function DonationProductEntry() {
       <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm mb-1">{t('Register No', 'பதிவு எண்')}</label>
-          <input className="w-full border p-2 rounded" name="registerNo" value={form.registerNo} onChange={onChange} />
+          <input 
+            className="w-full border p-2 rounded bg-gray-50" 
+            name="registerNo" 
+            value={form.registerNo} 
+            onChange={onChange}
+            placeholder={t('Auto-generated', 'தானாக உருவாக்கப்பட்டது')}
+          />
         </div>
         <div>
           <label className="block text-sm mb-1">{t('Date', 'தேதி')}</label>
@@ -183,7 +218,10 @@ export default function DonationProductEntry() {
           <button disabled={saving} className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700" type="submit">
             {saving ? t('Saving...', 'சேமிக்கிறது...') : t('Save', 'பதிவு')}
           </button>
-          <button type="button" className="border px-4 py-2 rounded" onClick={() => setForm(initialState)}>
+          <button type="button" className="border px-4 py-2 rounded" onClick={() => {
+            const nextNo = generateNextRegisterNo();
+            setForm({ ...initialState, registerNo: nextNo });
+          }}>
             {t('Clear', 'வெளியே')}
           </button>
         </div>

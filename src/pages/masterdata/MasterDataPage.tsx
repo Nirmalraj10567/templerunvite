@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import AmmavasaiEditPage from './AmmavasaiEditPage';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useLanguage } from '@/lib/language';
 
 
 interface MasterDataItem {
@@ -27,10 +27,10 @@ const MasterDataPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-
+ 
   // Language translations
   const translations = {
-    english: {
+    tamil: {
       title: 'Master Data Management',
       subtitle: 'Manage clans, groups, occupations, and education levels',
       clans: 'Clans',
@@ -53,7 +53,7 @@ const MasterDataPage = () => {
       confirmDelete: 'Are you sure you want to delete this item?',
       actions: 'Actions'
     },
-    tamil: {
+    english: {
       title: 'மாஸ்டர் டேட்டா மேலாண்மை',
       subtitle: 'குலங்கள், குழுக்கள், தொழில்கள் மற்றும் கல்வி நிலைகளை நிர்வகிக்கவும்',
       clans: 'குலங்கள்',
@@ -127,7 +127,7 @@ const MasterDataPage = () => {
       if (!currentTab) return;
 
 
-      const response = await fetch(`/api/master-${currentTab.endpoint}/${user.templeId}`, {
+      const response = await fetch(`/api/master/${currentTab.endpoint}/${user.templeId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -155,7 +155,7 @@ const MasterDataPage = () => {
       if (!currentTab) return;
 
 
-      const response = await fetch(`/api/master-${currentTab.endpoint}`, {
+      const response = await fetch(`/api/master/${currentTab.endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -191,7 +191,7 @@ const MasterDataPage = () => {
       if (!currentTab) return;
 
 
-      const response = await fetch(`/api/master-${currentTab.endpoint}/${editingItem.id}`, {
+      const response = await fetch(`/api/master/${currentTab.endpoint}/${editingItem.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -227,7 +227,7 @@ const MasterDataPage = () => {
       if (!currentTab) return;
 
 
-      const response = await fetch(`/api/master-${currentTab.endpoint}/${id}`, {
+      const response = await fetch(`/api/master/${currentTab.endpoint}/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

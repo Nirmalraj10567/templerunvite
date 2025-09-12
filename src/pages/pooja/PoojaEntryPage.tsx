@@ -8,18 +8,33 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useLanguage } from '@/lib/language';
 import PoojaCalendar from '@/components/PoojaCalendar';
 import { poojaService, PoojaFormData } from '@/services/poojaService';
 import axios from 'axios';
 
-const generateReceiptNo = () => {
-  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  let result = '';
-  for (let i = 0; i < 8; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+const generateReceiptNo = async () => {
+  try {
+    // Get the current year
+    const year = new Date().getFullYear();
+    
+    // Get the latest receipt number from the database
+    const response = await axios.get('http://localhost:4000/api/pooja/latest-receipt');
+    let nextNumber = 1;
+    
+    if (response.data.success && response.data.latestReceipt) {
+      // Extract the number part and increment it
+      const lastNumber = parseInt(response.data.latestReceipt.split('-')[1], 10) || 0;
+      nextNumber = lastNumber + 1;
+    }
+    
+    // Format as YYYY-0001
+    return `${year}-${nextNumber.toString().padStart(4, '0')}`;
+  } catch (error) {
+    console.error('Error generating receipt number:', error);
+    // Fallback to a random number if there's an error
+    return `${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
   }
-  return result;
 };
 
 
@@ -36,7 +51,7 @@ export default function PoojaEntryPage() {
   const [showCalendar, setShowCalendar] = useState(true); // Default to showing calendar
   const [accounts, setAccounts] = useState<Array<{ id?: number; value: string; label: string }>>([]);
 
-  const t = (en: string, ta: string) => language === 'tamil' ? ta : en;
+  const t = (en: string, ta: string) => language === 'english' ? ta : en;
 
   // Check for double-booking using service
   const checkDoubleBooking = async (fromDate: string, toDate: string, time: string, excludeId?: number) => {
@@ -59,7 +74,14 @@ export default function PoojaEntryPage() {
 
   useEffect(() => {
     // Generate receipt number on component mount
-    setValue('receiptNumber', generateReceiptNo());
+    const generateAndSetReceiptNo = async () => {
+      const receiptNo = await generateReceiptNo();
+      setValue('receiptNumber', receiptNo);
+    };
+    
+    if (!id) {
+      generateAndSetReceiptNo();
+    }
     
     if (id) {
       const fetchPooja = async () => {

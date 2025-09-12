@@ -42,12 +42,20 @@ export default function AnnadhanamEntryPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastCreatedId, setLastCreatedId] = useState<number | null>(null);
   const [showPrintPrompt, setShowPrintPrompt] = useState(false);
+  const [receiptNumber, setReceiptNumber] = useState('');
+
+  // Generate a temporary receipt number for display
+  useEffect(() => {
+    if (!id) {
+      const year = new Date().getFullYear();
+      setReceiptNumber(`${year}-${Math.floor(1000 + Math.random() * 9000).toString().padStart(4, '0')}`);
+    }
+  }, [id]);
 
   const t = (en: string, ta: string) => language === 'tamil' ? ta : en;
 
   useEffect(() => {
-    // Generate receipt number on component mount
-    setValue('receiptNumber', generateReceiptNo());
+    // Don't set receipt number here - it will be generated on the server
     
     if (id) {
       const fetchAnnadhanam = async () => {
@@ -68,7 +76,7 @@ export default function AnnadhanamEntryPage() {
           if (result.success) {
             const data = result.data;
             const formData: AnnadhanamFormData = {
-              receiptNumber: data.receipt_number,
+              receiptNumber: data.receipt_number || receiptNumber,
               name: data.name,
               mobileNumber: data.mobile_number,
               food: data.food,
@@ -109,8 +117,8 @@ export default function AnnadhanamEntryPage() {
       // Validate date range
       if (new Date(data.fromDate) > new Date(data.toDate)) {
         toast({
-          title: 'Invalid Date Range',
-          description: 'From date cannot be later than to date',
+          title: t('Error', 'பிழை'),
+          description: t('From date cannot be later than to date', 'தொடங்கும் தேதி முடிவதற்கு முன்னதாக இருக்க முடியாது'),
           variant: 'destructive'
         });
         return;
@@ -199,33 +207,15 @@ export default function AnnadhanamEntryPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Receipt Number */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="receiptNumber">
-                  {t('Receipt Number', 'ரசீது எண்')} *
-                </Label>
-                <Input
-                  id="receiptNumber"
-                  {...register('receiptNumber', { required: true })}
-                  readOnly
-                  className="bg-gray-100"
-                />
-              </div>
-
-              {/* Name */}
-              <div className="space-y-2">
-                <Label htmlFor="name">
-                  {t('Name', 'பெயர்')} *
-                </Label>
+                <Label htmlFor="name">{t('Name', 'பெயர்')} *</Label>
                 <Input
                   id="name"
                   {...register('name', { required: true })}
-                  placeholder={t('Enter full name', 'முழு பெயரை உள்ளிடவும்')}
                 />
               </div>
 
-              {/* Mobile Number */}
               <div className="space-y-2">
                 <Label htmlFor="mobileNumber">
                   {t('Mobile Number', 'மொபைல் எண்')} *

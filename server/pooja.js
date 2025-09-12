@@ -1,36 +1,108 @@
 const express = require('express');
 const router = express.Router();
 
+// Helper function to extract numeric part from receipt number
+const getNumericPart = (receiptNumber) => {
+  if (!receiptNumber) return 0;
+  const match = receiptNumber.match(/(\d{4})-(\d+)$/);
+  return match ? parseInt(match[2], 10) : 0;
+};
+
 module.exports = function(deps = {}) {
   const { db } = deps;
+
+  // Get the latest receipt number
+  router.get('/latest-receipt', async (req, res) => {
+    try {
+      const latestPooja = await db('pooja')
+        .whereNotNull('receipt_number')
+        .where('receipt_number', 'like', `${new Date().getFullYear()}%`)
+        .orderBy('id', 'desc')
+        .first();
+      
+      if (latestPooja && latestPooja.receipt_number) {
+        return res.json({ 
+          success: true, 
+          latestReceipt: latestPooja.receipt_number 
+        });
+      }
+      
+      // If no receipt found for current year, return format with 0
+      res.json({ 
+        success: true, 
+        latestReceipt: `${new Date().getFullYear()}-0000`
+      });
+    } catch (error) {
+      console.error('Error fetching latest receipt:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to fetch latest receipt number' 
+      });
+    }
+  });
 
   // List with optional search and date filter
   router.get('/', async (req, res) => {
     try {
-      const { q, from, to, page = 1, pageSize = 20 } = req.query;
+      const { q, from, to, page = 1, pageSize = 20, status } = req.query;
       const pg = Math.max(parseInt(page, 10) || 1, 1);
       const ps = Math.min(Math.max(parseInt(pageSize, 10) || 20, 1), 100);
       const offset = (pg - 1) * ps;
+      
+      // Base query
+      let query = db('pooja')
+        .leftJoin('users', 'pooja.submitted_by', 'users.id')
+        .select(
+          'pooja.*',
+          'users.name as submitted_by_name',
+          'users.mobile as submitted_by_mobile'
+        )
+        .orderBy('pooja.id', 'desc');
 
-      const query = db('pooja')
-        .where('temple_id', req.user.templeId)
-        .modify((qb) => {
-          if (q) {
-            qb.andWhere((b) => {
-              b.where('name', 'like', `%${q}%`)
-                .orWhere('receipt_number', 'like', `%${q}%`)
-                .orWhere('mobile_number', 'like', `%${q}%`);
-            });
-          }
-          if (from) qb.andWhere('from_date', '>=', from);
-          if (to) qb.andWhere('to_date', '<=', to);
-        })
-        .orderBy('from_date', 'desc')
-        .limit(ps)
-        .offset(offset);
+      // Apply filters
+      if (q) {
+        const searchTerm = `%${q}%`;
+        query = query.where(function() {
+          this.where('pooja.name', 'like', searchTerm)
+            .orWhere('pooja.mobile_number', 'like', searchTerm)
+            .orWhere('pooja.receipt_number', 'like', searchTerm);
+        });
+      }
 
-      const rows = await query;
-      res.json({ success: true, data: rows });
+      if (from) {
+        query = query.where('pooja.from_date', '>=', from);
+      }
+
+      if (to) {
+        query = query.where('pooja.to_date', '<=', to);
+      }
+
+      if (status) {
+        query = query.where('pooja.status', status);
+      }
+
+      // Get total count
+      const totalQuery = query.clone().clearSelect().count('* as count').first();
+      const [data, totalResult] = await Promise.all([
+        query.offset(offset).limit(ps),
+        totalQuery
+      ]);
+
+      const total = parseInt(totalResult.count, 10);
+      const totalPages = Math.ceil(total / ps);
+
+      res.json({
+        success: true,
+        data,
+        pagination: {
+          total,
+          page: pg,
+          pageSize: ps,
+          totalPages,
+          hasNextPage: pg < totalPages,
+          hasPreviousPage: pg > 1
+        }
+      });
     } catch (err) {
       console.error('GET /api/pooja error:', err);
       res.status(500).json({ error: 'Internal server error' });

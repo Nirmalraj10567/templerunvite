@@ -541,6 +541,46 @@ app.get('/api/mobile/events', async (req, res) => {
     }
   });
 
+  // GET /api/money-donations/next-register-no - Get next register number
+  r.get('/next-register-no', authenticateToken, async (req, res) => {
+    try {
+      const currentYear = new Date().getFullYear();
+      
+      // Get the highest register number for current year
+      const lastRecord = await db('money_donations')
+        .where('temple_id', req.user.templeId)
+        .where('register_no', 'like', `${currentYear}-%`)
+        .orderBy('register_no', 'desc')
+        .select('register_no')
+        .first();
+
+      let nextNumber = 1;
+      
+      if (lastRecord && lastRecord.register_no) {
+        // Extract the number part after the year
+        const parts = lastRecord.register_no.split('-');
+        if (parts.length === 2 && parts[0] === String(currentYear)) {
+          const lastNumber = parseInt(parts[1], 10);
+          if (!isNaN(lastNumber)) {
+            nextNumber = lastNumber + 1;
+          }
+        }
+      }
+
+      const nextRegisterNo = `${currentYear}-${String(nextNumber).padStart(4, '0')}`;
+      
+      res.json({ 
+        success: true, 
+        nextRegisterNo,
+        currentYear,
+        nextNumber
+      });
+    } catch (err) {
+      console.error('Error generating next register number:', err);
+      res.status(500).json({ error: 'Failed to generate next register number' });
+    }
+  });
+
   // Create money donation
   r.post('/', authenticateToken, authorizePermission('edit_donations', 'edit'), async (req, res) => {
     try {
@@ -1181,6 +1221,31 @@ const ledgerCategoriesCompat = (() => {
 
   app.use('/api/journal', r);
 })();
+
+// Function to generate the next receipt number in format YYYY-XXXX
+async function generateReceiptNumber(db, templeId) {
+  const year = new Date().getFullYear();
+  
+  // Get the latest receipt number for this year and temple
+  const latest = await db('receipts')
+    .where('temple_id', templeId)
+    .where('register_no', 'like', `${year}-%`)
+    .orderBy('id', 'desc')
+    .first();
+
+  let nextNumber = 1;
+  
+  if (latest && latest.register_no) {
+    const parts = latest.register_no.split('-');
+    if (parts.length === 2 && parts[0] === year.toString()) {
+      nextNumber = parseInt(parts[1], 10) + 1;
+    }
+  }
+  
+  // Format with leading zeros
+  return `${year}-${String(nextNumber).padStart(4, '0')}`;
+}
+
 // Create receipt
 app.post('/api/receipts', authenticateToken, authorizePermission('receipts', 'edit'), async (req, res) => {
   try {
@@ -1189,8 +1254,9 @@ app.post('/api/receipts', authenticateToken, authorizePermission('receipts', 'ed
     const amount = Number(b.amount);
     if (!b.date) return res.status(400).json({ error: 'Date is required' });
     if (!amount || !Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: 'Valid amount is required' });
+    const receiptNumber = await generateReceiptNumber(db, req.user.templeId);
     const payload = {
-      register_no: b.receiptNumber || '',
+      register_no: receiptNumber,
       date: b.date,
       type,
       from_person: b.donor || '',
@@ -2375,6 +2441,7 @@ async function migrate() {
     try { await db.raw('ALTER TABLE donations ADD COLUMN approved_at TIMESTAMP'); } catch (e) {}
     try { await db.raw('ALTER TABLE donations ADD COLUMN rejection_reason TEXT'); } catch (e) {}
     try { await db.raw('ALTER TABLE donations ADD COLUMN admin_notes TEXT'); } catch (e) {}
+    try { await db.raw('ALTER TABLE donations ADD COLUMN register_no TEXT'); } catch (e) {}
 
     // Create donations_approval_logs table
     if (!(await db.schema.hasTable('donations_approval_logs'))) {
@@ -2728,122 +2795,10 @@ app.get('/api/master-records/:templeId', authenticateToken, authorizeTempleAcces
 
 // Mount master data routes
 const masterDataRouter = require('./components/master-data')({ db, retryOnBusy });
-app.use('/api/master', masterDataRouter);
+app.use('/api/master', authenticateToken, authorizeRole(['admin','superadmin']), masterDataRouter);
 
 // Master clans delete route has been moved to /api/master/clans/:id
 
-// Master Occupations endpoints
-app.post('/api/master-occupations', authenticateToken, authorizeTempleAccess, async (req, res) => {
-  const { name, description } = req.body;
-  const templeId = req.user.templeId;
-
-  if (!name) {
-    return res.status(400).json({ error: 'Occupation name is required.' });
-  }
-
-  try {
-    const newOccupation = await retryOnBusy(() => db('master_occupations').insert({
-      temple_id: templeId,
-      name: name.trim(),
-      description: description || '',
-      created_at: db.fn.now(),
-      updated_at: db.fn.now()
-    }));
-    
-    console.log('Successfully saved master occupation:', newOccupation);
-    res.status(201).json({ success: true, id: newOccupation[0] });
-  } catch (err) {
-    console.error('Error saving master occupation:', err);
-    res.status(500).json({ error: 'Database error while saving master occupation.' });
-  }
-});
-
-app.get('/api/master-occupations/:templeId', authenticateToken, authorizeTempleAccess, async (req, res) => {
-  const { templeId } = req.params;
-
-  try {
-    const occupations = await db('master_occupations')
-      .where('temple_id', templeId)
-      .orderBy('name', 'asc');
-    
-    res.json(occupations);
-  } catch (err) {
-    console.error('Error fetching master occupations:', err);
-    res.status(500).json({ error: 'Database error while fetching master occupation.' });
-  }
-});
-
-// PUT endpoint for updating master occupations
-app.put('/api/master-occupations/:id', authenticateToken, authorizeTempleAccess, async (req, res) => {
-  const { id } = req.params;
-  const { name, description } = req.body;
-  const templeId = req.user.templeId;
-
-  if (!name) {
-    return res.status(400).json({ error: 'Occupation name is required.' });
-  }
-
-  try {
-    // Check if occupation exists and belongs to user's temple
-    const existingOccupation = await db('master_occupations')
-      .where({ id, temple_id: templeId })
-      .first();
-
-    if (!existingOccupation) {
-      return res.status(404).json({ error: 'Occupation not found or access denied.' });
-    }
-
-    await db('master_occupations')
-      .where({ id, temple_id: templeId })
-      .update({
-        name: name.trim(),
-        description: description || '',
-        updated_at: db.fn.now()
-      });
-
-    res.json({ success: true, message: 'Occupation updated successfully.' });
-  } catch (err) {
-    console.error('Error updating master occupation:', err);
-    res.status(500).json({ error: 'Database error while updating master occupation.' });
-  }
-});
-
-// DELETE endpoint for deleting master occupations
-app.delete('/api/master-occupations/:id', authenticateToken, authorizeTempleAccess, async (req, res) => {
-  const { id } = req.params;
-  const templeId = req.user.templeId;
-
-  try {
-    // Check if occupation exists and belongs to user's temple
-    const existingOccupation = await db('master_occupations')
-      .where({ id, temple_id: templeId })
-      .first();
-
-    if (!existingOccupation) {
-      return res.status(404).json({ error: 'Occupation not found or access denied.' });
-    }
-
-    // Check if occupation is being used by any users
-    const usersWithOccupation = await db('user_registrations')
-      .where({ occupation: existingOccupation.name, temple_id: templeId })
-      .first();
-
-    if (usersWithOccupation) {
-      return res.status(400).json({ 
-        error: 'Cannot delete occupation. It is currently being used by registered users.' 
-      });
-    }
-
-    await db('master_occupations')
-      .where({ id, temple_id: templeId })
-      .del();
-
-    res.json({ success: true, message: 'Occupation deleted successfully.' });
-  } catch (err) {
-    console.error('Error deleting master occupation:', err);
-    res.status(500).json({ error: 'Database error while deleting master occupation.' });
-  }
-});
 
 // Master Villages endpoints
 app.post('/api/master-villages', authenticateToken, authorizeTempleAccess, async (req, res) => {
@@ -2958,118 +2913,6 @@ app.delete('/api/master-villages/:id', authenticateToken, authorizeTempleAccess,
   }
 });
 
-// Master Educations endpoints
-app.post('/api/master-educations', authenticateToken, authorizeTempleAccess, async (req, res) => {
-  const { name, description } = req.body;
-  const templeId = req.user.templeId;
-
-  if (!name) {
-    return res.status(400).json({ error: 'Education name is required.' });
-  }
-
-  try {
-    const newEducation = await retryOnBusy(() => db('master_educations').insert({
-      temple_id: templeId,
-      name: name.trim(),
-      description: description || '',
-      created_at: db.fn.now(),
-      updated_at: db.fn.now()
-    }));
-    
-    console.log('Successfully saved master education:', newEducation);
-    res.status(201).json({ success: true, id: newEducation[0] });
-  } catch (err) {
-    console.error('Error saving master education:', err);
-    res.status(500).json({ error: 'Database error while saving master education.' });
-  }
-});
-
-app.get('/api/master-educations/:templeId', authenticateToken, authorizeTempleAccess, async (req, res) => {
-  const { templeId } = req.params;
-
-  try {
-    const educations = await db('master_educations')
-      .where('temple_id', templeId)
-      .orderBy('name', 'asc');
-    
-    res.json(educations);
-  } catch (err) {
-    console.error('Error fetching master educations:', err);
-    res.status(500).json({ error: 'Database error while fetching master educations.' });
-  }
-});
-
-// PUT endpoint for updating master educations
-app.put('/api/master-educations/:id', authenticateToken, authorizeTempleAccess, async (req, res) => {
-  const { id } = req.params;
-  const { name, description } = req.body;
-  const templeId = req.user.templeId;
-
-  if (!name) {
-    return res.status(400).json({ error: 'Education name is required.' });
-  }
-
-  try {
-    // Check if education exists and belongs to user's temple
-    const existingEducation = await db('master_educations')
-      .where({ id, temple_id: templeId })
-      .first();
-
-    if (!existingEducation) {
-      return res.status(404).json({ error: 'Education not found or access denied.' });
-    }
-
-    await db('master_educations')
-      .where({ id, temple_id: templeId })
-      .update({
-        name: name.trim(),
-        description: description || '',
-        updated_at: db.fn.now()
-      });
-
-    res.json({ success: true, message: 'Education updated successfully.' });
-  } catch (err) {
-    console.error('Error updating master education:', err);
-    res.status(500).json({ error: 'Database error while updating master education.' });
-  }
-});
-
-// DELETE endpoint for deleting master educations
-app.delete('/api/master-educations/:id', authenticateToken, authorizeTempleAccess, async (req, res) => {
-  const { id } = req.params;
-  const templeId = req.user.templeId;
-
-  try {
-    // Check if education exists and belongs to user's temple
-    const existingEducation = await db('master_educations')
-      .where({ id, temple_id: templeId })
-      .first();
-
-    if (!existingEducation) {
-      return res.status(404).json({ error: 'Education not found or access denied.' });
-    }
-
-    // Check if education is being used by any users
-    const usersWithEducation = await db('user_registrations')
-      .where({ education: existingEducation.name, temple_id: templeId })
-      .first();
-
-    if (usersWithEducation) {
-      return res.status(400).json({ 
-        error: 'Cannot delete education. It is currently being used by registered users.' 
-      });
-    }
-
-    await db('master_educations')
-      .where({ id, temple_id: templeId })
-      .del();
-
-    res.json({ success: true, message: 'Education deleted successfully.' });
-  } catch (err) {
-    console.error('Error deleting master education:', err);
-    res.status(500).json({ error: 'Database error while deleting master education.' });
-  }
-});
 
 // Users endpoints
 app.post('/api/users', authenticateToken, authorizeTempleAccess, async (req, res) => {
@@ -4029,27 +3872,3 @@ app.listen(PORT, () => {
 // Mount tax registrations router (ensure correct index.js is used)
 const taxRegistrationsRouter = require('./components/tax-registrations/index.js');
 app.use('/api/tax-registrations', taxRegistrationsRouter);
-
-// Master Clans endpoints
-app.get('/api/master-clans/:templeId', async (req, res) => {
-  try {
-    const clans = await db('master_clans')
-      .where('temple_id', req.params.templeId)
-      .select('*');
-    res.json(clans);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch clans' });
-  }
-});
-
-// Master Groups endpoints
-app.get('/api/master-groups/:templeId', async (req, res) => {
-  try {
-    const groups = await db('master_groups')
-      .where('temple_id', req.params.templeId)
-      .select('*');
-    res.json(groups);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch groups' });
-  }
-});

@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useLanguage } from '@/lib/language';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
 import { ledgerService, LedgerEntry } from '@/services/ledgerService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
+import { FileDown, Search, RefreshCw, Edit, Trash2, Printer } from 'lucide-react';
 
 export default function LedgerListPage() {
   const { language } = useLanguage();
@@ -31,8 +31,8 @@ export default function LedgerListPage() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editEntry, setEditEntry] = useState<LedgerEntry | null>(null);
 
-  const t = (en: string, ta: string) => (language === 'tamil' ? ta : en);
-  const itemsPerPage = 10;
+  const t = (en: string, ta: string) => language === 'english' ? ta : en;
+  const itemsPerPage = 15;
 
   // Column Keys
   type ColKey = 'date' | 'name' | 'category' | 'credit' | 'debit' | 'balance' | 'actions';
@@ -58,7 +58,6 @@ export default function LedgerListPage() {
     actions: true,
   };
 
-  // Load column visibility from localStorage
   const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -68,14 +67,13 @@ export default function LedgerListPage() {
     }
   });
 
-  // Save to localStorage when changed
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(visibleCols));
     } catch {}
   }, [visibleCols]);
 
-  // Context Menu for column visibility
+  // Context Menu
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
@@ -168,7 +166,6 @@ export default function LedgerListPage() {
     setCurrentPage(1);
   };
 
-  // Edit/Delete
   const handleEdit = (entry: LedgerEntry) => {
     setEditEntry(entry);
   };
@@ -189,7 +186,6 @@ export default function LedgerListPage() {
     }
   };
 
-  // Print single entry (opens print dialog)
   const onPrintEntry = (entry: LedgerEntry) => {
     const runningBalance = entries
       .slice(0, entries.findIndex((e) => e.id === entry.id) + 1)
@@ -201,45 +197,12 @@ export default function LedgerListPage() {
       </div>
       <div style="margin:20px;">
         <table style="width:100%; border-collapse:collapse; font-size:14px;">
-          <tr><td style="padding:8px; border-bottom:1px solid #ddd;"><strong>${t(
-            'Date',
-            'தேதி'
-          )}:</strong></td><td style="padding:8px; border-bottom:1px solid #ddd;">${format(
-      new Date(entry.date),
-      'dd/MM/yyyy'
-    )}</td></tr>
-          <tr><td style="padding:8px; border-bottom:1px solid #ddd;"><strong>${t(
-            'Name',
-            'பெயர்'
-          )}:</strong></td><td style="padding:8px; border-bottom:1px solid #ddd;">${
-      entry.name
-    }</td></tr>
-          <tr><td style="padding:8px; border-bottom:1px solid #ddd;"><strong>${t(
-            'Category',
-            'வகை'
-          )}:</strong></td><td style="padding:8px; border-bottom:1px solid #ddd;">${
-      entry.under || '-'
-    }</td></tr>
-          <tr><td style="padding:8px; border-bottom:1px solid #ddd;"><strong>${t(
-            'Type',
-            'வகை'
-          )}:</strong></td><td style="padding:8px; border-bottom:1px solid #ddd;">${
-      entry.type === 'credit'
-        ? t('Credit', 'கடன்')
-        : t('Debit', 'பற்று')
-    }</td></tr>
-          <tr><td style="padding:8px; border-bottom:1px solid #ddd;"><strong>${t(
-            'Amount',
-            'தொகை'
-          )}:</strong></td><td style="padding:8px; border-bottom:1px solid #ddd;">${formatAmount(
-      entry.amount
-    )}</td></tr>
-          <tr><td style="padding:8px; border-bottom:1px solid #ddd;"><strong>${t(
-            'Running Balance',
-            'ஓட்ட இருப்பு'
-          )}:</strong></td><td style="padding:8px; border-bottom:1px solid #ddd;">${formatAmount(
-      runningBalance
-    )}</td></tr>
+          <tr><td style="padding:8px; border-bottom:1px solid #ddd;"><strong>${t('Date', 'தேதி')}:</strong></td><td style="padding:8px; border-bottom:1px solid #ddd;">${format(new Date(entry.date), 'dd/MM/yyyy')}</td></tr>
+          <tr><td style="padding:8px; border-bottom:1px solid #ddd;"><strong>${t('Name', 'பெயர்')}:</strong></td><td style="padding:8px; border-bottom:1px solid #ddd;">${entry.name}</td></tr>
+          <tr><td style="padding:8px; border-bottom:1px solid #ddd;"><strong>${t('Category', 'வகை')}:</strong></td><td style="padding:8px; border-bottom:1px solid #ddd;">${entry.under || '-'}</td></tr>
+          <tr><td style="padding:8px; border-bottom:1px solid #ddd;"><strong>${t('Type', 'வகை')}:</strong></td><td style="padding:8px; border-bottom:1px solid #ddd;">${entry.type === 'credit' ? t('Credit', 'கடன்') : t('Debit', 'பற்று')}</td></tr>
+          <tr><td style="padding:8px; border-bottom:1px solid #ddd;"><strong>${t('Amount', 'தொகை')}:</strong></td><td style="padding:8px; border-bottom:1px solid #ddd;">${formatAmount(entry.amount)}</td></tr>
+          <tr><td style="padding:8px; border-bottom:1px solid #ddd;"><strong>${t('Running Balance', 'ஓட்ட இருப்பு')}:</strong></td><td style="padding:8px; border-bottom:1px solid #ddd;">${formatAmount(runningBalance)}</td></tr>
         </table>
       </div>
     `;
@@ -256,7 +219,6 @@ export default function LedgerListPage() {
     printWindow?.print();
   };
 
-  // Export CSV
   const onExportCSV = async () => {
     try {
       const blob = await ledgerService.exportAsCSV({
@@ -278,12 +240,10 @@ export default function LedgerListPage() {
     }
   };
 
-  // Export PDF (uses browser print)
   const onExportPDF = () => {
     window.print();
   };
 
-  // Standard toast function with correct argument pattern
   const showToast = (message: string, isError = false) => {
     toast({
       title: isError ? t('Error', 'பிழை') : t('Success', 'வெற்றி'),
@@ -310,17 +270,10 @@ export default function LedgerListPage() {
 
   const handleSave = async () => {
     try {
-      console.log('Saving entry:', editEntry);
-      
       if (!editEntry) return;
-      
-      // Validate required fields
       if (!validateForm()) return;
       
-      // Send update request
       const updatedEntry = await ledgerService.updateEntry(editEntry);
-      console.log('Save response:', updatedEntry);
-      
       showToast(t('Entry updated successfully', 'உள்ளீடு வெற்றிகரமாக புதுப்பிக்கப்பட்டது'));
       
       await loadData();
@@ -332,45 +285,42 @@ export default function LedgerListPage() {
   };
 
   return (
-    <div className="p-6 bg-white rounded-lg shadow">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold text-gray-800">{t('Ledger', 'பதிவேடு')}</h1>
-        <div className="flex items-center gap-4">
-          <div className="text-lg font-semibold">
-            {t('Balance', 'இருப்பு')}:{' '}
-            <span className={currentBalance >= 0 ? 'text-green-600' : 'text-red-600'}>
-              {formatAmount(currentBalance)}
-            </span>
-          </div>
+    <div className="p-2 bg-gray-50">
+      {/* Compact Header */}
+      <div className="flex justify-between items-center mb-2">
+        <h1 className="text-base font-bold text-gray-800">{t('Ledger', 'பதிவேடு')}</h1>
+        <div className="text-xs text-gray-600">
+          {t('Balance', 'இருப்பு')}:{' '}
+          <span className={`font-medium ${currentBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            {formatAmount(currentBalance)}
+          </span>
         </div>
       </div>
 
-      {/* Filters */}
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-3 items-center">
+      {/* Compact Filters */}
+      <Card className="mb-2">
+        <CardContent className="p-2">
+          <div className="grid grid-cols-2 md:grid-cols-6 lg:grid-cols-8 gap-2 items-center">
             {/* Date Range */}
-            <div className="flex items-center gap-2 w-full md:w-auto">
-              <Input
-                type="date"
-                value={filters.startDate}
-                onChange={(e) => handleFilterChange('startDate', e.target.value)}
-                className="text-sm"
-              />
-              <span className="text-gray-600">{t('to', 'வரை')}</span>
-              <Input
-                type="date"
-                value={filters.endDate}
-                onChange={(e) => handleFilterChange('endDate', e.target.value)}
-                className="text-sm"
-              />
-            </div>
+            <Input
+              type="date"
+              value={filters.startDate}
+              onChange={(e) => handleFilterChange('startDate', e.target.value)}
+              className="text-xs h-7"
+              placeholder={t('From', 'முதல்')}
+            />
+            <Input
+              type="date"
+              value={filters.endDate}
+              onChange={(e) => handleFilterChange('endDate', e.target.value)}
+              className="text-xs h-7"
+              placeholder={t('To', 'வரை')}
+            />
 
             {/* Type */}
             <Select value={filters.type} onValueChange={(v) => handleFilterChange('type', v)}>
-              <SelectTrigger className="w-full md:w-40">
-                <SelectValue placeholder={t('Type', 'வகை')} />
+              <SelectTrigger className="h-7 text-xs">
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t('All Types', 'அனைத்து வகைகள்')}</SelectItem>
@@ -381,71 +331,75 @@ export default function LedgerListPage() {
 
             {/* Category */}
             <Select value={filters.under} onValueChange={(v) => handleFilterChange('under', v)}>
-              <SelectTrigger className="w-full md:w-48">
-                <SelectValue placeholder={t('All Categories', 'அனைத்து வகைகள்')} />
+              <SelectTrigger className="h-7 text-xs">
+                <SelectValue placeholder={t('Category', 'வகை')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t('All Categories', 'அனைத்து வகைகள்')}</SelectItem>
                 {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
-                  </SelectItem>
+                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
 
             {/* Name Search */}
-            <div className="w-full md:w-60">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400" />
               <Input
                 placeholder={t('Search name', 'பெயரைத் தேடவும்')}
                 value={filters.name}
                 onChange={(e) => handleFilterChange('name', e.target.value)}
-                className="text-sm"
+                className="text-xs h-7 pl-7"
               />
             </div>
 
-            {/* Actions */}
-            <div className="flex flex-wrap gap-2 w-full md:w-auto">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setFilters({
-                    startDate: '',
-                    endDate: '',
-                    type: 'all',
-                    under: 'all',
-                    name: '',
-                  });
-                }}
-              >
-                {t('Reset', 'மீட்டமை')}
-              </Button>
-              <Button variant="outline" onClick={onExportCSV}>
-                {t('Export CSV', 'CSV ஏற்றுமதி')}
-              </Button>
-              <Button variant="outline" onClick={onExportPDF}>
-                {t('Export PDF', 'PDF ஏற்றுமதி')}
-              </Button>
-            </div>
+            {/* Action Buttons */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setFilters({
+                  startDate: '',
+                  endDate: '',
+                  type: 'all',
+                  under: 'all',
+                  name: '',
+                });
+              }}
+              className="text-xs h-7 px-2"
+            >
+              <RefreshCw className="h-3 w-3 mr-1" />
+              {t('Reset', 'மீட்டமை')}
+            </Button>
+
+            <Button variant="outline" size="sm" onClick={onExportCSV} className="text-xs h-7 px-2">
+              <FileDown className="h-3 w-3 mr-1" />
+              CSV
+            </Button>
+
+            <Button variant="outline" size="sm" onClick={onExportPDF} className="text-xs h-7 px-2">
+              <FileDown className="h-3 w-3 mr-1" />
+              PDF
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Table */}
+      {/* Compact Table */}
       <div
-        className="bg-white rounded-lg border border-gray-200 overflow-hidden"
+        className="bg-white rounded border border-gray-200 overflow-hidden"
         onContextMenu={onContextMenu}
       >
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto text-xs max-h-[60vh]">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 sticky top-0 z-10">
               <tr>
                 {allColumns.map(
                   (col) =>
                     visibleCols[col.key] && (
                       <th
                         key={col.key}
-                        className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${
+                        className={`px-2 py-1 text-xs font-medium text-gray-500 uppercase tracking-wider ${
                           col.align === 'right'
                             ? 'text-right'
                             : col.align === 'center'
@@ -462,13 +416,13 @@ export default function LedgerListPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={visibleColCount} className="px-6 py-4 text-center text-sm text-gray-500">
+                  <td colSpan={visibleColCount} className="px-2 py-2 text-center text-xs text-gray-500">
                     {t('Loading...', 'ஏற்றுகிறது...')}
                   </td>
                 </tr>
               ) : entries.length === 0 ? (
                 <tr>
-                  <td colSpan={visibleColCount} className="px-6 py-4 text-center text-sm text-gray-500">
+                  <td colSpan={visibleColCount} className="px-2 py-2 text-center text-xs text-gray-500">
                     {t('No entries found', 'உள்ளீடுகள் கிடைக்கவில்லை')}
                   </td>
                 </tr>
@@ -481,62 +435,64 @@ export default function LedgerListPage() {
                   return (
                     <tr key={entry.id} className="hover:bg-gray-50">
                       {visibleCols.date && (
-                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {format(new Date(entry.date), 'dd/MM/yyyy')}
-                        </TableCell>
+                        <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                          {format(new Date(entry.date), 'dd/MM/yy')}
+                        </td>
                       )}
                       {visibleCols.name && (
-                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900 max-w-32 truncate">
                           {entry.name}
-                        </TableCell>
+                        </td>
                       )}
                       {visibleCols.category && (
-                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-500 max-w-24 truncate">
                           {entry.under || '-'}
-                        </TableCell>
+                        </td>
                       )}
                       {visibleCols.credit && (
-                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-green-600 text-right">
-                          {entry.type === 'credit' ? formatAmount(entry.amount) : '-'}
-                        </TableCell>
+                        <td className="px-2 py-1 whitespace-nowrap text-xs text-green-600 text-right">
+                          {entry.type === 'credit' ? `₹${entry.amount.toFixed(2)}` : '-'}
+                        </td>
                       )}
                       {visibleCols.debit && (
-                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-red-600 text-right">
-                          {entry.type === 'debit' ? formatAmount(entry.amount) : '-'}
-                        </TableCell>
+                        <td className="px-2 py-1 whitespace-nowrap text-xs text-red-600 text-right">
+                          {entry.type === 'debit' ? `₹${entry.amount.toFixed(2)}` : '-'}
+                        </td>
                       )}
                       {visibleCols.balance && (
-                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
-                          {formatAmount(runningBalance)}
-                        </TableCell>
+                        <td className="px-2 py-1 whitespace-nowrap text-xs font-medium text-right">
+                          ₹{runningBalance.toFixed(2)}
+                        </td>
                       )}
                       {visibleCols.actions && (
-                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
-                          <div className="flex justify-end gap-2">
+                        <td className="px-2 py-1 whitespace-nowrap text-xs text-center">
+                          <div className="flex justify-center gap-1">
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => onPrintEntry(entry)}
+                              className="h-6 w-6 p-0"
                             >
-                              {t('Print', 'அச்சிட')}
+                              <Printer className="h-3 w-3" />
                             </Button>
                             <Button
-                              variant="outline"
+                              variant="ghost"
                               size="sm"
                               onClick={() => handleEdit(entry)}
+                              className="h-6 w-6 p-0"
                             >
-                              {t('Edit', 'திருத்து')}
+                              <Edit className="h-3 w-3" />
                             </Button>
                             <Button
-                              variant="outline"
+                              variant="ghost"
                               size="sm"
                               onClick={() => handleDelete(entry.id!)}
-                              className="text-red-600 border-red-200 hover:bg-red-50"
+                              className="h-6 w-6 p-0 text-red-600"
                             >
-                              {t('Delete', 'நீக்கு')}
+                              <Trash2 className="h-3 w-3" />
                             </Button>
                           </div>
-                        </TableCell>
+                        </td>
                       )}
                     </tr>
                   );
@@ -547,8 +503,8 @@ export default function LedgerListPage() {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 flex items-center justify-between border-t border-gray-200">
-          <div className="text-sm text-gray-700">
+        <div className="px-2 py-1 flex items-center justify-between border-t border-gray-200 text-xs">
+          <div className="text-gray-700">
             {t('Showing', 'காட்டப்படுகிறது')}{' '}
             <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span>{' '}
             {t('to', 'இலிருந்து')}{' '}
@@ -556,56 +512,59 @@ export default function LedgerListPage() {
               {Math.min(currentPage * itemsPerPage, entries.length)}
             </span>{' '}
             {t('of', 'மொத்தம்')}{' '}
-            <span className="font-medium">{entries.length}</span>{' '}
-            {t('entries', 'உள்ளீடுகள்')}
+            <span className="font-medium">{entries.length}</span>
           </div>
-          <div className="text-sm text-gray-700">
-            {t('Current Balance', 'தற்போதைய இருப்பு')}: <span className="font-medium">{formatAmount(currentBalance)}</span>
+          <div className="text-gray-700">
+            {t('Balance', 'இருப்பு')}: <span className="font-medium">₹{currentBalance.toFixed(2)}</span>
           </div>
         </div>
       </div>
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex justify-between items-center mt-4">
+        <div className="flex items-center gap-2 mt-2 text-xs">
           <Button
             variant="outline"
+            size="sm"
             disabled={currentPage === 1}
             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            className="text-xs py-1 px-2 h-7"
           >
             {t('Previous', 'முந்தைய')}
           </Button>
-          <span>
+          <span className="text-xs">
             {t('Page', 'பக்கம்')} {currentPage} {t('of', 'இல்')} {totalPages}
           </span>
           <Button
             variant="outline"
+            size="sm"
             disabled={currentPage >= totalPages}
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            className="text-xs py-1 px-2 h-7"
           >
             {t('Next', 'அடுத்தது')}
           </Button>
         </div>
       )}
 
-      {/* Column Visibility Context Menu */}
+      {/* Context Menu */}
       {menuOpen && (
         <div
           ref={menuRef}
-          className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 w-64"
+          className="fixed z-50 bg-white rounded shadow border border-gray-200 w-48 text-xs"
           style={{ left: menuPos.x, top: menuPos.y }}
         >
-          <div className="px-4 py-3 border-b border-gray-200">
-            <h3 className="text-sm font-medium text-gray-900">{t('Columns', 'நெடுவரிசைகள்')}</h3>
+          <div className="px-3 py-2 border-b border-gray-200">
+            <h3 className="text-xs font-medium text-gray-900">{t('Columns', 'நெடுவரிசைகள்')}</h3>
             <p className="text-xs text-gray-500">
               {t('Visible', 'காட்டப்படும்')} {Object.values(visibleCols).filter(Boolean).length}/{allColumns.length}
             </p>
           </div>
-          <div className="max-h-60 overflow-y-auto p-2">
+          <div className="max-h-48 overflow-y-auto p-1">
             {allColumns.map((col) => (
               <label
                 key={col.key}
-                className="flex items-center px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer select-none"
+                className="flex items-center px-2 py-1 rounded hover:bg-gray-50 cursor-pointer select-none"
               >
                 <input
                   type="checkbox"
@@ -613,17 +572,17 @@ export default function LedgerListPage() {
                   onChange={() =>
                     setVisibleCols((prev) => ({ ...prev, [col.key]: !prev[col.key] }))
                   }
-                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
-                <span className="ml-2 text-sm text-gray-700">{col.label}</span>
+                <span className="ml-2 text-xs text-gray-700">{col.label}</span>
               </label>
             ))}
           </div>
-          <div className="flex flex-wrap gap-2 p-2 border-t border-gray-200">
+          <div className="flex flex-wrap gap-1 p-1 border-t border-gray-200">
             <Button
               variant="outline"
               size="sm"
-              className="text-xs"
+              className="text-xs py-0.5 px-1.5 h-auto"
               onClick={() =>
                 setVisibleCols(Object.fromEntries(allColumns.map((c) => [c.key, true])) as any)
               }
@@ -633,7 +592,7 @@ export default function LedgerListPage() {
             <Button
               variant="outline"
               size="sm"
-              className="text-xs"
+              className="text-xs py-0.5 px-1.5 h-auto"
               onClick={() =>
                 setVisibleCols(Object.fromEntries(allColumns.map((c) => [c.key, false])) as any)
               }
@@ -643,7 +602,7 @@ export default function LedgerListPage() {
             <Button
               variant="ghost"
               size="sm"
-              className="text-xs ml-auto"
+              className="text-xs py-0.5 px-1.5 h-auto ml-auto"
               onClick={() => setMenuOpen(false)}
             >
               {t('Close', 'மூடு')}
@@ -652,59 +611,59 @@ export default function LedgerListPage() {
         </div>
       )}
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Dialog */}
       <Dialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{t('Confirm Delete', 'நீக்குதலை உறுதிப்படுத்தவும்')}</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-base">{t('Confirm Delete', 'நீக்குதலை உறுதிப்படுத்தவும்')}</DialogTitle>
+            <DialogDescription className="text-sm">
               {t('Are you sure you want to delete this entry? This action cannot be undone.', 'இந்த உள்ளீட்டை நீக்க விரும்புகிறீர்களா? இந்த செயலை திரும்பப் பெற முடியாது.')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteId(null)}>
+            <Button variant="outline" size="sm" onClick={() => setDeleteId(null)} className="text-xs">
               {t('Cancel', 'ரத்து செய்')}
             </Button>
-            <Button variant="destructive" onClick={confirmDelete}>
+            <Button variant="destructive" size="sm" onClick={confirmDelete} className="text-xs">
               {t('Delete', 'நீக்கு')}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Edit Entry Dialog */}
+      {/* Edit Dialog */}
       {editEntry && (
         <Dialog open={!!editEntry} onOpenChange={(open) => !open && setEditEntry(null)}>
-          <DialogContent className="sm:max-w-[625px]">
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>{t('Edit Ledger Entry', 'பதிவேட்டு உள்ளீட்டை திருத்து')}</DialogTitle>
+              <DialogTitle className="text-base">{t('Edit Entry', 'உள்ளீட்டை திருத்து')}</DialogTitle>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">{t('Date', 'தேதி')}</Label>
+            <div className="grid gap-3 py-2">
+              <div className="grid grid-cols-3 items-center gap-2">
+                <Label className="text-xs">{t('Date', 'தேதி')}</Label>
                 <Input 
                   type="date" 
                   value={editEntry?.date?.split('T')[0] || ''}
                   onChange={(e) => setEditEntry({...editEntry, date: e.target.value})}
-                  className="col-span-3"
+                  className="col-span-2 text-xs h-7"
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">{t('Name', 'பெயர்')}</Label>
+              <div className="grid grid-cols-3 items-center gap-2">
+                <Label className="text-xs">{t('Name', 'பெயர்')}</Label>
                 <Input 
                   value={editEntry?.name || ''}
                   onChange={(e) => setEditEntry({...editEntry, name: e.target.value})}
-                  className="col-span-3"
+                  className="col-span-2 text-xs h-7"
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">{t('Type', 'வகை')}</Label>
+              <div className="grid grid-cols-3 items-center gap-2">
+                <Label className="text-xs">{t('Type', 'வகை')}</Label>
                 <Select 
                   value={editEntry?.type || 'credit'}
                   onValueChange={(value) => setEditEntry({...editEntry, type: value as any})}
                 >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder={t('Select type', 'வகையைத் தேர்ந்தெடுக்கவும்')} />
+                  <SelectTrigger className="col-span-2 text-xs h-7">
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="credit">{t('Credit', 'கடன்')}</SelectItem>
@@ -712,49 +671,29 @@ export default function LedgerListPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">{t('Category', 'வகை')}</Label>
-                <Select 
-                  value={editEntry?.under || ''}
-                  onValueChange={(value) => setEditEntry({...editEntry, under: value})}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder={t('Select category', 'வகையைத் தேர்ந்தெடுக்கவும்')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map(category => (
-                      <SelectItem key={category} value={category}>{category}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">{t('Amount', 'தொகை')}</Label>
+              <div className="grid grid-cols-3 items-center gap-2">
+                <Label className="text-xs">{t('Amount', 'தொகை')}</Label>
                 <Input 
                   type="number"
                   value={editEntry?.amount || ''}
                   onChange={(e) => setEditEntry({...editEntry, amount: parseFloat(e.target.value)})}
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">{t('Remarks', 'குறிப்புகள்')}</Label>
-                <Input 
-                  value={editEntry?.remarks || ''}
-                  onChange={(e) => setEditEntry({...editEntry, remarks: e.target.value})}
-                  className="col-span-3"
+                  className="col-span-2 text-xs h-7"
                 />
               </div>
             </div>
             <DialogFooter>
               <Button 
                 variant="outline" 
+                size="sm"
                 onClick={() => setEditEntry(null)}
+                className="text-xs"
               >
                 {t('Cancel', 'ரத்து செய்')}
               </Button>
               <Button 
+                size="sm"
                 onClick={handleSave}
+                className="text-xs"
               >
                 {t('Save', 'சேமி')}
               </Button>

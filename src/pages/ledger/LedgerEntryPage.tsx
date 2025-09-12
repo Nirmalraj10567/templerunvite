@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { Loader2, Calendar as CalendarIcon } from 'lucide-react';
+import { useLanguage } from '@/lib/language';
+import { Loader2, Calendar as CalendarIcon, FileDown, Save, X, Plus } from 'lucide-react';
 import { ledgerService } from '@/services/ledgerService';
 import axios from 'axios';
 import {
@@ -58,11 +58,15 @@ export default function LedgerEntryPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  
   const { 
     register, 
     handleSubmit, 
     setValue, 
     watch, 
+    reset,
     formState: { errors } 
   } = useForm<LedgerEntry>({
     defaultValues: {
@@ -71,7 +75,54 @@ export default function LedgerEntryPage() {
     }
   });
 
-  const t = (en: string, ta: string) => (language === 'tamil' ? ta : en);
+  // Handle Enter key to move to next field
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      
+      // Get all focusable elements in the form
+      const form = e.currentTarget.closest('form');
+      if (!form) return;
+      
+      const focusableElements = Array.from(
+        form.querySelectorAll<HTMLElement>(
+          'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])'
+        )
+      );
+      
+      const currentIndex = focusableElements.indexOf(e.currentTarget);
+      if (currentIndex === -1) return;
+      
+      // Find next focusable element
+      let nextIndex = currentIndex + 1;
+      while (nextIndex < focusableElements.length) {
+        const nextElement = focusableElements[nextIndex];
+        if (nextElement.offsetParent !== null) { // Check if element is visible
+          nextElement.focus();
+          // If it's a select or textarea, open it
+          if (nextElement.tagName === 'SELECT' || nextElement.tagName === 'TEXTAREA') {
+            nextElement.click();
+          }
+          break;
+        }
+        nextIndex++;
+      }
+    }
+  };
+
+  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
+
+  // Watch form values to detect changes
+  const watchedValues = watch();
+  
+  useEffect(() => {
+    const hasChanges = Object.keys(watchedValues).some(key => {
+      if (key === 'date' || key === 'type' || key === 'currentBalance') return false;
+      const value = watchedValues[key as keyof LedgerEntry];
+      return value !== undefined && value !== '' && value !== 0;
+    });
+    setIsDirty(hasChanges);
+  }, [watchedValues]);
 
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
@@ -94,14 +145,12 @@ export default function LedgerEntryPage() {
     const fetchCategories = async () => {
       setIsLoadingCategories(true);
       try {
-        // Try master categories list first
         const resp1 = await axios.get<any>('/api/ledger/categories', {
           headers: { Authorization: `Bearer ${getAuthToken()}` }
         });
         const data1 = (resp1?.data && Array.isArray(resp1.data.data)) ? resp1.data.data : (Array.isArray(resp1?.data) ? resp1.data : []);
 
         let combined: any[] = data1;
-        // Fallback: include used categories (strings) if master is empty
         if (!combined || combined.length === 0) {
           try {
             const resp2 = await axios.get<any>('/api/ledger/categories-used', {
@@ -118,7 +167,7 @@ export default function LedgerEntryPage() {
           if (typeof item === 'string') {
             return {
               id: index + 1,
-              value: item, // values from backend are already normalized
+              value: item,
               label: item
             };
           } else if (item && typeof item === 'object') {
@@ -171,12 +220,13 @@ export default function LedgerEntryPage() {
       const newBalance = await ledgerService.getCurrentBalance();
       setCurrentBalance(newBalance);
       
+      // Reset form after successful submission
+      handleReset();
+      
       toast({
         title: t('Success', 'வெற்றி'),
         description: t('Ledger entry saved successfully', 'பதிவேடு பதிவு வெற்றிகரமாக சேமிக்கப்பட்டது'),
       });
-      
-      setTimeout(() => navigate(-1), 1000);
       
     } catch (error) {
       console.error('Error saving ledger entry:', error);
@@ -197,11 +247,15 @@ export default function LedgerEntryPage() {
   };
 
   const handleCreateCategory = async (searchValue: string) => {
-    if (isLoadingCategories) return; // prevent rapid duplicate creates
-    const cleanVal = searchValue.toLowerCase().replace(/\s+/g, '_');
-    // prevent duplicate by value
-    if (categories.some(c => c.value.toLowerCase() === cleanVal)) {
-      setValue('under', cleanVal);
+    if (isLoadingCategories) return;
+    const cleanVal = searchValue.trim().toLowerCase().replace(/\s+/g, '_');
+    if (!cleanVal) return;
+    
+    const existingCategory = categories.find(c => c.value.toLowerCase() === cleanVal);
+    if (existingCategory) {
+      setSelectedCategory(existingCategory);
+      setValue('under', existingCategory.value);
+      setIsCategoryOpen(false);
       return;
     }
     try {
@@ -234,6 +288,24 @@ export default function LedgerEntryPage() {
     }
   };
 
+  const handleKeyDownOnCategory = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !isCategoryOpen) {
+      e.preventDefault();
+      setIsCategoryOpen(true);
+    } else if (e.key === 'Escape') {
+      setIsCategoryOpen(false);
+      categoryInputRef.current?.focus();
+    }
+  };
+
+  const handleSelectCategory = (category: Category) => {
+    setSelectedCategory(category);
+    setValue('under', category.value);
+    setIsCategoryOpen(false);
+    // Move focus back to the input after selection
+    setTimeout(() => categoryInputRef.current?.focus(), 0);
+  };
+
   const handleDeleteCategory = async (id: number) => {
     try {
       await axios.delete(`/api/ledger/categories/${id}`, {
@@ -256,268 +328,367 @@ export default function LedgerEntryPage() {
     }
   };
 
+  const handleReset = () => {
+    const today = new Date().toISOString().split('T')[0];
+    reset({
+      date: today,
+      type: 'credit',
+      currentBalance: 0,
+      name: '',
+      under: '',
+      address: '',
+      city: '',
+      phone: '',
+      mobile: '',
+      email: '',
+      note: '',
+      amount: 0
+    });
+    setSelectedCategory(null);
+    setIsCategoryOpen(false);
+    setIsDirty(false);
+  };
+
+  const handleSaveAndNew = async (data: LedgerEntry) => {
+    await onSubmit(data);
+    handleReset();
+  };
+
+  const handleExportPdf = () => {
+    console.log('Exporting to PDF...');
+  };
+
+  const calculatedBalance = useMemo(() => {
+    const amount = Number(watch('amount')) || 0;
+    const type = watch('type');
+    if (type === 'credit') {
+      return currentBalance + amount;
+    } else {
+      return currentBalance - amount;
+    }
+  }, [currentBalance, watch('amount'), watch('type')]);
+
+  const inputClass = "w-full p-2 border rounded";
+
+  // Register input with keydown handler
+  const registerWithKeyNav = (name: keyof LedgerEntry, options = {}) => ({
+    ...register(name, options),
+    onKeyDown: handleKeyDown
+  });
+
   return (
-    <div className="max-w-3xl mx-auto p-4 space-y-4">
-      <div className="flex justify-end">
-        <CategoryManager 
-          categories={categories} 
-          setCategories={setCategories} 
-        />
+    <div className="p-2 bg-gray-50">
+      {/* Compact Header */}
+      <div className="flex justify-between items-center mb-2">
+        <h1 className="text-base font-bold text-gray-800">
+          {t('Ledger Entry', 'பதிவேடு பதிவு')}
+        </h1>
+        <div className="flex items-center gap-3 text-xs">
+          <div className="text-gray-500">
+            {t('Balance', 'இருப்பு')}: <span className="font-medium">₹{currentBalance?.toFixed(2) || '0.00'}</span>
+          </div>
+          <CategoryManager categories={categories} setCategories={setCategories} />
+        </div>
       </div>
-      
-      <Card className="w-full">
-        <CardHeader className="border-b pb-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <CardTitle className="text-2xl font-bold">
-                {t('Ledger Entry', 'பதிவேடு பதிவு')}
-              </CardTitle>
-              <div className="flex items-center mt-1">
-                <CalendarIcon className="h-4 w-4 mr-2 text-muted-foreground" />
+
+      {/* Single Compact Card */}
+      <Card>
+        <CardContent className="p-3">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+            {/* Top Row: Date, Actions, Status */}
+            <div className="flex justify-between items-center pb-2 border-b">
+              <div className="flex items-center gap-2">
+                <CalendarIcon className="h-3 w-3 text-gray-400" />
                 <Input
                   type="date"
                   {...register('date')}
-                  className="w-auto p-0 border-0 shadow-none focus-visible:ring-0"
+                  className="w-32 text-xs h-7 p-1"
                 />
               </div>
+
+              <div className="flex items-center gap-2">
+                {isDirty && (
+                  <div className="flex items-center text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded">
+                    <div className="w-1.5 h-1.5 bg-amber-400 rounded-full mr-1"></div>
+                    {t('Unsaved', 'சேமிக்கப்படவில்லை')}
+                  </div>
+                )}
+                
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                  className="text-xs py-1 px-2 h-6"
+                >
+                  {showAdvanced ? t('Basic', 'அடிப்படை') : t('More', 'மேலும்')}
+                </Button>
+              </div>
             </div>
-            <div className="text-right">
-                {/*<div className="text-sm text-muted-foreground">
-                {t('Current Balance', 'தற்போதைய இருப்பு')}
+
+            {/* Main Form - 4 columns layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
+              {/* Column 1: Name */}
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">{t('Name', 'பெயர்')}*</Label>
+                <Input
+                  id="name"
+                  className={inputClass}
+                  {...registerWithKeyNav('name', { required: t('Name is required', 'பெயர் தேவை') })}
+                />
+                {errors.name && <p className="text-xs text-red-500">{errors.name.message}</p>}
               </div>
 
-             Show current balance 
-              <div className="text-2xl font-bold">
-                ₹{currentBalance?.toFixed(2) || '0.00'}
-              </div>*/}
-            </div>
-          </div>
-        </CardHeader>
-        
-        <CardContent className="pt-6">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {/* Basic Information */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium">{t('Basic Information', 'அடிப்படை தகவல்')}</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>{t('Name', 'பெயர்')}*</Label>
-                  <Input
-                    {...register('name', { required: t('Name is required', 'பெயர் தேவை') })}
-                    placeholder={t('Enter name', 'பெயரை உள்ளிடவும்')}
-                    className="w-full"
-                    autoFocus
-                  />
-                  {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
-                </div>
-                <div className="space-y-2">
-                  <Label>{t('Under', 'அடியில்')}</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        className={cn(
-                          "w-full justify-between",
-                          !watch('under') && "text-muted-foreground"
-                        )}
-                      >
+              {/* Column 2: Category */}
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">{t('Category', 'வகை')}</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className={cn(
+                        "w-full justify-between text-xs h-8",
+                        !watch('under') && "text-muted-foreground"
+                      )}
+                    >
+                      <span className="truncate">
                         {watch('under')
                           ? categories.find(
                               (category) => category.value === watch('under')
                             )?.label || watch('under')
-                          : t('Select category', 'வகையைத் தேர்ந்தெடுக்கவும்')}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[300px] p-0">
-                      <Command 
-                        filter={(value, search) => {
-                          if (value.includes(search.toLowerCase())) return 1;
-                          return 0;
-                        }}
-                        onValueChange={(searchValue) => {
-                          // If user presses enter on a search that doesn't match existing categories
-                          if (searchValue && !categories.some(c => c.value === searchValue.toLowerCase().replace(/\s+/g, '_'))) {
-                            handleCreateCategory(searchValue);
-                          }
-                        }}
-                      >
-                        <CommandInput 
-                          placeholder={t('Search or create category...', 'தேடு அல்லது புதிய வகையை உருவாக்கு...')} 
-                        />
-                        <CommandEmpty>{t('No category found', 'வகை கிடைக்கவில்லை')}</CommandEmpty>
-                        <CommandGroup>
-                          {categories.map((category) => (
-                            <CommandItem
-                              value={category.value}
-                              key={category.value}
-                              onSelect={() => {
-                                setValue('under', category.value)
-                              }}
-                            >
+                          : t('Select', 'தேர்ந்தெடு')}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[250px] p-0">
+                    <Command>
+                      <CommandInput 
+                        placeholder={t('Search...', 'தேடு...')} 
+                        className="text-xs"
+                      />
+                      <CommandEmpty>
+                        <Button
+                          variant="ghost"
+                          className="w-full justify-start text-xs h-7"
+                          onClick={() => {
+                            const input = document.querySelector('[cmdk-input]') as HTMLInputElement;
+                            if (input?.value) handleCreateCategory(input.value);
+                          }}
+                        >
+                          <Plus className="mr-2 h-3 w-3" />
+                          {t('Create new', 'புதியது உருவாக்கு')}
+                        </Button>
+                      </CommandEmpty>
+                      <CommandGroup className="max-h-32 overflow-y-auto">
+                        {categories.map((category) => (
+                          <CommandItem
+                            value={category.value}
+                            key={category.value}
+                            onSelect={() => setValue('under', category.value)}
+                            className="flex items-center justify-between text-xs"
+                          >
+                            <div className="flex items-center">
                               <Check
                                 className={cn(
-                                  "mr-2 h-4 w-4",
+                                  "mr-2 h-3 w-3",
                                   watch('under') === category.value ? "opacity-100" : "opacity-0"
                                 )}
                               />
-                              {category.label}
-                              <div className="ml-auto flex gap-1">
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingCategory(category);
-                                  }}
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon"
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    await handleDeleteCategory(category.id);
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4 text-red-500" />
-                                </Button>
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
+                              <span className="truncate">{category.label}</span>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Column 3: Type */}
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">{t('Type', 'வகை')}*</Label>
+                <div className="grid grid-cols-2 gap-1">
+                  <Button
+                    type="button"
+                    variant={watch('type') === 'credit' ? 'default' : 'outline'}
+                    onClick={() => setValue('type', 'credit')}
+                    className="h-8 text-xs"
+                  >
+                    {t('Credit', 'கடன்')}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={watch('type') === 'debit' ? 'default' : 'outline'}
+                    onClick={() => setValue('type', 'debit')}
+                    className="h-8 text-xs"
+                  >
+                    {t('Debit', 'பற்று')}
+                  </Button>
                 </div>
+              </div>
+
+              {/* Column 4: Amount */}
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">{t('Amount', 'தொகை')}*</Label>
+                <div className="relative">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-xs">₹</span>
+                  <Input
+                    type="number"
+                    id="amount"
+                    className={inputClass}
+                    {...registerWithKeyNav('amount', { 
+                      min: { 
+                        value: 0.00, 
+                        message: t('Amount must be greater than 0', 'தொகை 0 க்கும் அதிகமாக இருக்க வேண்டும்') 
+                      }
+                    })}
+                    placeholder="0.00"
+                    className="pl-6 text-xs h-8"
+                  />
+                </div>
+                {errors.amount && <p className="text-xs text-red-500">{errors.amount.message}</p>}
+                
+                {watch('amount') && (
+                  <div className="text-xs text-gray-500">
+                    {t('New', 'புதிய')}: <span className={cn("font-medium", calculatedBalance >= 0 ? "text-green-600" : "text-red-600")}>₹{calculatedBalance.toFixed(2)}</span>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Transaction */}
-            <div className="space-y-4 pt-4">
-              <h3 className="text-lg font-medium">{t('Transaction', 'பரிவர்த்தனை')}</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label>{t('Transaction Type', 'பரிவர்த்தனை வகை')}*</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      type="button"
-                      variant={watch('type') === 'credit' ? 'default' : 'outline'}
-                      onClick={() => setValue('type', 'credit')}
-                      className="h-12"
-                    >
-                      {t('Credit', 'கடன்')}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={watch('type') === 'debit' ? 'default' : 'outline'}
-                      onClick={() => setValue('type', 'debit')}
-                      className="h-12"
-                    >
-                      {t('Debit', 'பற்று')}
-                    </Button>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>{t('Amount', 'தொகை')}*</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
+            {/* Advanced Fields - Collapsible */}
+            {showAdvanced && (
+              <div className="border-t pt-3 space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">{t('Phone', 'தொலைபேசி')}</Label>
                     <Input
-                      type="number"
-                      {...register('amount', { 
-                        required: t('Amount is required', 'தொகை தேவை'), 
-                        min: { value: 0, message: t('Amount must be positive', 'தொகை நேர்மறையாக இருக்க வேண்டும்') }
-                      })}
-                      placeholder="0.00"
-                      className="pl-8 text-xl h-14"
+                      type="tel"
+                      id="phone"
+                      className={inputClass}
+                      {...registerWithKeyNav('phone')}
                     />
                   </div>
-                  {errors.amount && <p className="text-sm text-red-500">{errors.amount.message}</p>}
+                  <div className="space-y-1">
+                    <Label className="text-xs">{t('Mobile', 'கைபேசி')}</Label>
+                    <Input
+                      type="tel"
+                      id="mobile"
+                      className={inputClass}
+                      {...registerWithKeyNav('mobile')}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Email</Label>
+                    <Input
+                      type="email"
+                      id="email"
+                      className={inputClass}
+                      {...registerWithKeyNav('email')}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">{t('City', 'ஊர்')}</Label>
+                    <Input
+                      id="city"
+                      className={inputClass}
+                      {...registerWithKeyNav('city')}
+                    />
+                  </div>
+                  <div className="space-y-1 lg:col-span-2">
+                    <Label className="text-xs">{t('Address', 'முகவரி')}</Label>
+                    <Input
+                      id="address"
+                      className={inputClass}
+                      {...registerWithKeyNav('address')}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs">{t('Notes', 'குறிப்பு')}</Label>
+                  <Textarea
+                    id="note"
+                    className={inputClass}
+                    {...registerWithKeyNav('note')}
+                    rows={2}
+                    className="resize-none text-xs"
+                  />
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Contact Information */}
-            <div className="space-y-4 pt-4">
-              <h3 className="text-lg font-medium">{t('Contact Information', 'தொடர்பு தகவல்')}</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>{t('Address', 'முகவரி')}</Label>
-                  <Input
-                    {...register('address')}
-                    placeholder={t('Enter address', 'முகவரியை உள்ளிடவும்')}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>{t('City/Town', 'ஊர்/நகரம்')}</Label>
-                  <Input
-                    {...register('city')}
-                    placeholder={t('Enter city/town', 'ஊர்/நகரத்தை உள்ளிடவும்')}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>{t('Phone', 'தொலைபேசி எண்')}</Label>
-                  <Input
-                    type="tel"
-                    {...register('phone')}
-                    placeholder={t('Phone number', 'தொலைபேசி எண்')}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>{t('Mobile', 'கைபேசி எண்')}</Label>
-                  <Input
-                    type="tel"
-                    {...register('mobile')}
-                    placeholder={t('Mobile number', 'கைபேசி எண்')}
-                  />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Email</Label>
-                  <Input
-                    type="email"
-                    {...register('email')}
-                    placeholder={t('Email address', 'மின்னஞ்சல் முகவரி')}
-                  />
-                </div>
+            {/* Bottom Action Bar */}
+            <div className="flex justify-between items-center pt-2 border-t">
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(-1)}
+                  disabled={isSubmitting}
+                  className="text-xs h-7"
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  {t('Cancel', 'ரத்து')}
+                </Button>
+                
+                <Button
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleExportPdf}
+                  className="text-xs h-7"
+                >
+                  <FileDown className="h-3 w-3 mr-1" />
+                  {t('Export', 'ஏற்றுமதி')}
+                </Button>
               </div>
-            </div>
 
-            {/* Notes */}
-            <div className="space-y-2 pt-4">
-              <Label>{t('Notes', 'குறிப்பு')}</Label>
-              <Textarea
-                {...register('note')}
-                placeholder={t('Enter any additional notes', 'கூடுதல் குறிப்புகளை உள்ளிடவும்')}
-                rows={3}
-                className="resize-none"
-              />
-            </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleReset}
+                  disabled={!isDirty || isSubmitting}
+                  className="text-xs h-7"
+                >
+                  {t('Clear', 'அழி')}
+                </Button>
 
-            {/* Action Buttons */}
-            <div className="flex justify-between pt-6 border-t">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate(-1)}
-                disabled={isSubmitting}
-                className="min-w-[120px]"
-              >
-                {t('Cancel', 'ரத்து செய்')}
-              </Button>
-              <Button 
-                type="submit" 
-                className="min-w-[160px] bg-green-600 hover:bg-green-700"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {t('Saving...', 'சேமிக்கிறது...')}
-                  </>
-                ) : t('Save & Exit', 'பதிவு வெளியே')}
-              </Button>
+                <Button
+                  onClick={handleSubmit(handleSaveAndNew)}
+                  disabled={isSubmitting || !isDirty}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-7"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <Plus className="h-3 w-3 mr-1" />
+                  )}
+                  {t('Save & New', 'சேமித்து புதியது')}
+                </Button>
+                
+                <Button 
+                  onClick={handleSubmit(onSubmit)}
+                  disabled={isSubmitting || !isDirty}
+                  size="sm"
+                  className="text-xs h-7 bg-green-600 hover:bg-green-700"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      {t('Saving...', 'சேமிக்கிறது...')}
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-3 w-3 mr-1" />
+                      {t('Save', 'சேமி')}
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </form>
         </CardContent>

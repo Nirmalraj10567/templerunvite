@@ -53,10 +53,7 @@ export const sidebarItems: NavItem[] = [
     children: [
       { to: '/dashboard/ledger/entry', label: 'New Entry', permissionId: 'ledger_management', accessLevel: 'edit' },
       { to: '/dashboard/ledger/list', label: 'View Entries', permissionId: 'ledger_management', accessLevel: 'view' },
-      { to: '/dashboard/ledger/profit-and-loss', label: 'Profit & Loss', permissionId: 'reports' },
-      { to: '/dashboard/ledger/cashflow-by-category', label: 'Cashflow by Category', permissionId: 'reports' },
-      { to: '/dashboard/ledger/category-statement', label: 'Category Statement', permissionId: 'reports' },
-    ],
+     ],
   },
   {
     label: 'Pooja',
@@ -65,8 +62,6 @@ export const sidebarItems: NavItem[] = [
       { to: '/dashboard/pooja/list', label: 'Pooja List', permissionId: 'pooja_registrations' },
       { to: '/dashboard/pooja/entry', label: 'Pooja Entry', permissionId: 'pooja_registrations' },
       { to: '/dashboard/pooja/approval', label: 'Pooja Approval', permissionId: 'pooja_approval' },
-      { to: '/dashboard/pooja/request', label: 'Pooja Request', permissionId: 'pooja_mobile_submit' },
-      { to: '/dashboard/pooja/my-requests', label: 'My Requests', permissionId: 'pooja_mobile_submit' },
     ],
   },
   {

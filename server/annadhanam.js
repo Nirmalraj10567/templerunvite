@@ -1,6 +1,30 @@
 const express = require('express');
 const router = express.Router();
 
+// Function to generate the next receipt number in format YYYY-XXXX
+async function generateReceiptNumber(db, templeId) {
+  const year = new Date().getFullYear();
+  
+  // Get the latest receipt number for this year
+  const latest = await db('annadhanam')
+    .where('temple_id', templeId)
+    .where('receipt_number', 'like', `${year}-%`)
+    .orderBy('id', 'desc')
+    .first();
+
+  let nextNumber = 1;
+  
+  if (latest && latest.receipt_number) {
+    const parts = latest.receipt_number.split('-');
+    if (parts.length === 2 && parts[0] === year.toString()) {
+      nextNumber = parseInt(parts[1], 10) + 1;
+    }
+  }
+  
+  // Format with leading zeros
+  return `${year}-${String(nextNumber).padStart(4, '0')}`;
+}
+
 module.exports = function(deps = {}) {
   const { db } = deps;
 
@@ -93,7 +117,7 @@ module.exports = function(deps = {}) {
 
       const record = {
         temple_id: req.user.templeId,
-        receipt_number: p.receiptNumber || null,
+        receipt_number: await generateReceiptNumber(db, req.user.templeId),
         name: p.name,
         mobile_number: p.mobileNumber,
         food: p.food,

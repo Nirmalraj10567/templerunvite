@@ -12,14 +12,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { ledgerService } from '@/services/ledgerService';
 import { journalService } from '@/services/journalService';
 
-const generateReceiptNo = () => {
-  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  let result = '';
-  for (let i = 0; i < 8; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-};
+// Receipt number will be generated on the server in YYYY-XXXX format
 
 interface ReceiptFormData {
   receiptNumber: string;
@@ -55,6 +48,14 @@ export default function ReceiptEntryPage() {
   const isZeroBalance = isExpense && isBalanceKnown && (fromBalance as number) === 0;
   const isDonorMissingForExpense = isExpense && (!donorValue || donorValue.trim() === '');
   const isSaveDisabledByBalance = exceedsBalance || isZeroBalance;
+
+  useEffect(() => {
+    if (!id) {
+      // Receipt number will be generated on the server
+      setValue('receiptNumber', '');
+      setValue('type', 'income');
+    }
+  }, [id, setValue]);
 
   useEffect(() => {
     setValue('receiptNumber', generateReceiptNo());
@@ -220,8 +221,14 @@ export default function ReceiptEntryPage() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="receiptNumber">{t('Receipt Number', 'ரசீது எண்')} *</Label>
-                <Input id="receiptNumber" readOnly className="bg-gray-100" {...register('receiptNumber', { required: true })} />
+                <Label htmlFor="receiptNumber">{t('Receipt Number', 'ரசீது எண்')}</Label>
+                <Input 
+                  id="receiptNumber" 
+                  readOnly 
+                  className="bg-gray-100" 
+                  placeholder={t('Auto-generated', 'தானாக உருவாக்கப்படும்')} 
+                  {...register('receiptNumber')} 
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="date">{t('Date', 'தேதி')} *</Label>

@@ -390,5 +390,41 @@ module.exports = function(deps = {}) {
     }
   });
 
+  // Generate sequential receipt number
+  router.get('/generate-receipt-number', async (req, res) => {
+    try {
+      const year = new Date().getFullYear();
+      
+      // Get or create counter for current year
+      let counter = await db.get(
+        'SELECT last_number FROM receipt_counter WHERE year = ?', 
+        [year]
+      );
+      
+      if (!counter) {
+        await db.run(
+          'INSERT INTO receipt_counter (year, last_number) VALUES (?, 0)',
+          [year]
+        );
+        counter = { last_number: 0 };
+      }
+      
+      // Increment and update counter
+      const newNumber = counter.last_number + 1;
+      await db.run(
+        'UPDATE receipt_counter SET last_number = ? WHERE year = ?',
+        [newNumber, year]
+      );
+      
+      // Format as YYYY-NNNN
+      const receiptNo = `${year}-${newNumber.toString().padStart(4, '0')}`;
+      res.json({ receiptNo });
+      
+    } catch (error) {
+      console.error('Error generating receipt number:', error);
+      res.status(500).json({ error: 'Failed to generate receipt number' });
+    }
+  });
+
   return router;
 };

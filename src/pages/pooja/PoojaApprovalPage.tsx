@@ -1,17 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { useLanguage } from '@/contexts/LanguageContext';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useLanguage } from '@/lib/language'; 
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle, XCircle, Eye, Clock, User, Phone, Calendar, FileText } from 'lucide-react';
+import { CheckCircle, XCircle, Eye, Clock, User, Phone, Calendar, FileText, Search, RefreshCw } from 'lucide-react';
 
 interface PoojaRequest {
   id: number;
@@ -56,9 +54,18 @@ interface ApprovalStats {
 }
 
 export default function PoojaApprovalPage() {
-  const { t } = useLanguage();
+  const { language } = useLanguage();
+  const t = (en: string, ta: string) => language === 'english' ? ta : en;
   const { token } = useAuth();
   const { toast } = useToast();
+  
+  // State for pagination
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: 10,
+    total: 0,
+    totalPages: 1,
+  });
   
   const [requests, setRequests] = useState<PoojaRequest[]>([]);
   const [loading, setLoading] = useState(false);
@@ -73,63 +80,152 @@ export default function PoojaApprovalPage() {
   const [selectedRequests, setSelectedRequests] = useState<number[]>([]);
   const [isBulkActionDialogOpen, setIsBulkActionDialogOpen] = useState(false);
   const [bulkAction, setBulkAction] = useState<'approve' | 'reject'>('approve');
+  const [statusFilter, setStatusFilter] = useState<string>('');
 
-  const fetchRequests = async () => {
+  // Column Keys
+  type ColKey = 'receipt' | 'name' | 'mobile' | 'dateRange' | 'time' | 'submitted' | 'actions';
+
+  const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' | 'center' }> = [
+    { key: 'receipt', label: t('Receipt No', 'ரசீது எண்') },
+    { key: 'name', label: t('Name', 'பெயர்') },
+    { key: 'mobile', label: t('Mobile', 'மொபைல்') },
+    { key: 'dateRange', label: t('Date Range', 'தேதி வரம்பு') },
+    { key: 'time', label: t('Time', 'நேரம்') },
+    { key: 'submitted', label: t('Submitted', 'சமர்ப்பிக்கப்பட்டது') },
+    { key: 'actions', label: t('Actions', 'செயல்கள்'), align: 'center' },
+  ];
+
+  const STORAGE_KEY = 'pooja_approval_visible_columns_v1';
+  const defaultVisible: Record<ColKey, boolean> = {
+    receipt: true,
+    name: true,
+    mobile: true,
+    dateRange: true,
+    time: true,
+    submitted: false, // Hidden by default to save space
+    actions: true,
+  };
+
+  const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? { ...defaultVisible, ...JSON.parse(saved) } : defaultVisible;
+    } catch {
+      return defaultVisible;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(visibleCols));
+    } catch {}
+  }, [visibleCols]);
+
+  // Context Menu
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const onContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setMenuPos({ x: e.clientX, y: e.clientY });
+    setMenuOpen(true);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEsc);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEsc);
+    };
+  }, []);
+
+  const visibleColCount = useMemo(
+    () => Object.values(visibleCols).filter(Boolean).length + 1, // +1 for checkbox
+    [visibleCols]
+  );
+
+  const fetchRequests = async (page = pagination.page, pageSize = pagination.pageSize) => {
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:4000/api/pooja-approval/pending?search=${searchTerm}`, {
+      const response = await axios.get('/api/pooja', {
+        params: {
+          q: searchTerm,
+          status: statusFilter || undefined,
+          page,
+          pageSize,
+        },
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+          Authorization: `Bearer ${token}`,
+        },
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch requests');
-      }
-
-      const result = await response.json();
-      if (result.success) {
-        setRequests(result.data);
-      }
+      
+      setRequests(response.data.data);
+      setPagination(prev => ({
+        ...prev,
+        page: response.data.pagination.page,
+        pageSize: response.data.pagination.pageSize,
+        total: response.data.pagination.total,
+        totalPages: response.data.pagination.totalPages,
+      }));
     } catch (error) {
       console.error('Error fetching requests:', error);
       toast({
         title: t('Error', 'பிழை'),
-        description: t('Failed to fetch requests', 'கோரிக்கைகளைப் பெற முடியவில்லை'),
-        variant: 'destructive'
+        description: t('Failed to fetch requests', 'கோரிக்கைகளைப் பெறுவதில் தோல்வி'),
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
     }
   };
 
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= pagination.totalPages) {
+      fetchRequests(newPage);
+    }
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPagination(prev => ({
+      ...prev,
+      pageSize: newSize,
+      page: 1, // Reset to first page when changing page size
+    }));
+  };
+
   const fetchStats = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/pooja-approval/stats', {
+      const response = await axios.get('/api/pooja/stats/summary', {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+          Authorization: `Bearer ${token}`,
+        },
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch stats');
-      }
-
-      const result = await response.json();
-      if (result.success) {
-        setStats(result.data);
-      }
+      setStats(response.data);
     } catch (error) {
       console.error('Error fetching stats:', error);
+      toast({
+        title: t('Error', 'பிழை'),
+        description: t('Failed to fetch statistics', 'புள்ளிவிவரங்களைப் பெறுவதில் தோல்வி'),
+        variant: 'destructive',
+      });
     }
   };
 
   useEffect(() => {
-    fetchRequests();
+    fetchRequests(pagination.page, pagination.pageSize);
     fetchStats();
-  }, [searchTerm, token]);
+  }, [searchTerm, token, statusFilter, pagination.pageSize]);
 
   const handleApprove = async (requestId: number) => {
     try {
@@ -253,7 +349,6 @@ export default function PoojaApprovalPage() {
   };
 
   const getStatusBadge = (status: string) => {
-    // Handle undefined/null status
     if (!status) {
       status = 'pending';
     }
@@ -269,163 +364,204 @@ export default function PoojaApprovalPage() {
     const Icon = config.icon;
 
     return (
-      <Badge className={config.color}>
-        <Icon className="w-3 h-3 mr-1" />
+      <Badge className={`${config.color} text-xs h-5`}>
+        <Icon className="w-2 h-2 mr-1" />
         {t(status.charAt(0).toUpperCase() + status.slice(1), status)}
       </Badge>
     );
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
+    return new Date(dateString).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit'
+    });
   };
 
   const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
+    return new Date(dateString).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">
-          {t('Pooja Approval Panel', 'பூஜை அனுமதி பேனல்')}
-        </h1>
+    <div className="p-2 bg-gray-50">
+      {/* Compact Header */}
+      <div className="flex justify-between items-center mb-2">
+        <h1 className="text-base font-bold text-gray-800">{t('Pooja Approval', 'பூஜை அனுமதி')}</h1>
+        <div className="text-xs text-gray-500">
+          {requests.length} {t('pending requests', 'நிலுவை கோரிக்கைகள்')}
+        </div>
       </div>
 
-      {/* Statistics Cards */}
+      {/* Compact Statistics */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">{t('Pending', 'நிலுவையில்')}</p>
-                  <p className="text-2xl font-bold text-yellow-600">{stats.status_counts.pending}</p>
+                  <p className="text-xs text-gray-500">{t('Pending', 'நிலுவை')}</p>
+                  <p className="text-lg font-bold text-yellow-600">{stats.status_counts.pending}</p>
                 </div>
-                <Clock className="h-8 w-8 text-yellow-600" />
+                <Clock className="h-4 w-4 text-yellow-600" />
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">{t('Approved', 'அனுமதிக்கப்பட்டது')}</p>
-                  <p className="text-2xl font-bold text-green-600">{stats.status_counts.approved}</p>
+                  <p className="text-xs text-gray-500">{t('Approved', 'அனுமதி')}</p>
+                  <p className="text-lg font-bold text-green-600">{stats.status_counts.approved}</p>
                 </div>
-                <CheckCircle className="h-8 w-8 text-green-600" />
+                <CheckCircle className="h-4 w-4 text-green-600" />
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">{t('Rejected', 'நிராகரிக்கப்பட்டது')}</p>
-                  <p className="text-2xl font-bold text-red-600">{stats.status_counts.rejected}</p>
+                  <p className="text-xs text-gray-500">{t('Rejected', 'நிராகரிப்பு')}</p>
+                  <p className="text-lg font-bold text-red-600">{stats.status_counts.rejected}</p>
                 </div>
-                <XCircle className="h-8 w-8 text-red-600" />
+                <XCircle className="h-4 w-4 text-red-600" />
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">{t('Total', 'மொத்தம்')}</p>
-                  <p className="text-2xl font-bold text-blue-600">{stats.total_requests}</p>
+                  <p className="text-xs text-gray-500">{t('Total', 'மொத்தம்')}</p>
+                  <p className="text-lg font-bold text-blue-600">{stats.total_requests}</p>
                 </div>
-                <FileText className="h-8 w-8 text-blue-600" />
+                <FileText className="h-4 w-4 text-blue-600" />
               </div>
             </CardContent>
           </Card>
         </div>
       )}
 
-      {/* Search and Actions */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-            <div className="flex-1 max-w-md">
+      {/* Compact Search and Actions */}
+      <Card className="mb-2">
+        <CardContent className="p-2">
+          <div className="flex gap-2 items-center">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400" />
               <Input
-                placeholder={t('Search by name, mobile, or receipt number...', 'பெயர், மொபைல் அல்லது ரசீது எண்ணால் தேடவும்...')}
+                placeholder={t('Search by name, mobile, receipt...', 'பெயர், மொபைல், ரசீது தேடு...')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-7 text-xs h-7"
               />
             </div>
-            <div className="flex gap-2">
-              {selectedRequests.length > 0 && (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setBulkAction('approve');
-                      setIsBulkActionDialogOpen(true);
-                    }}
-                    className="text-green-600 border-green-600 hover:bg-green-50"
-                  >
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    {t('Bulk Approve', 'மொத்த அனுமதி')}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setBulkAction('reject');
-                      setIsBulkActionDialogOpen(true);
-                    }}
-                    className="text-red-600 border-red-600 hover:bg-red-50"
-                  >
-                    <XCircle className="w-4 h-4 mr-2" />
-                    {t('Bulk Reject', 'மொத்த நிராகரிப்பு')}
-                  </Button>
-                </>
-              )}
-            </div>
+
+            {/* Bulk Actions */}
+            {selectedRequests.length > 0 && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setBulkAction('approve');
+                    setIsBulkActionDialogOpen(true);
+                  }}
+                  className="text-xs h-7 px-2 text-green-600 border-green-600"
+                >
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  {t('Approve', 'அனுமதி')} ({selectedRequests.length})
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setBulkAction('reject');
+                    setIsBulkActionDialogOpen(true);
+                  }}
+                  className="text-xs h-7 px-2 text-red-600 border-red-600"
+                >
+                  <XCircle className="w-3 h-3 mr-1" />
+                  {t('Reject', 'நிராகரி')} ({selectedRequests.length})
+                </Button>
+              </>
+            )}
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                fetchRequests();
+                fetchStats();
+              }}
+              className="text-xs h-7 px-2"
+            >
+              <RefreshCw className="w-3 h-3" />
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Requests Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('Pending Requests', 'நிலுவையில் உள்ள கோரிக்கைகள்')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-2 text-muted-foreground">{t('Loading...', 'ஏற்றுகிறது...')}</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">
-                    <input
-                      type="checkbox"
-                      checked={selectedRequests.length === requests.length && requests.length > 0}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedRequests(requests.map(r => r.id));
-                        } else {
-                          setSelectedRequests([]);
-                        }
-                      }}
-                    />
-                  </TableHead>
-                  <TableHead>{t('Receipt No', 'ரசீது எண்')}</TableHead>
-                  <TableHead>{t('Name', 'பெயர்')}</TableHead>
-                  <TableHead>{t('Mobile', 'மொபைல்')}</TableHead>
-                  <TableHead>{t('Date Range', 'தேதி வரம்பு')}</TableHead>
-                  <TableHead>{t('Time', 'நேரம்')}</TableHead>
-                  <TableHead>{t('Submitted', 'சமர்ப்பிக்கப்பட்டது')}</TableHead>
-                  <TableHead>{t('Actions', 'செயல்கள்')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {requests.map((request) => (
-                  <TableRow key={request.id}>
-                    <TableCell>
+      {/* Compact Table */}
+      <div
+        className="bg-white rounded border border-gray-200 overflow-hidden"
+        onContextMenu={onContextMenu}
+      >
+        <div className="overflow-x-auto text-xs max-h-[65vh]">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50 sticky top-0 z-10">
+              <tr>
+                <th className="px-2 py-1 text-left">
+                  <input
+                    type="checkbox"
+                    checked={selectedRequests.length === requests.length && requests.length > 0}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedRequests(requests.map(r => r.id));
+                      } else {
+                        setSelectedRequests([]);
+                      }
+                    }}
+                    className="h-3 w-3"
+                  />
+                </th>
+                {allColumns.map(
+                  (col) =>
+                    visibleCols[col.key] && (
+                      <th
+                        key={col.key}
+                        className={`px-2 py-1 text-xs font-medium text-gray-500 uppercase tracking-wider ${
+                          col.align === 'right'
+                            ? 'text-right'
+                            : col.align === 'center'
+                            ? 'text-center'
+                            : 'text-left'
+                        }`}
+                      >
+                        {col.label}
+                      </th>
+                    )
+                )}
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {loading ? (
+                <tr>
+                  <td colSpan={visibleColCount} className="px-2 py-4 text-center text-xs text-gray-500">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                    {t('Loading...', 'ஏற்றுகிறது...')}
+                  </td>
+                </tr>
+              ) : requests.length > 0 ? (
+                requests.map((request) => (
+                  <tr key={request.id} className="hover:bg-gray-50">
+                    <td className="px-2 py-1">
                       <input
                         type="checkbox"
                         checked={selectedRequests.includes(request.id)}
@@ -436,118 +572,339 @@ export default function PoojaApprovalPage() {
                             setSelectedRequests(selectedRequests.filter(id => id !== request.id));
                           }
                         }}
+                        className="h-3 w-3"
                       />
-                    </TableCell>
-                    <TableCell className="font-medium">{request.receipt_number}</TableCell>
-                    <TableCell>{request.name}</TableCell>
-                    <TableCell>{request.mobile_number}</TableCell>
-                    <TableCell>
-                      {formatDate(request.from_date)} - {formatDate(request.to_date)}
-                    </TableCell>
-                    <TableCell>{request.time}</TableCell>
-                    <TableCell>{formatDateTime(request.submitted_at)}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedRequest(request);
-                            setIsViewDialogOpen(true);
-                          }}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedRequest(request);
-                            setIsApproveDialogOpen(true);
-                          }}
-                          className="text-green-600 border-green-600 hover:bg-green-50"
-                        >
-                          <CheckCircle className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedRequest(request);
-                            setIsRejectDialogOpen(true);
-                          }}
-                          className="text-red-600 border-red-600 hover:bg-red-50"
-                        >
-                          <XCircle className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                    </td>
+                    {visibleCols.receipt && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs font-medium text-gray-900">
+                        {request.receipt_number}
+                      </td>
+                    )}
+                    {visibleCols.name && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900 max-w-28 truncate">
+                        {request.name}
+                      </td>
+                    )}
+                    {visibleCols.mobile && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                        {request.mobile_number}
+                      </td>
+                    )}
+                    {visibleCols.dateRange && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                        <div className="flex items-center">
+                          <Calendar className="h-3 w-3 mr-1 text-gray-400" />
+                          <div>
+                            {formatDate(request.from_date)}
+                            {request.from_date !== request.to_date && (
+                              <div className="text-gray-400">- {formatDate(request.to_date)}</div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                    )}
+                    {visibleCols.time && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                        <div className="flex items-center">
+                          <Clock className="h-3 w-3 mr-1 text-gray-400" />
+                          {request.time}
+                        </div>
+                      </td>
+                    )}
+                    {visibleCols.submitted && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-500">
+                        {formatDateTime(request.submitted_at)}
+                      </td>
+                    )}
+                    {visibleCols.actions && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs text-center">
+                        <div className="flex justify-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedRequest(request);
+                              setIsViewDialogOpen(true);
+                            }}
+                            className="h-6 w-6 p-0"
+                          >
+                            <Eye className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedRequest(request);
+                              setIsApproveDialogOpen(true);
+                            }}
+                            className="h-6 w-6 p-0 text-green-600"
+                          >
+                            <CheckCircle className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedRequest(request);
+                              setIsRejectDialogOpen(true);
+                            }}
+                            className="h-6 w-6 p-0 text-red-600"
+                          >
+                            <XCircle className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={visibleColCount} className="px-2 py-8 text-center text-xs text-gray-500">
+                    {t('No pending requests found', 'நிலுவை கோரிக்கைகள் எதுவும் கிடைக்கவில்லை')}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer */}
+        <div className="px-2 py-1 flex items-center justify-between border-t border-gray-200 text-xs">
+          <div className="text-gray-700">
+            {t('Showing', 'காட்டப்படுகிறது')} <span className="font-medium">{requests.length}</span> {t('requests', 'கோரிக்கைகள்')}
+          </div>
+          {selectedRequests.length > 0 && (
+            <div className="text-gray-700">
+              <span className="font-medium">{selectedRequests.length}</span> {t('selected', 'தேர்ந்தெடுக்கப்பட்டது')}
+            </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
+
+      {/* Pagination Controls */}
+      <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-2 text-sm text-gray-600">
+          <span>{t('Rows per page:', 'ஒரு பக்கத்திற்கு:')}</span>
+          <select
+            value={pagination.pageSize}
+            onChange={(e) => {
+              const newSize = Number(e.target.value);
+              handlePageSizeChange(newSize);
+              fetchRequests(1, newSize);
+            }}
+            className="border rounded p-1 text-sm"
+          >
+            {[5, 10, 20, 50, 100].map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+          <span className="text-gray-500">
+            {t('Showing', 'காட்டப்படுகிறது')} {Math.min(
+              (pagination.page - 1) * pagination.pageSize + 1,
+              pagination.total
+            )} - {Math.min(
+              pagination.page * pagination.pageSize,
+              pagination.total
+            )} {t('of', 'இல்')} {pagination.total}
+          </span>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(1)}
+            disabled={pagination.page === 1}
+            className="px-2 py-1 text-xs"
+          >
+            {t('First', 'முதல்')}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(pagination.page - 1)}
+            disabled={pagination.page === 1}
+            className="px-2 py-1 text-xs"
+          >
+            {t('Previous', 'முந்தைய')}
+          </Button>
+          
+          {/* Page numbers */}
+          <div className="flex items-center gap-1">
+            {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+              let pageNum;
+              if (pagination.totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (pagination.page <= 3) {
+                pageNum = i + 1;
+              } else if (pagination.page >= pagination.totalPages - 2) {
+                pageNum = pagination.totalPages - 4 + i;
+              } else {
+                pageNum = pagination.page - 2 + i;
+              }
+              
+              return (
+                <Button
+                  key={pageNum}
+                  variant={pagination.page === pageNum ? "default" : "outline"}
+                  size="sm"
+                  className={`w-8 h-8 p-0 text-xs ${pagination.page === pageNum ? 'font-bold' : ''}`}
+                  onClick={() => handlePageChange(pageNum)}
+                >
+                  {pageNum}
+                </Button>
+              );
+            })}
+            
+            {pagination.totalPages > 5 && pagination.page < pagination.totalPages - 2 && (
+              <span className="px-2">...</span>
+            )}
+            
+            {pagination.totalPages > 5 && pagination.page < pagination.totalPages - 1 && (
+              <Button
+                variant={pagination.page === pagination.totalPages ? "default" : "outline"}
+                size="sm"
+                className="w-8 h-8 p-0 text-xs"
+                onClick={() => handlePageChange(pagination.totalPages)}
+              >
+                {pagination.totalPages}
+              </Button>
+            )}
+          </div>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(pagination.page + 1)}
+            disabled={pagination.page >= pagination.totalPages}
+            className="px-2 py-1 text-xs"
+          >
+            {t('Next', 'அடுத்து')}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(pagination.totalPages)}
+            disabled={pagination.page >= pagination.totalPages}
+            className="px-2 py-1 text-xs"
+          >
+            {t('Last', 'கடைசி')}
+          </Button>
+        </div>
+      </div>
+
+      {/* Context Menu */}
+      {menuOpen && (
+        <div
+          ref={menuRef}
+          className="fixed z-50 bg-white rounded shadow border border-gray-200 w-48 text-xs"
+          style={{ left: menuPos.x, top: menuPos.y }}
+        >
+          <div className="px-3 py-2 border-b border-gray-200">
+            <h3 className="text-xs font-medium text-gray-900">{t('Columns', 'நெடுவரிசைகள்')}</h3>
+            <p className="text-xs text-gray-500">
+              {t('Visible', 'காட்டப்படும்')} {Object.values(visibleCols).filter(Boolean).length}/{allColumns.length}
+            </p>
+          </div>
+          <div className="max-h-48 overflow-y-auto p-1">
+            {allColumns.map((col) => (
+              <label
+                key={col.key}
+                className="flex items-center px-2 py-1 rounded hover:bg-gray-50 cursor-pointer select-none"
+              >
+                <input
+                  type="checkbox"
+                  checked={!!visibleCols[col.key]}
+                  onChange={() =>
+                    setVisibleCols((prev) => ({ ...prev, [col.key]: !prev[col.key] }))
+                  }
+                  className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <span className="ml-2 text-xs text-gray-700">{col.label}</span>
+              </label>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-1 p-1 border-t border-gray-200">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs py-0.5 px-1.5 h-auto"
+              onClick={() =>
+                setVisibleCols(Object.fromEntries(allColumns.map((c) => [c.key, true])) as any)
+              }
+            >
+              {t('Select all', 'அனைத்தையும் தேர்ந்தெடு')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs py-0.5 px-1.5 h-auto"
+              onClick={() =>
+                setVisibleCols(Object.fromEntries(allColumns.map((c) => [c.key, false])) as any)
+              }
+            >
+              {t('Clear all', 'அனைத்தையும் அழி')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs py-0.5 px-1.5 h-auto ml-auto"
+              onClick={() => setMenuOpen(false)}
+            >
+              {t('Close', 'மூடு')}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* View Request Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{t('Request Details', 'கோரிக்கை விவரங்கள்')}</DialogTitle>
+            <DialogTitle className="text-base">{t('Request Details', 'கோரிக்கை விவரங்கள்')}</DialogTitle>
           </DialogHeader>
           {selectedRequest && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3 text-xs">
                 <div>
-                  <Label>{t('Receipt Number', 'ரசீது எண்')}</Label>
+                  <Label className="text-xs text-gray-500">{t('Receipt Number', 'ரசீது எண்')}</Label>
                   <p className="font-medium">{selectedRequest.receipt_number}</p>
                 </div>
                 <div>
-                  <Label>{t('Status', 'நிலை')}</Label>
+                  <Label className="text-xs text-gray-500">{t('Status', 'நிலை')}</Label>
                   <div className="mt-1">{getStatusBadge(selectedRequest.status)}</div>
                 </div>
                 <div>
-                  <Label>{t('Name', 'பெயர்')}</Label>
+                  <Label className="text-xs text-gray-500">{t('Name', 'பெயர்')}</Label>
                   <p className="font-medium">{selectedRequest.name}</p>
                 </div>
                 <div>
-                  <Label>{t('Mobile Number', 'மொபைல் எண்')}</Label>
+                  <Label className="text-xs text-gray-500">{t('Mobile', 'மொபைல்')}</Label>
                   <p className="font-medium">{selectedRequest.mobile_number}</p>
                 </div>
                 <div>
-                  <Label>{t('From Date', 'தொடக்க தேதி')}</Label>
+                  <Label className="text-xs text-gray-500">{t('From Date', 'தொடக்க தேதி')}</Label>
                   <p className="font-medium">{formatDate(selectedRequest.from_date)}</p>
                 </div>
                 <div>
-                  <Label>{t('To Date', 'முடிவு தேதி')}</Label>
+                  <Label className="text-xs text-gray-500">{t('To Date', 'முடிவு தேதி')}</Label>
                   <p className="font-medium">{formatDate(selectedRequest.to_date)}</p>
                 </div>
                 <div>
-                  <Label>{t('Time', 'நேரம்')}</Label>
+                  <Label className="text-xs text-gray-500">{t('Time', 'நேரம்')}</Label>
                   <p className="font-medium">{selectedRequest.time}</p>
                 </div>
                 <div>
-                  <Label>{t('Submitted At', 'சமர்ப்பிக்கப்பட்ட நேரம்')}</Label>
+                  <Label className="text-xs text-gray-500">{t('Submitted', 'சமர்ப்பிக்கப்பட்டது')}</Label>
                   <p className="font-medium">{formatDateTime(selectedRequest.submitted_at)}</p>
                 </div>
               </div>
               {selectedRequest.remarks && (
                 <div>
-                  <Label>{t('Remarks', 'கருத்துகள்')}</Label>
-                  <p className="mt-1 p-3 bg-gray-50 rounded-md">{selectedRequest.remarks}</p>
-                </div>
-              )}
-              {selectedRequest.admin_notes && (
-                <div>
-                  <Label>{t('Admin Notes', 'நிர்வாக குறிப்புகள்')}</Label>
-                  <p className="mt-1 p-3 bg-blue-50 rounded-md">{selectedRequest.admin_notes}</p>
-                </div>
-              )}
-              {selectedRequest.rejection_reason && (
-                <div>
-                  <Label>{t('Rejection Reason', 'நிராகரிப்பு காரணம்')}</Label>
-                  <p className="mt-1 p-3 bg-red-50 rounded-md">{selectedRequest.rejection_reason}</p>
+                  <Label className="text-xs text-gray-500">{t('Remarks', 'கருத்துகள்')}</Label>
+                  <p className="mt-1 p-2 bg-gray-50 rounded text-xs">{selectedRequest.remarks}</p>
                 </div>
               )}
             </div>
@@ -557,30 +914,32 @@ export default function PoojaApprovalPage() {
 
       {/* Approve Dialog */}
       <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{t('Approve Request', 'கோரிக்கையை அனுமதிக்கவும்')}</DialogTitle>
+            <DialogTitle className="text-base">{t('Approve Request', 'கோரிக்கையை அனுமதிக்கவும்')}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div>
-              <Label htmlFor="adminNotes">{t('Admin Notes (Optional)', 'நிர்வாக குறிப்புகள் (விருப்பமானது)')}</Label>
+              <Label className="text-xs">{t('Admin Notes (Optional)', 'நிர்வாக குறிப்புகள்')}</Label>
               <Textarea
-                id="adminNotes"
                 value={adminNotes}
                 onChange={(e) => setAdminNotes(e.target.value)}
-                placeholder={t('Add any notes about this approval...', 'இந்த அனுமதி பற்றி குறிப்புகளைச் சேர்க்கவும்...')}
+                placeholder={t('Add notes...', 'குறிப்புகள் சேர்க்க...')}
+                rows={2}
+                className="text-xs"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsApproveDialogOpen(false)}>
+            <Button variant="outline" size="sm" onClick={() => setIsApproveDialogOpen(false)} className="text-xs">
               {t('Cancel', 'ரத்து செய்')}
             </Button>
             <Button
+              size="sm"
               onClick={() => selectedRequest && handleApprove(selectedRequest.id)}
-              className="bg-green-600 hover:bg-green-700"
+              className="text-xs bg-green-600 hover:bg-green-700"
             >
-              <CheckCircle className="w-4 h-4 mr-2" />
+              <CheckCircle className="w-3 h-3 mr-1" />
               {t('Approve', 'அனுமதி')}
             </Button>
           </DialogFooter>
@@ -589,41 +948,44 @@ export default function PoojaApprovalPage() {
 
       {/* Reject Dialog */}
       <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{t('Reject Request', 'கோரிக்கையை நிராகரிக்கவும்')}</DialogTitle>
+            <DialogTitle className="text-base">{t('Reject Request', 'கோரிக்கையை நிராகரிக்கவும்')}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div>
-              <Label htmlFor="rejectionReason">{t('Rejection Reason', 'நிராகரிப்பு காரணம்')} *</Label>
+              <Label className="text-xs">{t('Rejection Reason', 'நிராகரிப்பு காரணம்')} *</Label>
               <Textarea
-                id="rejectionReason"
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder={t('Please provide a reason for rejection...', 'நிராகரிப்புக்கான காரணத்தை வழங்கவும்...')}
+                placeholder={t('Reason for rejection...', 'நிராகரிப்பு காரணம்...')}
                 required
+                rows={2}
+                className="text-xs"
               />
             </div>
             <div>
-              <Label htmlFor="adminNotesReject">{t('Admin Notes (Optional)', 'நிர்வாக குறிப்புகள் (விருப்பமானது)')}</Label>
+              <Label className="text-xs">{t('Admin Notes', 'நிர்வாக குறிப்புகள்')}</Label>
               <Textarea
-                id="adminNotesReject"
                 value={adminNotes}
                 onChange={(e) => setAdminNotes(e.target.value)}
-                placeholder={t('Add any additional notes...', 'கூடுதல் குறிப்புகளைச் சேர்க்கவும்...')}
+                placeholder={t('Additional notes...', 'கூடுதல் குறிப்புகள்...')}
+                rows={2}
+                className="text-xs"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsRejectDialogOpen(false)}>
+            <Button variant="outline" size="sm" onClick={() => setIsRejectDialogOpen(false)} className="text-xs">
               {t('Cancel', 'ரத்து செய்')}
             </Button>
             <Button
+              size="sm"
               onClick={() => selectedRequest && handleReject(selectedRequest.id)}
-              className="bg-red-600 hover:bg-red-700"
+              className="text-xs bg-red-600 hover:bg-red-700"
               disabled={!rejectionReason.trim()}
             >
-              <XCircle className="w-4 h-4 mr-2" />
+              <XCircle className="w-3 h-3 mr-1" />
               {t('Reject', 'நிராகரி')}
             </Button>
           </DialogFooter>
@@ -632,55 +994,58 @@ export default function PoojaApprovalPage() {
 
       {/* Bulk Action Dialog */}
       <Dialog open={isBulkActionDialogOpen} onOpenChange={setIsBulkActionDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-base">
               {t(`Bulk ${bulkAction === 'approve' ? 'Approve' : 'Reject'}`, `மொத்த ${bulkAction === 'approve' ? 'அனுமதி' : 'நிராகரிப்பு'}`)}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
+          <div className="space-y-3">
+            <p className="text-xs text-gray-600">
               {t(`You are about to ${bulkAction} ${selectedRequests.length} request(s).`, `நீங்கள் ${selectedRequests.length} கோரிக்கை(களை) ${bulkAction} செய்யப் போகிறீர்கள்.`)}
             </p>
             {bulkAction === 'reject' && (
               <div>
-                <Label htmlFor="bulkRejectionReason">{t('Rejection Reason', 'நிராகரிப்பு காரணம்')} *</Label>
+                <Label className="text-xs">{t('Rejection Reason', 'நிராகரிப்பு காரணம்')} *</Label>
                 <Textarea
-                  id="bulkRejectionReason"
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
-                  placeholder={t('Please provide a reason for rejection...', 'நிராகரிப்புக்கான காரணத்தை வழங்கவும்...')}
+                  placeholder={t('Reason for rejection...', 'நிராகரிப்பு காரணம்...')}
                   required
+                  rows={2}
+                  className="text-xs"
                 />
               </div>
             )}
             <div>
-              <Label htmlFor="bulkAdminNotes">{t('Admin Notes (Optional)', 'நிர்வாக குறிப்புகள் (விருப்பமானது)')}</Label>
+              <Label className="text-xs">{t('Admin Notes', 'நிர்வாக குறிப்புகள்')}</Label>
               <Textarea
-                id="bulkAdminNotes"
                 value={adminNotes}
                 onChange={(e) => setAdminNotes(e.target.value)}
-                placeholder={t('Add any notes about this action...', 'இந்த செயல்பற்றி குறிப்புகளைச் சேர்க்கவும்...')}
+                placeholder={t('Additional notes...', 'கூடுதல் குறிப்புகள்...')}
+                rows={2}
+                className="text-xs"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsBulkActionDialogOpen(false)}>
+            <Button variant="outline" size="sm" onClick={() => setIsBulkActionDialogOpen(false)} className="text-xs">
               {t('Cancel', 'ரத்து செய்')}
             </Button>
             <Button
+              size="sm"
               onClick={handleBulkAction}
-              className={bulkAction === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
+              className={`text-xs ${bulkAction === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
               disabled={bulkAction === 'reject' && !rejectionReason.trim()}
             >
               {bulkAction === 'approve' ? (
                 <>
-                  <CheckCircle className="w-4 h-4 mr-2" />
+                  <CheckCircle className="w-3 h-3 mr-1" />
                   {t('Approve All', 'அனைத்தையும் அனுமதி')}
                 </>
               ) : (
                 <>
-                  <XCircle className="w-4 h-4 mr-2" />
+                  <XCircle className="w-3 h-3 mr-1" />
                   {t('Reject All', 'அனைத்தையும் நிராகரி')}
                 </>
               )}

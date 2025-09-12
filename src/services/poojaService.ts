@@ -36,10 +36,23 @@ interface PoojaFormData {
   amount?: string;
 }
 
+interface PaginationInfo {
+  total: number;
+  totalPages: number;
+  page: number;
+  pageSize: number;
+}
+
 interface ApiResponse<T> {
   success: boolean;
   data: T;
   error?: string;
+  pagination?: {
+    total: number;
+    totalPages: number;
+    page: number;
+    pageSize: number;
+  };
 }
 
 class PoojaService {

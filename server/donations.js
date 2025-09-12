@@ -78,6 +78,7 @@ module.exports = function(deps = {}) {
 
       const donationData = {
         temple_id: req.user.templeId,
+        register_no: req.body.registerNo || null,
         product_name: productName,
         description: req.body.description || req.body.reason || '',
         price: price,
@@ -135,6 +136,46 @@ module.exports = function(deps = {}) {
     } catch (err) {
       console.error('PUT /api/donations/:id error:', err);
       res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // GET /api/donations/next-register-no - Get next register number for product donations
+  router.get('/next-register-no', async (req, res) => {
+    try {
+      const currentYear = new Date().getFullYear();
+      
+      // Get the highest register number for current year from donations table
+      const lastRecord = await db('donations')
+        .where('temple_id', req.user.templeId)
+        .where('register_no', 'like', `${currentYear}-%`)
+        .orderBy('register_no', 'desc')
+        .select('register_no')
+        .first();
+
+      let nextNumber = 1;
+      
+      if (lastRecord && lastRecord.register_no) {
+        // Extract the number part after the year
+        const parts = lastRecord.register_no.split('-');
+        if (parts.length === 2 && parts[0] === String(currentYear)) {
+          const lastNumber = parseInt(parts[1], 10);
+          if (!isNaN(lastNumber)) {
+            nextNumber = lastNumber + 1;
+          }
+        }
+      }
+
+      const nextRegisterNo = `${currentYear}-${String(nextNumber).padStart(4, '0')}`;
+      
+      res.json({ 
+        success: true, 
+        nextRegisterNo,
+        currentYear,
+        nextNumber
+      });
+    } catch (err) {
+      console.error('Error generating next register number for donations:', err);
+      res.status(500).json({ error: 'Failed to generate next register number' });
     }
   });
 
