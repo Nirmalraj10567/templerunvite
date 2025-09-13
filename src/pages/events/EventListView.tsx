@@ -4,18 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogDescription 
+  Dialog, DialogContent, DialogHeader, 
+  DialogTitle, DialogDescription 
 } from '@/components/ui/dialog';
 import { 
-  Carousel, 
-  CarouselContent, 
-  CarouselItem, 
-  CarouselNext, 
-  CarouselPrevious 
+  Carousel, CarouselContent, CarouselItem, 
+  CarouselNext, CarouselPrevious 
 } from '@/components/ui/carousel';
 import { Calendar, MapPin, Clock, Search, Plus, ImageIcon } from 'lucide-react';
 import eventService from '@/services/eventService';
@@ -36,136 +30,97 @@ export default function EventListView() {
       setLoading(true);
       const { data } = await eventService.getEvents(page, 10, search);
       setEvents(data);
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch events',
-        variant: 'destructive'
-      });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to fetch events', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchEvents();
-  }, [page, search]);
+  useEffect(() => { fetchEvents(); }, [page, search]);
 
-  const handleSearch = () => {
-    setPage(1);
-    fetchEvents();
-  };
+  const handleSearch = () => { setPage(1); fetchEvents(); };
 
   const openImageGallery = async (event: Event) => {
-    // Open dialog immediately with current list data for fast UX
     setSelectedEvent(event);
     setImageDialogOpen(true);
     try {
       const full = await eventService.getEventById(String(event.id));
-      // Replace with full details that include image title/caption
       setSelectedEvent(full);
-    } catch (e) {
-      // Keep the existing minimal data; toast already handled in service if needed
-    }
+    } catch {}
   };
 
   const handleDelete = async (id: number) => {
     try {
       await eventService.deleteEvent(id.toString());
-      toast({
-        title: 'Success',
-        description: 'Event deleted successfully'
-      });
+      toast({ title: 'Success', description: 'Event deleted successfully' });
       fetchEvents();
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to delete event',
-        variant: 'destructive'
-      });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to delete event', variant: 'destructive' });
     }
   };
 
   return (
-    <div className="container mx-auto py-6 px-4">
+    <div className="container mx-auto py-4 px-3 text-xs">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Temple Events</CardTitle>
-          <div className="flex items-center space-x-2">
+        <CardHeader className="flex flex-row items-center justify-between p-3">
+          <CardTitle className="text-sm font-semibold">Temple Events</CardTitle>
+          <div className="flex items-center gap-2">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground h-3 w-3" />
               <Input 
                 placeholder="Search events..." 
-                className="pl-10 w-64"
+                className="pl-8 w-48 h-7 text-xs"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               />
             </div>
-            <Button onClick={() => navigate('/dashboard/events/new')}>
-              <Plus className="mr-2 h-4 w-4" /> Create Event
+            <Button size="sm" onClick={() => navigate('/dashboard/events/new')}>
+              <Plus className="mr-1 h-3 w-3" /> Create
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-3">
           {loading ? (
-            <div className="text-center py-8">Loading events...</div>
+            <div className="text-center py-6">Loading events...</div>
           ) : events.length === 0 ? (
-            <div className="text-center py-8">No events found</div>
+            <div className="text-center py-6">No events found</div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {events.map(event => (
-                <Card key={event.id} className="hover:shadow-lg transition-shadow">
+                <Card key={event.id} className="hover:shadow-md transition">
                   <CardContent className="p-0">
-                    {event.images && event.images.length > 0 && (() => {
+                    {event.images?.length > 0 && (() => {
                       const first = event.images[0];
                       const src = first.url || (first.file ? URL.createObjectURL(first.file) : undefined);
                       return src ? (
                         <img 
-                          src={src}
-                          alt={event.title}
-                          className="w-full h-48 object-cover rounded-t-lg"
+                          src={src} alt={event.title}
+                          className="w-full h-36 object-cover rounded-t"
                         />
                       ) : null;
                     })()}
-                    <div className="p-4 space-y-2">
-                      <h3 className="text-lg font-semibold">{event.title}</h3>
-                      <div className="flex items-center text-muted-foreground space-x-2">
-                        <Calendar className="h-4 w-4" />
-                        <span>{event.date}</span>
+                    <div className="p-3 space-y-1">
+                      <h3 className="text-sm font-semibold">{event.title}</h3>
+                      <div className="flex items-center text-muted-foreground text-[11px] gap-1">
+                        <Calendar className="h-3 w-3" /><span>{event.date}</span>
                       </div>
-                      <div className="flex items-center text-muted-foreground space-x-2">
-                        <Clock className="h-4 w-4" />
-                        <span>{event.time}</span>
+                      <div className="flex items-center text-muted-foreground text-[11px] gap-1">
+                        <Clock className="h-3 w-3" /><span>{event.time}</span>
                       </div>
-                      <div className="flex items-center text-muted-foreground space-x-2">
-                        <MapPin className="h-4 w-4" />
-                        <span>{event.location}</span>
+                      <div className="flex items-center text-muted-foreground text-[11px] gap-1">
+                        <MapPin className="h-3 w-3" /><span>{event.location}</span>
                       </div>
-                      <div className="flex justify-between items-center pt-4">
+                      <div className="flex justify-between items-center pt-2">
                         <Button 
-                          variant="outline" 
-                          size="sm"
+                          variant="outline" size="xs"
                           onClick={() => openImageGallery(event)}
                         >
-                          <ImageIcon className="mr-2 h-4 w-4" /> Gallery
+                          <ImageIcon className="mr-1 h-3 w-3" /> Gallery
                         </Button>
-                        <Button 
-                          size="sm"
-                          onClick={() => navigate(`/dashboard/events/edit/${event.id}`)}
-                        >
-                          Edit Event
-                        </Button>
-                        <Button 
-                          variant="destructive" 
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(event.id);
-                          }}
-                        >
-                          Delete
-                        </Button>
+                        <Button size="xs" onClick={() => navigate(`/dashboard/events/edit/${event.id}`)}>Edit</Button>
+                        <Button variant="destructive" size="xs" onClick={(e) => { e.stopPropagation(); handleDelete(event.id); }}>Delete</Button>
                       </div>
                     </div>
                   </CardContent>
@@ -176,47 +131,44 @@ export default function EventListView() {
         </CardContent>
       </Card>
 
-      {/* Image Gallery Dialog */}
       <Dialog open={imageDialogOpen} onOpenChange={setImageDialogOpen}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-3xl p-3">
           <DialogHeader>
-            <DialogTitle>{selectedEvent?.title} - Image Gallery</DialogTitle>
-            <DialogDescription>
-              View images from the event
+            <DialogTitle className="text-sm">{selectedEvent?.title} - Gallery</DialogTitle>
+            <DialogDescription className="text-[11px]">
+              View images from this event
             </DialogDescription>
           </DialogHeader>
-          {selectedEvent && selectedEvent.images.length > 0 && (
-            <Carousel className="w-full max-w-3xl mx-auto">
+          {selectedEvent && selectedEvent.images?.length > 0 && (
+            <Carousel className="w-full max-w-2xl mx-auto">
               <CarouselContent>
                 {selectedEvent.images.map((image, index) => (
                   <CarouselItem key={index}>
-                    <div className="p-1">
-                      <Card>
-                        <CardContent className="flex aspect-square items-center justify-center p-6">
-                          {(() => {
-                            const src = image.url || (image.file ? URL.createObjectURL(image.file) : undefined);
-                            return src ? (
-                              <img 
-                                src={src}
-                                alt={image.title || `Event Image ${index + 1}`}
-                                className="max-h-full max-w-full object-contain"
-                              />
-                            ) : null;
-                          })()}
-                        </CardContent>
-                        {(image.title || image.caption) && (
-                          <div className="p-4 bg-gray-50">
-                            {image.title && <h4 className="font-semibold">{image.title}</h4>}
-                            {image.caption && <p className="text-muted-foreground">{image.caption}</p>}
-                          </div>
-                        )}
-                      </Card>
-                    </div>
+                    <Card>
+                      <CardContent className="flex aspect-square items-center justify-center p-3">
+                        {(() => {
+                          const src = image.url || (image.file ? URL.createObjectURL(image.file) : undefined);
+                          return src ? (
+                            <img 
+                              src={src}
+                              alt={image.title || `Image ${index + 1}`}
+                              className="max-h-full max-w-full object-contain"
+                            />
+                          ) : null;
+                        })()}
+                      </CardContent>
+                      {(image.title || image.caption) && (
+                        <div className="p-2 bg-gray-50 text-xs">
+                          {image.title && <h4 className="font-semibold">{image.title}</h4>}
+                          {image.caption && <p className="text-muted-foreground">{image.caption}</p>}
+                        </div>
+                      )}
+                    </Card>
                   </CarouselItem>
                 ))}
               </CarouselContent>
-              <CarouselPrevious />
-              <CarouselNext />
+              <CarouselPrevious className="scale-90" />
+              <CarouselNext className="scale-90" />
             </Carousel>
           )}
         </DialogContent>

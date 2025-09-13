@@ -107,7 +107,7 @@ export default function AnnadhanamEntryPage() {
   }, [id, reset, setValue, token, t]);
 
   if (isLoading) {
-    return <div className="p-8">Loading annadhanam data...</div>;
+    return <div className="p-4">Loading annadhanam data...</div>;
   }
 
   const onSubmit = async (data: AnnadhanamFormData) => {
@@ -198,127 +198,115 @@ export default function AnnadhanamEntryPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center">
+    <div className="w-full max-w-4xl mx-auto bg-white p-3 rounded shadow text-sm">
+      <Card className="w-full border-none shadow-none">
+        <CardHeader className="p-2">
+          <CardTitle className="text-lg font-semibold text-center">
             {t('Annadhanam Entry', 'அன்னதானம் பதிவு')}
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">{t('Name', 'பெயர்')} *</Label>
-                <Input
-                  id="name"
-                  {...register('name', { required: true })}
-                />
-              </div>
+        <CardContent className="p-2">
+          <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <Label className="block text-xs mb-1" htmlFor="name">{t('Name', 'பெயர்')} *</Label>
+              <Input
+                id="name"
+                className="text-xs p-1 h-8"
+                {...register('name', { required: true })}
+              />
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="mobileNumber">
-                  {t('Mobile Number', 'மொபைல் எண்')} *
-                </Label>
-                <Input
-                  id="mobileNumber"
-                  type="tel"
-                  {...register('mobileNumber', { 
-                    required: true,
-                    pattern: {
-                      value: /^[0-9]{10}$/,
-                      message: 'Please enter a valid 10-digit mobile number'
-                    }
-                  })}
-                  placeholder={t('Enter 10-digit mobile number', '10 இலக்க மொபைல் எண்ணை உள்ளிடவும்')}
-                />
-              </div>
+            <div>
+              <Label className="block text-xs mb-1" htmlFor="mobileNumber">
+                {t('Mobile Number', 'மொபைல் எண்')} *
+              </Label>
+              <Input
+                id="mobileNumber"
+                type="tel"
+                className="text-xs p-1 h-8"
+                {...register('mobileNumber', { 
+                  required: true,
+                  pattern: {
+                    value: /^[0-9]{10}$/,
+                    message: 'Please enter a valid 10-digit mobile number'
+                  }
+                })}
+                placeholder={t('Enter 10-digit mobile number', '10 இலக்க மொபைல் எண்ணை உள்ளிடவும்')}
+              />
+            </div>
 
-              {/* Time */}
-              <div className="space-y-2">
-                <Label htmlFor="time">
-                  {t('Time', 'நேரம்')} *
-                </Label>
-                <Input
-                  id="time"
-                  type="time"
-                  {...register('time', { required: true })}
-                />
-              </div>
+            <div>
+              <Label className="block text-xs mb-1" htmlFor="time">
+                {t('Time', 'நேரம்')} *
+              </Label>
+              <Input
+                id="time"
+                type="time"
+                className="text-xs p-1 h-8"
+                {...register('time', { required: true })}
+              />
+            </div>
 
-              {/* From Date */}
-              <div className="space-y-2">
-                <Label htmlFor="fromDate">
+            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <Label className="block text-xs mb-1" htmlFor="fromDate">
                   {t('From Date', 'தொடக்க தேதி')} *
                 </Label>
                 <Input
                   id="fromDate"
                   type="date"
+                  className="text-xs p-1 h-8"
                   {...register('fromDate', { required: true })}
                 />
               </div>
 
-              {/* To Date */}
-              <div className="space-y-2">
-                <Label htmlFor="toDate">
-                  {t('To Date', 'முடிவு தேதி')} *
+              <div>
+                <Label className="block text-xs mb-1" htmlFor="food">
+                  {t('Food Items', 'உணவு பொருட்கள்')} *
+                </Label>
+                <Textarea
+                  id="food"
+                  className="text-xs p-1 min-h-[60px]"
+                  {...register('food', { required: true })}
+                  placeholder={t('Enter food items (e.g., Rice, Sambar, Curry)', 'உணவு பொருட்களை உள்ளிடவும் (எ.கா., அரிசி, சாம்பார், கறி)')}
+                />
+              </div>
+
+              <div>
+                <Label className="block text-xs mb-1" htmlFor="peoples">
+                  {t('Number of People', 'மக்கள் எண்ணிக்கை')} *
                 </Label>
                 <Input
-                  id="toDate"
-                  type="date"
-                  {...register('toDate', { required: true })}
+                  id="peoples"
+                  type="number"
+                  min="1"
+                  className="text-xs p-1 h-8"
+                  {...register('peoples', { 
+                    required: true,
+                    min: { value: 1, message: 'Number of people must be at least 1' }
+                  })}
+                  placeholder={t('Enter number of people', 'மக்கள் எண்ணிக்கையை உள்ளிடவும்')}
+                />
+              </div>
+
+              <div>
+                <Label className="block text-xs mb-1" htmlFor="remarks">
+                  {t('Remarks', 'குறிப்புகள்')}
+                </Label>
+                <Textarea
+                  id="remarks"
+                  className="text-xs p-1 min-h-[60px]"
+                  {...register('remarks')}
+                  placeholder={t('Enter any additional remarks', 'கூடுதல் குறிப்புகளை உள்ளிடவும்')}
                 />
               </div>
             </div>
 
-            {/* Food */}
-            <div className="space-y-2">
-              <Label htmlFor="food">
-                {t('Food Items', 'உணவு பொருட்கள்')} *
-              </Label>
-              <Textarea
-                id="food"
-                {...register('food', { required: true })}
-                placeholder={t('Enter food items (e.g., Rice, Sambar, Curry)', 'உணவு பொருட்களை உள்ளிடவும் (எ.கா., அரிசி, சாம்பார், கறி)')}
-                rows={3}
-              />
-            </div>
-
-            {/* Number of People */}
-            <div className="space-y-2">
-              <Label htmlFor="peoples">
-                {t('Number of People', 'மக்கள் எண்ணிக்கை')} *
-              </Label>
-              <Input
-                id="peoples"
-                type="number"
-                min="1"
-                {...register('peoples', { 
-                  required: true,
-                  min: { value: 1, message: 'Number of people must be at least 1' }
-                })}
-                placeholder={t('Enter number of people', 'மக்கள் எண்ணிக்கையை உள்ளிடவும்')}
-              />
-            </div>
-
-            {/* Remarks */}
-            <div className="space-y-2">
-              <Label htmlFor="remarks">
-                {t('Remarks', 'குறிப்புகள்')}
-              </Label>
-              <Textarea
-                id="remarks"
-                {...register('remarks')}
-                placeholder={t('Enter any additional remarks', 'கூடுதல் குறிப்புகளை உள்ளிடவும்')}
-                rows={3}
-              />
-            </div>
-            
-            {/* Action Buttons */}
-            <div className="flex justify-end space-x-4 pt-6 border-t">
+            <div className="md:col-span-2 flex gap-2 justify-end pt-2 border-t">
               <Button 
                 type="button" 
                 variant="outline" 
+                className="text-xs px-3 py-1 h-8"
                 onClick={handleCancel}
                 disabled={isSubmitting}
               >
@@ -326,8 +314,8 @@ export default function AnnadhanamEntryPage() {
               </Button>
               <Button 
                 type="submit" 
+                className="text-xs px-3 py-1 h-8 bg-orange-600 hover:bg-orange-700"
                 disabled={isSubmitting}
-                className="bg-orange-600 hover:bg-orange-700"
               >
                 {isSubmitting 
                   ? t('Saving...', 'சேமிக்கிறது...') 
@@ -345,13 +333,13 @@ export default function AnnadhanamEntryPage() {
           title={t('Print Receipt', 'ரசீதை அச்சிடவா?')}
           onClose={() => setShowPrintPrompt(false)}
         >
-          <p className="mb-4 text-sm">{t('Do you want to open the PDF receipt for printing?', 'PDF ரசீதை அச்சிட திறக்க விரும்புகிறீர்களா?')}</p>
+          <p className="mb-3 text-xs">{t('Do you want to open the PDF receipt for printing?', 'PDF ரசீதை அச்சிட திறக்க விரும்புகிறீர்களா?')}</p>
           <div className="flex justify-end gap-2">
-            <button className="px-4 py-2 rounded border" onClick={() => setShowPrintPrompt(false)}>
+            <button className="px-3 py-1 rounded border text-xs" onClick={() => setShowPrintPrompt(false)}>
               {t('No', 'இல்லை')}
             </button>
             <button
-              className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+              className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 text-xs"
               onClick={() => {
                 const q = token ? `?token=${encodeURIComponent(token)}` : '';
                 const url = `http://localhost:4000/api/annadhanam/${lastCreatedId}/receipt.pdf${q}`;

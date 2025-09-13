@@ -184,6 +184,8 @@ module.exports = function(deps = {}) {
         date: p.date || null,
         time: p.time || null,
         event: p.event || null,
+        hall_id: p.hallId || null,
+        event_id: p.eventId || null,
         subdivision: p.subdivision || null,
         name: p.name || null,
         address: p.address || null,
@@ -271,6 +273,8 @@ module.exports = function(deps = {}) {
         date: p.date || null,
         time: p.time || null,
         event: p.event || null,
+        hall_id: p.hallId || null,
+        event_id: p.eventId || null,
         subdivision: p.subdivision || null,
         name: p.name || null,
         address: p.address || null,
@@ -328,6 +332,42 @@ module.exports = function(deps = {}) {
       res.json({ success: true, data: booking });
     } catch (err) {
       console.error('PUT /api/hall-bookings/:id error:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Get single hall booking (camelCase response for frontend)
+  router.get('/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const row = await db('marriage_hall_bookings')
+        .where({ id: Number(id) })
+        .andWhere('temple_id', req.user.templeId)
+        .first();
+      if (!row) return res.status(404).json({ error: 'Hall booking not found' });
+
+      const data = {
+        id: row.id,
+        registerNo: row.register_no,
+        date: row.date,
+        time: row.time,
+        event: row.event,
+        hallId: row.hall_id || null,
+        eventId: row.event_id || null,
+        name: row.name,
+        address: row.address,
+        village: row.village,
+        mobile: row.mobile,
+        advanceAmount: row.advance_amount,
+        totalAmount: row.total_amount,
+        balanceAmount: row.balance_amount,
+        remarks: row.remarks,
+        transferTo: row.transfer_to_account,
+        bookingStatus: row.status,
+      };
+      res.json({ success: true, data });
+    } catch (err) {
+      console.error('GET /api/hall-bookings/:id error:', err);
       res.status(500).json({ error: 'Internal server error' });
     }
   });

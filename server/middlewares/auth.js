@@ -6,6 +6,8 @@ function authenticateToken(req, res, next) {
   const url = req.originalUrl || req.url || '';
   const method = req.method;
   const isPublic = (
+    // Allow login endpoint
+    (method === 'POST' && /\/api\/login$/.test(url)) ||
     // Mobile events list should be public
     (method === 'GET' && /\/api\/events\/mobile\/events(\?.*)?$/.test(url))
   );

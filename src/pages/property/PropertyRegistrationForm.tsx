@@ -76,38 +76,38 @@ export default function PropertyRegistrationForm() {
   };
 
   return (
-    <Card className="w-full max-w-4xl mx-auto">
-      <CardHeader>
-        <CardTitle>Property Registration</CardTitle>
+    <Card className="w-full max-w-4xl mx-auto text-sm">
+      <CardHeader className="py-2">
+        <CardTitle className="text-lg">Property Registration</CardTitle>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium">Property Details</h3>
+      <CardContent className="p-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <h3 className="text-base font-medium">Property Details</h3>
               
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <Label htmlFor="name">Name</Label>
-                <Input id="name" {...register('name')} required />
+                <Input id="name" className="h-8 px-2 text-sm" {...register('name')} required />
               </div>
               
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <Label htmlFor="details">Details</Label>
-                <Input id="details" {...register('details')} required />
+                <Input id="details" className="h-8 px-2 text-sm" {...register('details')} required />
               </div>
               
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <Label htmlFor="value">Value</Label>
-                <Input id="value" type="number" {...register('value')} required />
+                <Input id="value" type="number" className="h-8 px-2 text-sm" {...register('value')} required />
               </div>
             </div>
           </div>
           
-          <div className="flex justify-end space-x-4 pt-6">
-            <Button type="button" variant="outline">
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button type="button" variant="outline" className="h-8 px-3 text-sm">
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" className="h-8 px-4 text-sm" disabled={isSubmitting}>
               {isSubmitting ? 'Saving...' : 'Register Property'}
             </Button>
           </div>

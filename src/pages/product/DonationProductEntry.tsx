@@ -26,16 +26,23 @@ export default function DonationProductEntry() {
   const { language } = useLanguage();
   const [form, setForm] = useState<DonationFormData>(initialState);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string|undefined>();
+  const [message, setMessage] = useState<string | undefined>();
   const [products, setProducts] = useState<DonationProduct[]>([]);
   const [accounts, setAccounts] = useState<Array<{ id?: number; value: string; label: string }>>([]);
   const [nextRegisterNo, setNextRegisterNo] = useState<string>('');
 
-  const t = (en: string, ta: string) => language === 'english' ? ta : en;
+  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const generateNextRegisterNo = () => {
+    const currentYear = new Date().getFullYear();
+    const startOfYear = new Date(currentYear, 0, 1);
+    const daysSince = Math.floor((Date.now() - startOfYear.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    return `${currentYear}-${String(daysSince).padStart(4, '0')}`;
   };
 
   useEffect(() => {
@@ -44,30 +51,25 @@ export default function DonationProductEntry() {
         const resp = await axios.get<{ data: DonationProduct[] }>('/api/donation-products', {
           headers: { Authorization: `Bearer ${getAuthToken()}` }
         });
-        const data = Array.isArray(resp.data) ? (resp.data as unknown as DonationProduct[]) : resp.data.data || [];
+        const data = Array.isArray(resp.data) ? resp.data : resp.data.data || [];
         setProducts(data);
-      } catch (e) {
-        console.error('Failed to load products', e);
-        setProducts([]);
-      }
+      } catch { setProducts([]); }
     };
     const loadAccounts = async () => {
       try {
         const resp = await axios.get<any>('/api/ledger/accounts', {
           headers: { Authorization: `Bearer ${getAuthToken()}` }
         });
-        const data = (resp?.data && Array.isArray(resp.data.data)) ? resp.data.data : (Array.isArray(resp?.data) ? resp.data : []);
-        const mapped = (data || []).map((item: any, index: number) => {
-          if (typeof item === 'string') return { id: index + 1, value: item, label: item };
-          return { id: item.id ?? index + 1, value: item.value || item.label, label: item.label || item.value };
-        });
-        setAccounts(mapped);
-      } catch (e) {
-        console.error('Failed to load accounts', e);
-        setAccounts([]);
-      }
+        const data =
+          (resp?.data && Array.isArray(resp.data.data)) ? resp.data.data :
+          (Array.isArray(resp?.data) ? resp.data : []);
+        setAccounts((data || []).map((item: any, i: number) => {
+          if (typeof item === 'string') return { id: i+1, value: item, label: item };
+          return { id: item.id ?? i+1, value: item.value || item.label, label: item.label || item.value };
+        }));
+      } catch { setAccounts([]); }
     };
-    const loadNextRegisterNo = async () => {
+    const loadRegisterNo = async () => {
       try {
         const resp = await axios.get<any>('/api/donations/next-register-no', {
           headers: { Authorization: `Bearer ${getAuthToken()}` }
@@ -75,154 +77,81 @@ export default function DonationProductEntry() {
         const nextNo = resp.data?.nextRegisterNo || generateNextRegisterNo();
         setNextRegisterNo(nextNo);
         setForm(prev => ({ ...prev, registerNo: nextNo }));
-      } catch (e) {
-        console.error('Failed to load next register number', e);
+      } catch {
         const nextNo = generateNextRegisterNo();
         setNextRegisterNo(nextNo);
         setForm(prev => ({ ...prev, registerNo: nextNo }));
       }
     };
-    
-    loadProducts();
-    loadAccounts();
-    loadNextRegisterNo();
+    loadProducts(); loadAccounts(); loadRegisterNo();
   }, []);
-
-  const generateNextRegisterNo = () => {
-    const currentYear = new Date().getFullYear();
-    const currentDate = new Date();
-    const startOfYear = new Date(currentYear, 0, 1);
-    const daysSinceStartOfYear = Math.floor((currentDate.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    return `${currentYear}-${String(daysSinceStartOfYear).padStart(4, '0')}`;
-  };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
-    setMessage(undefined);
-    
+    setSaving(true); setMessage(undefined);
     try {
       await donationService.createDonation(token, form);
-      // Generate next register number after successful save
       const nextNo = generateNextRegisterNo();
       setNextRegisterNo(nextNo);
-      setForm(prev => ({ ...prev, ...initialState, registerNo: nextNo }));
-      setMessage(t('Saved successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது'));
-    } catch (err) {
-      console.error('Save failed:', err);
-      setMessage(t('Save failed', 'சேமிப்பில் தோல்வி'));
+      setForm({ ...initialState, registerNo: nextNo });
+      setMessage(t('Saved successfully','வெற்றிகரமாக சேமிக்கப்பட்டது'));
+    } catch {
+      setMessage(t('Save failed','சேமிப்பில் தோல்வி'));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="max-w-xl mx-auto bg-white p-4 rounded shadow">
-      <h1 className="text-xl font-semibold mb-4 text-center">
-        {t('Donation Entry', 'பொருள் நன்கொடைக் பதிவு')}
+    <div className="max-w-xl mx-auto bg-white p-3 rounded shadow text-xs">
+      <h1 className="text-sm font-semibold mb-2 text-center">
+        {t('Donation Entry','பொருள் நன்கொடைக் பதிவு')}
       </h1>
-      <div className="flex justify-end items-center mb-3 gap-2">
+      <div className="flex justify-end mb-2">
         <DonationProductManager products={products} setProducts={setProducts} />
       </div>
-      {message && (
-        <div className="mb-3 text-sm text-blue-700">{message}</div>
-      )}
-      <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm mb-1">{t('Register No', 'பதிவு எண்')}</label>
-          <input 
-            className="w-full border p-2 rounded bg-gray-50" 
-            name="registerNo" 
-            value={form.registerNo} 
-            onChange={onChange}
-            placeholder={t('Auto-generated', 'தானாக உருவாக்கப்பட்டது')}
-          />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">{t('Date', 'தேதி')}</label>
-          <input type="date" className="w-full border p-2 rounded" name="date" value={form.date} onChange={onChange} />
-        </div>
-        <div className="md:col-span-2">
-          <label className="block text-sm mb-1">{t('Name', 'பெயர்')}</label>
-          <input className="w-full border p-2 rounded" name="name" value={form.name} onChange={onChange} />
-        </div>
-        <div className="md:col-span-2">
-          <label className="block text-sm mb-1">{t('Father Name', 'தந்தை பெயர்')}</label>
-          <input className="w-full border p-2 rounded" name="fatherName" value={form.fatherName} onChange={onChange} />
-        </div>
-        <div className="md:col-span-2">
-          <label className="block text-sm mb-1">{t('Address', 'முகவரி')}</label>
-          <textarea className="w-full border p-2 rounded" name="address" value={form.address} onChange={onChange} rows={2} />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">{t('Village', 'ஊர்')}</label>
-          <input className="w-full border p-2 rounded" name="village" value={form.village} onChange={onChange} />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">{t('Phone', 'கைபேசி எண்')}</label>
-          <input className="w-full border p-2 rounded" name="phone" value={form.phone} onChange={onChange} />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">{t('Amount', 'வருமானம்')}</label>
-          <input className="w-full border p-2 rounded" name="amount" value={form.amount} onChange={onChange} />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">{t('Transfer To Account', 'எந்த கணக்கிற்கு மாற்றுவது')}</label>
-          <select
-            className="w-full border p-2 rounded"
-            name="transferTo"
-            value={form.transferTo || ''}
-            onChange={(e) => setForm(prev => ({ ...prev, transferTo: e.target.value }))}
-          >
-            <option value="">{t('Select account', 'கணக்கைத் தேர்ந்தெடுக்கவும்')}</option>
-            {accounts.map(acc => (
-              <option key={acc.id ?? acc.value} value={acc.value}>{acc.label}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm mb-1">{t('Product', 'பொருள்')}</label>
-          <div className="flex gap-2">
-            <select
-              className="w-full border p-2 rounded"
-              name="product"
-              value={form.product}
-              onChange={(e) => {
-                const val = e.target.value;
-                const sel = products.find(p => p.value === val || p.label === val);
-                setForm(prev => ({ ...prev, product: val, unit: sel?.unit || '' }));
-              }}
-            >
-              <option value="">{t('Select product', 'பொருளைத் தேர்ந்தெடுக்கவும்')}</option>
-              {products.map(p => (
-                <option key={p.id} value={p.value || p.label}>{p.label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div>
-          <label className="block text-sm mb-1">{t('Unit', 'அளவு')}</label>
-          <input
-            className="w-full border p-2 rounded"
-            name="unit"
-            value={form.unit}
-            onChange={onChange}
-            placeholder={t('e.g., kg, pcs', 'உதா., kg, pcs')}
-          />
-        </div>
-        <div className="md:col-span-2">
-          <label className="block text-sm mb-1">{t('Reason', 'காரணம்')}</label>
-          <textarea className="w-full border p-2 rounded" name="reason" value={form.reason} onChange={onChange} rows={2} />
-        </div>
-        <div className="md:col-span-2 flex gap-2 justify-center">
-          <button disabled={saving} className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700" type="submit">
-            {saving ? t('Saving...', 'சேமிக்கிறது...') : t('Save', 'பதிவு')}
+      {message && <div className="mb-2 text-blue-600 text-xs">{message}</div>}
+
+      <form onSubmit={onSubmit} className="grid grid-cols-2 gap-2">
+        <input name="registerNo" value={form.registerNo} readOnly className="col-span-1 border px-2 py-1 rounded bg-gray-100" placeholder={t('Register No','பதிவு எண்')} />
+        <input type="date" name="date" value={form.date} onChange={onChange} className="border px-2 py-1 rounded" />
+        
+        <input name="name" value={form.name} onChange={onChange} placeholder={t('Name','பெயர்')} className="col-span-2 border px-2 py-1 rounded" />
+        <input name="fatherName" value={form.fatherName} onChange={onChange} placeholder={t('Father Name','தந்தை பெயர்')} className="col-span-2 border px-2 py-1 rounded" />
+        <textarea name="address" value={form.address} onChange={onChange} rows={2} placeholder={t('Address','முகவரி')} className="col-span-2 border px-2 py-1 rounded" />
+        
+        <input name="village" value={form.village} onChange={onChange} placeholder={t('Village','ஊர்')} className="border px-2 py-1 rounded" />
+        <input name="phone" value={form.phone} onChange={onChange} placeholder={t('Phone','கைபேசி')} className="border px-2 py-1 rounded" />
+        
+        <input name="amount" value={form.amount} onChange={onChange} placeholder={t('Amount','தொகை')} className="border px-2 py-1 rounded" />
+        <select name="transferTo" value={form.transferTo} onChange={e=>setForm(prev=>({...prev,transferTo:e.target.value}))} className="border px-2 py-1 rounded">
+          <option value="">{t('Select Account','கணக்கு')}</option>
+          {accounts.map(acc=>(
+            <option key={acc.id} value={acc.value}>{acc.label}</option>
+          ))}
+        </select>
+
+        <select name="product" value={form.product} onChange={e=> {
+          const val=e.target.value;
+          const sel=products.find(p=>p.value===val||p.label===val);
+          setForm(prev=>({...prev, product:val, unit:sel?.unit||''}));
+        }} className="border px-2 py-1 rounded">
+          <option value="">{t('Select Product','பொருள் தேர்வு')}</option>
+          {products.map(p=><option key={p.id} value={p.value||p.label}>{p.label}</option>)}
+        </select>
+        <input name="unit" value={form.unit} onChange={onChange} placeholder={t('Unit','அளவு')} className="border px-2 py-1 rounded" />
+
+        <textarea name="reason" value={form.reason} onChange={onChange} rows={2} placeholder={t('Reason','காரணம்')} className="col-span-2 border px-2 py-1 rounded" />
+
+        <div className="col-span-2 flex gap-2 justify-center mt-1">
+          <button disabled={saving} type="submit" className="bg-orange-600 text-white px-3 py-1 rounded">
+            {saving ? t('Saving...','சேமிக்கிறது...'):t('Save','சேமி')}
           </button>
-          <button type="button" className="border px-4 py-2 rounded" onClick={() => {
-            const nextNo = generateNextRegisterNo();
+          <button type="button" className="border px-3 py-1 rounded" onClick={()=>{
+            const nextNo=generateNextRegisterNo();
             setForm({ ...initialState, registerNo: nextNo });
           }}>
-            {t('Clear', 'வெளியே')}
+            {t('Clear','அழி')}
           </button>
         </div>
       </form>

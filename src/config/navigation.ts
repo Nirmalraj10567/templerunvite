@@ -91,7 +91,6 @@ export const sidebarItems: NavItem[] = [
       { to: '/dashboard/donation-product/list', label: 'Product Donations - List', permissionId: 'view_donations' },
       { to: '/dashboard/donations/money-entry', label: 'Money Donation Entry', permissionId: 'edit_donations' },
       { to: '/dashboard/donations/money-list', label: 'Money Donation List', permissionId: 'view_donations' },
-      { to: '/dashboard/donations/approval', label: 'Donations Approval', permissionId: 'donation_approval', accessLevel: 'view' },
     ],
   },
   {

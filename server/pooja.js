@@ -54,7 +54,7 @@ module.exports = function(deps = {}) {
         .leftJoin('users', 'pooja.submitted_by', 'users.id')
         .select(
           'pooja.*',
-          'users.name as submitted_by_name',
+          db.raw("COALESCE(users.full_name, users.username, users.mobile) as submitted_by_name"),
           'users.mobile as submitted_by_mobile'
         )
         .orderBy('pooja.id', 'desc');

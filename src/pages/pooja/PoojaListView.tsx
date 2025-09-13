@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { useLanguage } from "@/contexts/LanguageContext";
+import { useLanguage } from "@/lib/language";
 import { poojaService, Pooja, PoojaFormData } from "@/services/poojaService";
 
 export default function PoojaListView() {
@@ -35,7 +35,129 @@ export default function PoojaListView() {
   const { user, token } = useAuth();
   const { language } = useLanguage();
 
-  const t = (en: string, ta: string) => language === 'tamil' ? ta : en;
+  // Translation object
+  const t = {
+    english: {
+      poojaList: 'பூஜை பட்டியல்',
+      entries: 'பதிவுகள்',
+      showing: 'காட்டப்படுகிறது',
+      of: 'இல்',
+      items: 'உருப்படிகள்',
+      total: 'மொத்தம்',
+      page: 'பக்கம்',
+      receiptNo: 'ரசீது எண்',
+      name: 'பெயர்',
+      mobile: 'மொபைல்',
+      dateRange: 'தேதி வரம்பு',
+      time: 'நேரம்',
+      actions: 'செயல்கள்',
+      loading: 'ஏற்றுகிறது…',
+      searchPlaceholder: 'பூஜைகளைத் தேடு...',
+      clear: 'அழி',
+      export: 'ஏற்றுமதி',
+      view: 'காண்க',
+      edit: 'திருத்து',
+      delete: 'நீக்கு',
+      confirmDelete: 'இந்த பூஜையை நிச்சயமாக நீக்க விரும்புகிறீர்களா?',
+      cancel: 'ரத்து செய்',
+      confirm: 'உறுதி செய்',
+      close: 'மூடு',
+      saveChanges: 'மாற்றங்களை சேமி',
+      success: 'வெற்றி',
+      receipt: 'ரசீது',
+      poojaName: 'பூஜை பெயர்',
+      poojaDate: 'பூஜை தேதி',
+      poojaTime: 'பூஜை நேரம்',
+      devoteeName: 'பக்தர் பெயர்',
+      devoteeMobile: 'பக்தர் மொபைல்',
+      address: 'முகவரி',
+      amount: 'தொகை',
+      notes: 'குறிப்புகள்',
+      remarks: 'கருத்துகள்',
+      fromDate: 'தொடக்க தேதி',
+      toDate: 'முடிவு தேதி',
+      status: 'நிலை',
+      columns: 'நெடுவரிசைகள்',
+      visible: 'புலப்படும்',
+      selectAll: 'அனைத்தையும் தேர்ந்தெடு',
+      clearAll: 'அனைத்தையும் அழி',
+      first: 'முதல்',
+      previous: 'முந்தைய',
+      next: 'அடுத்து',
+      last: 'கடைசி',
+      rowsPerPage: 'ஒரு பக்கத்திற்கு',
+      noPoojaEntriesFound: 'பூஜை பதிவுகள் எதுவும் கிடைக்கவில்லை',
+      error: 'பிழை',
+      failedToFetchData: 'தரவைப் பெற முடியவில்லை',
+      failedToUpdatePooja: 'பூஜையை புதுப்பிக்க முடியவில்லை',
+      failedToDeletePooja: 'பூஜையை நீக்க முடியவில்லை',
+      poojaUpdatedSuccessfully: 'பூஜை வெற்றிகரமாக புதுப்பிக்கப்பட்டது',
+      poojaDeletedSuccessfully: 'பூஜை வெற்றிகரமாக நீக்கப்பட்டது',
+    },
+    tamil: {
+      poojaList: 'Pooja List',
+      entries: 'entries',
+      showing: 'Showing',
+      of: 'of',
+      items: 'items',
+      total: 'Total',
+      page: 'Page',
+      receiptNo: 'Receipt No',
+      name: 'Name',
+      mobile: 'Mobile',
+      dateRange: 'Date Range',
+      time: 'Time',
+      actions: 'Actions',
+      loading: 'Loading…',
+      searchPlaceholder: 'Search poojas...',
+      clear: 'Clear',
+      export: 'Export',
+      view: 'View',
+      edit: 'Edit',
+      delete: 'Delete',
+      confirmDelete: 'Are you sure you want to delete this pooja?',
+      cancel: 'Cancel',
+      confirm: 'Confirm',
+      close: 'Close',
+      saveChanges: 'Save Changes',
+      success: 'Success',
+      receipt: 'Receipt',
+      poojaName: 'Pooja Name',
+      poojaDate: 'Pooja Date',
+      poojaTime: 'Pooja Time',
+      devoteeName: 'Devotee Name',
+      devoteeMobile: 'Devotee Mobile',
+      address: 'Address',
+      amount: 'Amount',
+      notes: 'Notes',
+      remarks: 'Remarks',
+      fromDate: 'From Date',
+      toDate: 'To Date',
+      status: 'Status',
+      columns: 'Columns',
+      visible: 'Visible',
+      selectAll: 'Select all',
+      clearAll: 'Clear all',
+      first: 'First',
+      previous: 'Previous',
+      next: 'Next',
+      last: 'Last',
+      rowsPerPage: 'Rows per page',
+      noPoojaEntriesFound: 'No pooja entries found',
+      error: 'Error',
+      failedToFetchData: 'Failed to fetch data',
+      failedToUpdatePooja: 'Failed to update pooja',
+      failedToDeletePooja: 'Failed to delete pooja',
+      poojaUpdatedSuccessfully: 'Pooja updated successfully',
+      poojaDeletedSuccessfully: 'Pooja deleted successfully',
+    }
+  };
+
+  // Helper function to get translation
+  const translate = (key: string) => {
+    const lang = language === 'tamil' || language === 'english' ? language : 'tamil';
+    return (t as any)[lang]?.[key] ?? key;
+  };
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<Pooja[]>([]);
@@ -60,12 +182,12 @@ export default function PoojaListView() {
   type ColKey = 'receipt' | 'name' | 'mobile' | 'dateRange' | 'time' | 'actions';
 
   const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' | 'center' }> = [
-    { key: 'receipt', label: t('Receipt No', 'ரசீது எண்') },
-    { key: 'name', label: t('Name', 'பெயர்') },
-    { key: 'mobile', label: t('Mobile', 'மொபைல்') },
-    { key: 'dateRange', label: t('Date Range', 'தேதி வரம்பு') },
-    { key: 'time', label: t('Time', 'நேரம்') },
-    { key: 'actions', label: t('Actions', 'செயல்கள்'), align: 'center' },
+    { key: 'receipt', label: translate('receiptNo') },
+    { key: 'name', label: translate('name') },
+    { key: 'mobile', label: translate('mobile') },
+    { key: 'dateRange', label: translate('dateRange') },
+    { key: 'time', label: translate('time') },
+    { key: 'actions', label: translate('actions'), align: 'center' },
   ];
 
   const STORAGE_KEY = 'pooja_list_visible_columns_v1';
@@ -165,8 +287,8 @@ export default function PoojaListView() {
     } catch (error) {
       console.error("Error fetching pooja data:", error);
       toast({
-        title: t("Error", "பிழை"),
-        description: t("Failed to fetch pooja data", "பூஜை தரவைப் பெற முடியவில்லை"),
+        title: translate("error"),
+        description: translate("failedToFetchData"),
         variant: "destructive",
       });
       setData([]);
@@ -258,8 +380,8 @@ export default function PoojaListView() {
       );
 
       toast({
-        title: t("Success", "வெற்றி"),
-        description: t("Pooja updated successfully", "பூஜை வெற்றிகரமாக புதுப்பிக்கப்பட்டது"),
+        title: translate("success"),
+        description: translate("poojaUpdatedSuccessfully"),
       });
 
       setIsViewEditOpen(false);
@@ -268,8 +390,8 @@ export default function PoojaListView() {
     } catch (error) {
       console.error("Error updating pooja:", error);
       toast({
-        title: t("Error", "பிழை"),
-        description: t("Failed to update pooja", "பூஜையை புதுப்பிக்க முடியவில்லை"),
+        title: translate("error"),
+        description: translate("failedToUpdatePooja"),
         variant: "destructive",
       });
     }
@@ -287,14 +409,14 @@ export default function PoojaListView() {
       await poojaService.deletePooja(deleteId);
       setData((prev) => prev.filter((item) => item.id !== deleteId));
       toast({
-        title: t("Success", "வெற்றி"),
-        description: t("Pooja deleted successfully", "பூஜை வெற்றிகரமாக நீக்கப்பட்டது"),
+        title: translate("success"),
+        description: translate("poojaDeletedSuccessfully"),
       });
     } catch (error) {
       console.error("Error deleting pooja:", error);
       toast({
-        title: t("Error", "பிழை"),
-        description: t("Failed to delete pooja", "பூஜையை நீக்க முடியவில்லை"),
+        title: translate("error"),
+        description: translate("failedToDeletePooja"),
         variant: "destructive",
       });
     } finally {
@@ -326,9 +448,9 @@ export default function PoojaListView() {
     <div className="p-2 bg-gray-50">
       {/* Compact Header */}
       <div className="flex justify-between items-center mb-2">
-        <h1 className="text-base font-bold text-gray-800">{t("Pooja List", "பூஜை பட்டியல்")}</h1>
+        <h1 className="text-base font-bold text-gray-800">{translate("poojaList")}</h1>
         <div className="text-xs text-gray-500">
-          {filteredData.length} {t("entries", "பதிவுகள்")}
+          {filteredData.length} {translate("entries")}
         </div>
       </div>
 
@@ -341,7 +463,7 @@ export default function PoojaListView() {
               <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400" />
               <Input
                 type="search"
-                placeholder={t("Search receipt, name, mobile...", "ரசீது, பெயர், மொபைல் தேடு...")}
+                placeholder={translate("searchPlaceholder")}
                 className="pl-7 text-xs h-7"
                 value={quickSearch}
                 onChange={(e) => setQuickSearch(e.target.value)}
@@ -357,12 +479,12 @@ export default function PoojaListView() {
               className="text-xs h-7 px-2"
             >
               <X className="h-3 w-3 mr-1" />
-              {t("Clear", "அழி")}
+              {translate("clear")}
             </Button>
 
             <Button variant="outline" size="sm" onClick={handleExportPdf} className="text-xs h-7 px-2">
               <FileDown className="h-3 w-3 mr-1" />
-              {t("Export", "ஏற்றுமதி")}
+              {translate("export")}
             </Button>
           </div>
         </CardContent>
@@ -401,7 +523,7 @@ export default function PoojaListView() {
                 <tr>
                   <td colSpan={visibleColCount} className="px-2 py-4 text-center text-xs text-gray-500">
                     <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
-                    {t("Loading...", "ஏற்றுகிறது...")}
+                    {translate("loading")}
                   </td>
                 </tr>
               ) : filteredData.length > 0 ? (
@@ -484,7 +606,7 @@ export default function PoojaListView() {
               ) : (
                 <tr>
                   <td colSpan={visibleColCount} className="px-2 py-8 text-center text-xs text-gray-500">
-                    {t("No pooja entries found", "பூஜை பதிவுகள் எதுவும் கிடைக்கவில்லை")}
+                    {translate("noPoojaEntriesFound")}
                   </td>
                 </tr>
               )}
@@ -495,15 +617,15 @@ export default function PoojaListView() {
         {/* Footer */}
         <div className="px-2 py-1 flex items-center justify-between border-t border-gray-200 text-xs">
           <div className="text-gray-700">
-            {t("Showing", "காட்டப்படுகிறது")} <span className="font-medium">
+            {translate("showing")} <span className="font-medium">
               {pagination.pageIndex * pagination.pageSize + 1}-{
                 Math.min((pagination.pageIndex + 1) * pagination.pageSize, pagination.total)
               }
-            </span> {t("of", "இல்")}{" "}
-            <span className="font-medium">{pagination.total}</span> {t("items", "உருப்படிகள்")}
+            </span> {translate("of")}{" "}
+            <span className="font-medium">{pagination.total}</span> {translate("items")}
           </div>
           <div className="text-gray-700">
-            {t("Total", "மொத்தம்")}: <span className="font-medium">{pagination.total}</span>
+            {translate("total")}: <span className="font-medium">{pagination.total}</span>
           </div>
         </div>
       </div>
@@ -512,7 +634,7 @@ export default function PoojaListView() {
       {pagination.totalPages > 1 && (
         <div className="flex items-center justify-between mt-2 text-xs">
           <div className="text-gray-500 text-xs">
-            {t("Showing", "காட்டப்படுகிறது")} {pagination.pageSize} {t("per page", "ஒரு பக்கத்திற்கு")}
+            {translate("showing")} {pagination.pageSize} {translate("rowsPerPage")}
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -522,7 +644,7 @@ export default function PoojaListView() {
               disabled={pagination.pageIndex === 0}
               className="text-xs py-1 px-2 h-7"
             >
-              {t("First", "முதல்")}
+              {translate("first")}
             </Button>
             <Button
               variant="outline"
@@ -531,10 +653,10 @@ export default function PoojaListView() {
               disabled={pagination.pageIndex === 0}
               className="text-xs py-1 px-2 h-7"
             >
-              {t("Previous", "முந்தைய")}
+              {translate("previous")}
             </Button>
             <span className="text-xs">
-              {t("Page", "பக்கம்")} {pagination.pageIndex + 1} {t("of", "இல்")} {pagination.totalPages}
+              {translate("page")} {pagination.pageIndex + 1} {translate("of")} {pagination.totalPages}
             </span>
             <Button
               variant="outline"
@@ -543,7 +665,7 @@ export default function PoojaListView() {
               disabled={pagination.pageIndex >= pagination.totalPages - 1}
               className="text-xs py-1 px-2 h-7"
             >
-              {t("Next", "அடுத்து")}
+              {translate("next")}
             </Button>
             <Button
               variant="outline"
@@ -552,11 +674,11 @@ export default function PoojaListView() {
               disabled={pagination.pageIndex >= pagination.totalPages - 1}
               className="text-xs py-1 px-2 h-7"
             >
-              {t("Last", "கடைசி")}
+              {translate("last")}
             </Button>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">{t("Rows per page", "ஒரு பக்கத்திற்கு")}:</span>
+            <span className="text-xs text-gray-500">{translate("rowsPerPage")}: </span>
             <Select
               value={pagination.pageSize.toString()}
               onValueChange={(value) => {
@@ -590,9 +712,9 @@ export default function PoojaListView() {
           style={{ left: menuPos.x, top: menuPos.y }}
         >
           <div className="px-3 py-2 border-b border-gray-200">
-            <h3 className="text-xs font-medium text-gray-900">{t('Columns', 'நெடுவரிசைகள்')}</h3>
+            <h3 className="text-xs font-medium text-gray-900">{translate('columns')}</h3>
             <p className="text-xs text-gray-500">
-              {t('Visible', 'காட்டப்படும்')} {Object.values(visibleCols).filter(Boolean).length}/{allColumns.length}
+              {translate('visible')} {Object.values(visibleCols).filter(Boolean).length}/{allColumns.length}
             </p>
           </div>
           <div className="max-h-48 overflow-y-auto p-1">
@@ -622,7 +744,7 @@ export default function PoojaListView() {
                 setVisibleCols(Object.fromEntries(allColumns.map((c) => [c.key, true])) as any)
               }
             >
-              {t('Select all', 'அனைத்தையும் தேர்ந்தெடு')}
+              {translate('selectAll')}
             </Button>
             <Button
               variant="outline"
@@ -632,7 +754,7 @@ export default function PoojaListView() {
                 setVisibleCols(Object.fromEntries(allColumns.map((c) => [c.key, false])) as any)
               }
             >
-              {t('Clear all', 'அனைத்தையும் அழி')}
+              {translate('clearAll')}
             </Button>
             <Button
               variant="ghost"
@@ -640,7 +762,7 @@ export default function PoojaListView() {
               className="text-xs py-0.5 px-1.5 h-auto ml-auto"
               onClick={() => setMenuOpen(false)}
             >
-              {t('Close', 'மூடு')}
+              {translate('close')}
             </Button>
           </div>
         </div>
@@ -651,12 +773,12 @@ export default function PoojaListView() {
         <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base">
-              {editMode ? t("Edit Pooja", "பூஜையை திருத்து") : t("View Pooja", "பூஜையை பார்க்க")}
+              {editMode ? translate("edit") : translate("view")}
             </DialogTitle>
           </DialogHeader>
           <div className="grid gap-3 py-2">
             <div className="grid grid-cols-3 items-center gap-2">
-              <Label className="text-xs">{t("Receipt No", "ரசீது எண்")}</Label>
+              <Label className="text-xs">{translate("receiptNo")}</Label>
               <Input
                 value={editedPooja.receiptNumber || ""}
                 onChange={(e) => setEditedPooja({ ...editedPooja, receiptNumber: e.target.value })}
@@ -665,7 +787,7 @@ export default function PoojaListView() {
               />
             </div>
             <div className="grid grid-cols-3 items-center gap-2">
-              <Label className="text-xs">{t("Name", "பெயர்")}</Label>
+              <Label className="text-xs">{translate("name")}</Label>
               <Input
                 value={editedPooja.name || ""}
                 onChange={(e) => setEditedPooja({ ...editedPooja, name: e.target.value })}
@@ -674,7 +796,7 @@ export default function PoojaListView() {
               />
             </div>
             <div className="grid grid-cols-3 items-center gap-2">
-              <Label className="text-xs">{t("Mobile", "மொபைல்")}</Label>
+              <Label className="text-xs">{translate("mobile")}</Label>
               <Input
                 value={editedPooja.mobileNumber || ""}
                 onChange={(e) => setEditedPooja({ ...editedPooja, mobileNumber: e.target.value })}
@@ -683,7 +805,7 @@ export default function PoojaListView() {
               />
             </div>
             <div className="grid grid-cols-3 items-center gap-2">
-              <Label className="text-xs">{t("Time", "நேரம்")}</Label>
+              <Label className="text-xs">{translate("time")}</Label>
               <Input
                 type="time"
                 value={editedPooja.time || ""}
@@ -693,7 +815,7 @@ export default function PoojaListView() {
               />
             </div>
             <div className="grid grid-cols-3 items-center gap-2">
-              <Label className="text-xs">{t("From Date", "தொடக்க தேதி")}</Label>
+              <Label className="text-xs">{translate("fromDate")}</Label>
               <Input
                 type="date"
                 value={editedPooja.fromDate || ""}
@@ -703,7 +825,7 @@ export default function PoojaListView() {
               />
             </div>
             <div className="grid grid-cols-3 items-center gap-2">
-              <Label className="text-xs">{t("To Date", "முடிவு தேதி")}</Label>
+              <Label className="text-xs">{translate("toDate")}</Label>
               <Input
                 type="date"
                 value={editedPooja.toDate || ""}
@@ -713,7 +835,7 @@ export default function PoojaListView() {
               />
             </div>
             <div className="grid grid-cols-3 items-center gap-2">
-              <Label className="text-xs">{t("Amount", "தொகை")}</Label>
+              <Label className="text-xs">{translate("amount")}</Label>
               <Input
                 type="number"
                 value={editedPooja.amount || ''}
@@ -723,7 +845,7 @@ export default function PoojaListView() {
               />
             </div>
             <div className="grid grid-cols-3 items-start gap-2">
-              <Label className="text-xs">{t("Remarks", "குறிப்புகள்")}</Label>
+              <Label className="text-xs">{translate("remarks")}</Label>
               <Textarea
                 value={editedPooja.remarks || ""}
                 onChange={(e) => setEditedPooja({ ...editedPooja, remarks: e.target.value })}
@@ -744,11 +866,11 @@ export default function PoojaListView() {
               }}
               className="text-xs"
             >
-              {t("Cancel", "ரத்து செய்")}
+              {translate("cancel")}
             </Button>
             {editMode && (
               <Button size="sm" onClick={handleSaveEdit} className="text-xs">
-                {t("Save", "சேமி")}
+                {translate("saveChanges")}
               </Button>
             )}
           </DialogFooter>
@@ -759,18 +881,18 @@ export default function PoojaListView() {
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent className="sm:max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-base">{t("Are you sure?", "நீங்கள் உறுதியாகவா?")}</AlertDialogTitle>
+            <AlertDialogTitle className="text-base">{translate("confirmDelete")}</AlertDialogTitle>
             <AlertDialogDescription className="text-sm">
-              {t("This will permanently delete the pooja entry.", "இது பூஜை பதிவை நிரந்தரமாக நீக்கும்.")}
+              {translate("confirmDelete")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="text-xs">{t("Cancel", "ரத்து செய்")}</AlertDialogCancel>
+            <AlertDialogCancel className="text-xs">{translate("cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
               className="text-xs bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {t("Delete", "நீக்கு")}
+              {translate("delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

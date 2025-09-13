@@ -50,77 +50,77 @@ export default function ReceiptListPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto bg-white p-4 rounded shadow">
-      <h1 className="text-xl font-semibold mb-4 text-center">
+    <div className="max-w-4xl mx-auto bg-white p-3 rounded-md shadow text-sm">
+      <h1 className="text-lg font-semibold mb-3 text-center">
         {t('Receipt List', 'பதிவு பார்வைக்கும்')}
       </h1>
 
-      <div className="flex flex-wrap gap-4 mb-4 items-end">
+      <div className="flex flex-wrap gap-3 mb-3 items-end">
         <div>
-          <label className="block text-sm mb-1">{t('From Date', 'தேதி இருந்து')}</label>
+          <label className="block text-xs mb-1">{t('From Date', 'தேதி இருந்து')}</label>
           <input
             type="date"
             value={from}
             onChange={e => setFrom(e.target.value)}
-            className="w-full border p-2 rounded"
+            className="w-full border h-8 px-2 rounded text-sm"
           />
         </div>
         <div>
-          <label className="block text-sm mb-1">{t('To Date', 'தேதி வரை')}</label>
+          <label className="block text-xs mb-1">{t('To Date', 'தேதி வரை')}</label>
           <input
             type="date"
             value={to}
             onChange={e => setTo(e.target.value)}
-            className="w-full border p-2 rounded"
+            className="w-full border h-8 px-2 rounded text-sm"
           />
         </div>
         <button
           onClick={load}
-          className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700"
+          className="bg-orange-600 text-white px-3 py-1.5 rounded hover:bg-orange-700 text-sm"
         >
           {t('View', 'பார்வை')}
         </button>
         <button
           onClick={onPrint}
-          className="border px-4 py-2 rounded"
+          className="border px-3 py-1.5 rounded text-sm"
         >
           {t('Print', 'அச்சிடு')}
         </button>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="min-w-full text-sm border">
+        <table className="min-w-full text-xs border">
           <thead>
             <tr className="bg-gray-100">
-              <th className="p-2 text-left">{t('Reg No', 'பதிவு எண்')}</th>
-              <th className="p-2 text-left">{t('Date', 'தேதி')}</th>
-              <th className="p-2 text-left">{t('Type', 'Type')}</th>
-              <th className="p-2 text-left">{t('Name', 'பெயர்')}</th>
-              <th className="p-2 text-left">{t('Amount', 'பரம்')}</th>
-              <th className="p-2 text-left">{t('Credit', 'கடன்')}</th>
-              <th className="p-2 text-left">{t('Remarks', 'குறிப்பு')}</th>
+              <th className="p-1.5 text-left">{t('Reg No', 'பதிவு எண்')}</th>
+              <th className="p-1.5 text-left">{t('Date', 'தேதி')}</th>
+              <th className="p-1.5 text-left">{t('Type', 'Type')}</th>
+              <th className="p-1.5 text-left">{t('Name', 'பெயர்')}</th>
+              <th className="p-1.5 text-left">{t('Amount', 'பரம்')}</th>
+              <th className="p-1.5 text-left">{t('Credit', 'கடன்')}</th>
+              <th className="p-1.5 text-left">{t('Remarks', 'குறிப்பு')}</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td className="p-2" colSpan={7}>{t('Loading...', 'ஏற்றுகிறது...')}</td>
+                <td className="p-1.5" colSpan={7}>{t('Loading...', 'ஏற்றுகிறது...')}</td>
               </tr>
             )}
             {!loading && items.length === 0 && (
               <tr>
-                <td className="p-2" colSpan={7}>{t('No data', 'தரவு இல்லை')}</td>
+                <td className="p-1.5" colSpan={7}>{t('No data', 'தரவு இல்லை')}</td>
               </tr>
             )}
             {!loading && items.map((item) => (
               <tr key={item.id} className="border-t">
-                <td className="p-2">{item.registerNo}</td>
-                <td className="p-2">{item.date}</td>
-                <td className="p-2">{item.type}</td>
-                <td className="p-2">{item.name}</td>
-                <td className="p-2">{item.amount}</td>
-                <td className="p-2">{item.credit}</td>
-                <td className="p-2">{item.remarks}</td>
+                <td className="p-1.5">{item.registerNo}</td>
+                <td className="p-1.5">{item.date}</td>
+                <td className="p-1.5">{item.type}</td>
+                <td className="p-1.5">{item.name}</td>
+                <td className="p-1.5">{item.amount}</td>
+                <td className="p-1.5">{item.credit}</td>
+                <td className="p-1.5">{item.remarks}</td>
               </tr>
             ))}
           </tbody>

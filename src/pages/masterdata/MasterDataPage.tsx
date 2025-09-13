@@ -18,7 +18,7 @@ interface MasterDataItem {
 const MasterDataPage = () => {
   const { user, token } = useAuth();
   const { language, setLanguage } = useLanguage();
-  const [activeTab, setActiveTab] = useState<'clans' | 'groups' | 'occupations' | 'educations' | 'ammavasai'>('clans');
+  const [activeTab, setActiveTab] = useState<'clans' | 'groups' | 'occupations' | 'educations' | 'halls' | 'hall-events' | 'ammavasai'>('clans');
   const [masterData, setMasterData] = useState<MasterDataItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -96,6 +96,8 @@ const MasterDataPage = () => {
     { key: 'groups', label: t?.groups || 'Groups', endpoint: 'groups' },
     { key: 'occupations', label: t?.occupations || 'Occupations', endpoint: 'occupations' },
     { key: 'educations', label: t?.educations || 'Educations', endpoint: 'educations' },
+    { key: 'halls', label: 'Halls', endpoint: 'halls' },
+    { key: 'hall-events', label: 'Hall Events', endpoint: 'hall-events' },
   ];
 
 

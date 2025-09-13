@@ -20,6 +20,8 @@ const ledgerRouter = require('./routes/ledger');
 
 // JWT Secret (in production, use environment variable)
 const JWT_SECRET = 'your-super-secret-jwt-key-change-in-production';
+// Ensure middleware that reads process.env.JWT_SECRET uses the same secret
+process.env.JWT_SECRET = process.env.JWT_SECRET || JWT_SECRET;
 
 // CORS: allow localhost and LAN IPs during development
 app.use(cors({
@@ -31,8 +33,8 @@ app.use(cors({
       'http://localhost:3000',
       'http://localhost:4002',
       'http://localhost:4000',
-      'http://localhost:8080',
-      "http://192.168.1.3:8080/",
+      'http://localhost:8081',
+      "http://192.168.1.3:8081/",
       'http://localhost:5173',
       'http://localhost:64095/',
     ];
@@ -254,6 +256,16 @@ const hallApprovalRouter = require('./hall-approval')({ db, authenticateToken, a
 // Mount routes
 app.use('/api/properties', propertiesRouter);
 app.use('/api/ledger', ledgerRouter);
+app.use('/api/hall-approval', hallApprovalRouter);
+// Mount moon API routes (moon-phases and moon-dates)
+(() => {
+  try {
+    const moonApiRouter = require('./api/moon-phases');
+    app.use('/api', moonApiRouter);
+  } catch (e) {
+    console.error('Failed to mount moon API router:', e);
+  }
+})();
 // Mount mobile auth routes (public endpoints for OTP)
 (() => {
   const mobileAuthRouter = require('./mobile-auth')({ db });
@@ -1378,6 +1390,17 @@ async function generateReceiptNumber(db, templeId) {
   return `${year}-${String(nextNumber).padStart(4, '0')}`;
 }
 
+// Next receipt number from DB (format YYYY-XXXX)
+app.get('/api/receipts/next-number', authenticateToken, authorizePermission('receipts', 'view'), async (req, res) => {
+  try {
+    const nextNumber = await generateReceiptNumber(db, req.user.templeId);
+    res.json({ success: true, data: { nextNumber } });
+  } catch (err) {
+    console.error('Error computing next receipt number:', err);
+    res.status(500).json({ error: 'Failed to compute next receipt number' });
+  }
+});
+
 // Create receipt
 app.post('/api/receipts', authenticateToken, authorizePermission('receipts', 'edit'), async (req, res) => {
   try {
@@ -2078,6 +2101,16 @@ async function migrate() {
     const createMasterEducationsTable = require('./db/migrations/createMasterEducationsTable');
     await createMasterEducationsTable(db);
 
+    // Import and run master_halls and master_hall_events table migrations
+    try {
+      const createMasterHallsTable = require('./db/migrations/createMasterHallsTable');
+      await createMasterHallsTable(db);
+    } catch (e) { console.warn('createMasterHallsTable migration failed:', e.message); }
+    try {
+      const createMasterHallEventsTable = require('./db/migrations/createMasterHallEventsTable');
+      await createMasterHallEventsTable(db);
+    } catch (e) { console.warn('createMasterHallEventsTable migration failed:', e.message); }
+
     // Create user_registrations table using the modular migration
     const createUserRegistrationsTable = require('./db/migrations/createUserRegistrationsTable');
     await createUserRegistrationsTable(db);
@@ -2307,6 +2340,14 @@ async function migrate() {
     } catch (err) {
       // Column might already exist, ignore error
     }
+
+    // Add hall_id and event_id references to master tables (nullable for backward compat)
+    try {
+      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN hall_id INTEGER');
+    } catch (err) { /* ignore if exists */ }
+    try {
+      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN event_id INTEGER');
+    } catch (err) { /* ignore if exists */ }
 
     // Create hall_approval_logs table
     if (!(await db.schema.hasTable('hall_approval_logs'))) {

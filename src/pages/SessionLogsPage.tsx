@@ -29,7 +29,106 @@ interface Pagination {
 const SessionLogsPage = () => {
   const { token } = useAuth();
   const { language } = useLanguage();
-  const t = (en: string, ta: string) => (language === 'tamil' ? ta : en);
+  
+  // Translation object
+  const translations = {
+    english: {
+      // Page title
+      sessionLogs: 'Session Logs',
+      
+      // Table headers
+      id: 'ID',
+      userId: 'User ID',
+      loginTime: 'Login Time',
+      logoutTime: 'Logout Time',
+      ipAddress: 'IP Address',
+      userAgent: 'User Agent',
+      duration: 'Duration (seconds)',
+      
+      // Status
+      stillLoggedIn: 'Still logged in',
+      
+      // Filters
+      from: 'From',
+      to: 'To',
+      searchPlaceholder: 'Search by user/IP/agent',
+      search: 'Search',
+      clear: 'Clear',
+      
+      // Buttons
+      exportCSV: 'Export CSV',
+      exportPDF: 'Export PDF',
+      
+      // Pagination
+      showing: 'Showing',
+      of: 'of',
+      results: 'results',
+      
+      // Analytics
+      totalSessions: 'Total Sessions',
+      activeSessions: 'Active Sessions',
+      avgDuration: 'Avg Duration',
+      totalDuration: 'Total Duration',
+      
+      // Context menu
+      columns: 'Columns',
+      visible: 'Visible',
+      selectAll: 'Select all',
+      clearAll: 'Clear all',
+      reset: 'Reset',
+      close: 'Close'
+    },
+    tamil: {
+      // Page title
+      sessionLogs: 'அமர்வு பதிவுகள்',
+      
+      // Table headers
+      id: 'ஐடி',
+      userId: 'பயனர் ஐடி',
+      loginTime: 'உள்நுழை நேரம்',
+      logoutTime: 'வெளியேறு நேரம்',
+      ipAddress: 'ஐ.பி. முகவரி',
+      userAgent: 'பயனர் முகவரி',
+      duration: 'கால அளவு (நொடிகள்)',
+      
+      // Status
+      stillLoggedIn: 'இன்னும் உள்நுழைந்திருக்கிறார்',
+      
+      // Filters
+      from: 'தொடக்கம்',
+      to: 'முடிவு',
+      searchPlaceholder: 'பயனர்/ஐ.பி./ஏஜெண்ட் மூலம் தேடுக',
+      search: 'தேடு',
+      clear: 'அழி',
+      
+      // Buttons
+      exportCSV: 'CSV ஏற்றுமதி',
+      exportPDF: 'PDF ஏற்றுமதி',
+      
+      // Pagination
+      showing: 'காட்டப்படுகிறது',
+      of: 'மொத்தம்',
+      results: 'முடிவுகள்',
+      
+      // Analytics
+      totalSessions: 'மொத்த அமர்வுகள்',
+      activeSessions: 'செயலில் உள்ள அமர்வுகள்',
+      avgDuration: 'சராசரி கால அளவு',
+      totalDuration: 'மொத்த கால அளவு',
+      
+      // Context menu
+      columns: 'நெடுவரிசைகள்',
+      visible: 'காட்டப்படும்',
+      selectAll: 'அனைத்தையும் தேர்ந்தெடு',
+      clearAll: 'அனைத்தையும் அழி',
+      reset: 'மீட்டமை',
+      close: 'மூடு'
+    }
+  };
+  
+  const translate = (key: keyof typeof translations.english): string => {
+    return language === 'tamil' ? translations.english[key] : translations.tamil[key];
+  };
 
   const [sessionLogs, setSessionLogs] = useState<SessionLog[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
@@ -42,6 +141,8 @@ const SessionLogsPage = () => {
   const [search, setSearch] = useState('');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+  const [showStartCalendar, setShowStartCalendar] = useState(false);
+  const [showEndCalendar, setShowEndCalendar] = useState(false);
   const [stats, setStats] = useState<{
     totalSessions?: number;
     activeSessions?: number;
@@ -65,13 +166,13 @@ const SessionLogsPage = () => {
     | 'duration_seconds';
 
   const allColumns: Array<{ key: ColKey; label: string }> = [
-    { key: 'id', label: t('ID', 'ஐடி') },
-    { key: 'user_id', label: t('User ID', 'பயனர் ஐடி') },
-    { key: 'login_time', label: t('Login Time', 'உள்நுழை நேரம்') },
-    { key: 'logout_time', label: t('Logout Time', 'வெளியேறு நேரம்') },
-    { key: 'ip_address', label: t('IP Address', 'ஐ.பி. முகவரி') },
-    { key: 'user_agent', label: t('User Agent', 'பயனர் முகவரி') },
-    { key: 'duration_seconds', label: t('Duration (s)', 'கால அளவு (நொடிகள்)') },
+    { key: 'id', label: language === 'tamil' ? 'ஐடி' : 'ID' },
+    { key: 'user_id', label: language === 'tamil' ? 'பயனர் ஐடி' : 'User ID' },
+    { key: 'login_time', label: language === 'tamil' ? 'உள்நுழை நேரம்' : 'Login Time' },
+    { key: 'logout_time', label: language === 'tamil' ? 'வெளியேறு நேரம்' : 'Logout Time' },
+    { key: 'ip_address', label: language === 'tamil' ? 'ஐ.பி. முகவரி' : 'IP Address' },
+    { key: 'user_agent', label: language === 'tamil' ? 'பயனர் முகவரி' : 'User Agent' },
+    { key: 'duration_seconds', label: language === 'tamil' ? 'கால அளவு (நொடிகள்)' : 'Duration (seconds)' },
   ];
 
   const STORAGE_KEY = 'session_logs_visible_columns_v1';
@@ -196,7 +297,7 @@ const SessionLogsPage = () => {
         log.id,
         log.user_id,
         new Date(log.login_time).toLocaleString(),
-        log.logout_time ? new Date(log.logout_time).toLocaleString() : t('Still logged in', 'இன்னும் உள்நுழைந்திருக்கிறார்'),
+        log.logout_time ? new Date(log.logout_time).toLocaleString() : translate('stillLoggedIn'),
         log.ip_address,
         log.user_agent,
         formatDuration(log.duration_seconds),
@@ -257,19 +358,19 @@ const SessionLogsPage = () => {
           if (col.key === 'login_time' || (col.key === 'logout_time' && value))
             return new Date(value as string).toLocaleString();
           if (col.key === 'logout_time' && !value)
-            return t('Still logged in', 'இன்னும் உள்நுழைந்திருக்கிறார்');
+            return translate('stillLoggedIn');
           if (col.key === 'duration_seconds')
             return formatDuration(value as number | null);
           return value?.toString() || '-';
         },
       }));
-  }, [visibleCols, t]);
+  }, [visibleCols, language]);
 
   return (
     <div className="p-6 bg-white rounded-lg shadow" onContextMenu={onContextMenu}>
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold text-gray-800">{t('Session Logs', 'அமர்வு பதிவுகள்')}</h1>
+        <h1 className="text-2xl font-bold text-gray-800">{translate('sessionLogs')}</h1>
       </div>
 
       {/* Filters */}
@@ -278,22 +379,58 @@ const SessionLogsPage = () => {
           {/* Date Range */}
           <div className="flex gap-2 w-full md:w-auto">
             <div className="relative">
-              <label className="text-xs text-gray-500 block mb-1">{t('From', 'தொடக்கம்')}</label>
-              <Calendar
-                mode="single"
-                selected={startDate ? new Date(startDate) : undefined}
-                onSelect={(date) => setStartDate(date?.toISOString().split('T')[0] || '')}
-                className="rounded-md border"
-              />
+              <label className="text-xs text-gray-500 block mb-1">{translate('from')}</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  readOnly
+                  value={startDate}
+                  onClick={() => setShowStartCalendar(!showStartCalendar)}
+                  placeholder="Select start date"
+                  className="w-full rounded-md border border-gray-300 py-2 pl-3 pr-10 text-sm"
+                />
+                {showStartCalendar && (
+                  <div className="absolute z-10 mt-1 bg-white border rounded-md shadow-lg">
+                    <Calendar
+                      mode="single"
+                      selected={startDate ? new Date(startDate) : undefined}
+                      onSelect={(date) => {
+                        setStartDate(date?.toISOString().split('T')[0] || '');
+                        setShowStartCalendar(false);
+                      }}
+                      className="border-0"
+                      initialFocus={true}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
             <div className="relative">
-              <label className="text-xs text-gray-500 block mb-1">{t('To', 'முடிவு')}</label>
-              <Calendar
-                mode="single"
-                selected={endDate ? new Date(endDate) : undefined}
-                onSelect={(date) => setEndDate(date?.toISOString().split('T')[0] || '')}
-                className="rounded-md border"
-              />
+              <label className="text-xs text-gray-500 block mb-1">{translate('to')}</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  readOnly
+                  value={endDate}
+                  onClick={() => setShowEndCalendar(!showEndCalendar)}
+                  placeholder="Select end date"
+                  className="w-full rounded-md border border-gray-300 py-2 pl-3 pr-10 text-sm"
+                />
+                {showEndCalendar && (
+                  <div className="absolute z-10 mt-1 bg-white border rounded-md shadow-lg">
+                    <Calendar
+                      mode="single"
+                      selected={endDate ? new Date(endDate) : undefined}
+                      onSelect={(date) => {
+                        setEndDate(date?.toISOString().split('T')[0] || '');
+                        setShowEndCalendar(false);
+                      }}
+                      className="border-0"
+                      initialFocus={true}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -315,7 +452,7 @@ const SessionLogsPage = () => {
             </div>
             <Input
               type="text"
-              placeholder={t('Search by user/IP/agent', 'பயனர்/ஐ.பி./ஏஜெண்ட் மூலம் தேடுக')}
+              placeholder={translate('searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={handleSearch}
@@ -326,18 +463,14 @@ const SessionLogsPage = () => {
           {/* Actions */}
           <div className="flex flex-wrap gap-2 w-full md:w-auto">
             <Button onClick={() => fetchSessionLogs(1)}>
-              {t('Search', 'தேடு')}
+              {translate('search')}
             </Button>
             <Button variant="outline" onClick={() => setSearch('')}>
-              {t('Clear', 'அழி')}
+              {translate('clear')}
             </Button>
             <Button variant="outline" onClick={handleExportCSV}>
               <FileDown className="h-4 w-4 mr-1" />
-              {t('Export CSV', 'CSV ஏற்றுமதி')}
-            </Button>
-            <Button variant="outline" onClick={handleExportPDF}>
-              <FileDown className="h-4 w-4 mr-1" />
-              {t('Export PDF', 'PDF ஏற்றுமதி')}
+              {translate('exportCSV')}
             </Button>
           </div>
         </div>
@@ -358,12 +491,12 @@ const SessionLogsPage = () => {
       {/* Summary Footer */}
       <div className="px-6 py-4 flex items-center justify-between border-t border-gray-200 mt-4">
         <div className="text-sm text-gray-700">
-          {t('Showing', 'காட்டப்படுகிறது')}{' '}
-          <span className="font-medium">{sessionLogs.length}</span> {t('of', 'மொத்தம்')}{' '}
-          <span className="font-medium">{pagination.totalItems}</span> {t('results', 'முடிவுகள்')}
+          {translate('showing')}{' '}
+          <span className="font-medium">{sessionLogs.length}</span> {translate('of')}{' '}
+          <span className="font-medium">{pagination.totalItems}</span> {translate('results')}
         </div>
         <div className="text-sm text-gray-700">
-          {t('Total sessions', 'மொத்த அமர்வுகள்')}: <span className="font-medium">{pagination.totalItems}</span>
+          {translate('totalSessions')}: <span className="font-medium">{pagination.totalItems}</span>
         </div>
       </div>
 
@@ -371,19 +504,19 @@ const SessionLogsPage = () => {
       {stats.totalSessions !== undefined && (
         <div className="bg-gray-50 rounded-lg p-4 mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white p-3 rounded shadow">
-            <h3 className="text-sm font-medium text-gray-500">{t('Total Sessions', 'மொத்த அமர்வுகள்')}</h3>
+            <h3 className="text-sm font-medium text-gray-500">{translate('totalSessions')}</h3>
             <p className="text-2xl font-bold">{stats.totalSessions}</p>
           </div>
           <div className="bg-white p-3 rounded shadow">
-            <h3 className="text-sm font-medium text-gray-500">{t('Active Sessions', 'செயலில் உள்ள அமர்வுகள்')}</h3>
+            <h3 className="text-sm font-medium text-gray-500">{translate('activeSessions')}</h3>
             <p className="text-2xl font-bold">{stats.activeSessions}</p>
           </div>
           <div className="bg-white p-3 rounded shadow">
-            <h3 className="text-sm font-medium text-gray-500">{t('Avg Duration', 'சராசரி கால அளவு')}</h3>
+            <h3 className="text-sm font-medium text-gray-500">{translate('avgDuration')}</h3>
             <p className="text-2xl font-bold">{formatDuration(stats.avgDuration || 0)}</p>
           </div>
           <div className="bg-white p-3 rounded shadow">
-            <h3 className="text-sm font-medium text-gray-500">{t('Total Duration', 'மொத்த கால அளவு')}</h3>
+            <h3 className="text-sm font-medium text-gray-500">{translate('totalDuration')}</h3>
             <p className="text-2xl font-bold">{formatDuration(stats.totalDuration || 0)}</p>
           </div>
         </div>
@@ -397,9 +530,9 @@ const SessionLogsPage = () => {
           style={{ left: menuPos.x, top: menuPos.y }}
         >
           <div className="px-4 py-3 border-b border-gray-200">
-            <h3 className="text-sm font-medium text-gray-900">{t('Columns', 'நெடுவரிசைகள்')}</h3>
+            <h3 className="text-sm font-medium text-gray-900">{translate('columns')}</h3>
             <p className="text-xs text-gray-500">
-              {t('Visible', 'காட்டப்படும்')} {Object.values(visibleCols).filter(Boolean).length}/{allColumns.length}
+              {language === 'tamil' ? 'காட்டப்படும்' : 'Visible'} {Object.values(visibleCols).filter(Boolean).length}/{allColumns.length}
             </p>
           </div>
           <div className="max-h-60 overflow-y-auto p-2">
@@ -431,7 +564,7 @@ const SessionLogsPage = () => {
                 )
               }
             >
-              {t('Select all', 'அனைத்தையும் தேர்ந்தெடு')}
+              {translate('selectAll')}
             </Button>
             <Button
               variant="outline"
@@ -443,7 +576,7 @@ const SessionLogsPage = () => {
                 )
               }
             >
-              {t('Clear all', 'அனைத்தையும் அழி')}
+              {translate('clearAll')}
             </Button>
             <Button
               variant="outline"
@@ -451,7 +584,7 @@ const SessionLogsPage = () => {
               className="text-xs"
               onClick={() => setVisibleCols({ ...defaultVisible })}
             >
-              {t('Reset', 'மீட்டமை')}
+              {translate('reset')}
             </Button>
             <Button
               variant="ghost"
@@ -459,7 +592,7 @@ const SessionLogsPage = () => {
               className="text-xs ml-auto"
               onClick={() => setMenuOpen(false)}
             >
-              {t('Close', 'மூடு')}
+              {translate('close')}
             </Button>
           </div>
         </div>

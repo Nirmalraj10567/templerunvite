@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import { ledgerService } from '@/services/ledgerService';
 import { journalService } from '@/services/journalService';
 
 // Receipt number will be generated on the server in YYYY-XXXX format
+
 
 interface ReceiptFormData {
   receiptNumber: string;
@@ -49,6 +50,24 @@ export default function ReceiptEntryPage() {
   const isDonorMissingForExpense = isExpense && (!donorValue || donorValue.trim() === '');
   const isSaveDisabledByBalance = exceedsBalance || isZeroBalance;
 
+  // Reusable helper to fetch the next receipt number from backend
+  const fetchNextReceiptNumber = useCallback(async () => {
+    try {
+      if (id) return;
+      const res = await fetch('/api/receipts/next-number', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const nextNo = data?.data?.nextNumber || data?.nextNumber || data?.number || '';
+        if (nextNo) setValue('receiptNumber', String(nextNo));
+      }
+    } catch (e) {
+      // Silently ignore; backend will still assign on save
+      console.warn('Failed to fetch next receipt number');
+    }
+  }, [id, token, setValue]);
+
   useEffect(() => {
     if (!id) {
       // Receipt number will be generated on the server
@@ -58,7 +77,8 @@ export default function ReceiptEntryPage() {
   }, [id, setValue]);
 
   useEffect(() => {
-    setValue('receiptNumber', generateReceiptNo());
+    // For new receipt, fetch next number from backend (DB-derived)
+    fetchNextReceiptNumber();
     setValue('type', 'income');
 
     if (id) {
@@ -74,11 +94,14 @@ export default function ReceiptEntryPage() {
 
           const d = result.data;
           const formData: ReceiptFormData = {
-            receiptNumber: d.receipt_number,
+            // Backend column is register_no
+            receiptNumber: d.register_no || d.receipt_number || '',
             date: d.date?.slice(0, 10) || '',
-            type: d.type === 'expense' ? 'expense' : 'income',
-            donor: d.donor || '',
-            receiver: d.receiver || '',
+            // Backend stores 'receipt' for income and 'payment' for expense
+            type: d.type === 'payment' ? 'expense' : 'income',
+            // Backend columns are from_person/to_person
+            donor: d.from_person || d.donor || '',
+            receiver: d.to_person || d.receiver || '',
             amount: String(d.amount ?? ''),
             remarks: d.remarks || '',
           };
@@ -184,7 +207,7 @@ export default function ReceiptEntryPage() {
 
       if (!id) {
         reset();
-        setValue('receiptNumber', generateReceiptNo());
+        await fetchNextReceiptNumber();
         setValue('type', 'income');
       } else {
         navigate('/dashboard/receipts');
@@ -202,7 +225,7 @@ export default function ReceiptEntryPage() {
       navigate('/dashboard/receipts');
     } else {
       reset();
-      setValue('receiptNumber', generateReceiptNo());
+      void fetchNextReceiptNumber();
       setValue('type', 'income');
     }
   };
@@ -210,33 +233,33 @@ export default function ReceiptEntryPage() {
   if (isLoading) return <div className="p-8">Loading receipt...</div>;
 
   return (
-    <div className="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow-lg">
+    <div className="max-w-3xl mx-auto bg-white p-4 rounded-md shadow text-sm">
       <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center">
+        <CardHeader className="py-2">
+          <CardTitle className="text-xl font-semibold text-center">
             {t('Receipt Entry', 'வரவு/செலவு பதிவு')}
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
+        <CardContent className="p-3">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
                 <Label htmlFor="receiptNumber">{t('Receipt Number', 'ரசீது எண்')}</Label>
                 <Input 
                   id="receiptNumber" 
                   readOnly 
-                  className="bg-gray-100" 
+                  className="bg-gray-100 h-8 px-2 text-sm" 
                   placeholder={t('Auto-generated', 'தானாக உருவாக்கப்படும்')} 
                   {...register('receiptNumber')} 
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <Label htmlFor="date">{t('Date', 'தேதி')} *</Label>
-                <Input id="date" type="date" {...register('date', { required: true })} />
+                <Input id="date" type="date" className="h-8 px-2 text-sm" {...register('date', { required: true })} />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <Label htmlFor="type">{t('Type', 'Type')} *</Label>
-                <select id="type" className="border rounded h-10 px-3" {...register('type', { required: true, onChange: (e) => {
+                <select id="type" className="border rounded h-8 px-2 text-sm" {...register('type', { required: true, onChange: (e) => {
                   // If switching to expense, warn if amount already exceeds balance
                   const v = (document.getElementById('amount') as HTMLInputElement | null)?.value || '';
                   const amt = Number(v);
@@ -248,9 +271,9 @@ export default function ReceiptEntryPage() {
                   <option value="expense">{t('Expense', 'செலவு')}</option>
                 </select>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <Label htmlFor="amount">{t('Amount', 'தொகை')} *</Label>
-                <Input id="amount" type="number" step="0.01" min="0" placeholder={t('Enter amount', 'தொகையை உள்ளிடவும்')} {...register('amount', { required: true, onBlur: (e) => {
+                <Input id="amount" type="number" step="0.01" min="0" className="h-8 px-2 text-sm" placeholder={t('Enter amount', 'தொகையை உள்ளிடவும்')} {...register('amount', { required: true, onBlur: (e) => {
                   const amt = Number(e?.target?.value || 0);
                   const type = (document.getElementById('type') as HTMLSelectElement | null)?.value || 'income';
                   if (type === 'expense' && fromBalance !== null && amt > fromBalance) {
@@ -258,11 +281,11 @@ export default function ReceiptEntryPage() {
                   }
                 } })} />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <Label htmlFor="donor">{t('From', 'வரவு பெயர்')}</Label>
                 <select
                   id="donor"
-                  className="border rounded h-10 px-3 w-full"
+                  className="border rounded h-8 px-2 w-full text-sm"
                   {...register('donor', {
                     onChange: async (e) => {
                       const under = e?.target?.value as string;
@@ -298,11 +321,11 @@ export default function ReceiptEntryPage() {
                   </p>
                 )}
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <Label htmlFor="receiver">{t('To', 'பெற்றவர்')}</Label>
                 <select
                   id="receiver"
-                  className="border rounded h-10 px-3 w-full"
+                  className="border rounded h-8 px-2 w-full text-sm"
                   {...register('receiver')}
                 >
                   <option value="">{t('Select name', 'பெயரைத் தேர்ந்தெடுக்கவும்')}</option>
@@ -313,15 +336,16 @@ export default function ReceiptEntryPage() {
               </div>
             </div>
             {/* No datalist needed; both fields use select dropdowns */}
-            <div className="space-y-2">
+            <div className="space-y-1">
               <Label htmlFor="remarks">{t('Remarks', 'குறிப்பு')}</Label>
-              <Textarea id="remarks" rows={3} placeholder={t('Enter any remarks', 'கூடுதல் குறிப்புகள்')} {...register('remarks')} />
+              <Textarea id="remarks" rows={2} className="text-sm" placeholder={t('Enter any remarks', 'கூடுதல் குறிப்புகள்')} {...register('remarks')} />
             </div>
-            <div className="flex justify-end space-x-4 pt-6 border-t">
-              <Button type="button" variant="outline" onClick={handleCancel} disabled={isSubmitting}>{t('Cancel', 'ரத்து செய்')}</Button>
+            <div className="flex justify-end space-x-3 pt-4 border-t">
+              <Button type="button" variant="outline" className="h-8 px-3 text-sm" onClick={handleCancel} disabled={isSubmitting}>{t('Cancel', 'ரத்து செய்')}</Button>
               <Button
                 type="button"
                 variant="outline"
+                className="h-8 px-3 text-sm"
                 onClick={() => {
                   // Read selected date field from the form inputs via DOM or fallback to today
                   const input = document.getElementById('date') as HTMLInputElement | null;
@@ -331,7 +355,7 @@ export default function ReceiptEntryPage() {
               >
                 {t('Go to Daily Report', 'தினசரி அறிக்கைக்கு செல்ல')}
               </Button>
-              <Button type="submit" disabled={isSubmitting || isSaveDisabledByBalance || isDonorMissingForExpense} className="bg-orange-600 hover:bg-orange-700 disabled:opacity-60 disabled:cursor-not-allowed">
+              <Button type="submit" disabled={isSubmitting || isSaveDisabledByBalance || isDonorMissingForExpense} className="bg-orange-600 hover:bg-orange-700 disabled:opacity-60 disabled:cursor-not-allowed h-8 px-4 text-sm">
                 {isSubmitting ? t('Saving...', 'சேமிக்கிறது...') : id ? t('Update Receipt', 'ரசீது புதுப்பிக்க') : t('Save Receipt', 'ரசீது சேமிக்க')}
               </Button>
               {(isSaveDisabledByBalance || isDonorMissingForExpense) && (
