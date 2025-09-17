@@ -25,6 +25,9 @@ export default function DashboardLayout() {
   const { user, userPermissions, isSuperAdmin, token } = useAuth();
   const { settings } = useSettings();
   const { language } = useLanguage();
+
+    const lang = (String(language).toLowerCase() === 'english' ? 'tamil' : 'english') as 'tamil' | 'english';
+  
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isHoveringSidebar, setIsHoveringSidebar] = useState(false);
@@ -127,7 +130,7 @@ export default function DashboardLayout() {
     }
   }, [settings?.sidebar_collapsed_default]);
 
-  const sidebarItems = useMemo(() => getSidebarItems(language), [language]);
+  const sidebarItems = useMemo(() => getSidebarItems(lang), [lang]);
 
   const allowedSidebarItems = useMemo(() => {
     const hiddenKeys = new Set((settings?.hidden_menu_keys || []).map((s) => String(s)));
@@ -387,7 +390,7 @@ export default function DashboardLayout() {
                         >
                           <div className="w-2 h-2 rounded-full bg-blue-400 mr-3 opacity-60 group-hover:opacity-100 transition-opacity"></div>
                           <span className="font-medium">{child.label}</span>
-                          <span className="sr-only">{t[language].close}</span>
+                          <span className="sr-only">{t[lang].close}</span>
                         </NavLink>
                       ))}
                     </div>
@@ -434,7 +437,7 @@ export default function DashboardLayout() {
               onClick={() => isMobileMenuOpen && setMobileMenuOpen(false)}
             >
               <LandmarkIcon className="h-6 w-6" />
-              {!isSidebarCollapsed && <span className="ml-4 font-medium">{t[language].upgradeNow}</span>}
+              {!isSidebarCollapsed && <span className="ml-4 font-medium">{t[lang].upgradeNow}</span>}
             </NavLink>
           )}
 
@@ -455,7 +458,7 @@ export default function DashboardLayout() {
               onClick={() => isMobileMenuOpen && setMobileMenuOpen(false)}
             >
               <SettingsIcon className="h-6 w-6" />
-              {!isSidebarCollapsed && <span className="ml-4 font-medium">{t[language].masterAdmin}</span>}
+              {!isSidebarCollapsed && <span className="ml-4 font-medium">{t[lang].masterAdmin}</span>}
             </NavLink>
           )}
         </nav>
@@ -534,13 +537,13 @@ export default function DashboardLayout() {
                 autoFocus
                 value={searchQuery}
                 onChange={(e) => { setSearchQuery(e.target.value); setSelectedIndex(0); }}
-                placeholder={t[language].searchPlaceholder}
+                placeholder={t[lang].searchPlaceholder}
                 className="w-full outline-none text-slate-800 placeholder-slate-400"
               />
             </div>
             <ul className="max-h-80 overflow-y-auto py-2">
               {filteredResults.length === 0 && (
-                <h3 className="px-4 py-2 text-sm font-medium text-gray-500">{t[language].searchResults}</h3>
+                <h3 className="px-4 py-2 text-sm font-medium text-gray-500">{t[lang].searchResults}</h3>
               )}
               {filteredResults.map((r, idx) => (
                 <li

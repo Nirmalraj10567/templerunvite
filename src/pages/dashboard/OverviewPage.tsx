@@ -17,10 +17,41 @@ export default function OverviewPage() {
   const { user, token, userPermissions, isSuperAdmin } = useAuth();
   const { settings } = useSettings();
   const { language } = useLanguage(); // Get current language
+  const lang = (String(language).toLowerCase() === 'english' ? 'tamil' : 'english') as 'tamil' | 'english';
 
   // Translation object
   const t = {
     tamil: {
+      greeting: 'வணக்கம்',
+      subtitle: 'இன்று நடக்கும் நிகழ்வுகள் இதோ',
+      totalMembers: 'மொத்த உறுப்பினர்கள்',
+      paidMembers: 'செலுத்திய உறுப்பினர்கள்',
+      unpaidMembers: 'செலுத்தாத உறுப்பினர்கள்',
+      upcomingEvents: 'வரவிருக்கும் நிகழ்வுகள்',
+      recentMembers: 'சமீபத்திய உறுப்பினர்கள்',
+      noRecentMembers: 'சமீபத்திய உறுப்பினர்கள் இல்லை',
+      loading: 'ஏற்றுகிறது…',
+      quickActions: 'விரைவு செயல்கள்',
+      addMember: 'உறுப்பினரைச் சேர்',
+      addMemberDesc: 'புதிய உறுப்பினரைப் பதிவு செய்க',
+      viewReports: 'அறிக்கைகளைப் பார்',
+      viewReportsDesc: 'இன்றைய செயல்பாட்டைச் சரிபார்க்கவும்',
+      collectPayment: 'கட்டணத்தை வசூலி',
+      collectPaymentDesc: 'புதிய ரசீதைப் பதிவு செய்க',
+      scheduleEvent: 'நிகழ்வை அட்டவணைப்படுத்து',
+      scheduleEventDesc: 'நிகழ்வுகள் நாட்காட்டியில் சேர்க்கவும்',
+      newLabel: 'புதியது',
+      totalRegistrations: 'மொத்தப் பதிவுகள்',
+      paidThisMonth: 'இந்த மாதம் செலுத்தியது',
+      unpaidThisMonth: 'இந்த மாதம் செலுத்தவில்லை',
+      fromTodayOnwards: 'இன்று முதல்',
+      approvalRequests: 'அனுமதி கோரிக்கைகள்',
+      poojaApproval: 'பூஜை அங்கீகாரம்',
+      hallApprovals: 'ஹால் அங்கீகாரங்கள்',
+      annadhanamApproval: 'அன்னதானம் அங்கீகாரம்',
+ 
+    },
+    english: {
       greeting: 'Hi',
       subtitle: 'Here’s what’s happening today',
       totalMembers: 'Total Members',
@@ -48,36 +79,6 @@ export default function OverviewPage() {
       poojaApproval: 'Pooja Approval',
       hallApprovals: 'Hall Approvals',
       annadhanamApproval: 'Annadhanam Approval',
-  
-    },
-    english: {
-       greeting: 'வணக்கம்',
-      subtitle: 'இன்று நடக்கும் நிகழ்வுகள் இதோ',
-      totalMembers: 'மொத்த உறுப்பினர்கள்',
-      paidMembers: 'செலுத்திய உறுப்பினர்கள்',
-      unpaidMembers: 'செலுத்தாத உறுப்பினர்கள்',
-      upcomingEvents: 'வரவிருக்கும் நிகழ்வுகள்',
-      recentMembers: 'சமீபத்திய உறுப்பினர்கள்',
-      noRecentMembers: 'சமீபத்திய உறுப்பினர்கள் இல்லை',
-      loading: 'ஏற்றுகிறது…',
-      quickActions: 'விரைவு செயல்கள்',
-      addMember: 'உறுப்பினரைச் சேர்',
-      addMemberDesc: 'புதிய உறுப்பினரைப் பதிவு செய்க',
-      viewReports: 'அறிக்கைகளைப் பார்',
-      viewReportsDesc: 'இன்றைய செயல்பாட்டைச் சரிபார்க்கவும்',
-      collectPayment: 'கட்டணத்தை வசூலி',
-      collectPaymentDesc: 'புதிய ரசீதைப் பதிவு செய்க',
-      scheduleEvent: 'நிகழ்வை அட்டவணைப்படுத்து',
-      scheduleEventDesc: 'நிகழ்வுகள் நாட்காட்டியில் சேர்க்கவும்',
-      newLabel: 'புதியது',
-      totalRegistrations: 'மொத்தப் பதிவுகள்',
-      paidThisMonth: 'இந்த மாதம் செலுத்தியது',
-      unpaidThisMonth: 'இந்த மாதம் செலுத்தவில்லை',
-      fromTodayOnwards: 'இன்று முதல்',
-      approvalRequests: 'அனுமதி கோரிக்கைகள்',
-      poojaApproval: 'பூஜை அங்கீகாரம்',
-      hallApprovals: 'ஹால் அங்கீகாரங்கள்',
-      annadhanamApproval: 'அன்னதானம் அங்கீகாரம்',
     },
   } as const;
 
@@ -169,9 +170,9 @@ export default function OverviewPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl md:text-3xl font-bold text-slate-900">
-            {t[language as 'tamil' | 'english'].greeting} {user?.name ? user.name.split(' ')[0] : 'User'}
+            {t[lang].greeting} {user?.name ? user.name.split(' ')[0] : 'User'}
           </h2>
-          <p className="text-sm text-slate-500 mt-1">{t[language as 'tamil' | 'english'].subtitle}</p>
+          <p className="text-sm text-slate-500 mt-1">{t[lang].subtitle}</p>
         </div>
       </div>
 
@@ -180,53 +181,45 @@ export default function OverviewPage() {
         {/* Total Members - Blue */}
         <div className="rounded-2xl p-5 text-white shadow-lg bg-gradient-to-br from-indigo-500 via-indigo-600 to-blue-600 hover:shadow-xl transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div className="text-sm opacity-90">{t[language as 'tamil' | 'english'].totalMembers}</div>
+            <div className="text-sm opacity-90">{t[lang].totalMembers}</div>
             <UsersIcon className="h-6 w-6 opacity-90" />
           </div>
           <div className="text-3xl font-bold mt-2">{totalMembers ?? '—'}</div>
           <div className="text-xs mt-2 opacity-90">
-            {loading 
-              ? t[language as 'tamil' | 'english'].loading 
-              : t[language as 'tamil' | 'english'].totalRegistrations}
+            {loading ? t[lang].loading : t[lang].totalRegistrations}
           </div>
         </div>
         {/* Paid Members - Green */}
         <div className="rounded-2xl p-5 text-white shadow-lg bg-gradient-to-br from-green-500 via-green-600 to-green-600 hover:shadow-xl transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div className="text-sm opacity-90">{t[language as 'tamil' | 'english'].paidMembers}</div>
+            <div className="text-sm opacity-90">{t[lang].paidMembers}</div>
             <CreditCardIcon className="h-6 w-6 opacity-90" />
           </div>
           <div className="text-3xl font-bold mt-2">{paidMembersThisMonth ?? '—'}</div>
           <div className="text-xs mt-2 opacity-90">
-            {loading 
-              ? t[language as 'tamil' | 'english'].loading 
-              : t[language as 'tamil' | 'english'].paidThisMonth}
+            {loading ? t[lang].loading : t[lang].paidThisMonth}
           </div>
         </div>
         {/* Unpaid Members - Blue */}
         <div className="rounded-2xl p-5 text-white shadow-lg bg-gradient-to-br from-sky-500 via-blue-600 to-indigo-600 hover:shadow-xl transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div className="text-sm opacity-90">{t[language as 'tamil' | 'english'].unpaidMembers}</div>
+            <div className="text-sm opacity-90">{t[lang].unpaidMembers}</div>
             <BarChartIcon className="h-6 w-6 opacity-90" />
           </div>
           <div className="text-3xl font-bold mt-2">{unpaidMembersThisMonth ?? '—'}</div>
           <div className="text-xs mt-2 opacity-90">
-            {loading 
-              ? t[language as 'tamil' | 'english'].loading 
-              : t[language as 'tamil' | 'english'].unpaidThisMonth}
+            {loading ? t[lang].loading : t[lang].unpaidThisMonth}
           </div>
         </div>
         {/* Upcoming Events - Green */}
         <div className="rounded-2xl p-5 text-white shadow-lg bg-gradient-to-br from-green-500 via-green-600 to-green-600 hover:shadow-xl transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div className="text-sm opacity-90">{t[language as 'tamil' | 'english'].upcomingEvents}</div>
+            <div className="text-sm opacity-90">{t[lang].upcomingEvents}</div>
             <CalendarIcon className="h-6 w-6 opacity-90" />
           </div>
           <div className="text-3xl font-bold mt-2">{upcomingEvents ?? '—'}</div>
           <div className="text-xs mt-2 opacity-90">
-            {loading 
-              ? t[language as 'tamil' | 'english'].loading 
-              : t[language as 'tamil' | 'english'].fromTodayOnwards}
+            {loading ? t[lang].loading : t[lang].fromTodayOnwards}
           </div>
         </div>
       </div>
@@ -234,7 +227,7 @@ export default function OverviewPage() {
       {/* Quick actions from user settings (optional) */}
       {Array.isArray(settings?.quick_actions) && settings.quick_actions.length > 0 && (
         <div className="mt-6">
-          <h3 className="text-lg font-semibold text-slate-900 mb-3">{t[language as 'tamil' | 'english'].quickActions}</h3>
+          <h3 className="text-lg font-semibold text-slate-900 mb-3">{t[lang].quickActions}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {(() => {
               const levelRank = (lvl?: string) => (lvl === 'full' ? 3 : lvl === 'edit' ? 2 : lvl === 'view' ? 1 : 0);
@@ -247,27 +240,76 @@ export default function OverviewPage() {
                 return levelRank(found.access_level) >= need;
               };
 
-              type Leaf = { to: string; label: string; section?: string; Icon: React.FC<React.SVGProps<SVGSVGElement>> };
+              type Leaf = {
+                to: string;
+                label: string;
+                tamilLabel?: string;
+                section?: string;
+                sectionTamilLabel?: string;
+                Icon: React.FC<React.SVGProps<SVGSVGElement>>;
+              };
               const leaves: Leaf[] = [];
               for (const item of sidebarItems) {
                 const GroupIcon = (item as any).icon || UsersIcon;
                 if ((item as any).to) {
                   const it = item as any;
                   if (hasPerm(it.permissionId, it.accessLevel)) {
-                    leaves.push({ to: it.to, label: it.label, Icon: GroupIcon });
+                    leaves.push({ to: it.to, label: it.label, tamilLabel: it.tamilLabel, Icon: GroupIcon });
                   }
                 } else if ((item as any).children) {
                   const group = item as any;
                   for (const child of group.children) {
                     if (hasPerm(child.permissionId, child.accessLevel)) {
-                      leaves.push({ to: child.to, label: child.label, section: group.label, Icon: GroupIcon });
+                      leaves.push({
+                        to: child.to,
+                        label: child.label,
+                        tamilLabel: child.tamilLabel,
+                        section: group.label,
+                        sectionTamilLabel: group.tamilLabel,
+                        Icon: GroupIcon,
+                      });
                     }
                   }
                 }
               }
-              const byPath = new Map(leaves.map((l) => [l.to, l] as const));
-              return settings.quick_actions
-                .map((path) => byPath.get(String(path)))
+              
+              // Debug: Log all available leaves
+              try {
+                console.debug('[QuickAction] Available leaves:', leaves.map(l => ({ to: l.to, label: l.label, tamilLabel: l.tamilLabel, section: l.section })));
+                console.debug('[QuickAction] User quick_actions setting:', settings.quick_actions);
+                console.debug('[QuickAction] Current language:', language, 'normalized to:', lang);
+              } catch {}
+              
+              // Build a lookup that supports matching by route path, English label, or Tamil label
+              const byKey = new Map<string, Leaf>();
+              for (const l of leaves) {
+                byKey.set(l.to, l);
+                byKey.set(l.label, l);
+                if (l.tamilLabel) byKey.set(l.tamilLabel, l);
+                if (l.section) byKey.set(l.section, l); // allow group label to resolve first child optionally
+                if (l.sectionTamilLabel) byKey.set(l.sectionTamilLabel, l);
+              }
+              
+              try {
+                console.debug('[QuickAction] Lookup keys available:', Array.from(byKey.keys()));
+              } catch {}
+              
+              const resolved = settings.quick_actions
+                .map((k) => {
+                  const key = String(k);
+                  const match = byKey.get(key);
+                  if (!match) {
+                    try {
+                      console.warn('[QuickAction] No match for key:', key);
+                      console.warn('[QuickAction] Available keys:', Array.from(byKey.keys()));
+                    } catch {}
+                  } else {
+                    try {
+                      console.debug('[QuickAction] Matched key:', key, 'to item:', { to: match.to, label: match.label, tamilLabel: match.tamilLabel });
+                    } catch {}
+                  }
+                  return match;
+                })
                 .filter(Boolean)
                 .map((conf) => {
                   const c = conf as Leaf;
@@ -275,17 +317,31 @@ export default function OverviewPage() {
                   return (
                     <button
                       key={c.to}
-                      onClick={() => navigate(c.to)}
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        // Debug click responsiveness
+                        try { console.debug('[QuickAction] navigate ->', c.to); } catch {}
+                        navigate(c.to);
+                      }}
                       className="w-full rounded-2xl p-5 bg-white border border-slate-200 hover:shadow-md text-left transition-all duration-200"
                     >
                       <div className="flex items-center justify-between">
-                        <div className="text-sm text-slate-600">{c.section || t[language as 'tamil' | 'english'].quickActions}</div>
+                        <div className="text-sm text-slate-600">
+                          {c.section
+                            ? (lang === 'tamil' ? (c.sectionTamilLabel || c.section) : c.section)
+                            : t[lang].quickActions}
+                        </div>
                         <IconComp className="h-6 w-6 text-blue-600" />
                       </div>
-                      <div className="text-lg font-semibold text-slate-900 mt-2">{c.label}</div>
+                      <div className="text-lg font-semibold text-slate-900 mt-2">
+                        {lang === 'tamil' ? (c.tamilLabel || c.label) : c.label}
+                      </div>
                     </button>
                   );
                 });
+              return resolved;
             })()}
           </div>
         </div>
@@ -294,7 +350,7 @@ export default function OverviewPage() {
     {/* Approval Requests - render only if at least one permission is available */}
     {(hasPerm('pooja_approval', 'view') || hasPerm('hall_approval', 'view') || hasPerm('annadhanam_approval', 'view')) && (
       <div className="mt-6">
-        <h3 className="text-lg font-semibold text-slate-900 mb-3">{t[language as 'tamil' | 'english'].approvalRequests}</h3>
+        <h3 className="text-lg font-semibold text-slate-900 mb-3">{t[lang].approvalRequests}</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Pooja Approval */}
           {hasPerm('pooja_approval', 'view') && (
@@ -303,10 +359,10 @@ export default function OverviewPage() {
               className="w-full rounded-2xl p-5 bg-white border border-slate-200 hover:shadow-md text-left transition-all duration-200"
             >
               <div className="flex items-center justify-between">
-                <div className="text-sm text-slate-600">{t[language as 'tamil' | 'english'].approvalRequests}</div>
+                <div className="text-sm text-slate-600">{t[lang].approvalRequests}</div>
                 <CalendarIcon className="h-6 w-6 text-blue-600" />
               </div>
-              <div className="text-lg font-semibold text-slate-900 mt-2">{t[language as 'tamil' | 'english'].poojaApproval}</div>
+              <div className="text-lg font-semibold text-slate-900 mt-2">{t[lang].poojaApproval}</div>
             </button>
           )}
 
@@ -320,7 +376,7 @@ export default function OverviewPage() {
                 <div className="text-sm text-slate-600">{t[language as 'tamil' | 'english'].approvalRequests}</div>
                 <CalendarIcon className="h-6 w-6 text-blue-600" />
               </div>
-              <div className="text-lg font-semibold text-slate-900 mt-2">{t[language as 'tamil' | 'english'].hallApprovals}</div>
+              <div className="text-lg font-semibold text-slate-900 mt-2">{t[lang].hallApprovals}</div>
             </button>
           )}
 
@@ -334,7 +390,7 @@ export default function OverviewPage() {
                 <div className="text-sm text-slate-600">{t[language as 'tamil' | 'english'].approvalRequests}</div>
                 <HeartIcon className="h-6 w-6 text-blue-600" />
               </div>
-              <div className="text-lg font-semibold text-slate-900 mt-2">{t[language as 'tamil' | 'english'].annadhanamApproval}</div>
+              <div className="text-lg font-semibold text-slate-900 mt-2">{t[lang].annadhanamApproval}</div>
             </button>
           )}
         </div>
