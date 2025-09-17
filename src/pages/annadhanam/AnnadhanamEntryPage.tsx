@@ -9,7 +9,49 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Modal } from '@/components/ui/modal';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useLanguage } from '@/lib/language';
+
+// Translation object
+const t = {
+  tamil: {
+    title: 'அன்னதானம் பதிவு',
+    receiptNumber: 'ரசீது எண்',
+    name: 'பெயர்',
+    mobile: 'மொபைல்',
+    food: 'உணவு வகை',
+    peoples: 'நபர்கள் எண்ணிக்கை',
+    time: 'நேரம்',
+    fromDate: 'தொடக்க தேதி',
+    toDate: 'இறுதி தேதி',
+    remarks: 'கருத்து',
+    save: 'சேமிக்கவும்',
+    update: 'புதுப்பிக்கவும்',
+    cancel: 'ரத்து செய்',
+    success: 'வெற்றி',
+    error: 'பிழை',
+    requiredField: 'இந்த புலம் தேவையானது',
+    invalidMobile: 'செல்லுபடியாகும் மொபைல் எண்ணை உள்ளிடவும்'
+  },
+  english: {
+    title: 'Annadhanam Entry',
+    receiptNumber: 'Receipt Number',
+    name: 'Name',
+    mobile: 'Mobile',
+    food: 'Food Type',
+    peoples: 'Number of People',
+    time: 'Time',
+    fromDate: 'From Date',
+    toDate: 'To Date',
+    remarks: 'Remarks',
+    save: 'Save',
+    update: 'Update',
+    cancel: 'Cancel',
+    success: 'Success',
+    error: 'Error',
+    requiredField: 'This field is required',
+    invalidMobile: 'Please enter a valid mobile number'
+  }
+};
 
 const generateReceiptNo = () => {
   const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -43,7 +85,10 @@ export default function AnnadhanamEntryPage() {
   const [lastCreatedId, setLastCreatedId] = useState<number | null>(null);
   const [showPrintPrompt, setShowPrintPrompt] = useState(false);
   const [receiptNumber, setReceiptNumber] = useState('');
-
+  
+  // Translation function
+  const t = (en: string, ta: string) => language === 'tamil' ? ta : en;
+  
   // Generate a temporary receipt number for display
   useEffect(() => {
     if (!id) {
@@ -51,8 +96,6 @@ export default function AnnadhanamEntryPage() {
       setReceiptNumber(`${year}-${Math.floor(1000 + Math.random() * 9000).toString().padStart(4, '0')}`);
     }
   }, [id]);
-
-  const t = (en: string, ta: string) => language === 'tamil' ? ta : en;
 
   useEffect(() => {
     // Don't set receipt number here - it will be generated on the server

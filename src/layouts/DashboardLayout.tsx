@@ -3,7 +3,8 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Header } from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
-import { sidebarItems as sharedSidebarItems } from '../config/navigation';
+import { getSidebarItems } from '../config/navigation';
+import { useLanguage } from '../lib/language';
 import {
   HomeIcon,
   UsersIcon,
@@ -23,6 +24,7 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const { user, userPermissions, isSuperAdmin, token } = useAuth();
   const { settings } = useSettings();
+  const { language } = useLanguage();
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isHoveringSidebar, setIsHoveringSidebar] = useState(false);
@@ -84,16 +86,48 @@ export default function DashboardLayout() {
     };
   }, [isSidebarCollapsed, isMobileMenuOpen, isHoveringSidebar]);
 
+  // Translation object
+  const t = {
+    english: {
+      searchPlaceholder: 'Search...',
+      searchResults: 'Search Results',
+      noResults: 'No results found',
+      quickActions: 'Quick Actions',
+      profile: 'Profile',
+      settings: 'Settings',
+      logout: 'Logout',
+      close: 'Close',
+      menu: 'Menu',
+      toggleSidebar: 'Toggle Sidebar',
+      masterAdmin: 'Master Admin',
+      upgradeNow: 'Upgrade Now',
+      temple: 'Temple'
+    },
+    tamil: {
+      searchPlaceholder: 'தேடுக...',
+      searchResults: 'தேடல் முடிவுகள்',
+      noResults: 'முடிவுகள் இல்லை',
+      quickActions: 'விரைவு செயல்கள்',
+      profile: 'சுயவிவரம்',
+      settings: 'அமைப்புகள்',
+      logout: 'வெளியேறு',
+      close: 'மூடு',
+      menu: 'மெனு',
+      toggleSidebar: 'பக்கப்பட்டையை மாற்று',
+      masterAdmin: 'முதன்மை நிர்வாகி',
+      upgradeNow: 'மேம்படுத்தவும்',
+      temple: 'கோவில்'
+    }
+  } as const;
+
   // Apply default collapsed from user settings when settings change
   useEffect(() => {
     if (typeof settings?.sidebar_collapsed_default === 'boolean') {
       setSidebarCollapsed(!!settings.sidebar_collapsed_default);
     }
   }, [settings?.sidebar_collapsed_default]);
- 
-  
 
-  const sidebarItems = useMemo(() => sharedSidebarItems, []);
+  const sidebarItems = useMemo(() => getSidebarItems(language), [language]);
 
   const allowedSidebarItems = useMemo(() => {
     const hiddenKeys = new Set((settings?.hidden_menu_keys || []).map((s) => String(s)));
@@ -282,7 +316,7 @@ export default function DashboardLayout() {
                 <span className="text-xl font-bold text-white">T</span>
               </div>
               <span className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-                Temple
+               
               </span>
             </div>
           )}
@@ -353,6 +387,7 @@ export default function DashboardLayout() {
                         >
                           <div className="w-2 h-2 rounded-full bg-blue-400 mr-3 opacity-60 group-hover:opacity-100 transition-opacity"></div>
                           <span className="font-medium">{child.label}</span>
+                          <span className="sr-only">{t[language].close}</span>
                         </NavLink>
                       ))}
                     </div>
@@ -399,7 +434,7 @@ export default function DashboardLayout() {
               onClick={() => isMobileMenuOpen && setMobileMenuOpen(false)}
             >
               <LandmarkIcon className="h-6 w-6" />
-              {!isSidebarCollapsed && <span className="ml-4 font-medium">Upgrade Now</span>}
+              {!isSidebarCollapsed && <span className="ml-4 font-medium">{t[language].upgradeNow}</span>}
             </NavLink>
           )}
 
@@ -420,7 +455,7 @@ export default function DashboardLayout() {
               onClick={() => isMobileMenuOpen && setMobileMenuOpen(false)}
             >
               <SettingsIcon className="h-6 w-6" />
-              {!isSidebarCollapsed && <span className="ml-4 font-medium">Master Admin</span>}
+              {!isSidebarCollapsed && <span className="ml-4 font-medium">{t[language].masterAdmin}</span>}
             </NavLink>
           )}
         </nav>
@@ -499,13 +534,13 @@ export default function DashboardLayout() {
                 autoFocus
                 value={searchQuery}
                 onChange={(e) => { setSearchQuery(e.target.value); setSelectedIndex(0); }}
-                placeholder="Search pages... (Esc to close)"
+                placeholder={t[language].searchPlaceholder}
                 className="w-full outline-none text-slate-800 placeholder-slate-400"
               />
             </div>
             <ul className="max-h-80 overflow-y-auto py-2">
               {filteredResults.length === 0 && (
-                <li className="px-4 py-2 text-slate-500">No results</li>
+                <h3 className="px-4 py-2 text-sm font-medium text-gray-500">{t[language].searchResults}</h3>
               )}
               {filteredResults.map((r, idx) => (
                 <li

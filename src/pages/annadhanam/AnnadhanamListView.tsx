@@ -4,6 +4,7 @@ import { Search, PlusCircle, Loader2, Eye, Edit, Trash2, Calendar, Users, Clock 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { useLanguage } from "@/lib/language";
 import {
   Table,
   TableBody,
@@ -34,7 +35,60 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { useLanguage } from "@/contexts/LanguageContext";
+
+// Translation object
+const t = {
+  tamil: {
+    title: 'அன்னதானம் பட்டியல்',
+    searchPlaceholder: 'தேடு...',
+    newEntry: 'புதிய பதிவு',
+    receiptNumber: 'ரசீது எண்',
+    name: 'பெயர்',
+    mobile: 'மொபைல்',
+    food: 'உணவு',
+    peoples: 'நபர்கள்',
+    time: 'நேரம்',
+    fromDate: 'தொடக்கம்',
+    toDate: 'முடிவு',
+    date: 'தேதி',
+    actions: 'செயல்கள்',
+    view: 'காண்க',
+    edit: 'திருத்து',
+    delete: 'நீக்கு',
+    cancel: 'ரத்து செய்',
+    confirmDelete: 'நீக்குவதை உறுதி செய்க',
+    deleteConfirmation: 'இந்த பதிவை நிச்சயமாக நீக்க வேண்டுமா?',
+    loading: 'ஏற்றுகிறது...',
+    noData: 'தரவு இல்லை',
+    error: 'பிழை ஏற்பட்டது',
+    success: 'வெற்றி'
+  },
+  english: {
+    title: 'Annadhanam List',
+    searchPlaceholder: 'Search...',
+    newEntry: 'New Entry',
+    receiptNumber: 'Receipt No',
+    name: 'Name',
+    mobile: 'Mobile',
+    food: 'Food',
+    peoples: 'People',
+    time: 'Time',
+    fromDate: 'From',
+    toDate: 'To',
+    date: 'Date',
+    actions: 'Actions',
+    view: 'View',
+    edit: 'Edit',
+    delete: 'Delete',
+    cancel: 'Cancel',
+    confirmDelete: 'Confirm Delete',
+    deleteConfirmation: 'Are you sure you want to delete this entry?',
+    loading: 'Loading...',
+    noData: 'No data available',
+    error: 'Error',
+    success: 'Success'
+  }
+};
 
 interface Annadhanam {
   id: number;
@@ -67,7 +121,7 @@ export default function AnnadhanamListView() {
   const { user, token } = useAuth();
   const { language } = useLanguage();
 
-  const t = (en: string, ta: string) => language === 'tamil' ? ta : en;
+  const t = (en: string, ta: string) => language === 'english' ? ta : en;
 
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");

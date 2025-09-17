@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useLanguage } from '@/lib/language';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,66 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle, XCircle, Eye, Clock, FileText, FileDown, Printer, Edit } from 'lucide-react';
+
+// Translation object
+const t = {
+  tamil: {
+    title: 'அன்னதானம் அனுமதி',
+    searchPlaceholder: 'தேடு...',
+    newRequest: 'புதிய கோரிக்கை',
+    receiptNumber: 'ரசீது எண்',
+    name: 'பெயர்',
+    mobile: 'மொபைல்',
+    date: 'தேதி',
+    status: 'நிலை',
+    actions: 'செயல்கள்',
+    view: 'காண்க',
+    edit: 'திருத்து',
+    approve: 'அனுமதி',
+    reject: 'நிராகரி',
+    cancel: 'ரத்து செய்',
+    pending: 'நிலுவையில்',
+    approved: 'அங்கீகரிக்கப்பட்டது',
+    rejected: 'நிராகரிக்கப்பட்டது',
+    cancelled: 'ரத்து செய்யப்பட்டது',
+    remarks: 'கருத்து',
+    submit: 'சமர்ப்பிக்கவும்',
+    close: 'மூடு',
+    fromDate: 'தொடக்க தேதி',
+    toDate: 'இறுதி தேதி',
+    time: 'நேரம்',
+    submittedBy: 'சமர்ப்பித்தவர்',
+    submittedAt: 'சமர்ப்பிக்கப்பட்ட தேதி'
+  },
+  english: {
+    title: 'Annadhanam Approval',
+    searchPlaceholder: 'Search...',
+    newRequest: 'New Request',
+    receiptNumber: 'Receipt Number',
+    name: 'Name',
+    mobile: 'Mobile',
+    date: 'Date',
+    status: 'Status',
+    actions: 'Actions',
+    view: 'View',
+    edit: 'Edit',
+    approve: 'Approve',
+    reject: 'Reject',
+    cancel: 'Cancel',
+    pending: 'Pending',
+    approved: 'Approved',
+    rejected: 'Rejected',
+    cancelled: 'Cancelled',
+    remarks: 'Remarks',
+    submit: 'Submit',
+    close: 'Close',
+    fromDate: 'From Date',
+    toDate: 'To Date',
+    time: 'Time',
+    submittedBy: 'Submitted By',
+    submittedAt: 'Submitted At'
+  }
+};
 
 interface AnnadhanamRequest {
   id: number;
@@ -55,7 +115,10 @@ interface ApprovalStats {
 }
 
 export default function AnnadhanamApprovalPage() {
-  const { t } = useLanguage();
+//  const { t } = useLanguage();
+    const { language } = useLanguage();
+    const t = (en: string, ta: string) => language === 'english' ? ta : en;
+  
   const { token } = useAuth();
   const { toast } = useToast();
 

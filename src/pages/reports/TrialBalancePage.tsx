@@ -6,8 +6,94 @@ import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { getAuthToken } from '@/lib/auth';
 import { useLanguage } from '@/lib/language';
-import { Loader2, RefreshCw, ChevronDown, ChevronRight, Download } from 'lucide-react';
+import { Loader2, RefreshCw, ChevronDown, ChevronRight, Download, Eye, EyeOff, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
+
+// Translation object
+const t = {
+  english: {
+    dateFrom: 'தேதி இருந்து',
+    dateTo: 'தேதி வரை',
+    search: 'தேடு',
+    reset: 'மீட்டமை',
+    download: 'பதிவிறக்க',
+    refresh: 'புதுப்பி',
+    account: 'கணக்கு',
+    category: 'வகை',
+    inflow: 'உள்வரவு',
+    outflow: 'வெளிசெலவு',
+    balance: 'இருப்பு',
+    debit: 'பற்று',
+    credit: 'வரவு',
+    total: 'மொத்தம்',
+    loading: 'ஏற்றுகிறது...',
+    errorLoading: 'தரவு ஏற்றப்படும் போது பிழை',
+    noData: 'தரவு இல்லை',
+    show: 'காண்பி',
+    hide: 'மறை',
+    today: 'இன்று',
+    thisMonth: 'இந்த மாதம்',
+    trialBalance: 'டிரயல் பாலன்ஸ்',
+    grandTotal: 'மொத்தம்',
+    debitGreaterThanCredit: 'பற்று > வரவு',
+    creditGreaterThanDebit: 'வரவு > பற்று',
+    collapseAll: 'அனைத்தையும் சுருக்கு',
+    expandAll: 'அனைத்தையும் விரித்து காட்டு',
+    print: 'அச்சிடு',
+    retry: 'மீண்டும் முயற்சி',
+    categories: 'வகைகள்',
+    accounts: 'கணக்குகள்',
+    from: 'இருந்து',
+    to: 'வரை',
+    trialBalanceData: 'டிரயல் பாலன்ஸ் தரவு',
+    noDataFoundForCurrentFilters: 'தற்போதைய வடிப்பான்களுக்கு தரவு இல்லை.',
+    showColumns: 'நெடுவரிசைகள்:',
+    columnVisibility: 'நெடுவரிசை தொடர்பு',
+    categoryExportNotImplementedYet: 'வகை ஏற்றுமதி இன்னும் செயல்படுத்தப்படவில்லை',
+    financialYear: 'நிதியாண்டு',
+  },
+  tamil: {
+    dateFrom: 'Date From',
+    dateTo: 'Date To',
+    search: 'Search',
+    reset: 'Reset',
+    download: 'Download',
+    refresh: 'Refresh',
+    account: 'Account',
+    category: 'Category',
+    inflow: 'Inflow',
+    outflow: 'Outflow',
+    balance: 'Balance',
+    debit: 'Debit',
+    credit: 'Credit',
+    total: 'Total',
+    loading: 'Loading...',
+    errorLoading: 'Error loading data',
+    noData: 'No data',
+    show: 'Show',
+    hide: 'Hide',
+    today: 'Today',
+    thisMonth: 'This Month',
+    trialBalance: 'Trial Balance',
+    grandTotal: 'Grand Total',
+    debitGreaterThanCredit: 'Debit > Credit',
+    creditGreaterThanDebit: 'Credit > Debit',
+    collapseAll: 'Collapse All',
+    expandAll: 'Expand All',
+    print: 'Print',
+    retry: 'Retry',
+    categories: 'Categories',
+    accounts: 'Accounts',
+    from: 'From',
+    to: 'To',
+    trialBalanceData: 'Trial Balance Data',
+    noDataFoundForCurrentFilters: 'No data found for the current filters.',
+    showColumns: 'Show columns:',
+    columnVisibility: 'Column visibility',
+    categoryExportNotImplementedYet: 'Category export not implemented yet',
+    financialYear: 'Financial Year',
+  }
+} as const;
 
 interface TrialRow {
   account: string;
@@ -42,7 +128,7 @@ export default function TrialBalancePage() {
 }
 
 function TrialBalanceContent() {
-  const { t } = useLanguage();
+  const { language } = useLanguage();
   const [params, setParams] = useSearchParams();
   const persisted = useMemo(() => {
     try {
@@ -242,17 +328,19 @@ function TrialBalanceContent() {
   }, [filteredRowsByAccount, sortKey, sortDir]);
 
   // Calculate totals for visible rows
-  const totalsRow = useMemo(() => {
-    if (sortedRows.length === 0) return { account: 'TOTAL', inflow: 0, outflow: 0, debit: 0, credit: 0, balance: 0 };
-    return sortedRows.reduce((acc, r) => ({
-      account: 'TOTAL',
-      inflow: acc.inflow + r.inflow,
-      outflow: acc.outflow + r.outflow,
-      debit: acc.debit + r.debit,
-      credit: acc.credit + r.credit,
-      balance: acc.balance + r.balance,
-    }), { account: 'TOTAL', inflow: 0, outflow: 0, debit: 0, credit: 0, balance: 0 });
-  }, [sortedRows]);
+  const totals = useMemo(() => {
+    return rows.reduce(
+      (acc, row) => {
+        acc.inflow += row.inflow;
+        acc.outflow += row.outflow;
+        acc.debit += row.debit;
+        acc.credit += row.credit;
+        acc.balance += row.balance;
+        return acc;
+      },
+      { inflow: 0, outflow: 0, debit: 0, credit: 0, balance: 0 }
+    );
+  }, [rows]);
 
   // Date range presets handler
   const setPresetRange = useCallback((range: 'today' | 'thisMonth' | 'fy') => {
@@ -313,77 +401,181 @@ function TrialBalanceContent() {
     load();
   }, [load]);
 
+  // Update column definitions to use translations
+  const columns = useMemo(() => [
+    {
+      accessorKey: 'account',
+      header: t[language].account,
+      cell: ({ row }) => row.original.account
+    },
+    visible.inflow && {
+      accessorKey: 'inflow',
+      header: t[language].inflow,
+      cell: ({ row }) => row.original.inflow.toLocaleString()
+    },
+    visible.outflow && {
+      accessorKey: 'outflow',
+      header: t[language].outflow,
+      cell: ({ row }) => row.original.outflow.toLocaleString()
+    },
+    visible.debit && {
+      accessorKey: 'debit',
+      header: t[language].debit,
+      cell: ({ row }) => row.original.debit.toLocaleString()
+    },
+    visible.credit && {
+      accessorKey: 'credit',
+      header: t[language].credit,
+      cell: ({ row }) => row.original.credit.toLocaleString()
+    },
+    visible.balance && {
+      accessorKey: 'balance',
+      header: t[language].balance,
+      cell: ({ row }) => row.original.balance.toLocaleString()
+    }
+  ].filter(Boolean), [visible, language]);
+
+  // Update column visibility toggle buttons
+  const columnToggleButtons = [
+    { key: 'inflow', label: t[language].inflow },
+    { key: 'outflow', label: t[language].outflow },
+    { key: 'debit', label: t[language].debit },
+    { key: 'credit', label: t[language].credit },
+    { key: 'balance', label: t[language].balance }
+  ].map(({ key, label }) => (
+    <Button
+      key={key}
+      variant="ghost"
+      size="sm"
+      onClick={() => setVisible(prev => ({ ...prev, [key]: !prev[key as keyof typeof prev] }))}
+    >
+      {visible[key as keyof typeof visible] ? (
+        <>
+          <EyeOff className="mr-2 h-4 w-4" />
+          {t[language].hide} {label}
+        </>
+      ) : (
+        <>
+          <Eye className="mr-2 h-4 w-4" />
+          {t[language].show} {label}
+        </>
+      )}
+    </Button>
+  ));
+
+  // Update totals display
+  const totalsRow = (
+    <div className="font-bold">
+      <div>{t[language].total}</div>
+      {visible.inflow && <div>{totals.inflow.toLocaleString()}</div>}
+      {visible.outflow && <div>{totals.outflow.toLocaleString()}</div>}
+      {visible.debit && <div>{totals.debit.toLocaleString()}</div>}
+      {visible.credit && <div>{totals.credit.toLocaleString()}</div>}
+      {visible.balance && <div>{totals.balance.toLocaleString()}</div>}
+    </div>
+  );
+
+  // Update sorting indicators
+  const getSortIndicator = (key: string) => {
+    if (sortKey !== key) return null;
+    return sortDir === 'asc' ? (
+      <ChevronUp className="ml-2 h-4 w-4" />
+    ) : (
+      <ChevronDown className="ml-2 h-4 w-4" />
+    );
+  };
+
+  // Update sort handlers
+  const handleSort = useCallback((key: typeof sortKey) => {
+    if (sortKey === key) {
+      setSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  }, [sortKey]);
+
+  // Update category toggle display
+  const renderCategoryToggle = (category: string) => (
+    <button
+      onClick={() => toggleCategory(category)}
+      className="flex items-center gap-2 font-medium"
+    >
+      {expandedCategories[category] ? (
+        <ChevronDown className="h-4 w-4" />
+      ) : (
+        <ChevronRight className="h-4 w-4" />
+      )}
+      {category}
+    </button>
+  );
+
   return (
-    <div className="max-w-7xl mx-auto p-2">
-      <Card className="shadow-lg">
-        <CardHeader className="py-3 px-4 border-b">
-          <div className="flex justify-between items-center">
-            <CardTitle className="text-lg font-semibold">{t('Trial Balance', 'டிரயல் பாலன்ஸ்')}</CardTitle>
-            <div className="flex gap-2">
-              <Button variant="secondary" size="sm" onClick={load} disabled={isLoading} className="flex items-center gap-1">
-                {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                <span className="sr-only md:not-sr-only">{t('Refresh', 'புதுப்பி')}</span>
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <CardTitle>{t[language].trialBalance}</CardTitle>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={load}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                )}
+                {t[language].refresh}
               </Button>
-              <Button variant="secondary" size="sm" onClick={exportToCSV} disabled={!sortedRows.length}>CSV</Button>
-              <Button variant="secondary" size="sm" onClick={exportToPDF} disabled={!sortedRows.length}>PDF</Button>
-              <Button variant="secondary" size="sm" onClick={() => window.print()} disabled={!sortedRows.length}>{t('Print', 'அச்சிடு')}</Button>
+              <Button variant="outline" size="sm" onClick={exportToCSV} disabled={!sortedRows.length}>
+                <Download className="mr-2 h-4 w-4" />
+                {t[language].download}
+              </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-3">
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-3 items-end">
-            {/* From Date Input */}
-            <div>
-              <Label htmlFor="from" className="text-xs">{t('From', 'இருந்து')}</Label>
-              <Input 
-                id="from" 
-                type="date" 
-                className="h-8 text-sm" 
-                value={startDate} 
+        <CardContent>
+          <div className="flex flex-col md:flex-row gap-4 mb-6">
+            <div className="grid w-full max-w-sm items-center gap-1.5">
+              <Label htmlFor="start-date">{t[language].dateFrom}</Label>
+              <Input
+                type="date"
+                id="start-date"
+                value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
               />
             </div>
-            
-            {/* To Date Input */}
-            <div>
-              <Label htmlFor="to" className="text-xs">{t('To', 'வரை')}</Label>
-              <Input 
-                id="to" 
-                type="date" 
-                className="h-8 text-sm" 
-                value={endDate} 
+            <div className="grid w-full max-w-sm items-center gap-1.5">
+              <Label htmlFor="end-date">{t[language].dateTo}</Label>
+              <Input
+                type="date"
+                id="end-date"
+                value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
               />
             </div>
-
-            {/* Preset Buttons */}
-            <div className="md:col-span-2"></div> {/* Spacer */}
-            <div>
-              <Button variant="outline" size="sm" onClick={() => setPresetRange('today')} className="w-full">{t('Today', 'இன்று')}</Button>
-            </div>
-            <div>
-              <Button variant="outline" size="sm" onClick={() => setPresetRange('thisMonth')} className="w-full">{t('This Month', 'இந்த மாதம்')}</Button>
-            </div>
           </div>
-
           {/* Search Filters */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <Label htmlFor="categorySearch" className="text-xs whitespace-nowrap">{t('Category:', 'வகை:')}</Label>
+                <Label htmlFor="categorySearch" className="text-xs whitespace-nowrap">{t[language].category}:</Label>
                 <Input 
                   id="categorySearch" 
-                  placeholder={t('Filter categories...', 'வகைகளை வடிகட்டு...')} 
+                  placeholder={t[language].search} 
                   className="h-8 text-sm flex-1"
                   value={categoryQuery}
                   onChange={(e) => setCategoryQuery(e.target.value)}
                 />
               </div>
               <div className="flex items-center gap-2">
-                <Label htmlFor="accountSearch" className="text-xs whitespace-nowrap">{t('Account:', 'கணக்கு:')}</Label>
+                <Label htmlFor="accountSearch" className="text-xs whitespace-nowrap">{t[language].account}:</Label>
                 <Input 
                   id="accountSearch" 
-                  placeholder={t('Filter accounts...', 'கணக்குகளை வடிகட்டு...')} 
+                  placeholder={t[language].search} 
                   className="h-8 text-sm flex-1"
                   value={accountQuery}
                   onChange={(e) => setAccountQuery(e.target.value)}
@@ -399,56 +591,17 @@ function TrialBalanceContent() {
                   size="sm"
                   onClick={() => toggleAllCategories(!hasExpandedCategories)}
                 >
-                  {hasExpandedCategories ? t('Collapse All', 'அனைத்தையும் சுருக்கு') : t('Expand All', 'அனைத்தையும் விரித்து காட்டு')}
+                  {hasExpandedCategories ? t[language].collapseAll : t[language].expandAll}
                 </Button>
                 <span className="text-gray-600">
-                  {!isLoading && `${Object.keys(filteredCategories).length} ${t('categories', 'வகைகள்')}, ${allFilteredRows.length} ${t('accounts', 'கணக்குகள்')}`}
+                  {!isLoading && `${Object.keys(filteredCategories).length} ${t[language].categories}, ${allFilteredRows.length} ${t[language].accounts}`}
                 </span>
               </div>
 
               {/* Column Visibility Toggle */}
               <div className="flex flex-wrap items-center gap-2 text-xs mt-2">
-                <span className="font-medium">{t('Show columns:', 'நெடுவரிசைகள்:')}</span>
-                <label className="flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    checked={visible.inflow}
-                    onChange={() => setVisible(prev => ({ ...prev, inflow: !prev.inflow }))}
-                  />
-                  {t('Inflow', 'உள்வரவு')}
-                </label>
-                <label className="flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    checked={visible.outflow}
-                    onChange={() => setVisible(prev => ({ ...prev, outflow: !prev.outflow }))}
-                  />
-                  {t('Outflow', 'புறவரவு')}
-                </label>
-                <label className="flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    checked={visible.debit}
-                    onChange={() => setVisible(prev => ({ ...prev, debit: !prev.debit }))}
-                  />
-                  {t('Debit', 'பற்று')}
-                </label>
-                <label className="flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    checked={visible.credit}
-                    onChange={() => setVisible(prev => ({ ...prev, credit: !prev.credit }))}
-                  />
-                  {t('Credit', 'கடன்')}
-                </label>
-                <label className="flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    checked={visible.balance}
-                    onChange={() => setVisible(prev => ({ ...prev, balance: !prev.balance }))}
-                  />
-                  {t('Balance', 'மீதம்')}
-                </label>
+                <span className="font-medium">{t[language].showColumns}:</span>
+                {columnToggleButtons}
               </div>
             </div>
           </div>
@@ -460,7 +613,7 @@ function TrialBalanceContent() {
             </div>
           ) : error ? (
             <div className="text-red-600 py-4 text-center">
-              {error}
+              {t[language].errorLoading}: {error}
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -468,46 +621,38 @@ function TrialBalanceContent() {
                 onClick={load} 
                 disabled={isLoading}
               >
-                {t('Retry', 'மீண்டும் முயற்சி')}
+                {t[language].retry}
               </Button>
             </div>
           ) : (
             <div className="overflow-x-auto">
               {sortedRows.length === 0 ? (
-                <div className="text-center py-4 text-gray-500">{t('No data found for the current filters.', 'தற்போதைய வடிப்பான்களுக்கு தரவு இல்லை.')}</div>
+                <div className="text-center py-4 text-gray-500">{t[language].noDataFoundForCurrentFilters}</div>
               ) : (
-                <table className="w-full text-xs" aria-label="Trial balance data">
-                  <caption>{t('Trial Balance', 'டிரயல் பாலன்ஸ்')} ({query.startDate} {t('to', ' முதல் ')} {query.endDate} {t('', ' வரை')})</caption>
+                <table className="w-full text-xs" aria-label={t[language].trialBalanceData}>
+                  <caption>{t[language].trialBalance} ({query.startDate} {t[language].from} {query.endDate} {t[language].to})</caption>
                   <thead className="bg-gray-50 sticky top-0">
                     <tr>
                       <th
                         className="text-left px-3 py-2 border-b border-r cursor-pointer hover:bg-gray-100 transition-colors"
-                        onClick={() => setSortKey(prev => prev === 'account' ? prev : 'account')}
+                        onClick={() => handleSort('account')}
                         aria-sort={sortKey === 'account' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                       >
                         <div className="flex items-center justify-between">
-                          <span>{t('Account', 'கணக்கு')}</span>
-                          {sortKey === 'account' && (
-                            <span className="ml-1" aria-hidden="true">
-                              {sortDir === 'asc' ? '↑' : '↓'}
-                            </span>
-                          )}
+                          <span>{t[language].account}</span>
+                          {getSortIndicator('account')}
                         </div>
                       </th>
                       
                       {visible.inflow && (
                         <th
                           className="text-right px-3 py-2 border-b border-r cursor-pointer hover:bg-gray-100 transition-colors"
-                          onClick={() => setSortKey(prev => prev === 'inflow' ? prev : 'inflow')}
+                          onClick={() => handleSort('inflow')}
                           aria-sort={sortKey === 'inflow' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                         >
                           <div className="flex items-center justify-end">
-                            <span>{t('Inflow', 'உள்வரவு')}</span>
-                            {sortKey === 'inflow' && (
-                              <span className="ml-1" aria-hidden="true">
-                                {sortDir === 'asc' ? '↑' : '↓'}
-                              </span>
-                            )}
+                            <span>{t[language].inflow}</span>
+                            {getSortIndicator('inflow')}
                           </div>
                         </th>
                       )}
@@ -515,16 +660,12 @@ function TrialBalanceContent() {
                       {visible.outflow && (
                         <th
                           className="text-right px-3 py-2 border-b border-r cursor-pointer hover:bg-gray-100 transition-colors"
-                          onClick={() => setSortKey(prev => prev === 'outflow' ? prev : 'outflow')}
+                          onClick={() => handleSort('outflow')}
                           aria-sort={sortKey === 'outflow' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                         >
                           <div className="flex items-center justify-end">
-                            <span>{t('Outflow', 'புறவரவு')}</span>
-                            {sortKey === 'outflow' && (
-                              <span className="ml-1" aria-hidden="true">
-                                {sortDir === 'asc' ? '↑' : '↓'}
-                              </span>
-                            )}
+                            <span>{t[language].outflow}</span>
+                            {getSortIndicator('outflow')}
                           </div>
                         </th>
                       )}
@@ -532,16 +673,12 @@ function TrialBalanceContent() {
                       {visible.debit && (
                         <th
                           className="text-right px-3 py-2 border-b border-r cursor-pointer hover:bg-gray-100 transition-colors"
-                          onClick={() => setSortKey(prev => prev === 'debit' ? prev : 'debit')}
+                          onClick={() => handleSort('debit')}
                           aria-sort={sortKey === 'debit' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                         >
                           <div className="flex items-center justify-end">
-                            <span>{t('Debit', 'பற்று')}</span>
-                            {sortKey === 'debit' && (
-                              <span className="ml-1" aria-hidden="true">
-                                {sortDir === 'asc' ? '↑' : '↓'}
-                              </span>
-                            )}
+                            <span>{t[language].debit}</span>
+                            {getSortIndicator('debit')}
                           </div>
                         </th>
                       )}
@@ -549,16 +686,12 @@ function TrialBalanceContent() {
                       {visible.credit && (
                         <th
                           className="text-right px-3 py-2 border-b border-r cursor-pointer hover:bg-gray-100 transition-colors"
-                          onClick={() => setSortKey(prev => prev === 'credit' ? prev : 'credit')}
+                          onClick={() => handleSort('credit')}
                           aria-sort={sortKey === 'credit' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                         >
                           <div className="flex items-center justify-end">
-                            <span>{t('Credit', 'கடன்')}</span>
-                            {sortKey === 'credit' && (
-                              <span className="ml-1" aria-hidden="true">
-                                {sortDir === 'asc' ? '↑' : '↓'}
-                              </span>
-                            )}
+                            <span>{t[language].credit}</span>
+                            {getSortIndicator('credit')}
                           </div>
                         </th>
                       )}
@@ -566,16 +699,12 @@ function TrialBalanceContent() {
                       {visible.balance && (
                         <th
                           className="text-right px-3 py-2 border-b cursor-pointer hover:bg-gray-100 transition-colors"
-                          onClick={() => setSortKey(prev => prev === 'balance' ? prev : 'balance')}
+                          onClick={() => handleSort('balance')}
                           aria-sort={sortKey === 'balance' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                         >
                           <div className="flex items-center justify-end">
-                            <span>{t('Balance', 'மீதம்')}</span>
-                            {sortKey === 'balance' && (
-                              <span className="ml-1" aria-hidden="true">
-                                {sortDir === 'asc' ? '↑' : '↓'}
-                              </span>
-                            )}
+                            <span>{t[language].balance}</span>
+                            {getSortIndicator('balance')}
                           </div>
                         </th>
                       )}
@@ -615,7 +744,7 @@ function TrialBalanceContent() {
                                   )}
                                   <span>{category}</span>
                                   <span className="text-gray-500 text-xs">
-                                    ({filteredRows.length} {filteredRows.length === 1 ? t('account', 'கணக்கு') : t('accounts', 'கணக்குகள்')})
+                                    ({filteredRows.length} {filteredRows.length === 1 ? t[language].account : t[language].accounts})
                                   </span>
                                 </div>
                                 <Button
@@ -626,7 +755,7 @@ function TrialBalanceContent() {
                                     e.stopPropagation();
                                     // Export category-specific CSV (if needed)
                                     // (You'd need to replicate similar CSV logic here)
-                                    toast.info('Category export not implemented yet');
+                                    toast.info(t[language].categoryExportNotImplementedYet);
                                   }}
                                 >
                                  
@@ -671,7 +800,7 @@ function TrialBalanceContent() {
 
                               {/* Category Total Row */}
                               <tr className="bg-gray-50 font-medium border-t">
-                                <td className="px-6 py-1.5 text-sm">{t('Total', 'மொத்தம்')} {category}</td>
+                                <td className="px-6 py-1.5 text-sm">{t[language].total} {category}</td>
                                 {visible.inflow && (
                                   <td className="text-right px-3 py-1.5">
                                     {nf.format(categoryTotals.inflow)}
@@ -709,45 +838,45 @@ function TrialBalanceContent() {
                       <tr className="bg-gray-100 font-medium border-t-2 border-gray-200">
                         <td className="px-3 py-2 font-semibold">
                           <div className="flex items-center justify-between">
-                            <span>{t('GRAND TOTAL', 'மொத்தம்')}</span>
-                            {totalsRow.debit !== totalsRow.credit && (
+                            <span>{t[language].grandTotal}</span>
+                            {totals.debit !== totals.credit && (
                               <span className="text-xs text-red-600 font-normal">
-                                {totalsRow.debit > totalsRow.credit ? t('Debit > Credit', 'பற்று > கடன்') : t('Credit > Debit', 'கடன் > பற்று')}
+                                {totals.debit > totals.credit ? t[language].debitGreaterThanCredit : t[language].creditGreaterThanDebit}
                               </span>
                             )}
                           </div>
                         </td>
                         {visible.inflow && (
                           <td className="text-right px-3 py-2 font-semibold">
-                            <span className={totalsRow.debit !== totalsRow.credit ? 'text-red-600' : ''}>
-                              {nf.format(totalsRow.inflow)}
+                            <span className={totals.debit !== totals.credit ? 'text-red-600' : ''}>
+                              {nf.format(totals.inflow)}
                             </span>
                           </td>
                         )}
                         {visible.outflow && (
                           <td className="text-right px-3 py-2 font-semibold">
-                            <span className={totalsRow.debit !== totalsRow.credit ? 'text-red-600' : ''}>
-                              {nf.format(totalsRow.outflow)}
+                            <span className={totals.debit !== totals.credit ? 'text-red-600' : ''}>
+                              {nf.format(totals.outflow)}
                             </span>
                           </td>
                         )}
                         {visible.debit && (
                           <td className="text-right px-3 py-2 font-semibold">
-                            <span className={totalsRow.debit !== totalsRow.credit ? 'text-red-600' : ''}>
-                              {nf.format(totalsRow.debit)}
+                            <span className={totals.debit !== totals.credit ? 'text-red-600' : ''}>
+                              {nf.format(totals.debit)}
                             </span>
                           </td>
                         )}
                         {visible.credit && (
                           <td className="text-right px-3 py-2 font-semibold">
-                            <span className={totalsRow.debit !== totalsRow.credit ? 'text-red-600' : ''}>
-                              {nf.format(totalsRow.credit)}
+                            <span className={totals.debit !== totals.credit ? 'text-red-600' : ''}>
+                              {nf.format(totals.credit)}
                             </span>
                           </td>
                         )}
                         {visible.balance && (
                           <td className="text-right px-3 py-2 font-semibold">
-                            {nf.format(totalsRow.balance)}
+                            {nf.format(totals.balance)}
                           </td>
                         )}
                       </tr>

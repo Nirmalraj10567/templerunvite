@@ -36,7 +36,7 @@ app.use(cors({
       'http://localhost:8081',
       "http://192.168.1.3:8081/",
       'http://localhost:5173',
-      'http://localhost:64095/',
+      'http://localhost:8080'
     ];
 
     const isLocalhost = allowList.includes(origin);
@@ -296,95 +296,47 @@ app.use('/api/hall-approval', hallApprovalRouter);
   const r = express.Router();
 
   // GET /api/ledger/categories
-  r.get('/categories', authenticateToken, authorizePermission('ledger_management', 'view'), async (req, res) => {
+  r.get('/categories', authenticateToken, async (req, res) => {
     try {
       const rows = await db('ledger_categories').select('*').orderBy('label', 'asc');
-      const data = rows.map(r => ({ id: r.id, value: r.value || r.label, label: r.label || r.value }));
-      res.json({ data });
+      const data = rows.map((r) => ({ id: r.id, value: r.value || r.label, label: r.label || r.value }));
+      res.json(data);
     } catch (err) {
-      console.error('Error fetching /api/ledger/categories:', err);
+      console.error('Error fetching categories (/api/ledger-categories):', err);
       res.status(500).json({ error: 'Failed to fetch categories' });
     }
   });
 
-  // GET /api/ledger/accounts (placed here to avoid collision with /api/ledger/:templeId)
-  r.get('/accounts', authenticateToken, authorizePermission('ledger_management', 'view'), async (req, res) => {
-    try {
-      let accounts = [];
-      // Try reading from ledger_accounts table if it exists
-      try {
-        const hasTable = await db.schema.hasTable('ledger_accounts');
-        if (hasTable) {
-          const rows = await db('ledger_accounts').select('*').orderBy('label', 'asc');
-          accounts = rows.map(row => ({ id: row.id, value: row.value || row.label, label: row.label || row.value }));
-        }
-      } catch (e) {
-        // ignore schema errors and fallback below
-      }
-
-      if (!accounts || accounts.length === 0) {
-        // Fallback to distinct NAMEs from ledger_entries (preferred over categories)
-        try {
-          const hasName = await db.schema.hasColumn('ledger_entries', 'name');
-          if (hasName) {
-            const rows = await db('ledger_entries').distinct('name').whereNotNull('name').andWhere('name', '!=', '').orderBy('name', 'asc');
-            accounts = rows.map(r => ({ id: undefined, value: r.name, label: r.name }));
-          } else {
-            // Older schema may use donor_name; try that
-            const hasDonorName = await db.schema.hasColumn('ledger_entries', 'donor_name');
-            if (hasDonorName) {
-              const rows = await db('ledger_entries').distinct('donor_name').whereNotNull('donor_name').andWhere('donor_name', '!=', '').orderBy('donor_name', 'asc');
-              accounts = rows.map(r => ({ id: undefined, value: r.donor_name, label: r.donor_name }));
-            }
-          }
-        } catch (e) {
-          accounts = [];
-        }
-      }
-
-      // Include some sensible defaults if still empty
-      if (!accounts || accounts.length === 0) {
-        accounts = [
-          { id: 1, value: 'CASH A/C', label: 'CASH A/C' },
-          { id: 2, value: 'BANK A/C', label: 'BANK A/C' },
-        ];
-      }
-
-      res.json({ data: accounts });
-    } catch (err) {
-      console.error('Error fetching /api/ledger/accounts:', err);
-      res.status(500).json({ error: 'Failed to fetch accounts' });
-    }
-  });
-
   // POST /api/ledger/categories
-  r.post('/categories', authenticateToken, authorizePermission('ledger_management', 'edit'), async (req, res) => {
+  r.post('/categories', authenticateToken, async (req, res) => {
     try {
       const { value, label } = req.body || {};
       if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
+
       const exists = await db('ledger_categories').where({ value }).orWhere({ label }).first();
       if (exists) return res.status(400).json({ error: 'Category already exists' });
 
       const [id] = await db('ledger_categories').insert({ value, label, created_at: db.fn.now() });
       res.status(201).json({ id, value, label });
     } catch (err) {
-      console.error('Error creating /api/ledger/categories:', err);
+      console.error('Error creating category (/api/ledger-categories):', err);
       res.status(500).json({ error: 'Failed to create category' });
     }
   });
 
   // POST /api/ledger/categories/find-or-create
-  r.post('/categories/find-or-create', authenticateToken, authorizePermission('ledger_management', 'edit'), async (req, res) => {
+  r.post('/categories/find-or-create', authenticateToken, async (req, res) => {
     try {
       const { value, label } = req.body || {};
       if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
+
       const existing = await db('ledger_categories').where({ value }).orWhere({ label }).first();
       if (existing) return res.json({ id: existing.id, value: existing.value, label: existing.label });
 
       const [id] = await db('ledger_categories').insert({ value, label, created_at: db.fn.now() });
       res.status(201).json({ id, value, label });
     } catch (err) {
-      console.error('Error find-or-create /api/ledger/categories:', err);
+      console.error('Error find-or-create category (/api/ledger-categories):', err);
       res.status(500).json({ error: 'Failed to create category' });
     }
   });
@@ -408,7 +360,7 @@ app.get('/api/ledger/balance', authenticateToken, async (req, res) => {
 });
 
   // PUT /api/ledger/categories/:id
-  r.put('/categories/:id', authenticateToken, authorizePermission('ledger_management', 'edit'), async (req, res) => {
+  r.put('/categories/:id', authenticateToken, async (req, res) => {
     try {
       const { id } = req.params;
       const { value, label } = req.body || {};
@@ -422,7 +374,7 @@ app.get('/api/ledger/balance', authenticateToken, async (req, res) => {
   });
 
   // DELETE /api/ledger/categories/:id
-  r.delete('/categories/:id', authenticateToken, authorizePermission('ledger_management', 'edit'), async (req, res) => {
+  r.delete('/categories/:id', authenticateToken, async (req, res) => {
     try {
       const { id } = req.params;
       await db('ledger_categories').where({ id: Number(id) }).del();
@@ -760,6 +712,7 @@ app.get('/api/mobile/events', async (req, res) => {
             from_account: fromAccount,
             to_account: toAccount,
             amount: row.amount,
+            // Use 'transfer' to satisfy DB CHECK constraint reliably
             entry_type: 'transfer',
             remarks: row.reason || null,
             reference_type: 'money_donation',
@@ -1319,6 +1272,7 @@ const ledgerCategoriesCompat = (() => {
         .select('to_account as account')
         .sum({ inflow: 'amount' })
         .groupBy('to_account');
+
       const outflows = await base
         .clone()
         .select('from_account as account')
@@ -2604,271 +2558,30 @@ async function migrate() {
       console.log('Created annadhanam_approval_logs table.');
     }
 
-    // Ensure annadhanam table has mobile workflow fields
-    try { await db.raw("ALTER TABLE annadhanam ADD COLUMN status TEXT DEFAULT 'approved' CHECK (status IN ('pending','approved','rejected','cancelled'))"); } catch (e) {}
-    try { await db.raw('ALTER TABLE annadhanam ADD COLUMN submitted_by_mobile TEXT'); } catch (e) {}
-    try { await db.raw('ALTER TABLE annadhanam ADD COLUMN submitted_at TIMESTAMP'); } catch (e) {}
-    try { await db.raw('ALTER TABLE annadhanam ADD COLUMN approved_at TIMESTAMP'); } catch (e) {}
-    try { await db.raw('ALTER TABLE annadhanam ADD COLUMN rejection_reason TEXT'); } catch (e) {}
-    try { await db.raw('ALTER TABLE annadhanam ADD COLUMN admin_notes TEXT'); } catch (e) {}
-
-    // Create donations table
-    if (!(await db.schema.hasTable('donations'))) {
-      await db.schema.createTable('donations', (table) => {
-        table.increments('id').primary();
-        table.integer('temple_id').notNullable().defaultTo(1);
-        table.string('product_name').notNullable();
-        table.text('description');
-        table.decimal('price', 10, 2).notNullable();
-        table.integer('quantity').defaultTo(1);
-        table.string('category');
-        table.string('donor_name');
-        table.string('donor_contact');
-        table.date('donation_date');
-        table.string('status').defaultTo('available');
-        table.text('notes');
-        table.timestamp('created_at').defaultTo(db.fn.now());
-        table.timestamp('updated_at').defaultTo(db.fn.now());
-        
-        table.foreign('temple_id').references('id').inTable('temples').onDelete('CASCADE');
-        table.index(['temple_id']);
-        table.index(['product_name']);
-        table.index(['category']);
-      });
-      console.log('Created donations table.');
-    }
-    // Safe column additions for donations table
-    try { await db.raw('ALTER TABLE donations ADD COLUMN transfer_to_account TEXT'); } catch (e) {}
-    try { await db.raw("ALTER TABLE donations ADD COLUMN approval_status TEXT DEFAULT 'approved' CHECK (approval_status IN ('pending','approved','rejected','cancelled'))"); } catch (e) {}
-    try { await db.raw('ALTER TABLE donations ADD COLUMN submitted_by_mobile TEXT'); } catch (e) {}
-    try { await db.raw('ALTER TABLE donations ADD COLUMN submitted_at TIMESTAMP'); } catch (e) {}
-    try { await db.raw('ALTER TABLE donations ADD COLUMN approved_by INTEGER REFERENCES users(id) ON DELETE SET NULL'); } catch (e) {}
-    try { await db.raw('ALTER TABLE donations ADD COLUMN approved_at TIMESTAMP'); } catch (e) {}
-    try { await db.raw('ALTER TABLE donations ADD COLUMN rejection_reason TEXT'); } catch (e) {}
-    try { await db.raw('ALTER TABLE donations ADD COLUMN admin_notes TEXT'); } catch (e) {}
-    try { await db.raw('ALTER TABLE donations ADD COLUMN register_no TEXT'); } catch (e) {}
-
-    // Create donations_approval_logs table
-    if (!(await db.schema.hasTable('donations_approval_logs'))) {
-      await db.schema.createTable('donations_approval_logs', (table) => {
-        table.increments('id').primary();
-        table.integer('donation_id').notNullable().references('id').inTable('donations').onDelete('CASCADE');
-        table.string('action').notNullable();
-        table.integer('performed_by').references('id').inTable('users').onDelete('SET NULL');
-        table.timestamp('performed_at').defaultTo(db.fn.now());
-        table.text('notes');
-        table.string('old_status');
-        table.string('new_status');
-        table.index(['donation_id']);
-        table.index(['action']);
-      });
-      console.log('Created donations_approval_logs table.');
-    }
-
-    // Seed permissions for donations approval system
+    // Add permissions for annadhanam approval system
     await db.raw(`
       INSERT OR IGNORE INTO permissions (id, name, description) VALUES 
-      ('donation_approval', 'Donation Approval', 'Approve or reject donation requests'),
-      ('donation_mobile_submit', 'Donation Mobile Submit', 'Submit donation requests from mobile app')
+      ('annadhanam_approval', 'Annadhanam Approval', 'Approve or reject annadhanam requests from mobile users'),
+      ('annadhanam_mobile_submit', 'Annadhanam Mobile Submit', 'Submit annadhanam requests from mobile app')
     `);
 
     // Grant permissions to roles
     await db.raw(`
       INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level) VALUES
-      ('admin', 'donation_approval', 'full'),
-      ('superadmin', 'donation_approval', 'full'),
-      ('member', 'donation_mobile_submit', 'full')
-    `);
-
-    // Create pooja table
-    if (!(await db.schema.hasTable('pooja'))) {
-      await db.schema.createTable('pooja', (table) => {
-        table.increments('id').primary();
-        table.integer('temple_id').notNullable().defaultTo(1);
-        table.string('receipt_number').notNullable();
-        table.string('name').notNullable();
-        table.string('mobile_number').notNullable();
-        table.string('time').notNullable();
-        table.date('from_date').notNullable();
-        table.date('to_date').notNullable();
-        table.text('remarks');
-        table.integer('created_by').references('id').inTable('users').onDelete('SET NULL');
-        table.timestamp('created_at').defaultTo(db.fn.now());
-        table.timestamp('updated_at').defaultTo(db.fn.now());
-        
-        table.foreign('temple_id').references('id').inTable('temples').onDelete('CASCADE');
-        table.index(['temple_id']);
-        table.index(['receipt_number']);
-        table.index(['name']);
-        table.index(['mobile_number']);
-        table.index(['from_date']);
-        table.index(['to_date']);
-      });
-      console.log('Created pooja table.');
-      
-      // Add pooja_registrations permission if it doesn't exist
-      await db.raw(`
-        INSERT OR IGNORE INTO permissions (id, name, description)
-        VALUES ('pooja_registrations', 'Pooja Registrations', 'Manage pooja registrations and religious ceremonies')
-      `);
-      
-      // Grant full permission to admin role
-      await db.raw(`
-        INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level)
-        SELECT 'admin', 'pooja_registrations', 'full'
-        WHERE NOT EXISTS (
-          SELECT 1 FROM role_permissions 
-          WHERE role_id = 'admin' AND permission_id = 'pooja_registrations'
-        )
-      `);
-      
-      // Grant view permission to member role
-      await db.raw(`
-        INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level)
-        SELECT 'member', 'pooja_registrations', 'view'
-        WHERE NOT EXISTS (
-          SELECT 1 FROM role_permissions 
-          WHERE role_id = 'member' AND permission_id = 'pooja_registrations'
-        )
-      `);
-      
-      // Grant full permission to superadmin role
-      await db.raw(`
-        INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level)
-        SELECT 'superadmin', 'pooja_registrations', 'full'
-        WHERE NOT EXISTS (
-          SELECT 1 FROM role_permissions 
-          WHERE role_id = 'superadmin' AND permission_id = 'pooja_registrations'
-        )
-      `);
-
-      // Grant specific permission to user with mobile 9999999999
-      await db.raw(`
-        INSERT OR IGNORE INTO user_permissions (user_id, permission_id, access_level)
-        SELECT u.id, 'pooja_registrations', 'full'
-        FROM users u
-        WHERE u.mobile = '9999999999'
-        AND NOT EXISTS (
-          SELECT 1 FROM user_permissions up
-          WHERE up.user_id = u.id AND up.permission_id = 'pooja_registrations'
-        )
-      `);
-
-      // Insert sample test data
-      await db.raw(`
-        INSERT OR IGNORE INTO pooja (temple_id, receipt_number, name, mobile_number, time, from_date, to_date, remarks, created_by, created_at, updated_at) VALUES
-        (1, 'POO001', 'Rajesh Kumar', '9876543210', '06:00', '2024-01-15', '2024-01-15', 'Morning Ganapathy Pooja', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-        (1, 'POO002', 'Priya Sharma', '9876543211', '18:00', '2024-01-16', '2024-01-16', 'Evening Lakshmi Pooja', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-        (1, 'POO003', 'Suresh Reddy', '9876543212', '12:00', '2024-01-17', '2024-01-17', 'Noon Shiva Pooja', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-        (1, 'POO004', 'Meera Patel', '9876543213', '08:00', '2024-01-18', '2024-01-20', '3-day Navagraha Pooja', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-        (1, 'POO005', 'Kumar Singh', '9876543214', '19:00', '2024-01-19', '2024-01-19', 'Evening Durga Pooja', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-        (1, 'POO006', 'Anita Desai', '9876543215', '07:30', '2024-01-20', '2024-01-20', 'Morning Saraswati Pooja', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-        (1, 'POO007', 'Vikram Joshi', '9876543216', '17:30', '2024-01-21', '2024-01-21', 'Evening Hanuman Pooja', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-        (1, 'POO008', 'Sunita Agarwal', '9876543217', '11:00', '2024-01-22', '2024-01-22', 'Morning Venkateswara Pooja', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-        (1, 'POO009', 'Ramesh Gupta', '9876543218', '20:00', '2024-01-23', '2024-01-23', 'Night Kali Pooja', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-        (1, 'POO010', 'Lakshmi Iyer', '9876543219', '09:00', '2024-01-24', '2024-01-26', '3-day Maha Lakshmi Pooja', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      `);
-    }
-
-    // Add approval system fields to pooja table
-    try {
-      await db.raw(`ALTER TABLE pooja ADD COLUMN status TEXT DEFAULT 'approved' CHECK (status IN ('pending', 'approved', 'rejected', 'cancelled'))`);
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    try {
-      await db.raw(`ALTER TABLE pooja ADD COLUMN submitted_by_mobile TEXT`);
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    try {
-      await db.raw(`ALTER TABLE pooja ADD COLUMN submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    try {
-      await db.raw(`ALTER TABLE pooja ADD COLUMN approved_by INTEGER REFERENCES users(id) ON DELETE SET NULL`);
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    try {
-      await db.raw(`ALTER TABLE pooja ADD COLUMN approved_at TIMESTAMP`);
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    try {
-      await db.raw(`ALTER TABLE pooja ADD COLUMN rejection_reason TEXT`);
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    try {
-      await db.raw(`ALTER TABLE pooja ADD COLUMN admin_notes TEXT`);
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    // Map pooja to ledger account
-    try {
-      await db.raw(`ALTER TABLE pooja ADD COLUMN transfer_to_account TEXT`);
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    // Amount field for pooja entries
-    try {
-      await db.raw(`ALTER TABLE pooja ADD COLUMN amount REAL`);
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    // Create pooja_approval_logs table
-    if (!(await db.schema.hasTable('pooja_approval_logs'))) {
-      await db.schema.createTable('pooja_approval_logs', (table) => {
-        table.increments('id').primary();
-        table.integer('pooja_id').notNullable().references('id').inTable('pooja').onDelete('CASCADE');
-        table.string('action').notNullable();
-        table.integer('performed_by').references('id').inTable('users').onDelete('SET NULL');
-        table.timestamp('performed_at').defaultTo(db.fn.now());
-        table.text('notes');
-        table.string('old_status');
-        table.string('new_status');
-        
-        table.index(['pooja_id']);
-        table.index(['action']);
-      });
-      console.log('Created pooja_approval_logs table.');
-    }
-
-    // Add permissions for pooja approval system
-    await db.raw(`
-      INSERT OR IGNORE INTO permissions (id, name, description) VALUES 
-      ('pooja_approval', 'Pooja Approval', 'Approve or reject pooja requests from mobile users'),
-      ('pooja_mobile_submit', 'Pooja Mobile Submit', 'Submit pooja requests from mobile app')
-    `);
-
-    // Grant permissions to roles
-    await db.raw(`
-      INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level) VALUES
-      ('admin', 'pooja_approval', 'full'),
-      ('superadmin', 'pooja_approval', 'full'),
-      ('member', 'pooja_mobile_submit', 'full')
+      ('admin', 'annadhanam_approval', 'full'),
+      ('superadmin', 'annadhanam_approval', 'full'),
+      ('member', 'annadhanam_mobile_submit', 'full')
     `);
 
     // Grant specific permission to user with mobile 9999999999
     await db.raw(`
       INSERT OR IGNORE INTO user_permissions (user_id, permission_id, access_level)
-      SELECT u.id, 'pooja_mobile_submit', 'full'
+      SELECT u.id, 'annadhanam_mobile_submit', 'full'
       FROM users u
       WHERE u.mobile = '9999999999'
       AND NOT EXISTS (
         SELECT 1 FROM user_permissions up
-        WHERE up.user_id = u.id AND up.permission_id = 'pooja_mobile_submit'
+        WHERE up.user_id = u.id AND up.permission_id = 'annadhanam_mobile_submit'
       )
     `);
 
@@ -3791,14 +3504,14 @@ app.get('/api/session-logs/export-pdf', authenticateToken, authorizePermission('
     
     // Set response headers
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename=session-logs.pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=session-logs.pdf`);
 
     // Pipe PDF to response
     doc.pipe(res);
 
     // Add title
     doc.fontSize(20).text('Session Logs Report', { align: 'center' });
-    doc.moveDown();
+    doc.moveDown(0.5);
     
     // Add date range if specified
     if (startDate || endDate) {

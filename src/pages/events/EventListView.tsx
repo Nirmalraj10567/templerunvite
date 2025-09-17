@@ -15,6 +15,45 @@ import { Calendar, MapPin, Clock, Search, Plus, ImageIcon } from 'lucide-react';
 import eventService from '@/services/eventService';
 import { Event } from '@/types/event';
 import { toast } from '@/components/ui/use-toast';
+import { useLanguage } from '@/lib/language';
+
+// Translation object
+const translations = {
+  tamil: {
+    templeEvents: 'Temple Events',
+    searchEvents: 'Search events...',
+    create: 'Create',
+    loadingEvents: 'Loading events...',
+    noEvents: 'No events found',
+    success: 'Success',
+    eventDeleted: 'Event deleted successfully',
+    error: 'Error',
+    fetchError: 'Failed to fetch events',
+    deleteError: 'Failed to delete event',
+    date: 'Date',
+    time: 'Time',
+    location: 'Location',
+    edit: 'Edit',
+    delete: 'Delete'
+  },
+  english: {
+    templeEvents: 'கோவில் நிகழ்வுகள்',
+    searchEvents: 'நிகழ்வுகளை தேடு...',
+    create: 'உருவாக்கு',
+    loadingEvents: 'நிகழ்வுகள் ஏற்றப்படுகின்றன...',
+    noEvents: 'நிகழ்வுகள் எதுவும் கிடைக்கவில்லை',
+    success: 'வெற்றி',
+    eventDeleted: 'நிகழ்வு வெற்றிகரமாக நீக்கப்பட்டது',
+    error: 'பிழை',
+    fetchError: 'நிகழ்வுகளைப் பெற முடியவில்லை',
+    deleteError: 'நிகழ்வை நீக்க முடியவில்லை',
+    date: 'தேதி',
+    time: 'நேரம்',
+    location: 'இடம்',
+    edit: 'திருத்து',
+    delete: 'நீக்கு'
+  }
+};
 
 export default function EventListView() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -24,6 +63,8 @@ export default function EventListView() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
   const navigate = useNavigate();
+  const { language } = useLanguage();
+  const t = translations[language];
 
   const fetchEvents = async () => {
     try {
@@ -31,7 +72,7 @@ export default function EventListView() {
       const { data } = await eventService.getEvents(page, 10, search);
       setEvents(data);
     } catch {
-      toast({ title: 'Error', description: 'Failed to fetch events', variant: 'destructive' });
+      toast({ title: t.error, description: t.fetchError, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -53,10 +94,10 @@ export default function EventListView() {
   const handleDelete = async (id: number) => {
     try {
       await eventService.deleteEvent(id.toString());
-      toast({ title: 'Success', description: 'Event deleted successfully' });
+      toast({ title: t.success, description: t.eventDeleted });
       fetchEvents();
     } catch {
-      toast({ title: 'Error', description: 'Failed to delete event', variant: 'destructive' });
+      toast({ title: t.error, description: t.deleteError, variant: 'destructive' });
     }
   };
 
@@ -64,12 +105,12 @@ export default function EventListView() {
     <div className="container mx-auto py-4 px-3 text-xs">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between p-3">
-          <CardTitle className="text-sm font-semibold">Temple Events</CardTitle>
+          <CardTitle className="text-sm font-semibold">{t.templeEvents}</CardTitle>
           <div className="flex items-center gap-2">
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground h-3 w-3" />
               <Input 
-                placeholder="Search events..." 
+                placeholder={t.searchEvents} 
                 className="pl-8 w-48 h-7 text-xs"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -77,15 +118,15 @@ export default function EventListView() {
               />
             </div>
             <Button size="sm" onClick={() => navigate('/dashboard/events/new')}>
-              <Plus className="mr-1 h-3 w-3" /> Create
+              <Plus className="mr-1 h-3 w-3" /> {t.create}
             </Button>
           </div>
         </CardHeader>
         <CardContent className="p-3">
           {loading ? (
-            <div className="text-center py-6">Loading events...</div>
+            <div className="text-center py-6">{t.loadingEvents}</div>
           ) : events.length === 0 ? (
-            <div className="text-center py-6">No events found</div>
+            <div className="text-center py-6">{t.noEvents}</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {events.map(event => (
@@ -97,30 +138,42 @@ export default function EventListView() {
                       return src ? (
                         <img 
                           src={src} alt={event.title}
-                          className="w-full h-36 object-cover rounded-t"
+                          className="w-full h-32 object-cover cursor-pointer"
+                          onClick={() => openImageGallery(event)}
                         />
                       ) : null;
                     })()}
-                    <div className="p-3 space-y-1">
-                      <h3 className="text-sm font-semibold">{event.title}</h3>
-                      <div className="flex items-center text-muted-foreground text-[11px] gap-1">
-                        <Calendar className="h-3 w-3" /><span>{event.date}</span>
+                    <div className="p-3 space-y-2">
+                      <h3 className="font-medium">{event.title}</h3>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Calendar className="h-3 w-3" />
+                        <span>{t.date}: {new Date(event.date).toLocaleDateString()}</span>
                       </div>
-                      <div className="flex items-center text-muted-foreground text-[11px] gap-1">
-                        <Clock className="h-3 w-3" /><span>{event.time}</span>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        <span>{t.time}: {event.time}</span>
                       </div>
-                      <div className="flex items-center text-muted-foreground text-[11px] gap-1">
-                        <MapPin className="h-3 w-3" /><span>{event.location}</span>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <MapPin className="h-3 w-3" />
+                        <span>{t.location}: {event.location}</span>
                       </div>
-                      <div className="flex justify-between items-center pt-2">
+                      <div className="flex justify-end gap-2 pt-2">
                         <Button 
-                          variant="outline" size="xs"
-                          onClick={() => openImageGallery(event)}
+                          variant="outline" 
+                          size="sm" 
+                          className="h-6 px-2"
+                          onClick={() => navigate(`/dashboard/events/edit/${event.id}`)}
                         >
-                          <ImageIcon className="mr-1 h-3 w-3" /> Gallery
+                          {t.edit}
                         </Button>
-                        <Button size="xs" onClick={() => navigate(`/dashboard/events/edit/${event.id}`)}>Edit</Button>
-                        <Button variant="destructive" size="xs" onClick={(e) => { e.stopPropagation(); handleDelete(event.id); }}>Delete</Button>
+                        <Button 
+                          variant="destructive" 
+                          size="sm" 
+                          className="h-6 px-2"
+                          onClick={() => handleDelete(event.id)}
+                        >
+                          {t.delete}
+                        </Button>
                       </div>
                     </div>
                   </CardContent>

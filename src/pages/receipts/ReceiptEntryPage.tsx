@@ -8,12 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useLanguage } from '@/lib/language';
 import { ledgerService } from '@/services/ledgerService';
 import { journalService } from '@/services/journalService';
 
 // Receipt number will be generated on the server in YYYY-XXXX format
-
 
 interface ReceiptFormData {
   receiptNumber: string;
@@ -28,15 +27,84 @@ interface ReceiptFormData {
 export default function ReceiptEntryPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { token } = useAuth();
   const { language } = useLanguage();
+  const { token } = useAuth();
+
+  // Unified translation object
+  const translations = {
+    english: {
+      title: id ? 'ரசீதைத் திருத்தவும்' : 'புதிய ரசீது',
+      receiptNumber: 'ரசீது எண்',
+      date: 'தேதி',
+      type: 'வகை',
+      income: 'வரவு',
+      expense: 'செலவு',
+      donor: 'தந்தவர்',
+      receiver: 'பெற்றவர்',
+      amount: 'தொகை',
+      remarks: 'குறிப்புகள்',
+      save: 'சேமிக்கவும்',
+      cancel: 'ரத்து செய்',
+      saveSuccess: 'ரசீது வெற்றிகரமாக சேமிக்கப்பட்டது',
+      saveError: 'ரசீதை சேமிக்க முடியவில்லை',
+      invalidAmount: 'செல்லுபடியான தொகையை உள்ளிடவும்',
+      requiredField: 'இது தேவையான புலம்',
+      loading: 'ஏற்றுகிறது...',
+      balance: 'இருப்பு',
+      selectName: 'பெயரைத் தேர்ந்தெடுக்கவும்',
+      additionalRemarks: 'கூடுதல் குறிப்புகள்',
+      goToDailyReport: 'தினசரி அறிக்கைக்கு செல்ல',
+      saving: 'சேமிக்கிறது...',
+      updateReceipt: 'ரசீது புதுப்பிக்க',
+      saveReceipt: 'ரசீது சேமிக்க',
+      selectFromCategory: 'செலவிற்கு வரவு (From) வகையைத் தேர்ந்தெடுக்கவும்',
+      zeroBalance: 'தேர்ந்தெடுத்த கணக்கில் இருப்பு இல்லை',
+      exceedsBalance: 'செலவு தொகை கிடைக்கும் இருப்பை விட அதிகமாக உள்ளது',
+      remarksLabel: 'குறிப்பு'
+    },
+    tamil: {
+      title: id ? 'Edit Receipt' : 'New Receipt',
+      receiptNumber: 'Receipt Number',
+      date: 'Date',
+      type: 'Type',
+      income: 'Income',
+      expense: 'Expense',
+      donor: 'Donor',
+      receiver: 'Receiver',
+      amount: 'Amount',
+      remarks: 'Remarks',
+      save: 'Save',
+      cancel: 'Cancel',
+      saveSuccess: 'Receipt saved successfully',
+      saveError: 'Failed to save receipt',
+      invalidAmount: 'Please enter a valid amount',
+      requiredField: 'This field is required',
+      loading: 'Loading...',
+      balance: 'Balance',
+      selectName: 'Select name',
+      additionalRemarks: 'Enter any remarks',
+      goToDailyReport: 'Go to Daily Report',
+      saving: 'Saving...',
+      updateReceipt: 'Update Receipt',
+      saveReceipt: 'Save Receipt',
+      selectFromCategory: 'Please select a From category for expense',
+      zeroBalance: 'Selected account has zero balance',
+      exceedsBalance: 'Expense amount exceeds available balance',
+      remarksLabel: 'Remarks'
+    }
+  };
+
+  // Translation function
+  const t = (key: keyof typeof translations.english): string => {
+    const currentTranslations = translations[language as keyof typeof translations] || translations.english;
+    return currentTranslations[key] || translations.english[key] || key;
+  };
+
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { register, handleSubmit, reset, setValue, watch } = useForm<ReceiptFormData>();
   const [ledgerNames, setLedgerNames] = useState<string[]>([]);
   const [fromBalance, setFromBalance] = useState<number | null>(null);
-
-  const t = (en: string, ta: string) => (language === 'tamil' ? ta : en);
 
   // Derived UI state to control Save button availability
   const typeValue = watch('type');
@@ -109,8 +177,8 @@ export default function ReceiptEntryPage() {
         } catch (e) {
           console.error(e);
           toast({
-            title: t('Error', 'பிழை'),
-            description: t('Failed to load receipt', 'ரசீது தரவை ஏற்ற முடியவில்லை'),
+            title: t('saveError'),
+            description: t('saveError'),
             variant: 'destructive',
           });
         } finally {
@@ -119,6 +187,7 @@ export default function ReceiptEntryPage() {
       };
       fetchReceipt();
     }
+
     // Load distinct account names (journal accounts preferred)
     (async () => {
       try {
@@ -139,11 +208,19 @@ export default function ReceiptEntryPage() {
     try {
       setIsSubmitting(true);
       if (!data.date) {
-        toast({ title: t('Validation', 'சரிபார்ப்பு'), description: t('Please select a date', 'தேதியைத் தேர்ந்தெடுக்கவும்'), variant: 'destructive' });
+        toast({ 
+          title: t('saveError'), 
+          description: t('requiredField'), 
+          variant: 'destructive' 
+        });
         return;
       }
       if (!data.amount || Number(data.amount) <= 0) {
-        toast({ title: t('Validation', 'சரிபார்ப்பு'), description: t('Amount must be greater than 0', 'தொகை 0-ஐ விட அதிகமாக இருக்க வேண்டும்'), variant: 'destructive' });
+        toast({ 
+          title: t('saveError'), 
+          description: t('invalidAmount'), 
+          variant: 'destructive' 
+        });
         return;
       }
 
@@ -151,7 +228,11 @@ export default function ReceiptEntryPage() {
       if (data.type === 'expense') {
         const amt = Number(data.amount);
         if (!data.donor) {
-          toast({ title: t('Validation', 'சரிபார்ப்பு'), description: t('Please select a From category for expense', 'செலவிற்கு வரவு (From) வகையைத் தேர்ந்தெடுக்கவும்'), variant: 'destructive' });
+          toast({ 
+            title: t('saveError'), 
+            description: t('requiredField'), 
+            variant: 'destructive' 
+          });
           return;
         }
         // Always fetch latest balance for donor (from journal)
@@ -160,16 +241,28 @@ export default function ReceiptEntryPage() {
           if (!Number.isNaN(latestBal)) setFromBalance(latestBal);
           if (!Number.isNaN(latestBal)) {
             if (latestBal === 0) {
-              toast({ title: t('No balance', 'இருப்பு இல்லை'), description: t('Selected account has zero balance', 'தேர்ந்தெடுத்த கணக்கில் இருப்பு இல்லை'), variant: 'destructive' });
+              toast({ 
+                title: t('saveError'), 
+                description: t('zeroBalance'), 
+                variant: 'destructive' 
+              });
               return;
             }
             if (amt > latestBal) {
-              toast({ title: t('Insufficient balance', 'போதுமான இருப்பு இல்லை'), description: t('Expense amount exceeds available balance', 'செலவு தொகை கிடைக்கும் இருப்பை விட அதிகமாக உள்ளது'), variant: 'destructive' });
+              toast({ 
+                title: t('saveError'), 
+                description: t('exceedsBalance'), 
+                variant: 'destructive' 
+              });
               return;
             }
           }
         } catch (err) {
-          toast({ title: t('Error', 'பிழை'), description: t('Unable to verify balance. Please try again.', 'இருப்பை சரிபார்க்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.'), variant: 'destructive' });
+          toast({ 
+            title: t('saveError'), 
+            description: t('saveError'), 
+            variant: 'destructive' 
+          });
           return;
         }
       }
@@ -194,16 +287,18 @@ export default function ReceiptEntryPage() {
         },
         body: JSON.stringify(payload),
       });
+      
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || 'Failed to save receipt');
+        throw new Error(err.error || t('saveError'));
       }
+      
       const result = await res.json();
-      if (!result.success) throw new Error(result.error || 'Failed to save receipt');
+      if (!result.success) throw new Error(result.error || t('saveError'));
 
       // Note: Journal entry will be created by backend mirror logic. Avoid creating here to prevent duplicates.
 
-      toast({ title: t('Success', 'வெற்றி'), description: id ? t('Receipt updated', 'ரசீது புதுப்பிக்கப்பட்டது') : t('Receipt created', 'ரசீது உருவாக்கப்பட்டது') });
+      toast({ title: t('saveSuccess') });
 
       if (!id) {
         reset();
@@ -214,7 +309,11 @@ export default function ReceiptEntryPage() {
       }
     } catch (e) {
       console.error(e);
-      toast({ title: t('Error', 'பிழை'), description: t('Failed to submit receipt', 'ரசீதுவை சமர்ப்பிக்க முடியவில்லை'), variant: 'destructive' });
+      toast({ 
+        title: t('saveError'), 
+        description: t('saveError'), 
+        variant: 'destructive' 
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -230,141 +329,212 @@ export default function ReceiptEntryPage() {
     }
   };
 
-  if (isLoading) return <div className="p-8">Loading receipt...</div>;
+  const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    // If switching to expense, warn if amount already exceeds balance
+    const amountInput = document.getElementById('amount') as HTMLInputElement | null;
+    const v = amountInput?.value || '';
+    const amt = Number(v);
+    if (e?.target?.value === 'expense' && fromBalance !== null && amt > 0 && amt > fromBalance) {
+      toast({ 
+        title: t('saveError'), 
+        description: t('exceedsBalance'), 
+        variant: 'destructive' 
+      });
+    }
+  };
+
+  const handleAmountBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const amt = Number(e?.target?.value || 0);
+    const typeSelect = document.getElementById('type') as HTMLSelectElement | null;
+    const type = typeSelect?.value || 'income';
+    if (type === 'expense' && fromBalance !== null && amt > fromBalance) {
+      toast({ 
+        title: t('saveError'), 
+        description: t('exceedsBalance'), 
+        variant: 'destructive' 
+      });
+    }
+  };
+
+  const handleDonorChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const under = e?.target?.value as string;
+    setFromBalance(null);
+    if (!under) return;
+    
+    try {
+      const bal = await journalService.getBalance(under);
+      if (!Number.isNaN(bal)) {
+        setFromBalance(bal);
+        if (bal === 0) {
+          toast({
+            title: t('saveError'),
+            description: t('zeroBalance'),
+            variant: 'destructive',
+          });
+        }
+      }
+    } catch (err) {
+      // Silently ignore but reset balance view
+      setFromBalance(null);
+    }
+  };
+
+  const handleGoToDailyReport = () => {
+    // Read selected date field from the form inputs via DOM or fallback to today
+    const input = document.getElementById('date') as HTMLInputElement | null;
+    const d = input?.value || new Date().toISOString().slice(0, 10);
+    navigate(`/dashboard/reports/daily?date=${d}`);
+  };
+
+  if (isLoading) return <div className="p-8">{t('loading')}</div>;
 
   return (
     <div className="max-w-3xl mx-auto bg-white p-4 rounded-md shadow text-sm">
       <Card className="w-full">
         <CardHeader className="py-2">
           <CardTitle className="text-xl font-semibold text-center">
-            {t('Receipt Entry', 'வரவு/செலவு பதிவு')}
+            {t('title')}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-3">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <Label htmlFor="receiptNumber">{t('Receipt Number', 'ரசீது எண்')}</Label>
+                <Label htmlFor="receiptNumber">{t('receiptNumber')}</Label>
                 <Input 
                   id="receiptNumber" 
                   readOnly 
                   className="bg-gray-100 h-8 px-2 text-sm" 
-                  placeholder={t('Auto-generated', 'தானாக உருவாக்கப்படும்')} 
+                  placeholder={t('receiptNumber')} 
                   {...register('receiptNumber')} 
                 />
               </div>
+              
               <div className="space-y-1">
-                <Label htmlFor="date">{t('Date', 'தேதி')} *</Label>
-                <Input id="date" type="date" className="h-8 px-2 text-sm" {...register('date', { required: true })} />
+                <Label htmlFor="date">{t('date')}</Label>
+                <Input 
+                  id="date" 
+                  type="date" 
+                  className="h-8 px-2 text-sm" 
+                  {...register('date', { required: t('requiredField') })} 
+                />
               </div>
+              
               <div className="space-y-1">
-                <Label htmlFor="type">{t('Type', 'Type')} *</Label>
-                <select id="type" className="border rounded h-8 px-2 text-sm" {...register('type', { required: true, onChange: (e) => {
-                  // If switching to expense, warn if amount already exceeds balance
-                  const v = (document.getElementById('amount') as HTMLInputElement | null)?.value || '';
-                  const amt = Number(v);
-                  if (e?.target?.value === 'expense' && fromBalance !== null && amt > 0 && amt > fromBalance) {
-                    toast({ title: t('Insufficient balance', 'போதுமான இருப்பு இல்லை'), description: t('Expense amount exceeds available balance', 'செலவு தொகை கிடைக்கும் இருப்பை விட அதிகமாக உள்ளது') });
-                  }
-                } })}>
-                  <option value="income">{t('Income', 'வரவு')}</option>
-                  <option value="expense">{t('Expense', 'செலவு')}</option>
+                <Label htmlFor="type">{t('type')}</Label>
+                <select 
+                  id="type" 
+                  className="border rounded h-8 px-2 text-sm w-full" 
+                  {...register('type', { 
+                    required: t('requiredField'), 
+                    onChange: handleTypeChange 
+                  })}
+                >
+                  <option value="income">{t('income')}</option>
+                  <option value="expense">{t('expense')}</option>
                 </select>
               </div>
+              
               <div className="space-y-1">
-                <Label htmlFor="amount">{t('Amount', 'தொகை')} *</Label>
-                <Input id="amount" type="number" step="0.01" min="0" className="h-8 px-2 text-sm" placeholder={t('Enter amount', 'தொகையை உள்ளிடவும்')} {...register('amount', { required: true, onBlur: (e) => {
-                  const amt = Number(e?.target?.value || 0);
-                  const type = (document.getElementById('type') as HTMLSelectElement | null)?.value || 'income';
-                  if (type === 'expense' && fromBalance !== null && amt > fromBalance) {
-                    toast({ title: t('Insufficient balance', 'போதுமான இருப்பு இல்லை'), description: t('Expense amount exceeds available balance', 'செலவு தொகை கிடைக்கும் இருப்பை விட அதிகமாக உள்ளது') });
-                  }
-                } })} />
+                <Label htmlFor="amount">{t('amount')}</Label>
+                <Input 
+                  id="amount" 
+                  type="number" 
+                  step="0.01" 
+                  min="0" 
+                  className="h-8 px-2 text-sm" 
+                  placeholder={t('amount')} 
+                  {...register('amount', { 
+                    required: t('requiredField'), 
+                    onBlur: handleAmountBlur 
+                  })} 
+                />
               </div>
+              
               <div className="space-y-1">
-                <Label htmlFor="donor">{t('From', 'வரவு பெயர்')}</Label>
+                <Label htmlFor="donor">{t('donor')}</Label>
                 <select
                   id="donor"
                   className="border rounded h-8 px-2 w-full text-sm"
-                  {...register('donor', {
-                    onChange: async (e) => {
-                      const under = e?.target?.value as string;
-                      setFromBalance(null);
-                      if (!under) return;
-                      try {
-                        const bal = await journalService.getBalance(under);
-                        if (!Number.isNaN(bal)) {
-                          setFromBalance(bal);
-                          if (bal === 0) {
-                            toast({
-                              title: t('No balance', 'இருப்பு இல்லை'),
-                              description: t('Selected account has zero balance', 'தேர்ந்தெடுத்த கணக்கில் இருப்பு இல்லை'),
-                              variant: 'destructive',
-                            });
-                          }
-                        }
-                      } catch (err) {
-                        // Silently ignore but reset balance view
-                        setFromBalance(null);
-                      }
-                    }
-                  })}
+                  {...register('donor', { onChange: handleDonorChange })}
                 >
-                  <option value="">{t('Select name', 'பெயரைத் தேர்ந்தெடுக்கவும்')}</option>
+                  <option value="">{t('selectName')}</option>
                   {ledgerNames.map((n) => (
                     <option key={n} value={n}>{n}</option>
                   ))}
                 </select>
                 {fromBalance !== null && (
                   <p className="text-xs text-gray-600">
-                    {t('Balance', 'இருப்பு')}: {fromBalance}
+                    {t('balance')}: {fromBalance}
                   </p>
                 )}
               </div>
+              
               <div className="space-y-1">
-                <Label htmlFor="receiver">{t('To', 'பெற்றவர்')}</Label>
+                <Label htmlFor="receiver">{t('receiver')}</Label>
                 <select
                   id="receiver"
                   className="border rounded h-8 px-2 w-full text-sm"
                   {...register('receiver')}
                 >
-                  <option value="">{t('Select name', 'பெயரைத் தேர்ந்தெடுக்கவும்')}</option>
+                  <option value="">{t('selectName')}</option>
                   {ledgerNames.map((n) => (
                     <option key={n} value={n}>{n}</option>
                   ))}
                 </select>
               </div>
             </div>
-            {/* No datalist needed; both fields use select dropdowns */}
+            
             <div className="space-y-1">
-              <Label htmlFor="remarks">{t('Remarks', 'குறிப்பு')}</Label>
-              <Textarea id="remarks" rows={2} className="text-sm" placeholder={t('Enter any remarks', 'கூடுதல் குறிப்புகள்')} {...register('remarks')} />
+              <Label htmlFor="remarks">{t('remarksLabel')}</Label>
+              <Textarea 
+                id="remarks" 
+                rows={2} 
+                className="text-sm" 
+                placeholder={t('additionalRemarks')} 
+                {...register('remarks')} 
+              />
             </div>
+            
             <div className="flex justify-end space-x-3 pt-4 border-t">
-              <Button type="button" variant="outline" className="h-8 px-3 text-sm" onClick={handleCancel} disabled={isSubmitting}>{t('Cancel', 'ரத்து செய்')}</Button>
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="h-8 px-3 text-sm" 
+                onClick={handleCancel} 
+                disabled={isSubmitting}
+              >
+                {t('cancel')}
+              </Button>
+              
               <Button
                 type="button"
                 variant="outline"
                 className="h-8 px-3 text-sm"
-                onClick={() => {
-                  // Read selected date field from the form inputs via DOM or fallback to today
-                  const input = document.getElementById('date') as HTMLInputElement | null;
-                  const d = input?.value || new Date().toISOString().slice(0,10);
-                  navigate(`/dashboard/reports/daily?date=${d}`);
-                }}
+                onClick={handleGoToDailyReport}
               >
-                {t('Go to Daily Report', 'தினசரி அறிக்கைக்கு செல்ல')}
+                {t('goToDailyReport')}
               </Button>
-              <Button type="submit" disabled={isSubmitting || isSaveDisabledByBalance || isDonorMissingForExpense} className="bg-orange-600 hover:bg-orange-700 disabled:opacity-60 disabled:cursor-not-allowed h-8 px-4 text-sm">
-                {isSubmitting ? t('Saving...', 'சேமிக்கிறது...') : id ? t('Update Receipt', 'ரசீது புதுப்பிக்க') : t('Save Receipt', 'ரசீது சேமிக்க')}
+              
+              <Button 
+                type="submit" 
+                disabled={isSubmitting || isSaveDisabledByBalance || isDonorMissingForExpense} 
+                className="bg-orange-600 hover:bg-orange-700 disabled:opacity-60 disabled:cursor-not-allowed h-8 px-4 text-sm"
+              >
+                {isSubmitting 
+                  ? t('saving')
+                  : id 
+                    ? t('updateReceipt')
+                    : t('saveReceipt')}
               </Button>
+              
               {(isSaveDisabledByBalance || isDonorMissingForExpense) && (
                 <div className="text-sm text-red-600 flex items-center">
                   {isDonorMissingForExpense
-                    ? t('Please select a From category for expense', 'செலவிற்கு வரவு (From) வகையைத் தேர்ந்தெடுக்கவும்')
+                    ? t('selectFromCategory')
                     : (isZeroBalance
-                        ? t('Selected account has zero balance', 'தேர்ந்தெடுத்த கணக்கில் இருப்பு இல்லை')
-                        : t('Expense amount exceeds available balance', 'செலவு தொகை கிடைக்கும் இருப்பை விட அதிகமாக உள்ளது'))}
+                        ? t('zeroBalance')
+                        : t('exceedsBalance'))}
                 </div>
               )}
             </div>
