@@ -8,8 +8,24 @@ function authenticateToken(req, res, next) {
   const isPublic = (
     // Allow login endpoint
     (method === 'POST' && /\/api\/login$/.test(url)) ||
+    // Allow smart login discovery endpoint
+    (method === 'POST' && /\/api\/login\/smart$/.test(url)) ||
+    // Allow mobile-auth OTP verification (token validated internally)
+    (method === 'POST' && /\/api\/mobile-auth\/verify-otp$/.test(url)) ||
+    // Allow login mode discovery endpoint
+    (method === 'GET' && /\/api\/login\/mode(\?.*)?$/.test(url)) ||
     // Mobile events list should be public
-    (method === 'GET' && /\/api\/events\/mobile\/events(\?.*)?$/.test(url))
+    (method === 'GET' && /\/api\/events\/mobile\/events(\?.*)?$/.test(url)) ||
+    // Allow PDF/receipt endpoints that validate token via query using verifyQueryToken
+    // Example: /api/money-donations/:id/receipt.pdf?token=...
+    //          /api/tax-registrations/:id/receipt.pdf?token=...
+    //          /api/annadhanam/:id/receipt.pdf?token=...
+    //          /api/hall-bookings/:id/receipt.pdf?token=...
+    //          /api/ledger/trial-balance.pdf?token=...
+    // Explicit allow for hall bookings receipt with token in query
+    (method === 'GET' && /\/api\/hall-bookings\/[0-9]+\/receipt\.pdf(\?.*)?$/.test(url)) ||
+    (method === 'GET' && /\/api\/(?:[^\s]+)\/receipt\.pdf(\?.*)?$/.test(url)) ||
+    (method === 'GET' && /\/api\/.*\.pdf(\?.*)?$/.test(url))
   );
 
   if (isPublic) {

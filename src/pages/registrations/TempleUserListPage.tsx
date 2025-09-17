@@ -3,9 +3,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TableCell } from '@/components/ui/table';
 import { FileDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -20,31 +19,9 @@ type Registration = {
   status?: 'active' | 'blocked' | 'inactive';
 };
 
-// Column Keys type
 type ColKey = 'name' | 'mobile_number' | 'aadhaar_number' | 'reference_number' | 'village' | 'created_at' | 'actions';
 
-// Translation object
 const t = {
-  english: {
-    searchPlaceholder: 'பெயர், தொலைபேசி அல்லது கிராமம் மூலம் தேடு',
-    exportButton: 'ஏற்றுமதி CSV',
-    name: 'பெயர்',
-    mobile: 'தொலைபேசி',
-    aadhaar: 'ஆதார்',
-    refNo: 'குறிப்பு எண்',
-    village: 'கிராமம்',
-    created: 'உருவாக்கப்பட்டது',
-    actions: 'செயல்கள்',
-    deleteConfirm: 'இந்த பதிவை நீக்கவா?',
-    deleteSuccess: 'பதிவு வெற்றிகரமாக நீக்கப்பட்டது',
-    deleteError: 'நீக்குதல் தோல்வியடைந்தது',
-    block: 'தடு',
-    unblock: 'தடை நீக்கு',
-    blockSuccess: 'பயனர் தடை செய்யப்பட்டார்',
-    unblockSuccess: 'பயனர் தடை நீக்கப்பட்டார்',
-    blockError: 'தடை செயல்படுத்தப்படவில்லை',
-    loading: 'ஏற்றுகிறது...'
-  },
   tamil: {
     searchPlaceholder: 'Search by name, mobile or village',
     exportButton: 'Export CSV',
@@ -55,15 +32,45 @@ const t = {
     village: 'Village',
     created: 'Created',
     actions: 'Actions',
-    deleteConfirm: 'Delete this record?',
-    deleteSuccess: 'Record deleted successfully',
-    deleteError: 'Failed to delete',
     block: 'Block',
     unblock: 'Unblock',
     blockSuccess: 'User blocked',
     unblockSuccess: 'User unblocked',
     blockError: 'Failed to block/unblock',
-    loading: 'Loading...'
+    loading: 'Loading...',
+    selectAll: 'Select All',
+    deselectAll: 'Deselect All',
+    reset: 'Reset',
+    close: 'Close',
+    noRecords: 'No records found',
+    page: 'Page',
+    of: 'of',
+    records: 'records'
+  },
+  english: {
+    searchPlaceholder: 'பெயர், தொலைபேசி அல்லது கிராமம் மூலம் தேடு',
+    exportButton: 'ஏற்றுமதி CSV',
+    name: 'பெயர்',
+    mobile: 'தொலைபேசி',
+    aadhaar: 'ஆதார்',
+    refNo: 'குறிப்பு எண்',
+    village: 'கிராமம்',
+    created: 'உருவாக்கப்பட்டது',
+    actions: 'செயல்கள்',
+    block: 'தடு',
+    unblock: 'தடை நீக்கு',
+    blockSuccess: 'பயனர் தடை செய்யப்பட்டார்',
+    unblockSuccess: 'பயனர் தடை நீக்கப்பட்டார்',
+    blockError: 'தடை செயல்படுத்தப்படவில்லை',
+    loading: 'ஏற்றுகிறது...',
+    selectAll: 'அனைத்தையும் தெரிவு செய்',
+    deselectAll: 'தேர்வால் நீக்கு',
+    reset: 'மீட்டமை',
+    close: 'மூடு',
+    noRecords: 'பதிவுகள் இல்லை',
+    page: 'பக்கம்',
+    of: 'அ',
+    records: 'பதிவுகள்'
   }
 } as const;
 
@@ -71,6 +78,7 @@ export default function TempleUserListPage() {
   const { token } = useAuth();
   const { language } = useLanguage();
   const navigate = useNavigate();
+
   const [rows, setRows] = useState<Registration[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -81,13 +89,13 @@ export default function TempleUserListPage() {
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / pageSize)), [total, pageSize]);
 
   const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' | 'center' }> = [
-    { key: 'name', label: t[language as 'tamil' | 'english'].name },
-    { key: 'mobile_number', label: t[language as 'tamil' | 'english'].mobile },
-    { key: 'aadhaar_number', label: t[language as 'tamil' | 'english'].aadhaar },
-    { key: 'reference_number', label: t[language as 'tamil' | 'english'].refNo },
-    { key: 'village', label: t[language as 'tamil' | 'english'].village },
-    { key: 'created_at', label: t[language as 'tamil' | 'english'].created },
-    { key: 'actions', label: t[language as 'tamil' | 'english'].actions, align: 'center' },
+    { key: 'name', label: t[language].name },
+    { key: 'mobile_number', label: t[language].mobile },
+    { key: 'aadhaar_number', label: t[language].aadhaar },
+    { key: 'reference_number', label: t[language].refNo },
+    { key: 'village', label: t[language].village },
+    { key: 'created_at', label: t[language].created },
+    { key: 'actions', label: t[language].actions, align: 'center' },
   ];
 
   const STORAGE_KEY = 'temple_user_list_visible_columns_v1';
@@ -124,23 +132,6 @@ export default function TempleUserListPage() {
     navigate(`/dashboard/registrations/edit/${id}`);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm(t[language as 'tamil' | 'english'].deleteConfirm)) return;
-    try {
-      const res = await fetch(`/api/registrations/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Failed to delete');
-      load();
-      alert(t[language as 'tamil' | 'english'].deleteSuccess);
-    } catch (err) {
-      console.error(err);
-      alert(t[language as 'tamil' | 'english'].deleteError);
-    }
-  };
-
   const handleToggleBlock = async (r: Registration) => {
     const next = r.status === 'blocked' ? 'active' : 'blocked';
     try {
@@ -155,10 +146,10 @@ export default function TempleUserListPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Failed to update status');
       load();
-      alert(t[language as 'tamil' | 'english'][`${next === 'active' ? 'unblock' : 'block'}Success`]);
+      alert(t[language][`${next === 'active' ? 'unblock' : 'block'}Success`]);
     } catch (err) {
       console.error(err);
-      alert(t[language as 'tamil' | 'english'].blockError);
+      alert(t[language].blockError);
     }
   };
 
@@ -177,7 +168,6 @@ export default function TempleUserListPage() {
     } catch {}
   }, [visibleCols]);
 
-  // Context Menu for column visibility
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
@@ -297,7 +287,7 @@ export default function TempleUserListPage() {
     <div className="p-1 bg-gray-50 min-h-screen">
       {/* Header */}
       <div className="flex justify-between items-center mb-2 px-1">
-        <h1 className="text-lg font-bold text-gray-800">{t[language as 'tamil' | 'english'].name}</h1>
+        <h1 className="text-lg font-bold text-gray-800">{t[language].name}</h1>
       </div>
 
       {/* Filters */}
@@ -315,28 +305,16 @@ export default function TempleUserListPage() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder={t[language as 'tamil' | 'english'].searchPlaceholder}
+                placeholder={t[language].searchPlaceholder}
                 className="pl-8 text-sm py-1"
               />
             </div>
-
             {/* Actions */}
             <div className="flex flex-wrap gap-1 w-full md:w-auto">
-              <Button onClick={load} className="text-xs py-1 px-2">{t[language as 'tamil' | 'english'].searchPlaceholder}</Button>
-              <Button variant="outline" onClick={() => setSearch('')} className="text-xs py-1 px-2">
-                {t[language as 'tamil' | 'english'].deleteConfirm}
-              </Button>
+              <Button onClick={load} className="text-xs py-1 px-2">{t[language].searchPlaceholder}</Button>
               <Button variant="outline" onClick={handleExportCsv} className="text-xs py-1 px-2">
                 <FileDown className="h-3 w-3 mr-1" />
-                {t[language as 'tamil' | 'english'].exportButton}
-              </Button>
-              <Button variant="outline" onClick={handleExportAllPdf} className="text-xs py-1 px-2">
-                <FileDown className="h-3 w-3 mr-1" />
-                {t[language as 'tamil' | 'english'].exportButton}
-              </Button>
-              <Button variant="outline" onClick={handlePrint} className="text-xs py-1 px-2">
-                <FileDown className="h-3 w-3 mr-1" />
-                {t[language as 'tamil' | 'english'].exportButton}
+                {t[language].exportButton}
               </Button>
             </div>
           </div>
@@ -378,7 +356,7 @@ export default function TempleUserListPage() {
                     colSpan={visibleColCount}
                     className="px-2 py-2 text-center text-xs text-gray-500"
                   >
-                    {t[language as 'tamil' | 'english'].loading}
+                    {t[language].loading}
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
@@ -387,7 +365,7 @@ export default function TempleUserListPage() {
                     colSpan={visibleColCount}
                     className="px-2 py-2 text-center text-xs text-gray-500"
                   >
-                    {t[language as 'tamil' | 'english'].deleteConfirm}
+                    {t[language].noRecords}
                   </td>
                 </tr>
               ) : (
@@ -429,16 +407,13 @@ export default function TempleUserListPage() {
                       <TableCell className="px-2 py-1 whitespace-nowrap text-xs font-medium text-center">
                         <div className="flex items-center gap-1 justify-center">
                           <Button variant="outline" size="sm" onClick={() => handleEdit(r.id)} className="text-xs py-0.5 px-1.5 h-auto">
-                            {t[language as 'tamil' | 'english'].deleteConfirm}
+                            Edit
                           </Button>
                           <Button variant="outline" size="sm" onClick={() => handleToggleBlock(r)} className="text-xs py-0.5 px-1.5 h-auto">
-                            {r.status === 'blocked' ? t[language as 'tamil' | 'english'].unblock : t[language as 'tamil' | 'english'].block}
+                            {r.status === 'blocked' ? t[language].unblock : t[language].block}
                           </Button>
                           <Button variant="outline" size="sm" onClick={() => handleDownloadPdf(r.id)} className="text-xs py-0.5 px-1.5 h-auto">
-                            {t[language as 'tamil' | 'english'].exportButton}
-                          </Button>
-                          <Button variant="destructive" size="sm" onClick={() => handleDelete(r.id)} className="text-xs py-0.5 px-1.5 h-auto">
-                            {t[language as 'tamil' | 'english'].deleteConfirm}
+                            {t[language].exportButton}
                           </Button>
                         </div>
                       </TableCell>
@@ -450,18 +425,7 @@ export default function TempleUserListPage() {
           </table>
         </div>
 
-        {/* Footer */}
-        <div className="px-2 py-1 flex items-center justify-between border-t border-gray-200 text-xs">
-          <div className="text-gray-700">
-            {t[language as 'tamil' | 'english'].deleteConfirm}{' '}
-            <span className="font-medium">{(page - 1) * pageSize + 1}</span> {t[language as 'tamil' | 'english'].deleteConfirm}{' '}
-            <span className="font-medium">{Math.min(page * pageSize, total)}</span> {t[language as 'tamil' | 'english'].deleteConfirm}{' '}
-            <span className="font-medium">{total}</span> {t[language as 'tamil' | 'english'].deleteConfirm}
-          </div>
-          <div className="text-gray-700">
-            {t[language as 'tamil' | 'english'].deleteConfirm}: <span className="font-medium">{total}</span>
-          </div>
-        </div>
+        {/* Footer removed (no delete info) */}
       </div>
 
       {/* Pagination */}
@@ -472,10 +436,10 @@ export default function TempleUserListPage() {
           onClick={() => setPage((p) => Math.max(1, p - 1))}
           className="text-xs py-1 px-2"
         >
-          {t[language as 'tamil' | 'english'].deleteConfirm}
+          {'<'}
         </Button>
         <span className="text-xs">
-          {t[language as 'tamil' | 'english'].deleteConfirm} {page} {t[language as 'tamil' | 'english'].deleteConfirm} {totalPages}
+          {t[language].page} {page} {t[language].of} {totalPages}
         </span>
         <Button
           variant="outline"
@@ -483,7 +447,7 @@ export default function TempleUserListPage() {
           onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
           className="text-xs py-1 px-2"
         >
-          {t[language as 'tamil' | 'english'].deleteConfirm}
+          {'>'}
         </Button>
         <select
           value={pageSize}
@@ -508,9 +472,9 @@ export default function TempleUserListPage() {
           style={{ left: menuPos.x, top: menuPos.y }}
         >
           <div className="px-3 py-2 border-b border-gray-200">
-            <h3 className="text-xs font-medium text-gray-900">{t[language as 'tamil' | 'english'].deleteConfirm}</h3>
+            <h3 className="text-xs font-medium text-gray-900">{t[language].actions}</h3>
             <p className="text-xs text-gray-500">
-              {t[language as 'tamil' | 'english'].deleteConfirm} {Object.values(visibleCols).filter(Boolean).length}/{allColumns.length}
+              {visibleColCount}/{allColumns.length} {t[language].records}
             </p>
           </div>
           <div className="max-h-48 overflow-y-auto p-1">
@@ -542,7 +506,7 @@ export default function TempleUserListPage() {
                 )
               }
             >
-              {t[language as 'tamil' | 'english'].deleteConfirm}
+              {t[language].selectAll}
             </Button>
             <Button
               variant="outline"
@@ -554,7 +518,7 @@ export default function TempleUserListPage() {
                 )
               }
             >
-              {t[language as 'tamil' | 'english'].deleteConfirm}
+              {t[language].deselectAll}
             </Button>
             <Button
               variant="outline"
@@ -562,7 +526,7 @@ export default function TempleUserListPage() {
               className="text-xs py-0.5 px-1.5 h-auto"
               onClick={() => setVisibleCols({ ...defaultVisible })}
             >
-              {t[language as 'tamil' | 'english'].deleteConfirm}
+              {t[language].reset}
             </Button>
             <Button
               variant="ghost"
@@ -570,7 +534,7 @@ export default function TempleUserListPage() {
               className="text-xs py-0.5 px-1.5 h-auto ml-auto"
               onClick={() => setMenuOpen(false)}
             >
-              {t[language as 'tamil' | 'english'].deleteConfirm}
+              {t[language].close}
             </Button>
           </div>
         </div>

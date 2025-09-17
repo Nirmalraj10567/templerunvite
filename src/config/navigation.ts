@@ -153,13 +153,15 @@ export const sidebarItems: NavItem[] = [
         to: '/dashboard/members/entry', 
         label: navigationTranslations.english.memberEntry, 
         tamilLabel: navigationTranslations.tamil.memberEntry, 
-        permissionId: 'member_entry' 
+        permissionId: 'member_entry',
+        accessLevel: 'edit'
       },
       { 
         to: '/dashboard/members', 
         label: navigationTranslations.english.members, 
         tamilLabel: navigationTranslations.tamil.members, 
-        permissionId: 'member_entry' 
+        permissionId: 'member_entry',
+        accessLevel: 'view'
       },
     ]
   },
@@ -172,31 +174,36 @@ export const sidebarItems: NavItem[] = [
         to: '/dashboard/reports/daily', 
         label: navigationTranslations.english.dailyReport, 
         tamilLabel: navigationTranslations.tamil.dailyReport, 
-        permissionId: 'reports' 
+        permissionId: 'reports',
+        accessLevel: 'view'
       },
       { 
         to: '/dashboard/reports/monthly', 
         label: navigationTranslations.english.monthlyReport, 
         tamilLabel: navigationTranslations.tamil.monthlyReport, 
-        permissionId: 'reports' 
+        permissionId: 'reports',
+        accessLevel: 'view'
       },
       { 
         to: '/dashboard/reports/journal-log', 
         label: navigationTranslations.english.journalLog, 
         tamilLabel: navigationTranslations.tamil.journalLog, 
-        permissionId: 'reports' 
+        permissionId: 'reports',
+        accessLevel: 'view'
       },
       { 
         to: '/dashboard/reports/trial-balance', 
         label: navigationTranslations.english.trialBalance, 
         tamilLabel: navigationTranslations.tamil.trialBalance, 
-        permissionId: 'reports' 
+        permissionId: 'reports',
+        accessLevel: 'view'
       },
       { 
         to: '/dashboard/reports/balance-sheet', 
         label: navigationTranslations.english.balanceSheet, 
         tamilLabel: navigationTranslations.tamil.balanceSheet, 
-        permissionId: 'reports' 
+        permissionId: 'reports',
+        accessLevel: 'view'
       },
     ]
   },
@@ -205,7 +212,8 @@ export const sidebarItems: NavItem[] = [
     tamilLabel: navigationTranslations.tamil.masterData,
     to: '/dashboard/master-data',
     icon: LandmarkIcon,
-    permissionId: 'master_data'
+    permissionId: 'master_data',
+    accessLevel: 'edit'
   },
   {
     label: navigationTranslations.english.ledger,
@@ -237,19 +245,22 @@ export const sidebarItems: NavItem[] = [
         to: '/dashboard/pooja/list', 
         label: navigationTranslations.english.poojaList, 
         tamilLabel: navigationTranslations.tamil.poojaList, 
-        permissionId: 'pooja_registrations' 
+        permissionId: 'pooja_registrations',
+        accessLevel: 'view'
       },
       { 
         to: '/dashboard/pooja/entry', 
         label: navigationTranslations.english.poojaEntry, 
         tamilLabel: navigationTranslations.tamil.poojaEntry, 
-        permissionId: 'pooja_registrations' 
+        permissionId: 'pooja_registrations',
+        accessLevel: 'edit'
       },
       { 
         to: '/dashboard/pooja/approval', 
         label: navigationTranslations.english.poojaApproval, 
         tamilLabel: navigationTranslations.tamil.poojaApproval, 
-        permissionId: 'pooja_approval' 
+        permissionId: 'pooja_approval',
+        accessLevel: 'view'
       }
     ]
   },
@@ -290,25 +301,29 @@ export const sidebarItems: NavItem[] = [
         to: '/dashboard/donation-product/entry', 
         label: navigationTranslations.english.productDonationsEntry, 
         tamilLabel: navigationTranslations.tamil.productDonationsEntry, 
-        permissionId: 'edit_donations' 
+        permissionId: 'edit_donations',
+        accessLevel: 'edit'
       },
       { 
         to: '/dashboard/donation-product/list', 
         label: navigationTranslations.english.productDonationsList, 
         tamilLabel: navigationTranslations.tamil.productDonationsList, 
-        permissionId: 'view_donations' 
+        permissionId: 'view_donations',
+        accessLevel: 'view'
       },
       { 
         to: '/dashboard/donations/money-entry', 
         label: navigationTranslations.english.moneyDonationEntry, 
         tamilLabel: navigationTranslations.tamil.moneyDonationEntry, 
-        permissionId: 'edit_donations' 
+        permissionId: 'edit_donations',
+        accessLevel: 'edit'
       },
       { 
         to: '/dashboard/donations/money-list', 
         label: navigationTranslations.english.moneyDonationList, 
         tamilLabel: navigationTranslations.tamil.moneyDonationList, 
-        permissionId: 'view_donations' 
+        permissionId: 'view_donations',
+        accessLevel: 'view'
       },
     ]
   },
@@ -321,13 +336,15 @@ export const sidebarItems: NavItem[] = [
         to: '/dashboard/events', 
         label: navigationTranslations.english.eventList, 
         tamilLabel: navigationTranslations.tamil.eventList, 
-        permissionId: 'view_events' 
+        permissionId: 'view_events',
+        accessLevel: 'view'
       },
       { 
         to: '/dashboard/events/new', 
         label: navigationTranslations.english.newEvent, 
         tamilLabel: navigationTranslations.tamil.newEvent, 
-        permissionId: 'edit_events' 
+        permissionId: 'edit_events',
+        accessLevel: 'edit'
       },
       { 
         to: '/dashboard/calendar/new-moon-days', 
@@ -346,13 +363,15 @@ export const sidebarItems: NavItem[] = [
         to: '/dashboard/annadhanam/list', 
         label: navigationTranslations.english.annadhanamList, 
         tamilLabel: navigationTranslations.tamil.annadhanamList, 
-        permissionId: 'annadhanam_registrations' 
+        permissionId: 'annadhanam_registrations',
+        accessLevel: 'view'
       },
       { 
         to: '/dashboard/annadhanam/entry', 
         label: navigationTranslations.english.annadhanamEntry, 
         tamilLabel: navigationTranslations.tamil.annadhanamEntry, 
-        permissionId: 'annadhanam_registrations' 
+        permissionId: 'annadhanam_registrations',
+        accessLevel: 'edit'
       },
       { 
         to: '/dashboard/annadhanam/approval', 
@@ -393,31 +412,36 @@ export const sidebarItems: NavItem[] = [
         to: '/dashboard/registrations/text-entry', 
         label: navigationTranslations.english.userRegister, 
         tamilLabel: navigationTranslations.tamil.userRegister, 
-        permissionId: 'user_registrations' 
+        permissionId: 'user_registrations',
+        accessLevel: 'edit'
       },
       { 
         to: '/dashboard/registrations/list', 
         label: navigationTranslations.english.userList, 
         tamilLabel: navigationTranslations.tamil.userList, 
-        permissionId: 'user_registrations' 
+        permissionId: 'user_registrations',
+        accessLevel: 'view'
       },
       { 
         to: '/dashboard/tax/entry', 
         label: navigationTranslations.english.taxEntry, 
         tamilLabel: navigationTranslations.tamil.taxEntry, 
-        permissionId: 'tax_registrations' 
+        permissionId: 'tax_registrations',
+        accessLevel: 'edit'
       },
       { 
         to: '/dashboard/tax/list', 
         label: navigationTranslations.english.taxList, 
         tamilLabel: navigationTranslations.tamil.taxList, 
-        permissionId: 'tax_registrations' 
+        permissionId: 'tax_registrations',
+        accessLevel: 'view'
       },
       { 
         to: '/dashboard/tax/settings', 
         label: navigationTranslations.english.taxSettings, 
         tamilLabel: navigationTranslations.tamil.taxSettings, 
-        permissionId: 'tax_registrations' 
+        permissionId: 'tax_registrations',
+        accessLevel: 'edit'
       },
     ]
   },
@@ -430,13 +454,15 @@ export const sidebarItems: NavItem[] = [
         to: '/dashboard/properties', 
         label: navigationTranslations.english.propertiesList, 
         tamilLabel: navigationTranslations.tamil.propertiesList, 
-        permissionId: 'property_registrations' 
+        permissionId: 'property_registrations',
+        accessLevel: 'view'
       },
       { 
         to: '/dashboard/properties/new', 
         label: navigationTranslations.english.newProperty, 
         tamilLabel: navigationTranslations.tamil.newProperty, 
-        permissionId: 'property_registrations' 
+        permissionId: 'property_registrations',
+        accessLevel: 'edit'
       },
     ]
   },
@@ -445,7 +471,8 @@ export const sidebarItems: NavItem[] = [
     tamilLabel: navigationTranslations.tamil.sessionLogs,
     to: '/dashboard/session-logs',
     icon: HistoryIcon,
-    permissionId: 'view_session_logs'
+    permissionId: 'view_session_logs',
+    accessLevel: 'view'
   },
   {
     label: navigationTranslations.english.settings,
@@ -456,19 +483,22 @@ export const sidebarItems: NavItem[] = [
         to: '/dashboard/settings', 
         label: navigationTranslations.english.generalSettings, 
         tamilLabel: navigationTranslations.tamil.generalSettings, 
-        permissionId: 'setting' 
+        permissionId: 'setting',
+        accessLevel: 'edit'
       },
       { 
         to: '/dashboard/settings/pdf', 
         label: navigationTranslations.english.pdfSettings, 
         tamilLabel: navigationTranslations.tamil.pdfSettings, 
-        permissionId: 'pdf_settings' 
+        permissionId: 'pdf_settings',
+        accessLevel: 'edit'
       },
       { 
         to: '/dashboard/settings/my-preferences', 
         label: navigationTranslations.english.myPreferences, 
         tamilLabel: navigationTranslations.tamil.myPreferences, 
-        permissionId: 'setting' 
+        permissionId: 'setting',
+        accessLevel: 'view'
       },
     ]
   },

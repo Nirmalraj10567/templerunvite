@@ -1,5 +1,5 @@
 export const translations = {
-  english: {
+  tamil: {
     login: 'Login',
     register: 'Register',
     dashboard: 'Dashboard',
@@ -35,7 +35,7 @@ export const translations = {
     updatedSuccessfully: 'Updated successfully',
     deletedSuccessfully: 'Deleted successfully'
   },
-  tamil: {
+  english: {
     login: 'உள்நுழைய',
     register: 'பதிவு செய்க',
     dashboard: 'டாஷ்போர்டு',

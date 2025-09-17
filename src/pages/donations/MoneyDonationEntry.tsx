@@ -344,7 +344,28 @@ export default function MoneyDonationEntry() {
               className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
               onClick={() => {
                 const url = moneyDonationService.receiptUrl(lastCreatedId!, token);
-                window.open(url, '_blank');
+                const iframe = document.createElement('iframe');
+                iframe.style.position = 'fixed';
+                iframe.style.right = '0';
+                iframe.style.bottom = '0';
+                iframe.style.width = '0';
+                iframe.style.height = '0';
+                iframe.style.border = '0';
+                iframe.src = url;
+                iframe.onload = () => {
+                  try {
+                    iframe.contentWindow?.focus();
+                    iframe.contentWindow?.print();
+                  } catch (e) {
+                    // Fallback to opening in new tab if print cannot be triggered (cross-origin PDFs etc.)
+                    window.open(url, '_blank');
+                  } finally {
+                    setTimeout(() => {
+                      try { document.body.removeChild(iframe); } catch {}
+                    }, 1000);
+                  }
+                };
+                document.body.appendChild(iframe);
                 setShowPrintPrompt(false);
               }}
             >

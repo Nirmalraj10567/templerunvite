@@ -4,6 +4,11 @@ import { useLanguage } from '../lib/language';
 import { ShieldIcon } from './icons';
 import { translations } from '../lib/translations';
 
+const LANGUAGES = [
+  { code: 'english', label: 'English', nativeLabel: 'English' },
+  { code: 'tamil', label: 'தமிழ்', nativeLabel: 'தமிழ்' }
+] as const;
+
 type HeaderProps = { children?: React.ReactNode };
 
 export function Header({ children }: HeaderProps) {
@@ -15,6 +20,14 @@ export function Header({ children }: HeaderProps) {
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const toggleLanguage = () => {
+    const currentIndex = LANGUAGES.findIndex(lang => lang.code === language);
+    const nextIndex = (currentIndex + 1) % LANGUAGES.length;
+    const newLang = LANGUAGES[nextIndex].code;
+    setLanguage(newLang);
+    localStorage.setItem('templeLanguage', LANGUAGES[nextIndex].nativeLabel);
   };
 
   return (
@@ -32,7 +45,7 @@ export function Header({ children }: HeaderProps) {
             </Link>
 
             {!user ? (
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
                 <Link to="/" className="text-black hover:text-orange-600 transition-colors">
                   {t.home}
                 </Link>
@@ -42,6 +55,12 @@ export function Header({ children }: HeaderProps) {
                 <Link to="/register" className="text-black hover:text-orange-600 transition-colors">
                   {t.register}
                 </Link>
+                <button 
+                  onClick={toggleLanguage}
+                  className="px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm min-w-[60px]"
+                >
+                  {LANGUAGES.find(lang => lang.code !== language)?.nativeLabel}
+                </button>
               </div>
             ) : (
               <div className="flex items-center gap-3">
@@ -52,10 +71,10 @@ export function Header({ children }: HeaderProps) {
                   {t.dashboard}
                 </Link>
                 <button 
-                  onClick={() => setLanguage(language === 'english' ? 'tamil' : 'english')}
-                  className="px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm"
+                  onClick={toggleLanguage}
+                  className="px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm min-w-[60px]"
                 >
-                  {language === 'english' ? 'தமிழ்' : 'English'}
+                  {LANGUAGES.find(lang => lang.code !== language)?.nativeLabel}
                 </button>
                 <div className="px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-sm text-orange-900 flex items-center gap-1">
                   <span className="font-semibold">{user.name}</span>

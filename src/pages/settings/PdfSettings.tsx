@@ -5,7 +5,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 export default function PdfSettingsPage() {
   const { language } = useLanguage();
-  const t = (en: string, ta: string) => (language === 'tamil' ? ta : en);
+  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
   const [form, setForm] = useState<PdfSettings>({});
   const [loading, setLoading] = useState(true);
@@ -97,6 +97,11 @@ export default function PdfSettingsPage() {
               <input name="subheader" value={form.subheader || ''} onChange={onChange} className="w-full border p-2 rounded" />
             </div>
             <div>
+              <label className="block text-sm mb-1">{t('Watermark Text', 'நீர்த்துளி உரை')}</label>
+              <input name="watermark_text" value={(form as any).watermark_text || ''} onChange={onChange} className="w-full border p-2 rounded" />
+              <p className="text-xs text-gray-500 mt-1">{t('Optional faint text printed near the footer.', 'அடிக்குறிப்புக்கு அருகில் அச்சிடப்படும் விருப்ப நீர்த்துளி உரை.')}</p>
+            </div>
+            <div>
               <label className="block text-sm mb-1">{t('Logo', 'லோகோ')}</label>
               <div className="flex items-center gap-4">
                 <input type="file" accept="image/*" onChange={onUploadLogo} />
@@ -119,12 +124,56 @@ export default function PdfSettingsPage() {
               <input name="annadhanam_subheader" value={(form as any).annadhanam_subheader || ''} onChange={onChange} className="w-full border p-2 rounded" />
               <p className="text-xs text-gray-500 mt-1">{t('Used only in Annadhanam receipts. If empty, default sub-header is used.', 'அன்னதானம் ரசீதுகளில் மட்டும் பயன்படுத்தப்படும். காலியாக இருந்தால் பொதுத் துணை தலைப்பு பயன்படுத்தப்படும்.')}</p>
             </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm mb-1">{t('Receipt Label', 'ரசீது தலைப்பு')}</label>
+                <input name="annadhanam_receipt_label" value={(form as any).annadhanam_receipt_label || ''} onChange={onChange} className="w-full border p-2 rounded" />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">{t('Date Label', 'தேதி தலைப்பு')}</label>
+                <input name="annadhanam_date_label" value={(form as any).annadhanam_date_label || ''} onChange={onChange} className="w-full border p-2 rounded" />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">{t('Year Label', 'வருடம் தலைப்பு')}</label>
+                <input name="annadhanam_year_label" value={(form as any).annadhanam_year_label || ''} onChange={onChange} className="w-full border p-2 rounded" />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">{t('Cell Label', 'செல் தலைப்பு')}</label>
+                <input name="annadhanam_cell_label" value={(form as any).annadhanam_cell_label || ''} onChange={onChange} className="w-full border p-2 rounded" />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">{t('Collector Label', 'வசூலிப்பாளர் தலைப்பு')}</label>
+                <input name="annadhanam_collector_label" value={(form as any).annadhanam_collector_label || ''} onChange={onChange} className="w-full border p-2 rounded" />
+              </div>
+            </div>
           </TabsContent>
           <TabsContent value="hall" className="grid grid-cols-1 gap-4">
             <div>
               <label className="block text-sm mb-1">{t('Hall Sub-header', 'மண்டபம் துணை தலைப்பு')}</label>
               <input name="hall_subheader" value={(form as any).hall_subheader || ''} onChange={onChange} className="w-full border p-2 rounded" />
               <p className="text-xs text-gray-500 mt-1">{t('Used only in Hall Booking receipts. If empty, default sub-header is used.', 'மண்டப முன்பதிவு ரசீதுகளில் மட்டும் பயன்படுத்தப்படும். காலியாக இருந்தால் பொதுத் துணை தலைப்பு பயன்படுத்தப்படும்.')}</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm mb-1">{t('Receipt Label', 'ரசீது தலைப்பு')}</label>
+                <input name="hall_receipt_label" value={(form as any).hall_receipt_label || ''} onChange={onChange} className="w-full border p-2 rounded" />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">{t('Date Label', 'தேதி தலைப்பு')}</label>
+                <input name="hall_date_label" value={(form as any).hall_date_label || ''} onChange={onChange} className="w-full border p-2 rounded" />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">{t('Year Label', 'வருடம் தலைப்பு')}</label>
+                <input name="hall_year_label" value={(form as any).hall_year_label || ''} onChange={onChange} className="w-full border p-2 rounded" />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">{t('Cell Label', 'செல் தலைப்பு')}</label>
+                <input name="hall_cell_label" value={(form as any).hall_cell_label || ''} onChange={onChange} className="w-full border p-2 rounded" />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">{t('Collector Label', 'வசூலிப்பாளர் தலைப்பு')}</label>
+                <input name="hall_collector_label" value={(form as any).hall_collector_label || ''} onChange={onChange} className="w-full border p-2 rounded" />
+              </div>
             </div>
           </TabsContent>
         </Tabs>

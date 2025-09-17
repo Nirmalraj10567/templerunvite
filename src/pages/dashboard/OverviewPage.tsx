@@ -373,7 +373,7 @@ export default function OverviewPage() {
               className="w-full rounded-2xl p-5 bg-white border border-slate-200 hover:shadow-md text-left transition-all duration-200"
             >
               <div className="flex items-center justify-between">
-                <div className="text-sm text-slate-600">{t[language as 'tamil' | 'english'].approvalRequests}</div>
+                <div className="text-sm text-slate-600">{t[lang].approvalRequests}</div>
                 <CalendarIcon className="h-6 w-6 text-blue-600" />
               </div>
               <div className="text-lg font-semibold text-slate-900 mt-2">{t[lang].hallApprovals}</div>
@@ -387,7 +387,7 @@ export default function OverviewPage() {
               className="w-full rounded-2xl p-5 bg-white border border-slate-200 hover:shadow-md text-left transition-all duration-200"
             >
               <div className="flex items-center justify-between">
-                <div className="text-sm text-slate-600">{t[language as 'tamil' | 'english'].approvalRequests}</div>
+                <div className="text-sm text-slate-600">{t[lang].approvalRequests}</div>
                 <HeartIcon className="h-6 w-6 text-blue-600" />
               </div>
               <div className="text-lg font-semibold text-slate-900 mt-2">{t[lang].annadhanamApproval}</div>

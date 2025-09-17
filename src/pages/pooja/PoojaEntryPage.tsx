@@ -13,13 +13,18 @@ import PoojaCalendar from '@/components/PoojaCalendar';
 import { poojaService, PoojaFormData } from '@/services/poojaService';
 import axios from 'axios';
 
-const generateReceiptNo = async () => {
+const generateReceiptNo = async (token?: string) => {
   try {
     // Get the current year
     const year = new Date().getFullYear();
     
     // Get the latest receipt number from the database
-    const response = await axios.get('http://localhost:4000/api/pooja/latest-receipt');
+    if (!token) {
+      throw new Error('Missing auth token');
+    }
+    const response = await axios.get('/api/pooja/latest-receipt', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
     let nextNumber = 1;
     
     if (response.data.success && response.data.latestReceipt) {
@@ -75,7 +80,7 @@ export default function PoojaEntryPage() {
   useEffect(() => {
     // Generate receipt number on component mount
     const generateAndSetReceiptNo = async () => {
-      const receiptNo = await generateReceiptNo();
+      const receiptNo = await generateReceiptNo(token);
       setValue('receiptNumber', receiptNo);
     };
     

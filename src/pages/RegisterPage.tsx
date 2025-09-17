@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Header } from '../components/Header';
+import { useLanguage } from '../lib/language';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function RegisterPage() {
@@ -24,6 +25,99 @@ export default function RegisterPage() {
 
   const [imagePreview, setImagePreview] = useState('');
   const { register, isLoading, error } = useAuth();
+  const { language } = useLanguage();
+  const lang = (String(language).toLowerCase() === 'english' ? 'tamil' : 'english') as 'tamil' | 'english';
+
+  const t = {
+    tamil: {
+      createAccountTitle: 'உங்கள் கணக்கை உருவாக்குங்கள்',
+      joinCommunity: 'எங்கள் கோவில் சமூகத்தில் இணைக',
+      fullName: 'முழுபெயர்',
+      fullNamePlaceholder: 'உங்கள் முழுப்பெயரை உள்ளிடவும்',
+      mobileNumber: 'மொபைல் எண்',
+      mobilePlaceholder: '10 இலக்க மொபைல் எண்ணை உள்ளிடவும்',
+      emailAddress: 'மின்னஞ்சல் முகவரி',
+      emailPlaceholder: 'உங்கள் மின்னஞ்சலை உள்ளிடவும்',
+      websiteLink: 'இணையதள இணைப்பு',
+      websitePlaceholder: 'உங்கள் இணையதள URL ஐ உள்ளிடவும்',
+      password: 'கடவுச்சொல்',
+      passwordPlaceholder: 'வலுவான கடவுச்சொல்லை உள்ளிடவும்',
+      profileImage: 'சுயவிவர படம்',
+      preview: 'முன்னோட்டம்',
+      uploadImage: 'படத்தை பதிவேற்றவும்',
+      changeImage: 'படத்தை மாற்றவும்',
+      uploadNote: 'JPG, PNG 2MB வரை',
+      isTrust: 'நான் ஒரு அறக்கட்டளை/நிறுவனமாக பதிவு செய்கிறேன்',
+      trustType: 'அறக்கட்டளை வகை',
+      selectTrustType: 'அறக்கட்டளை வகையைத் தேர்ந்தெடுக்கவும்',
+      trustTypePublic: 'பொது அறக்கட்டளை',
+      trustTypeReligious: 'மத அறக்கட்டளை',
+      trustTypePrivate: 'தனியார் அறக்கட்டளை',
+      registrationNumber: 'பதிவு எண்',
+      registrationNumberPlaceholder: 'பதிவு எண்ணை உள்ளிடவும்',
+      dateOfRegistration: 'பதிவு தேதி',
+      panNumber: 'PAN எண்',
+      panPlaceholder: 'PAN எண்ணை உள்ளிடவும்',
+      tanNumber: 'TAN எண்',
+      tanPlaceholder: 'TAN எண்ணை உள்ளிடவும்',
+      gstNumber: 'GST எண்',
+      gstPlaceholder: 'GST எண்ணை உள்ளிடவும்',
+      reg12A: '12A பதிவு',
+      reg12APlaceholder: '12A பதிவை உள்ளிடவும்',
+      reg80G: '80G பதிவு',
+      reg80GPlaceholder: '80G பதிவை உள்ளிடவும்',
+      creatingAccount: 'கணக்கை உருவாக்குகிறது...',
+      createAccount: 'கணக்கை உருவாக்கவும்',
+      alreadyHave: 'ஏற்கனவே கணக்கு உள்ளதா?',
+      signInHere: 'இங்கே உள்நுழைக',
+      alertPasswordMin: 'கடவுச்சொல் குறைந்தது 8 எழுத்துகள் இருக்க வேண்டும்',
+      alertMobileValid: 'சரியான 10 இலக்க மொபைல் எண்ணை உள்ளிடவும்',
+    },
+    english: {
+      createAccountTitle: 'Create Your Account',
+      joinCommunity: 'Join our temple community',
+      fullName: 'Full Name',
+      fullNamePlaceholder: 'Enter your full name',
+      mobileNumber: 'Mobile Number',
+      mobilePlaceholder: 'Enter 10-digit mobile number',
+      emailAddress: 'Email Address',
+      emailPlaceholder: 'Enter your email',
+      websiteLink: 'Website Link',
+      websitePlaceholder: 'Enter your website URL',
+      password: 'Password',
+      passwordPlaceholder: 'Enter a strong password',
+      profileImage: 'Profile Image',
+      preview: 'Preview',
+      uploadImage: 'Upload Image',
+      changeImage: 'Change Image',
+      uploadNote: 'JPG, PNG up to 2MB',
+      isTrust: 'I am registering as a Trust/Organization',
+      trustType: 'Trust Type',
+      selectTrustType: 'Select trust type',
+      trustTypePublic: 'Public Charitable Trust',
+      trustTypeReligious: 'Religious Trust',
+      trustTypePrivate: 'Private Trust',
+      registrationNumber: 'Registration Number',
+      registrationNumberPlaceholder: 'Enter registration number',
+      dateOfRegistration: 'Date of Registration',
+      panNumber: 'PAN Number',
+      panPlaceholder: 'Enter PAN number',
+      tanNumber: 'TAN Number',
+      tanPlaceholder: 'Enter TAN number',
+      gstNumber: 'GST Number',
+      gstPlaceholder: 'Enter GST number',
+      reg12A: '12A Registration',
+      reg12APlaceholder: 'Enter 12A registration',
+      reg80G: '80G Registration',
+      reg80GPlaceholder: 'Enter 80G registration',
+      creatingAccount: 'Creating Account...',
+      createAccount: 'Create Account',
+      alreadyHave: 'Already have an account?',
+      signInHere: 'Sign in here',
+      alertPasswordMin: 'Password must be at least 8 characters',
+      alertMobileValid: 'Please enter a valid 10-digit mobile number',
+    },
+  } as const;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -50,12 +144,12 @@ export default function RegisterPage() {
     e.preventDefault();
     
     if (formData.password.length < 8) {
-      alert('Password must be at least 8 characters');
+      alert(t[lang].alertPasswordMin);
       return;
     }
 
     if (formData.mobileNumber.length !== 10) {
-      alert('Please enter a valid 10-digit mobile number');
+      alert(t[lang].alertMobileValid);
       return;
     }
 
@@ -108,8 +202,8 @@ export default function RegisterPage() {
             <div className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center mx-auto mb-4">
               <span className="text-white text-2xl">🕉️</span>
             </div>
-            <h1 className="text-3xl font-bold text-black">Create Your Account</h1>
-            <p className="text-black mt-2">Join our temple community</p>
+            <h1 className="text-3xl font-bold text-black">{t[lang].createAccountTitle}</h1>
+            <p className="text-black mt-2">{t[lang].joinCommunity}</p>
           </div>
           {error && <div className="bg-red-50 text-red-600 p-4 mb-4 rounded-lg">{error}</div>}
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -117,28 +211,28 @@ export default function RegisterPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-black mb-2">
-                  Full Name <span className="text-red-500">*</span>
+                  {t[lang].fullName} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   name="name"
                   value={formData.name}
                   onChange={handleInputChange}
-                  placeholder="Enter your full name"
+                  placeholder={t[lang].fullNamePlaceholder}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   required
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-black mb-2">
-                  Mobile Number <span className="text-red-500">*</span>
+                  {t[lang].mobileNumber} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="tel"
                   name="mobileNumber"
                   value={formData.mobileNumber}
                   onChange={handleInputChange}
-                  placeholder="Enter 10-digit mobile number"
+                  placeholder={t[lang].mobilePlaceholder}
                   inputMode="numeric"
                   pattern="[0-9]{10}"
                   maxLength={10}
@@ -148,47 +242,47 @@ export default function RegisterPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-black mb-2">
-                  Email Address
+                  {t[lang].emailAddress}
                 </label>
                 <input
                   type="email"
                   name="gmail"
                   value={formData.gmail}
                   onChange={handleInputChange}
-                  placeholder="Enter your email"
+                  placeholder={t[lang].emailPlaceholder}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-black mb-2">
-                  Website Link
+                  {t[lang].websiteLink}
                 </label>
                 <input
                   type="url"
                   name="weblink"
                   value={formData.weblink}
                   onChange={handleInputChange}
-                  placeholder="Enter your website URL"
+                  placeholder={t[lang].websitePlaceholder}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-black mb-2">
-                  Password <span className="text-red-500">*</span>
+                  {t[lang].password} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="password"
                   name="password"
                   value={formData.password}
                   onChange={handleInputChange}
-                  placeholder="Enter a strong password"
+                  placeholder={t[lang].passwordPlaceholder}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   required
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-black mb-2">
-                  Profile Image
+                  {t[lang].profileImage}
                 </label>
                 <div className="flex items-center gap-4">
                   <div className="relative">
@@ -200,14 +294,14 @@ export default function RegisterPage() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <span className="text-gray-400 text-sm">Preview</span>
+                        <span className="text-gray-400 text-sm">{t[lang].preview}</span>
                       )}
                     </div>
                   </div>
                   <div className="flex-1">
                     <label className="flex flex-col items-center px-4 py-3 bg-white rounded-lg border border-gray-300 cursor-pointer hover:bg-gray-50">
                       <span className="text-sm font-medium text-gray-700">
-                        {formData.image ? 'Change Image' : 'Upload Image'}
+                        {formData.image ? t[lang].changeImage : t[lang].uploadImage}
                       </span>
                       <input
                         type="file"
@@ -218,7 +312,7 @@ export default function RegisterPage() {
                       />
                     </label>
                     <p className="mt-1 text-xs text-gray-500">
-                      JPG, PNG up to 2MB
+                      {t[lang].uploadNote}
                     </p>
                   </div>
                 </div>
@@ -237,14 +331,14 @@ export default function RegisterPage() {
                 className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
               />
               <label htmlFor="isTrust" className="text-sm text-black">
-                I am registering as a Trust/Organization
+                {t[lang].isTrust}
               </label>
             </div>
 
             {formData.isTrust && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-black mb-2">Trust Type</label>
+                  <label className="block text-sm font-medium text-black mb-2">{t[lang].trustType}</label>
                   <select
                     name="trustType"
                     value={formData.trustType}
@@ -252,26 +346,26 @@ export default function RegisterPage() {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
                   >
                     <option value="" disabled>
-                      Select trust type
+                      {t[lang].selectTrustType}
                     </option>
-                    <option value="Public Charitable Trust">Public Charitable Trust</option>
-                    <option value="Religious Trust">Religious Trust</option>
-                    <option value="Private Trust">Private Trust</option>
+                    <option value="Public Charitable Trust">{t[lang].trustTypePublic}</option>
+                    <option value="Religious Trust">{t[lang].trustTypeReligious}</option>
+                    <option value="Private Trust">{t[lang].trustTypePrivate}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-black mb-2">Registration Number</label>
+                  <label className="block text-sm font-medium text-black mb-2">{t[lang].registrationNumber}</label>
                   <input
                     type="text"
                     name="trustRegistrationNumber"
                     value={formData.trustRegistrationNumber}
                     onChange={handleInputChange}
-                    placeholder="Enter registration number"
+                    placeholder={t[lang].registrationNumberPlaceholder}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-black mb-2">Date of Registration</label>
+                  <label className="block text-sm font-medium text-black mb-2">{t[lang].dateOfRegistration}</label>
                   <input
                     type="date"
                     name="dateOfRegistration"
@@ -281,57 +375,57 @@ export default function RegisterPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-black mb-2">PAN Number</label>
+                  <label className="block text-sm font-medium text-black mb-2">{t[lang].panNumber}</label>
                   <input
                     type="text"
                     name="panNumber"
                     value={formData.panNumber}
                     onChange={handleInputChange}
-                    placeholder="Enter PAN number"
+                    placeholder={t[lang].panPlaceholder}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-black mb-2">TAN Number</label>
+                  <label className="block text-sm font-medium text-black mb-2">{t[lang].tanNumber}</label>
                   <input
                     type="text"
                     name="tanNumber"
                     value={formData.tanNumber}
                     onChange={handleInputChange}
-                    placeholder="Enter TAN number"
+                    placeholder={t[lang].tanPlaceholder}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-black mb-2">GST Number</label>
+                  <label className="block text-sm font-medium text-black mb-2">{t[lang].gstNumber}</label>
                   <input
                     type="text"
                     name="gstNumber"
                     value={formData.gstNumber}
                     onChange={handleInputChange}
-                    placeholder="Enter GST number"
+                    placeholder={t[lang].gstPlaceholder}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-black mb-2">12A Registration</label>
+                  <label className="block text-sm font-medium text-black mb-2">{t[lang].reg12A}</label>
                   <input
                     type="text"
                     name="reg12A"
                     value={formData.reg12A}
                     onChange={handleInputChange}
-                    placeholder="Enter 12A registration"
+                    placeholder={t[lang].reg12APlaceholder}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-black mb-2">80G Registration</label>
+                  <label className="block text-sm font-medium text-black mb-2">{t[lang].reg80G}</label>
                   <input
                     type="text"
                     name="reg80G"
                     value={formData.reg80G}
                     onChange={handleInputChange}
-                    placeholder="Enter 80G registration"
+                    placeholder={t[lang].reg80GPlaceholder}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   />
                 </div>
@@ -345,16 +439,16 @@ export default function RegisterPage() {
                 disabled={isLoading}
                 className="w-full bg-orange-500 text-white py-4 px-6 rounded-lg text-lg font-semibold hover:bg-orange-600 transition-colors shadow-lg disabled:opacity-50"
               >
-                {isLoading ? 'Creating Account...' : 'Create Account'}
+                {isLoading ? t[lang].creatingAccount : t[lang].createAccount}
               </button>
             </div>
 
             {/* Login Link */}
             <div className="text-center">
               <p className="text-black">
-                Already have an account?{' '}
+                {t[lang].alreadyHave}{' '}
                 <Link to="/login" className="text-orange-600 hover:text-orange-700 font-medium">
-                  Sign in here
+                  {t[lang].signInHere}
                 </Link>
               </p>
             </div>

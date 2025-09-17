@@ -85,7 +85,7 @@ export default function PoojaApprovalPage() {
   const [requestLogs, setRequestLogs] = useState<ApprovalLog[]>([]);
 
   // Column Keys
-  type ColKey = 'receipt' | 'name' | 'mobile' | 'dateRange' | 'time' | 'submitted' | 'actions';
+  type ColKey = 'receipt' | 'name' | 'mobile' | 'dateRange' | 'time' | 'status' | 'submitted' | 'actions';
 
   const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' | 'center' }> = [
     { key: 'receipt', label: t('Receipt No', 'ரசீது எண்') },
@@ -93,6 +93,7 @@ export default function PoojaApprovalPage() {
     { key: 'mobile', label: t('Mobile', 'மொபைல்') },
     { key: 'dateRange', label: t('Date Range', 'தேதி வரம்பு') },
     { key: 'time', label: t('Time', 'நேரம்') },
+    { key: 'status', label: t('Status', 'நிலை') },
     { key: 'submitted', label: t('Submitted', 'சமர்ப்பிக்கப்பட்டது') },
     { key: 'actions', label: t('Actions', 'செயல்கள்'), align: 'center' },
   ];
@@ -104,6 +105,7 @@ export default function PoojaApprovalPage() {
     mobile: true,
     dateRange: true,
     time: true,
+    status: true,
     submitted: false, // Hidden by default to save space
     actions: true,
   };
@@ -231,7 +233,7 @@ export default function PoojaApprovalPage() {
 
   const handleApprove = async (requestId: number) => {
     try {
-      const response = await fetch(`http://localhost:4000/api/pooja-approval/approve/${requestId}`, {
+      const response = await fetch(`/api/pooja-approval/approve/${requestId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -269,7 +271,7 @@ export default function PoojaApprovalPage() {
 
   const handleReject = async (requestId: number) => {
     try {
-      const response = await fetch(`http://localhost:4000/api/pooja-approval/reject/${requestId}`, {
+      const response = await fetch(`/api/pooja-approval/reject/${requestId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -309,7 +311,7 @@ export default function PoojaApprovalPage() {
 
   const handleBulkAction = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/pooja-approval/bulk-action', {
+      const response = await fetch('/api/pooja-approval/bulk-action', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -395,7 +397,7 @@ export default function PoojaApprovalPage() {
     const loadDetails = async () => {
       try {
         if (!isViewDialogOpen || !selectedRequest) return;
-        const res = await fetch(`http://localhost:4000/api/pooja-approval/request/${selectedRequest.id}`, {
+        const res = await fetch(`/api/pooja-approval/request/${selectedRequest.id}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!res.ok) return;
@@ -415,7 +417,7 @@ export default function PoojaApprovalPage() {
       <div className="flex justify-between items-center mb-2">
         <h1 className="text-base font-bold text-gray-800">{t('Pooja Approval', 'பூஜை அனுமதி')}</h1>
         <div className="text-xs text-gray-500">
-          {requests.length} {t('pending requests', 'நிலுவை கோரிக்கைகள்')}
+          {requests.length} {t('requests', 'கோரிக்கைகள்')}
         </div>
       </div>
 
@@ -483,6 +485,25 @@ export default function PoojaApprovalPage() {
                 className="pl-7 text-xs h-7"
               />
             </div>
+
+            {/* Status Filter */}
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                // when changing filter, reset to first page
+                setPagination((p) => ({ ...p, page: 1 }));
+                fetchRequests(1, pagination.pageSize);
+                fetchStats();
+              }}
+              className="border rounded px-2 h-7 text-xs"
+            >
+              <option value="">{t('All', 'அனைத்தும்')}</option>
+              <option value="pending">{t('Pending', 'நிலுவை')}</option>
+              <option value="approved">{t('Approved', 'அனுமதி')}</option>
+              <option value="rejected">{t('Rejected', 'நிராகரிப்பு')}</option>
+              <option value="cancelled">{t('Cancelled', 'ரத்து')}</option>
+            </select>
 
             {/* Bulk Actions */}
             {selectedRequests.length > 0 && (
@@ -630,6 +651,11 @@ export default function PoojaApprovalPage() {
                           <Clock className="h-3 w-3 mr-1 text-gray-400" />
                           {request.time}
                         </div>
+                      </td>
+                    )}
+                    {visibleCols.status && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs">
+                        {getStatusBadge(request.status)}
                       </td>
                     )}
                     {visibleCols.submitted && (

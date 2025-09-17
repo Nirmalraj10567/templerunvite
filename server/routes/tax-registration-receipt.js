@@ -16,23 +16,43 @@ module.exports = function createTaxRegistrationReceiptRouter({ db, verifyQueryTo
         .first();
       if (!row) return res.status(404).json({ error: 'Tax registration not found' });
 
-      // Prepare PDF - A5 Landscape, tight margins for better space use
-      const doc = new PDFDocument({ size: 'A5', layout: 'landscape', margin: 18 });
+      // Prepare PDF - A5 Landscape, with buffered pages for accurate measurements
+      const doc = new PDFDocument({ size: 'A5', layout: 'landscape', margin: 24, bufferPages: true });
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `inline; filename=tax_receipt_${id}.pdf`);
       doc.pipe(res);
 
-      // Load Tamil-capable font if available
+      // Load Tamil fonts (regular + bold if available); provide sensible fallbacks
       let tamilFontPath = path.join(__dirname, '..', 'fonts', 'NotoSansTamil-Regular.ttf');
+      let tamilBoldFontPath = path.join(__dirname, '..', 'fonts', 'NotoSansTamil-Bold.ttf');
       let hasTamilFont = false;
+      let hasTamilBoldFont = false;
       try {
         if (fs.existsSync(tamilFontPath)) {
           doc.registerFont('Tamil', tamilFontPath);
           hasTamilFont = true;
         }
+        if (fs.existsSync(tamilBoldFontPath)) {
+          doc.registerFont('TamilBold', tamilBoldFontPath);
+          hasTamilBoldFont = true;
+        }
       } catch {}
       const F_REG = hasTamilFont ? 'Tamil' : 'Helvetica';
-      const F_BOLD = hasTamilFont ? 'Tamil' : 'Helvetica-Bold';
+      const F_BOLD = hasTamilBoldFont ? 'TamilBold' : (hasTamilFont ? 'Tamil' : 'Helvetica-Bold');
+
+      // Helpers to render bold-looking Tamil when bold font isn't available
+      const drawBold = (text, x, y, size, options = {}) => {
+        if (hasTamilBoldFont) {
+          doc.font(F_BOLD).fontSize(size).text(text, x, y, options);
+        } else {
+          doc.font(F_REG).fontSize(size).text(text, x, y, options);
+          const dupOpts = { ...options };
+          doc.text(text, x + 0.35, y, dupOpts);
+        }
+      };
+      const drawReg = (text, x, y, size, options = {}) => {
+        doc.font(F_REG).fontSize(size).text(text, x, y, options);
+      };
 
       // Tiny helpers
       const hr = (y, color = '#E5E7EB') => {
@@ -49,95 +69,241 @@ module.exports = function createTaxRegistrationReceiptRouter({ db, verifyQueryTo
       // Load header settings
       const settings = await db('pdf_settings').where({ temple_id: req.user.templeId }).first().catch(() => null);
       const templeTitleTa = settings?.title_sub || 'அருள்மிகு நல்லகுமாரசுவாமி துணை';
-      const templeTitleta2 = settings?.title_line2 || 'நாமக்கல் மாவட்டம், திருச்செங்கோடு வட்டம்,கூத்தம்பூண்டி கிராமம் வெளையன் குல பங்காளிகளுக்கு பாத்தியப்பட்ட குலதெய்வம் மாணிக்கம்பாளையம்';
+      const templeTitleta2 = settings?.title_line2 || 'நாமக்கல் மாவட்டம், திருச்செங்கோடு வட்டம், கூத்தம்பூண்டி கிராமம் வெளையன் குல பங்காளிகளுக்கு பாத்தியப்பட்ட குலதெய்வம் மாணிக்கம்பாளையம்';
       const templeMainTitleta = settings?.title_main || 'அருள்மிகு நல்லகுமாரசுவாமி திருக்கோவில்';
       const subHeaderTa = settings?.tax_subheader || settings?.subheader || 'வரி ரசீது';
 
-      // Logo left
-      let imgW = 0;
+      // Load logo into buffer (draw later inside header for exact layout)
+      let logoBuffer = null;
       try {
         const logoUrl = settings?.logo_url;
         if (logoUrl) {
           if (/^https?:\/\//i.test(logoUrl)) {
-            const buf = await new Promise((resolve, reject) => {
+            logoBuffer = await new Promise((resolve, reject) => {
+              const timeout = setTimeout(() => reject(new Error('Logo download timeout')), 5000);
               https.get(logoUrl, (r) => {
                 const chunks = [];
                 r.on('data', (d) => chunks.push(d));
-                r.on('end', () => resolve(Buffer.concat(chunks)));
-              }).on('error', reject);
+                r.on('end', () => {
+                  clearTimeout(timeout);
+                  resolve(Buffer.concat(chunks));
+                });
+                r.on('error', (e) => {
+                  clearTimeout(timeout);
+                  reject(e);
+                });
+              }).on('error', (e) => {
+                clearTimeout(timeout);
+                reject(e);
+              });
             });
-            if (Buffer.isBuffer(buf)) {
-              imgW = 60;
-              doc.image(buf, doc.page.margins.left, doc.page.margins.top, { width: imgW, fit: [imgW, imgW] });
-            }
           } else {
             const rel = logoUrl.replace(/^\/*/, '');
             const localPath = path.join(__dirname, '..', '..', rel);
             if (fs.existsSync(localPath)) {
-              imgW = 60;
-              doc.image(localPath, doc.page.margins.left, doc.page.margins.top, { width: imgW, fit: [imgW, imgW] });
+              logoBuffer = fs.readFileSync(localPath);
             }
           }
         }
       } catch {}
 
-      // Header text to right of image
-      const headerPad = 10;
-      const headerY = doc.page.margins.top + 2;
-      const titleX = doc.page.margins.left + (imgW || 0) + headerPad;
-      const titleW = doc.page.width - doc.page.margins.right - titleX - 160;
+      // Adopt exact layout from money-donation receipt
+      // Page dimensions
+      const pageWidth = doc.page.width;
+      const pageHeight = doc.page.height;
+      const marginLeft = doc.page.margins.left;
+      const marginRight = doc.page.margins.right;
+      const marginTop = doc.page.margins.top;
+      const marginBottom = doc.page.margins.bottom;
+      const contentWidth = pageWidth - marginLeft - marginRight;
 
-      // Header: Logo | Titles | Meta (Receipt No + Date)
-      doc.font(F_BOLD).fontSize(12).fillColor('#111827').text(templeMainTitleta, titleX, headerY, { width: titleW, align: 'left' });
-      doc.font(F_REG).fontSize(9).fillColor('#374151').text(templeTitleta2, titleX, doc.y + 2, { width: titleW, align: 'left' });
-      doc.font(F_BOLD).fontSize(12).fillColor('#111827').text(templeTitleTa, titleX, doc.y + 3, { width: titleW, align: 'left' });
+      // Draw main border
+      doc.lineWidth(2)
+         .rect(marginLeft - 6, marginTop - 6, 
+               contentWidth + 12, pageHeight - marginTop - marginBottom + 12)
+         .stroke();
 
-      const metaX = doc.page.width - doc.page.margins.right - 150;
-      const metaY = headerY;
-      doc.font(F_REG).fontSize(9).fillColor('#6B7280').text('வரி ரசீது', metaX, metaY, { width: 150, align: 'right' });
-      doc.moveDown(0.2);
-      doc.font(F_REG).fontSize(9).fillColor('#6B7280').text('ரசீது எண்', metaX, doc.y, { width: 150, align: 'right' });
-      doc.font(F_BOLD).fontSize(11).fillColor('#111827').text(row.reference_number || String(row.id), metaX, doc.y, { width: 150, align: 'right' });
-      doc.font(F_REG).fontSize(9).fillColor('#6B7280').text('தேதி', metaX, doc.y, { width: 150, align: 'right' });
-      doc.font(F_BOLD).fontSize(11).fillColor('#111827').text(row.date || '', metaX, doc.y, { width: 150, align: 'right' });
+      // Header section with border
+      const headerHeight = 100;
+      const headerY = marginTop + 4;
+      doc.lineWidth(1.5)
+         .rect(marginLeft, headerY, contentWidth, headerHeight)
+         .stroke();
 
-      const startY = Math.max(doc.y + 6, headerY + 40);
-      hr(startY);
+      // Draw logo inside header (matching money donation layout)
+      let logoWidth = 0;
+      if (logoBuffer && logoBuffer.length > 0) {
+        logoWidth = Math.min(80, headerHeight - 20);
+        const logoX = marginLeft + 12;
+        const logoY = headerY + (headerHeight - logoWidth) / 2;
+        doc.image(logoBuffer, logoX, logoY, {
+          width: logoWidth,
+          height: logoWidth,
+          fit: [logoWidth, logoWidth]
+        });
+      }
 
-      // Content fields (two columns) and Amount highlight
-      const lX = doc.page.margins.left;
-      const rX = doc.page.width - doc.page.margins.right - 240; // right column start
-      const lineY = startY + 8;
+      // Header text content
+      const textStartX = marginLeft + logoWidth + 24;
+      const textWidth = contentWidth - logoWidth - 36;
+      let textY = headerY + 12;
 
-      const donorName = (row.name || '-').toString();
-      const fatherName = (row.father_name || '-').toString();
+      // Sub title
+      doc.font(F_BOLD).fontSize(11)
+         .text(templeTitleTa, textStartX, textY, { width: textWidth, align: 'center' });
+      textY += 18;
+
+      // Address line
+      doc.font(F_REG).fontSize(9)
+         .text(templeTitleta2, textStartX, textY, { width: textWidth, align: 'center' });
+      textY += 24;
+
+      // Main temple title
+      doc.font(F_BOLD).fontSize(15)
+         .text(templeMainTitleta, textStartX, textY, { width: textWidth, align: 'center' });
+
+      // Receipt details section (below header)
+      const receiptY = headerY + headerHeight + 16;
+      const receiptHeight = 45;
+      doc.lineWidth(1.5)
+         .rect(marginLeft, receiptY, contentWidth, receiptHeight)
+         .stroke();
+
+      // Receipt number (left), Title (center), Date (right)
+      const receiptNo = String(row.reference_number || row.id).padStart(3, '0');
+      const receiptText = `ரசீது எண் ${receiptNo}`;
+      drawReg(receiptText, marginLeft + 15, receiptY + 16, 12);
+
+      // Title center
+      const receiptTitle = subHeaderTa;
+      doc.font(hasTamilBoldFont ? F_BOLD : F_REG).fontSize(14);
+      const titleWidth = doc.widthOfString(receiptTitle);
+      const titleX = marginLeft + (contentWidth - titleWidth) / 2;
+      drawBold(receiptTitle, titleX, receiptY + 16, 14);
+
+      // Date right
+      const donationDate = row.date || new Date().toLocaleDateString('en-GB');
+      const dateText = `தேதி ${donationDate}`;
+      doc.font(hasTamilBoldFont ? F_BOLD : F_REG).fontSize(12);
+      const dateTextWidth = doc.widthOfString(dateText);
+      const dateX = marginLeft + contentWidth - 15 - dateTextWidth;
+      drawReg(dateText, dateX, receiptY + 16, 12);
+
+      // Main content area start
+      const contentYStart = receiptY + receiptHeight + 20;
+
+      // Right side info box (Year, Mobile)
+      const infoBoxWidth = 200;
+      const infoBoxHeight = 80;
+      const infoBoxX = marginLeft + contentWidth - infoBoxWidth - 12;
+      const infoBoxY = contentYStart;
+      doc.lineWidth(1).rect(infoBoxX, infoBoxY, infoBoxWidth, infoBoxHeight).stroke();
+
+      const labelYear = 'வருடம்';
+      const labelCell = 'செல்';
+      const labelX = infoBoxX + 15;
+      const row1Y = infoBoxY + 14;
+      const row2Y = infoBoxY + 44;
+      doc.font(F_REG).fontSize(12);
+      const labelYearWidth = doc.widthOfString(labelYear);
+      const labelCellWidth = doc.widthOfString(labelCell);
+      const labelColumnWidth = Math.max(labelYearWidth, labelCellWidth) + 10;
+      const valueX = labelX + labelColumnWidth;
+      const valueWidth = infoBoxWidth - (valueX - infoBoxX) - 15;
+      doc.text(labelYear, labelX, row1Y);
+      doc.text(labelCell, labelX, row2Y);
+
+      const yearMatch = String(row.year || '').match(/(\d{4})/);
+      const yearValue = yearMatch ? yearMatch[1] : String(new Date().getFullYear());
+      const phoneValue = [row.mobile_number, row.phone, row.mobile, row.mobile_no, row.phone_no, row.contact, row.contact_no, row.whatsapp]
+        .find(v => v && String(v).trim().length > 0) || '';
+      doc.font(F_BOLD).fontSize(12);
+      doc.text(yearValue, valueX, row1Y, { width: valueWidth, align: 'left' });
+      doc.font(F_BOLD).fontSize(12);
+      doc.text(String(phoneValue).trim() || '-', valueX, row2Y, { width: valueWidth, align: 'left' });
+
+      // Donor information left block
+      const donorTextWidth = infoBoxX - marginLeft - 30;
+      let donorY = contentYStart + 8;
+      const donorName = (row.name || '').toString().toUpperCase();
+      const fatherName = (row.father_name || '').toString();
       const address = [row.address, row.village].filter(Boolean).join(', ');
-      const year = (row.year || '').toString();
-      const amountPaid = Number(row.amount_paid || 0);
-      const refNo = (row.reference_number || String(row.id));
+      const amountPaid = Number(row.amount_paid || 0).toFixed(2);
 
-      // Left column
-      let y = lineY + 4;
-      field('பெயர் / Name', donorName, lX, y, { w: 280 }); y = doc.y + 4;
-      field('தந்தை பெயர் / Father', fatherName, lX, y, { w: 280 }); y = doc.y + 4;
-      field('முகவரி / Address', address, lX, y, { w: 400 }); y = doc.y + 4;
-      field('செல் / Mobile', row.mobile_number || '-', lX, y, { w: 200 }); y = doc.y + 6;
+      const prefixText = 'உயர்திரு/திருமதி ';
+      const remainderText = `${donorName}, S/o க/பெ ${fatherName}`;
+      doc.font(F_BOLD).fontSize(12).text(prefixText, marginLeft + 15, donorY);
+      const prefixWidth = doc.widthOfString(prefixText);
+      drawBold(remainderText, marginLeft + 15 + prefixWidth, donorY, 12, { width: donorTextWidth - prefixWidth, align: 'left' });
 
-      // Right column
-      let ry = lineY + 4;
-      field('வருடம் / Year', year, rX, ry, { w: 220 }); ry = doc.y + 6;
-      field('குறிப்பு எண் / Ref No', refNo, rX, ry, { w: 220 }); ry = doc.y + 12;
-      // Emphasized amount
-      doc.font(F_REG).fontSize(10).fillColor('#6B7280').text('செலுத்திய தொகை / Amount paid', rX, ry);
-      doc.font(F_BOLD).fontSize(18).fillColor('#111827').text(`₹ ${amountPaid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, rX, doc.y + 2);
+      if (address) {
+        donorY = doc.y + 6;
+        drawBold(address, marginLeft + 15, donorY, 12, { width: donorTextWidth, align: 'left' });
+      }
 
-      // Footer (collector signature line)
-      const footerY = doc.page.height - doc.page.margins.bottom - 18;
-      const signLabel = 'வசூலிப்பாளர் / Collector';
-      const signW = 180;
-      const signX = doc.page.width - doc.page.margins.right - signW;
-      hr(footerY - 8);
-      doc.font(F_REG).fontSize(10).fillColor('#374151').text(signLabel, signX, footerY, { width: signW, align: 'right' });
+      donorY = doc.y + 8;
+      doc.font(F_REG).fontSize(12).text('அவர்களிடமிருந்து', marginLeft + 15, donorY, { width: donorTextWidth, align: 'left' });
+
+      donorY = doc.y + 8;
+      const amountPrefixBefore = 'வரி தொகையாக ';
+      const amountWord = 'ரூபாய்';
+      const amountSuffix = '/-';
+      doc.font(F_REG).fontSize(12).text(amountPrefixBefore, marginLeft + 15, donorY);
+      const amountPrefixWidth = doc.widthOfString(amountPrefixBefore);
+      drawBold(amountWord, marginLeft + 15 + amountPrefixWidth, donorY, 12);
+      doc.font(hasTamilBoldFont ? F_BOLD : F_REG).fontSize(12);
+      const amountWordWidth = doc.widthOfString(amountWord);
+      const restText = ` ${amountPaid}${amountSuffix}`;
+      drawReg(restText, marginLeft + 15 + amountPrefixWidth + amountWordWidth, donorY, 12, { width: donorTextWidth - (amountPrefixWidth + amountWordWidth), align: 'left' });
+
+      donorY = doc.y + 8;
+      doc.font(F_REG).fontSize(12).text('மட்டும் நன்றியுடன்', marginLeft + 15, donorY, { width: donorTextWidth, align: 'left' });
+
+      // Footer placement: rupee box and collector text
+      const rupeeBoxHeight = 50;
+      const collectorTextHeight = 15;
+      const totalFooterHeight = rupeeBoxHeight + collectorTextHeight + 10;
+      const footerStartY = pageHeight - marginBottom - totalFooterHeight;
+
+      const rupeeBoxWidth = 160;
+      const rupeeBoxX = marginLeft + 15;
+      doc.lineWidth(1.5).rect(rupeeBoxX, footerStartY, rupeeBoxWidth, rupeeBoxHeight).stroke();
+
+      const rupeeSymbol = 'ரூ';
+      const currencyText = `${rupeeSymbol} ${Number(amountPaid).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      let currencyFontSize = 20;
+      doc.font(F_BOLD).fontSize(currencyFontSize);
+      let currencyTextWidth = doc.widthOfString(currencyText);
+      const maxCurrencyWidth = rupeeBoxWidth - 30;
+      while (currencyTextWidth > maxCurrencyWidth && currencyFontSize > 10) {
+        currencyFontSize -= 1;
+        doc.font(F_BOLD).fontSize(currencyFontSize);
+        currencyTextWidth = doc.widthOfString(currencyText);
+      }
+      const currencyTextHeight = doc.currentLineHeight();
+      const currencyX = rupeeBoxX + 15;
+      const currencyY = footerStartY + (rupeeBoxHeight - currencyTextHeight) / 2;
+      doc.text(currencyText, currencyX, currencyY);
+
+      const collectorText = 'வசூலிப்பாளர்';
+      doc.font(F_REG).fontSize(12);
+      const collectorWidth = doc.widthOfString(collectorText);
+      const collectorX = marginLeft + contentWidth - collectorWidth - 15;
+      const collectorY = footerStartY + rupeeBoxHeight + 5;
+      if (collectorY + collectorTextHeight <= pageHeight - marginBottom) {
+        doc.text(collectorText, collectorX - 95, collectorY - 30);
+      } else {
+        doc.text(collectorText, collectorX + 10, footerStartY + rupeeBoxHeight - 10);
+      }
+
+      // Optional watermark text centered near footer (relative to rupee box)
+      if (settings?.watermark_text) {
+        doc.font(F_REG).fontSize(8).fillColor('gray')
+          .text(settings.watermark_text, doc.page.margins.left, footerStartY - 20, {
+            width: doc.page.width - doc.page.margins.left - doc.page.margins.right,
+            align: 'center'
+          });
+      }
 
       doc.end();
     } catch (err) {

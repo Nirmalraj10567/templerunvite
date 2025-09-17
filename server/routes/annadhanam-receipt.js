@@ -16,130 +16,218 @@ module.exports = function createAnnadhanamReceiptRouter({ db, verifyQueryToken }
         .first();
       if (!row) return res.status(404).json({ error: 'Annadhanam not found' });
 
-      const doc = new PDFDocument({ size: 'A5', layout: 'landscape', margin: 24 });
+      const doc = new PDFDocument({ size: 'A5', layout: 'landscape', margin: 24, bufferPages: true });
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `inline; filename=annadhanam_receipt_${id}.pdf`);
       doc.pipe(res);
 
-      // Tamil-capable font if available
+      // Tamil fonts (regular + bold) with faux bold fallback
       let tamilFontPath = path.join(__dirname, '..', 'fonts', 'NotoSansTamil-Regular.ttf');
+      let tamilBoldFontPath = path.join(__dirname, '..', 'fonts', 'NotoSansTamil-Bold.ttf');
       let hasTamilFont = false;
+      let hasTamilBoldFont = false;
       try {
         if (fs.existsSync(tamilFontPath)) {
           doc.registerFont('Tamil', tamilFontPath);
           hasTamilFont = true;
         }
+        if (fs.existsSync(tamilBoldFontPath)) {
+          doc.registerFont('TamilBold', tamilBoldFontPath);
+          hasTamilBoldFont = true;
+        }
       } catch {}
       const F_REG = hasTamilFont ? 'Tamil' : 'Helvetica';
-      const F_BOLD = hasTamilFont ? 'Tamil' : 'Helvetica-Bold';
+      const F_BOLD = hasTamilBoldFont ? 'TamilBold' : (hasTamilFont ? 'Tamil' : 'Helvetica-Bold');
 
-      // Border
-      doc.lineWidth(1).rect(
-        doc.page.margins.left - 4,
-        doc.page.margins.top - 4,
-        doc.page.width - (doc.page.margins.left + doc.page.margins.right) + 8,
-        doc.page.height - (doc.page.margins.top + doc.page.margins.bottom) + 8
-      ).stroke();
+      const drawBold = (text, x, y, size, options = {}) => {
+        if (hasTamilBoldFont) {
+          doc.font(F_BOLD).fontSize(size).text(text, x, y, options);
+        } else {
+          doc.font(F_REG).fontSize(size).text(text, x, y, options);
+          doc.text(text, x + 0.35, y, options);
+        }
+      };
+      const drawReg = (text, x, y, size, options = {}) => {
+        doc.font(F_REG).fontSize(size).text(text, x, y, options);
+      };
+
+      // Dimensions and main border
+      const pageWidth = doc.page.width;
+      const pageHeight = doc.page.height;
+      const marginLeft = doc.page.margins.left;
+      const marginRight = doc.page.margins.right;
+      const marginTop = doc.page.margins.top;
+      const marginBottom = doc.page.margins.bottom;
+      const contentWidth = pageWidth - marginLeft - marginRight;
+      doc.lineWidth(2)
+         .rect(marginLeft - 6, marginTop - 6, contentWidth + 12, pageHeight - marginTop - marginBottom + 12)
+         .stroke();
 
       // Load PDF settings
       const settings = await db('pdf_settings').where({ temple_id: req.user.templeId }).first().catch(() => null);
       const titleSub = settings?.title_sub || 'அருள்மிகு நல்லகுமாரசுவாமி துணை';
       const titleLine2 = settings?.title_line2 || 'நாமக்கல் மாவட்டம், திருச்செங்கோடு வட்டம்,கூத்தம்பூண்டி கிராமம் வெளையன் குல பங்காளிகளுக்கு பாத்தியப்பட்ட குலதெய்வம் மாணிக்கம்பாளையம்';
       const titleMain = settings?.title_main || 'அருள்மிகு நல்லகுமாரசுவாமி திருக்கோவில்';
-      const subHeader = settings?.annadhanam_subheader || settings?.subheader || 'அன்னதானம் ரசீது';
+      // Use only the Annadhanam-specific sub-header; do not fall back to the generic one
+      const subHeader = (settings?.annadhanam_subheader && String(settings.annadhanam_subheader).trim().length > 0)
+        ? settings.annadhanam_subheader
+        : 'அன்னதானம் ரசீது';
+      // Customizable labels
+      const L = {
+        receipt: settings?.annadhanam_receipt_label || 'ரசீது எண்',
+        date: settings?.annadhanam_date_label || 'தேதி',
+        year: settings?.annadhanam_year_label || 'வருடம்',
+        cell: settings?.annadhanam_cell_label || 'செல்',
+        collector: settings?.annadhanam_collector_label || 'வசூலிப்பாளர்',
+      };
 
-      // Logo left
-      let imgW = 0;
+      // Load logo into buffer
+      let logoBuffer = null;
       try {
         const logoUrl = settings?.logo_url;
         if (logoUrl) {
           if (/^https?:\/\//i.test(logoUrl)) {
-            const buf = await new Promise((resolve, reject) => {
+            logoBuffer = await new Promise((resolve, reject) => {
+              const timeout = setTimeout(() => reject(new Error('Logo download timeout')), 5000);
               https.get(logoUrl, (r) => {
                 const chunks = [];
                 r.on('data', (d) => chunks.push(d));
-                r.on('end', () => resolve(Buffer.concat(chunks)));
-              }).on('error', reject);
+                r.on('end', () => { clearTimeout(timeout); resolve(Buffer.concat(chunks)); });
+                r.on('error', (e) => { clearTimeout(timeout); reject(e); });
+              }).on('error', (e) => { clearTimeout(timeout); reject(e); });
             });
-            if (Buffer.isBuffer(buf)) {
-              imgW = 60;
-              doc.image(buf, doc.page.margins.left, doc.page.margins.top, { width: imgW, fit: [imgW, imgW] });
-            }
           } else {
             const rel = logoUrl.replace(/^\/*/, '');
             const localPath = path.join(__dirname, '..', '..', rel);
             if (fs.existsSync(localPath)) {
-              imgW = 60;
-              doc.image(localPath, doc.page.margins.left, doc.page.margins.top, { width: imgW, fit: [imgW, imgW] });
+              logoBuffer = fs.readFileSync(localPath);
             }
           }
         }
       } catch {}
 
-      // Header text
-      const headerPad = 12;
-      const titleX = doc.page.margins.left + (imgW || 0) + headerPad;
-      const titleY = doc.page.margins.top;
-      const titleW = doc.page.width - doc.page.margins.right - titleX;
+      // Header section
+      const headerHeight = 100;
+      const headerY = marginTop + 4;
+      doc.lineWidth(1.5).rect(marginLeft, headerY, contentWidth, headerHeight).stroke();
 
-      let cursorY = titleY + 26;
-      doc.font(F_BOLD).fontSize(10).text(titleMain, titleX, cursorY, { width: titleW, align: 'center' });
-      cursorY = doc.y + 2;
-      doc.font(F_BOLD).fontSize(10).text(titleLine2, titleX, cursorY, { width: titleW, align: 'center' });
-      cursorY = doc.y + 2;
-      doc.font(F_REG).fontSize(14).text(titleSub, titleX, cursorY, { width: titleW, align: 'center' });
+      let logoWidth = 0;
+      if (logoBuffer && logoBuffer.length > 0) {
+        logoWidth = Math.min(80, headerHeight - 20);
+        const logoX = marginLeft + 12;
+        const logoY = headerY + (headerHeight - logoWidth) / 2;
+        doc.image(logoBuffer, logoX, logoY, { width: logoWidth, height: logoWidth, fit: [logoWidth, logoWidth] });
+      }
 
-      // Meta row with centered subheader box
-      const startY = doc.y + 10;
-      const pageLeft = doc.page.margins.left;
-      const pageRight = doc.page.margins.right;
-      const pageInnerW = doc.page.width - pageLeft - pageRight;
-      const textW = doc.widthOfString(subHeader);
-      const pad = 6;
-      const boxW = textW + pad * 2;
-      const boxX = pageLeft + (pageInnerW - boxW) / 2;
-      const boxY = startY;
-      const lineH = doc.currentLineHeight();
-      doc.rect(boxX, boxY, boxW, lineH + pad * 0.5).stroke();
-      doc.font(F_REG).fontSize(12).text(subHeader, boxX + pad, boxY + pad * 0.25, { width: textW, align: 'center' });
+      // Header text content
+      const textStartX = marginLeft + logoWidth + 24;
+      const textWidth = contentWidth - logoWidth - 36;
+      let textY = headerY + 12;
+      doc.font(F_BOLD).fontSize(11).text(titleSub, textStartX, textY, { width: textWidth, align: 'center' });
+      textY += 18;
+      doc.font(F_REG).fontSize(9).text(titleLine2, textStartX, textY, { width: textWidth, align: 'center' });
+      textY += 24;
+      doc.font(F_BOLD).fontSize(15).text(titleMain, textStartX, textY, { width: textWidth, align: 'center' });
 
-      // Labels left/right
-      const colW = pageInnerW / 3;
-      const leftX = pageLeft;
-      const rightX = pageLeft + colW * 2;
-      const label = (k, v, x) => {
-        doc.font(F_REG).fontSize(10).text(k, x, startY + 22);
-        doc.font(F_BOLD).fontSize(12).text(v || '-', x, startY + 36);
-      };
-      label('ரசீது எண்', row.receipt_number || String(row.id), leftX);
-      label('தேதி', row.from_date || '', rightX);
+      // Receipt details strip
+      const receiptY = headerY + headerHeight + 16;
+      const receiptHeight = 45;
+      doc.lineWidth(1.5).rect(marginLeft, receiptY, contentWidth, receiptHeight).stroke();
+      const receiptNo = String(row.receipt_number || row.id).padStart(3, '0');
+      drawReg(`${L.receipt} ${receiptNo}`, marginLeft + 15, receiptY + 16, 12);
+      const receiptTitle = subHeader;
+      doc.font(hasTamilBoldFont ? F_BOLD : F_REG).fontSize(14);
+      const titleW = doc.widthOfString(receiptTitle);
+      const titleX = marginLeft + (contentWidth - titleW) / 2;
+      drawBold(receiptTitle, titleX, receiptY + 16, 14);
+      const dateText = `${L.date} ${row.from_date || new Date().toLocaleDateString('en-GB')}`;
+      doc.font(hasTamilBoldFont ? F_BOLD : F_REG).fontSize(12);
+      const dateTextWidth = doc.widthOfString(dateText);
+      drawReg(dateText, marginLeft + contentWidth - 15 - dateTextWidth, receiptY + 16, 12);
 
-      // Content
-      const metaY = startY + 60;
-      const amountBoxW = 220;
-      const amountBoxX = pageLeft + pageInnerW - amountBoxW;
-      const amountBoxY = metaY + 10;
-      const amountBoxH = 60;
-      doc.rect(amountBoxX, amountBoxY, amountBoxW, amountBoxH).stroke();
+      // Main content area
+      const contentYStart = receiptY + receiptHeight + 20;
 
-      const donorName = (row.name || '-').toString();
-      const phone = (row.mobile_number || '-').toString();
+      // Right info box (Year / Cell)
+      const infoBoxWidth = 200;
+      const infoBoxHeight = 80;
+      const infoBoxX = marginLeft + contentWidth - infoBoxWidth - 12;
+      const infoBoxY = contentYStart;
+      doc.lineWidth(1).rect(infoBoxX, infoBoxY, infoBoxWidth, infoBoxHeight).stroke();
+      const labelYear = L.year;
+      const labelCell = L.cell;
+      const labelX = infoBoxX + 15;
+      const row1Y = infoBoxY + 14;
+      const row2Y = infoBoxY + 44;
+      doc.font(F_REG).fontSize(12);
+      const labelYearWidth = doc.widthOfString(labelYear);
+      const labelCellWidth = doc.widthOfString(labelCell);
+      const labelColumnWidth = Math.max(labelYearWidth, labelCellWidth) + 10;
+      const valueX = labelX + labelColumnWidth;
+      const valueWidth = infoBoxWidth - (valueX - infoBoxX) - 15;
+      doc.text(labelYear, labelX, row1Y);
+      doc.text(labelCell, labelX, row2Y);
+      const yearMatch = String(row.from_date || '').match(/(\d{4})/);
+      const yearValue = yearMatch ? yearMatch[1] : String(new Date().getFullYear());
+      const phoneValue = [row.mobile_number, row.phone, row.mobile, row.mobile_no, row.phone_no, row.contact, row.contact_no, row.whatsapp]
+        .find(v => v && String(v).trim().length > 0) || '';
+      doc.font(F_BOLD).fontSize(12).text(yearValue, valueX, row1Y, { width: valueWidth, align: 'left' });
+      doc.font(F_BOLD).fontSize(12).text(String(phoneValue).trim() || '-', valueX, row2Y, { width: valueWidth, align: 'left' });
+
+      // Left details block (donor and peoples/time)
+      const donorTextWidth = infoBoxX - marginLeft - 30;
+      let donorY = contentYStart + 8;
+      const donorName = (row.name || '').toString().toUpperCase();
       const peoples = Number(row.peoples || 0);
-      const sentence = `அன்னதானம்: ${donorName} அவர்களின் சார்பில் மக்கள் ${peoples} பேருக்கு உணவு வழங்கப்பட்டது.`;
-      const leftTextWidth = Math.max(50, amountBoxX - pageLeft - 12);
-      doc.font(F_REG).fontSize(12).text(sentence, pageLeft, amountBoxY, { width: leftTextWidth, align: 'left' });
+      const timeStr = (row.time || '-').toString();
+      const periodStr = `${row.from_date || ''} - ${row.to_date || ''}`;
+      const prefixText = 'உயர்திரு/திருமதி ';
+      doc.font(F_BOLD).fontSize(12).text(prefixText, marginLeft + 15, donorY);
+      const prefixWidth = doc.widthOfString(prefixText);
+      drawBold(`${donorName}`, marginLeft + 15 + prefixWidth, donorY, 12, { width: donorTextWidth - prefixWidth, align: 'left' });
+      donorY = doc.y + 6;
+      drawBold(`அன்னதானம்: ரூ ${peoples} பேருக்கு`, marginLeft + 15, donorY, 12, { width: donorTextWidth, align: 'left' });
+      donorY = doc.y + 8;
+      doc.font(F_REG).fontSize(12).text('அவர்களிடமிருந்து', marginLeft + 15, donorY, { width: donorTextWidth, align: 'left' });
 
-      doc.font(F_REG).fontSize(12).text(`போன்: ${phone}`, amountBoxX + 8, amountBoxY + 6);
-      doc.font(F_REG).fontSize(12).text(`நேரம்: ${row.time || '-'}`, amountBoxX + 8, amountBoxY + 22);
-      doc.font(F_REG).fontSize(12).text(`காலம்: ${row.from_date || ''} - ${row.to_date || ''}`, amountBoxX + 8, amountBoxY + 38);
+      // Footer box: show people count prominently
+      const rupeeBoxHeight = 50;
+      const collectorTextHeight = 15;
+      const totalFooterHeight = rupeeBoxHeight + collectorTextHeight + 10;
+      const footerStartY = pageHeight - marginBottom - totalFooterHeight;
+      const rupeeBoxWidth = 160;
+      const rupeeBoxX = marginLeft + 15;
+      doc.lineWidth(1.5).rect(rupeeBoxX, footerStartY, rupeeBoxWidth, rupeeBoxHeight).stroke();
+      const peopleText = `ரூ ${peoples}`;
+      let boxFontSize = 20;
+      doc.font(F_BOLD).fontSize(boxFontSize);
+      let boxTextWidth = doc.widthOfString(peopleText);
+      const maxBoxWidth = rupeeBoxWidth - 30;
+      while (boxTextWidth > maxBoxWidth && boxFontSize > 10) {
+        boxFontSize -= 1;
+        doc.font(F_BOLD).fontSize(boxFontSize);
+        boxTextWidth = doc.widthOfString(peopleText);
+      }
+      const boxTextHeight = doc.currentLineHeight();
+      doc.text(peopleText, rupeeBoxX + 15, footerStartY + (rupeeBoxHeight - boxTextHeight) / 2);
 
-      // Footer
-      const footerY = doc.page.height - doc.page.margins.bottom - 20;
-      const collectorText = 'வசூலிப்பாளர்';
-      doc.font(F_REG).fontSize(10);
-      const collectorW = doc.widthOfString(collectorText);
-      const collectorX = doc.page.width - doc.page.margins.right - collectorW;
-      doc.text(collectorText, collectorX, footerY);
+      // Collector label and optional watermark
+      const collectorText = L.collector;
+      doc.font(F_REG).fontSize(12);
+      const collectorWidth = doc.widthOfString(collectorText);
+      const collectorX = marginLeft + contentWidth - collectorWidth - 15;
+      const collectorY = footerStartY + rupeeBoxHeight + 5;
+      if (collectorY + collectorTextHeight <= pageHeight - marginBottom) {
+        doc.text(collectorText, collectorX - 95, collectorY - 30);
+      } else {
+        doc.text(collectorText, collectorX + 10, footerStartY + rupeeBoxHeight - 10);
+      }
+
+      if (settings?.watermark_text) {
+        doc.font(F_REG).fontSize(8).fillColor('gray')
+          .text(settings.watermark_text, marginLeft, footerStartY - 20, { width: contentWidth, align: 'center' })
+          .fillColor('black');
+      }
 
       doc.end();
     } catch (err) {

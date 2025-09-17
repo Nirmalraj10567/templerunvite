@@ -531,6 +531,15 @@ export default function MemberEntryForm({
             </div>
           )}
         </div>
+        {/* Form footer actions */}
+        <div className="mt-4 flex justify-end">
+          <button
+            type="submit"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+          >
+            {isEditing ? t[lang].update : t[lang].addMember}
+          </button>
+        </div>
       </form>
     </div>
   );

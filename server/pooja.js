@@ -49,15 +49,26 @@ module.exports = function(deps = {}) {
       const ps = Math.min(Math.max(parseInt(pageSize, 10) || 20, 1), 100);
       const offset = (pg - 1) * ps;
       
+      // Check if submitted_by exists to avoid SQLITE_ERROR
+      let hasSubmittedBy = false;
+      try {
+        hasSubmittedBy = await db.schema.hasColumn('pooja', 'submitted_by');
+      } catch {}
+
       // Base query
-      let query = db('pooja')
-        .leftJoin('users', 'pooja.submitted_by', 'users.id')
-        .select(
-          'pooja.*',
-          db.raw("COALESCE(users.full_name, users.username, users.mobile) as submitted_by_name"),
-          'users.mobile as submitted_by_mobile'
-        )
-        .orderBy('pooja.id', 'desc');
+      let query = db('pooja');
+      if (hasSubmittedBy) {
+        query = query
+          .leftJoin('users', 'pooja.submitted_by', 'users.id')
+          .select(
+            'pooja.*',
+            db.raw("COALESCE(users.full_name, users.username, users.mobile) as submitted_by_name"),
+            'users.mobile as submitted_by_mobile'
+          );
+      } else {
+        query = query.select('pooja.*');
+      }
+      query = query.orderBy('pooja.id', 'desc');
 
       // Apply filters
       if (q) {

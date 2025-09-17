@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { Header } from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
@@ -25,6 +26,7 @@ export default function DashboardLayout() {
   const { user, userPermissions, isSuperAdmin, token } = useAuth();
   const { settings } = useSettings();
   const { language } = useLanguage();
+  const location = useLocation();
 
     const lang = (String(language).toLowerCase() === 'english' ? 'tamil' : 'english') as 'tamil' | 'english';
   
@@ -187,6 +189,55 @@ export default function DashboardLayout() {
     }
     return result;
   }, [settings?.hidden_menu_keys, isSuperAdmin, userPermissions, sidebarItems]);
+
+  // Determine current route's permission and whether user is view-only
+  const { isViewOnlyForRoute, currentPermissionId, currentRequiredLevel, userLevelForPermission } = useMemo(() => {
+    const levelRank = (lvl?: string) => {
+      if (lvl === 'full') return 3;
+      if (lvl === 'edit') return 2;
+      if (lvl === 'view') return 1;
+      return 0;
+    };
+
+    const path = location.pathname;
+
+    // Flatten all items (including children) from navigation with permission metadata
+    const flat: Array<{ to: string; permissionId?: string; accessLevel?: 'view'|'edit'|'full' }> = [];
+    for (const item of sidebarItems as any[]) {
+      if (item.to) flat.push({ to: item.to, permissionId: item.permissionId, accessLevel: item.accessLevel });
+      if (item.children) {
+        for (const c of item.children) {
+          flat.push({ to: c.to, permissionId: c.permissionId, accessLevel: c.accessLevel });
+        }
+      }
+    }
+
+    // Find the best match: exact first, then startsWith
+    let match = flat.find(f => f.to === path);
+    if (!match) {
+      // choose the longest prefix match to avoid false positives
+      const prefixMatches = flat.filter(f => path.startsWith(f.to + '/') || (f.to !== '/' && path.startsWith(f.to)));
+      if (prefixMatches.length > 0) {
+        match = prefixMatches.sort((a, b) => b.to.length - a.to.length)[0];
+      }
+    }
+
+    const permissionId = match?.permissionId;
+    const requiredLevel = match?.accessLevel || 'view';
+
+    // Resolve user's level for this permission
+    const userPerm = userPermissions?.find(p => p.permission_id === permissionId);
+    const userLevel = isSuperAdmin ? 'full' : (userPerm?.access_level || undefined);
+
+    // If no specific permission is defined for the route, not view-only
+    if (!permissionId) {
+      return { isViewOnlyForRoute: false, currentPermissionId: undefined, currentRequiredLevel: undefined, userLevelForPermission: undefined };
+    }
+
+    const isViewOnly = levelRank(userLevel) < levelRank('edit');
+
+    return { isViewOnlyForRoute: isViewOnly, currentPermissionId: permissionId, currentRequiredLevel: requiredLevel, userLevelForPermission: userLevel };
+  }, [location.pathname, sidebarItems, userPermissions, isSuperAdmin]);
 
   // Command palette helpers (defined after allowedSidebarItems)
   const flatRoutes = useMemo(() => {
@@ -441,7 +492,7 @@ export default function DashboardLayout() {
             </NavLink>
           )}
 
-          {/* Superadmin-only Master Admin link */}
+          {/* Superadmin-only Master Admin link 
           {isSuperAdmin && (
             <NavLink
               key="/dashboard/master-admin"
@@ -460,7 +511,7 @@ export default function DashboardLayout() {
               <SettingsIcon className="h-6 w-6" />
               {!isSidebarCollapsed && <span className="ml-4 font-medium">{t[lang].masterAdmin}</span>}
             </NavLink>
-          )}
+          )}*/}
         </nav>
 
         {/* User Profile */}
@@ -506,14 +557,23 @@ export default function DashboardLayout() {
 
       {/* Main content */}
       <div ref={mainContentRef} className={`flex-1 flex flex-col transition-all duration-300`}>
-        <header className="flex items-center justify-end h-20 bg-white/80 backdrop-blur-lg border-b 
+        <header className="flex items-center justify-between h-20 bg-white/80 backdrop-blur-lg border-b 
                          border-blue-200/50 px-6 shadow-sm">
+          {/* Left side: optional view-only badge */}
+          <div className="flex items-center gap-3">
+            {isViewOnlyForRoute && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                View-only
+              </span>
+            )}
+          </div>
           <Header />
         </header>
         
-        <main className="flex-1 p-8 overflow-y-auto bg-gradient-to-br from-slate-50 to-blue-50 
+        <main className={`flex-1 p-8 overflow-y-auto bg-gradient-to-br from-slate-50 to-blue-50 
                        scrollbar-thin scrollbar-thumb-blue-400 scrollbar-track-transparent 
-                       hover:scrollbar-thumb-blue-500 transition-colors duration-200">
+                       hover:scrollbar-thumb-blue-500 transition-colors duration-200`} 
+               data-view-only={isViewOnlyForRoute ? 'true' : 'false'}>
           <div className="max-w-7xl mx-auto">
             <Outlet />
           </div>

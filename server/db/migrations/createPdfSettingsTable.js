@@ -53,6 +53,39 @@ module.exports = async function createPdfSettingsTable(db) {
     }
   }
 
+  // Ensure watermark_text exists
+  const hasWatermark = await db.schema.hasColumn('pdf_settings', 'watermark_text').catch(() => false);
+  if (!hasWatermark) {
+    try {
+      await db.schema.table('pdf_settings', (t) => {
+        t.string('watermark_text', 255);
+      });
+    } catch (e) {
+      console.log('Note: Could not add watermark_text to pdf_settings:', e.message);
+    }
+  }
+
+  // Ensure Annadhanam label fields exist
+  const annLabels = [
+    'annadhanam_receipt_label',
+    'annadhanam_date_label',
+    'annadhanam_year_label',
+    'annadhanam_cell_label',
+    'annadhanam_collector_label',
+  ];
+  for (const col of annLabels) {
+    const hasCol = await db.schema.hasColumn('pdf_settings', col).catch(() => false);
+    if (!hasCol) {
+      try {
+        await db.schema.table('pdf_settings', (t) => {
+          t.string(col, 255);
+        });
+      } catch (e) {
+        console.log(`Note: Could not add ${col} to pdf_settings:`, e.message);
+      }
+    }
+  }
+
   // Seed default for temple_id = 1 if missing
   const existing = await db('pdf_settings').where({ temple_id: 1 }).first().catch(() => null);
   if (!existing) {

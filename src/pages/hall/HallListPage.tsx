@@ -137,6 +137,54 @@ export default function HallListPage() {
     // eslint-disable-next-line
   }, []);
 
+  const buildQueryString = () => {
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    return params.toString();
+  };
+
+  const handleExportCSV = async () => {
+    try {
+      const qs = buildQueryString();
+      const url = '/api/hall-bookings/export' + (qs ? `?${qs}` : '');
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error('Failed to export CSV');
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = 'hall_bookings.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+      setError('Failed to export CSV');
+    }
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      const qs = buildQueryString();
+      const url = '/api/hall-bookings/export-pdf' + (qs ? `?${qs}` : '');
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error('Failed to export PDF');
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = 'hall_bookings.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+      setError('Failed to export PDF');
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto bg-white p-3 rounded shadow text-xs">
       <h1 className="text-base font-semibold mb-2">{t('Marriage Hall Bookings', 'திருமண மண்டப பதிவுகள்')}</h1>
@@ -151,11 +199,11 @@ export default function HallListPage() {
         />
         <input type="date" className="border px-2 py-1 rounded text-xs" value={from} onChange={(e) => setFrom(e.target.value)} />
         <input type="date" className="border px-2 py-1 rounded text-xs" value={to} onChange={(e) => setTo(e.target.value)} />
-        <button className="border px-2 py-1 rounded">{t('Search', 'தேடுக')}</button>
+        <button className="border px-2 py-1 rounded" onClick={fetchData}>{t('Search', 'தேடுக')}</button>
         <button className="border px-2 py-1 rounded" onClick={() => { setQ(''); setFrom(''); setTo(''); }}>{t('Clear', 'அழி')}</button>
         <div className="flex gap-1">
-          <button className="border px-2 py-1 rounded flex-1">{t('CSV', 'CSV')}</button>
-          <button className="border px-2 py-1 rounded flex-1">{t('PDF', 'PDF')}</button>
+          <button className="border px-2 py-1 rounded flex-1" onClick={handleExportCSV}>{t('CSV', 'CSV')}</button>
+          <button className="border px-2 py-1 rounded flex-1" onClick={handleExportPDF}>{t('PDF', 'PDF')}</button>
         </div>
       </div>
 

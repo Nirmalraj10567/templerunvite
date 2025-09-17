@@ -12,8 +12,8 @@ import { Modal } from '@/components/ui/modal';
 import { useLanguage } from '@/lib/language';
 
 // Translation object
-const t = {
-  tamil: {
+const texts = {
+  englsih: {
     title: 'அன்னதானம் பதிவு',
     receiptNumber: 'ரசீது எண்',
     name: 'பெயர்',
@@ -78,16 +78,17 @@ export default function AnnadhanamEntryPage() {
   const { id } = useParams<{ id: string }>();
   const { token } = useAuth();
   const { language } = useLanguage();
+
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { register, handleSubmit, reset, setValue } = useForm<AnnadhanamFormData>();
+  const { register, handleSubmit, reset, setValue, watch } = useForm<AnnadhanamFormData>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastCreatedId, setLastCreatedId] = useState<number | null>(null);
   const [showPrintPrompt, setShowPrintPrompt] = useState(false);
   const [receiptNumber, setReceiptNumber] = useState('');
   
-  // Translation function
-  const t = (en: string, ta: string) => language === 'tamil' ? ta : en;
+  // Translation function (inline helper)
+  const tr = (en: string, ta: string) => language === 'english' ? ta : en;
   
   // Generate a temporary receipt number for display
   useEffect(() => {
@@ -96,6 +97,15 @@ export default function AnnadhanamEntryPage() {
       setReceiptNumber(`${year}-${Math.floor(1000 + Math.random() * 9000).toString().padStart(4, '0')}`);
     }
   }, [id]);
+
+  // Keep toDate in sync when it's empty (single-day convenience)
+  const fromDateWatch = watch('fromDate');
+  const toDateWatch = watch('toDate');
+  useEffect(() => {
+    if (fromDateWatch && !toDateWatch) {
+      setValue('toDate', fromDateWatch, { shouldValidate: true });
+    }
+  }, [fromDateWatch, toDateWatch, setValue]);
 
   useEffect(() => {
     // Don't set receipt number here - it will be generated on the server
@@ -136,8 +146,8 @@ export default function AnnadhanamEntryPage() {
         } catch (error) {
           console.error('Error fetching annadhanam data:', error);
           toast({
-            title: t('Error', 'பிழை'),
-            description: t('Failed to load annadhanam data', 'அன்னதானம் தரவை ஏற்ற முடியவில்லை'),
+            title: tr('Error', 'பிழை'),
+            description: tr('Failed to load annadhanam data', 'அன்னதானம் தரவை ஏற்ற முடியவில்லை'),
             variant: 'destructive'
           });
         } finally {
@@ -147,7 +157,7 @@ export default function AnnadhanamEntryPage() {
       
       fetchAnnadhanam();
     }
-  }, [id, reset, setValue, token, t]);
+  }, [id, reset, setValue, token, language]);
 
   if (isLoading) {
     return <div className="p-4">Loading annadhanam data...</div>;
@@ -160,8 +170,8 @@ export default function AnnadhanamEntryPage() {
       // Validate date range
       if (new Date(data.fromDate) > new Date(data.toDate)) {
         toast({
-          title: t('Error', 'பிழை'),
-          description: t('From date cannot be later than to date', 'தொடங்கும் தேதி முடிவதற்கு முன்னதாக இருக்க முடியாது'),
+          title: tr('Error', 'பிழை'),
+          description: tr('From date cannot be later than to date', 'தொடங்கும் தேதி முடிவதற்கு முன்னதாக இருக்க முடியாது'),
           variant: 'destructive'
         });
         return;
@@ -200,8 +210,8 @@ export default function AnnadhanamEntryPage() {
 
       if (result.success) {
         toast({
-          title: id ? t('Annadhanam updated successfully', 'அன்னதானம் வெற்றிகரமாக புதுப்பிக்கப்பட்டது') : t('Annadhanam created successfully', 'அன்னதானம் வெற்றிகரமாக உருவாக்கப்பட்டது'),
-          description: t('Data saved successfully', 'தரவு வெற்றிகரமாக சேமிக்கப்பட்டது')
+          title: id ? tr('Annadhanam updated successfully', 'அன்னதானம் வெற்றிகரமாக புதுப்பிக்கப்பட்டது') : tr('Annadhanam created successfully', 'அன்னதானம் வெற்றிகரமாக உருவாக்கப்பட்டது'),
+          description: tr('Data saved successfully', 'தரவு வெற்றிகரமாக சேமிக்கப்பட்டது')
         });
         const newId = id ? Number(id) : (result?.data?.id ?? null);
         if (typeof newId === 'number') {
@@ -223,7 +233,7 @@ export default function AnnadhanamEntryPage() {
       console.error('Error submitting form:', error);
       toast({
         title: 'Error',
-        description: t('Failed to submit annadhanam form', 'அன்னதானம் படிவத்தை சமர்ப்பிக்க முடியவில்லை'),
+        description: tr('Failed to submit annadhanam form', 'அன்னதானம் படிவத்தை சமர்ப்பிக்க முடியவில்லை'),
         variant: 'destructive'
       });
     } finally {
@@ -245,13 +255,13 @@ export default function AnnadhanamEntryPage() {
       <Card className="w-full border-none shadow-none">
         <CardHeader className="p-2">
           <CardTitle className="text-lg font-semibold text-center">
-            {t('Annadhanam Entry', 'அன்னதானம் பதிவு')}
+            {tr('Annadhanam Entry', 'அன்னதானம் பதிவு')}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-2">
           <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <Label className="block text-xs mb-1" htmlFor="name">{t('Name', 'பெயர்')} *</Label>
+              <Label className="block text-xs mb-1" htmlFor="name">{tr('Name', 'பெயர்')} *</Label>
               <Input
                 id="name"
                 className="text-xs p-1 h-8"
@@ -261,7 +271,7 @@ export default function AnnadhanamEntryPage() {
 
             <div>
               <Label className="block text-xs mb-1" htmlFor="mobileNumber">
-                {t('Mobile Number', 'மொபைல் எண்')} *
+                {tr('Mobile Number', 'மொபைல் எண்')} *
               </Label>
               <Input
                 id="mobileNumber"
@@ -274,13 +284,13 @@ export default function AnnadhanamEntryPage() {
                     message: 'Please enter a valid 10-digit mobile number'
                   }
                 })}
-                placeholder={t('Enter 10-digit mobile number', '10 இலக்க மொபைல் எண்ணை உள்ளிடவும்')}
+                placeholder={tr('Enter 10-digit mobile number', '10 இலக்க மொபைல் எண்ணை உள்ளிடவும்')}
               />
             </div>
 
             <div>
               <Label className="block text-xs mb-1" htmlFor="time">
-                {t('Time', 'நேரம்')} *
+                {tr('Time', 'நேரம்')} *
               </Label>
               <Input
                 id="time"
@@ -293,7 +303,7 @@ export default function AnnadhanamEntryPage() {
             <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <Label className="block text-xs mb-1" htmlFor="fromDate">
-                  {t('From Date', 'தொடக்க தேதி')} *
+                  {tr('From Date', 'தொடக்க தேதி')} *
                 </Label>
                 <Input
                   id="fromDate"
@@ -304,20 +314,32 @@ export default function AnnadhanamEntryPage() {
               </div>
 
               <div>
+                <Label className="block text-xs mb-1" htmlFor="toDate">
+                  {tr('To Date', 'இறுதி தேதி')} *
+                </Label>
+                <Input
+                  id="toDate"
+                  type="date"
+                  className="text-xs p-1 h-8"
+                  {...register('toDate', { required: true })}
+                />
+              </div>
+
+              <div>
                 <Label className="block text-xs mb-1" htmlFor="food">
-                  {t('Food Items', 'உணவு பொருட்கள்')} *
+                  {tr('Food Items', 'உணவு பொருட்கள்')} *
                 </Label>
                 <Textarea
                   id="food"
                   className="text-xs p-1 min-h-[60px]"
                   {...register('food', { required: true })}
-                  placeholder={t('Enter food items (e.g., Rice, Sambar, Curry)', 'உணவு பொருட்களை உள்ளிடவும் (எ.கா., அரிசி, சாம்பார், கறி)')}
+                  placeholder={tr('Enter food items (e.g., Rice, Sambar, Curry)', 'உணவு பொருட்களை உள்ளிடவும் (எ.கா., அரிசி, சாம்பார், கறி)')}
                 />
               </div>
 
               <div>
                 <Label className="block text-xs mb-1" htmlFor="peoples">
-                  {t('Number of People', 'மக்கள் எண்ணிக்கை')} *
+                  {tr('Number of People', 'மக்கள் எண்ணிக்கை')} *
                 </Label>
                 <Input
                   id="peoples"
@@ -328,19 +350,19 @@ export default function AnnadhanamEntryPage() {
                     required: true,
                     min: { value: 1, message: 'Number of people must be at least 1' }
                   })}
-                  placeholder={t('Enter number of people', 'மக்கள் எண்ணிக்கையை உள்ளிடவும்')}
+                  placeholder={tr('Enter number of people', 'மக்கள் எண்ணிக்கையை உள்ளிடவும்')}
                 />
               </div>
 
               <div>
                 <Label className="block text-xs mb-1" htmlFor="remarks">
-                  {t('Remarks', 'குறிப்புகள்')}
+                  {tr('Remarks', 'குறிப்புகள்')}
                 </Label>
                 <Textarea
                   id="remarks"
                   className="text-xs p-1 min-h-[60px]"
                   {...register('remarks')}
-                  placeholder={t('Enter any additional remarks', 'கூடுதல் குறிப்புகளை உள்ளிடவும்')}
+                  placeholder={tr('Enter any additional remarks', 'கூடுதல் குறிப்புகளை உள்ளிடவும்')}
                 />
               </div>
             </div>
@@ -353,7 +375,7 @@ export default function AnnadhanamEntryPage() {
                 onClick={handleCancel}
                 disabled={isSubmitting}
               >
-                {t('Cancel', 'ரத்து செய்')}
+                {tr('Cancel', 'ரத்து செய்')}
               </Button>
               <Button 
                 type="submit" 
@@ -361,10 +383,10 @@ export default function AnnadhanamEntryPage() {
                 disabled={isSubmitting}
               >
                 {isSubmitting 
-                  ? t('Saving...', 'சேமிக்கிறது...') 
+                  ? tr('Saving...', 'சேமிக்கிறது...') 
                   : id 
-                    ? t('Update Annadhanam', 'அன்னதானத்தை புதுப்பிக்க') 
-                    : t('Save Annadhanam', 'அன்னதானத்தை சேமிக்க')
+                    ? tr('Update Annadhanam', 'அன்னதானத்தை புதுப்பிக்க') 
+                    : tr('Save Annadhanam', 'அன்னதானத்தை சேமிக்க')
                 }
               </Button>
             </div>
@@ -373,13 +395,13 @@ export default function AnnadhanamEntryPage() {
       </Card>
       {showPrintPrompt && lastCreatedId != null && (
         <Modal
-          title={t('Print Receipt', 'ரசீதை அச்சிடவா?')}
+          title={tr('Print Receipt', 'ரசீதை அச்சிடவா?')}
           onClose={() => setShowPrintPrompt(false)}
         >
-          <p className="mb-3 text-xs">{t('Do you want to open the PDF receipt for printing?', 'PDF ரசீதை அச்சிட திறக்க விரும்புகிறீர்களா?')}</p>
+          <p className="mb-3 text-xs">{tr('Do you want to open the PDF receipt for printing?', 'PDF ரசீதை அச்சிட திறக்க விரும்புகிறீர்களா?')}</p>
           <div className="flex justify-end gap-2">
             <button className="px-3 py-1 rounded border text-xs" onClick={() => setShowPrintPrompt(false)}>
-              {t('No', 'இல்லை')}
+              {tr('No', 'இல்லை')}
             </button>
             <button
               className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 text-xs"
@@ -390,7 +412,7 @@ export default function AnnadhanamEntryPage() {
                 setShowPrintPrompt(false);
               }}
             >
-              {t('Yes, Print', 'ஆம், அச்சிடு')}
+              {tr('Yes, Print', 'ஆம், அச்சிடு')}
             </button>
           </div>
         </Modal>

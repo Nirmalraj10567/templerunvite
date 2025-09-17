@@ -166,13 +166,13 @@ const SessionLogsPage = () => {
     | 'duration_seconds';
 
   const allColumns: Array<{ key: ColKey; label: string }> = [
-    { key: 'id', label: language === 'tamil' ? 'ஐடி' : 'ID' },
-    { key: 'user_id', label: language === 'tamil' ? 'பயனர் ஐடி' : 'User ID' },
-    { key: 'login_time', label: language === 'tamil' ? 'உள்நுழை நேரம்' : 'Login Time' },
-    { key: 'logout_time', label: language === 'tamil' ? 'வெளியேறு நேரம்' : 'Logout Time' },
-    { key: 'ip_address', label: language === 'tamil' ? 'ஐ.பி. முகவரி' : 'IP Address' },
-    { key: 'user_agent', label: language === 'tamil' ? 'பயனர் முகவரி' : 'User Agent' },
-    { key: 'duration_seconds', label: language === 'tamil' ? 'கால அளவு (நொடிகள்)' : 'Duration (seconds)' },
+    { key: 'id', label: language === 'english' ? 'ஐடி' : 'ID' },
+    { key: 'user_id', label: language === 'english' ? 'பயனர் ஐடி' : 'User ID' },
+    { key: 'login_time', label: language === 'english' ? 'உள்நுழை நேரம்' : 'Login Time' },
+    { key: 'logout_time', label: language === 'english' ? 'வெளியேறு நேரம்' : 'Logout Time' },
+    { key: 'ip_address', label: language === 'english' ? 'ஐ.பி. முகவரி' : 'IP Address' },
+    { key: 'user_agent', label: language === 'english' ? 'பயனர் முகவரி' : 'User Agent' },
+    { key: 'duration_seconds', label: language === 'english' ? 'கால அளவு (நொடிகள்)' : 'Duration (seconds)' },
   ];
 
   const STORAGE_KEY = 'session_logs_visible_columns_v1';

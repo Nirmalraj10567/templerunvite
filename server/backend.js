@@ -74,6 +74,51 @@ const db = knex({
   }
 });
 
+// Provide /api/ledger/accounts for account dropdowns
+app.get('/api/ledger/accounts', authenticateToken, async (req, res) => {
+  try {
+    const defaults = [
+      { value: 'CASH A/C', label: 'CASH A/C' },
+      { value: 'BANK A/C', label: 'BANK A/C' },
+      { value: 'INCOME A/C', label: 'INCOME A/C' },
+      { value: 'EXPENSE A/C', label: 'EXPENSE A/C' },
+    ];
+
+    let used = [];
+    try {
+      const rows = await db('ledger_entries')
+        .distinct('under')
+        .whereNotNull('under')
+        .andWhere('under', '!=', '')
+        .orderBy('under', 'asc');
+      used = rows.map(r => ({ value: r.under, label: r.under }));
+    } catch (e) {
+      used = [];
+    }
+
+    let master = [];
+    try {
+      const cats = await db('ledger_categories').select('label');
+      master = cats.map(c => ({ value: c.label, label: c.label }));
+    } catch (e) {
+      master = [];
+    }
+
+    // Merge unique by value, preserving order: defaults -> master -> used
+    const map = new Map();
+    for (const arr of [defaults, master, used]) {
+      for (const it of arr) {
+        if (!map.has(it.value)) map.set(it.value, it);
+      }
+    }
+    const data = Array.from(map.values());
+    res.json({ data });
+  } catch (err) {
+    console.error('Error fetching /api/ledger/accounts:', err);
+    res.status(500).json({ error: 'Database error while fetching ledger entries.' });
+  }
+});
+
 // Next Reference Number (year-based, per temple)
 app.get('/api/tax-registrations/next-ref', authenticateToken, async (req, res) => {
   try {
@@ -257,6 +302,21 @@ const hallApprovalRouter = require('./hall-approval')({ db, authenticateToken, a
 app.use('/api/properties', propertiesRouter);
 app.use('/api/ledger', ledgerRouter);
 app.use('/api/hall-approval', hallApprovalRouter);
+// Mount hall bookings router (protected) but skip auth for receipt PDFs (handled by verifyQueryToken in route)
+try {
+  const hallBookingsRouter = require('./hallBookings')({ db });
+  const skipReceiptPdfAuth = (req, res, next) => {
+    const url = req.originalUrl || req.url || '';
+    // If this is a request to the receipt PDF, let the specific router handle JWT via query token
+    if (/\/api\/hall-bookings\/\d+\/receipt\.pdf(\?.*)?$/.test(url)) {
+      return next();
+    }
+    return authenticateToken(req, res, next);
+  };
+  app.use('/api/hall-bookings', skipReceiptPdfAuth, hallBookingsRouter);
+} catch (e) {
+  console.error('Failed to mount hall bookings router:', e);
+}
 // Mount moon API routes (moon-phases and moon-dates)
 (() => {
   try {

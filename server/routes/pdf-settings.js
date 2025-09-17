@@ -33,11 +33,31 @@ module.exports = function createPdfSettingsRouter({ db, authenticateToken, autho
     }
   });
 
-  // Update titles/subheader and optional external logo_url
+  // Update titles/subheader, optional external logo_url, watermark and module-specific labels
   router.put('/api/pdf-settings', authenticateToken, authorizePermission('pdf_settings', 'edit'), async (req, res) => {
     try {
       const templeId = req.user.templeId;
-      const { title_main, title_sub, title_line2, subheader, tax_subheader, logo_url } = req.body || {};
+      const {
+        title_main,
+        title_sub,
+        title_line2,
+        subheader,
+        tax_subheader,
+        annadhanam_subheader,
+        hall_subheader,
+        logo_url,
+        watermark_text,
+        annadhanam_receipt_label,
+        annadhanam_date_label,
+        annadhanam_year_label,
+        annadhanam_cell_label,
+        annadhanam_collector_label,
+        hall_receipt_label,
+        hall_date_label,
+        hall_year_label,
+        hall_cell_label,
+        hall_collector_label,
+      } = req.body || {};
       const exists = await db('pdf_settings').where({ temple_id: templeId }).first();
       const payload = {
         title_main: title_main ?? null,
@@ -45,7 +65,20 @@ module.exports = function createPdfSettingsRouter({ db, authenticateToken, autho
         title_line2: title_line2 ?? null,
         subheader: subheader ?? null,
         tax_subheader: tax_subheader ?? exists?.tax_subheader ?? null,
+        annadhanam_subheader: annadhanam_subheader ?? exists?.annadhanam_subheader ?? null,
+        hall_subheader: hall_subheader ?? exists?.hall_subheader ?? null,
         logo_url: logo_url ?? exists?.logo_url ?? null,
+        watermark_text: watermark_text ?? exists?.watermark_text ?? null,
+        annadhanam_receipt_label: annadhanam_receipt_label ?? exists?.annadhanam_receipt_label ?? null,
+        annadhanam_date_label: annadhanam_date_label ?? exists?.annadhanam_date_label ?? null,
+        annadhanam_year_label: annadhanam_year_label ?? exists?.annadhanam_year_label ?? null,
+        annadhanam_cell_label: annadhanam_cell_label ?? exists?.annadhanam_cell_label ?? null,
+        annadhanam_collector_label: annadhanam_collector_label ?? exists?.annadhanam_collector_label ?? null,
+        hall_receipt_label: hall_receipt_label ?? exists?.hall_receipt_label ?? null,
+        hall_date_label: hall_date_label ?? exists?.hall_date_label ?? null,
+        hall_year_label: hall_year_label ?? exists?.hall_year_label ?? null,
+        hall_cell_label: hall_cell_label ?? exists?.hall_cell_label ?? null,
+        hall_collector_label: hall_collector_label ?? exists?.hall_collector_label ?? null,
         updated_at: db.fn.now(),
       };
       if (exists) {

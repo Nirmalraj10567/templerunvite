@@ -6,6 +6,7 @@ import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Header } from '../components/Header';
 import { Eye, EyeOff } from 'lucide-react';
+import { useLanguage } from '../lib/language';
 
 export function LoginPage() {
   const [identifier, setIdentifier] = useState('');
@@ -14,6 +15,31 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { login, isLoading, error: authError, user, token } = useAuth();
+  const { language } = useLanguage();
+  const lang = (String(language).toLowerCase() === 'english' ? 'tamil' : 'english') as 'tamil' | 'english';
+
+  const t = {
+    tamil: {
+      title: 'உங்கள் கணக்கில் உள்நுழைக',
+      subtitle: 'மீண்டும் வரவேற்பு!',
+      usernameOrMobile: 'பயனர் பெயர் அல்லது மொபைல் எண்',
+      password: 'கடவுச்சொல்',
+      signIn: 'உள்நுழை',
+      signingIn: 'உள்நுழைகிறது...',
+      errorRequired: 'பயனர் பெயர்/மொபைல் மற்றும் கடவுச்சொல் தேவை.',
+      noAccountRegister: 'கணக்கு இல்லையா? பதிவு செய்யவும்',
+    },
+    english: {
+      title: 'Sign in to your account',
+      subtitle: 'Welcome back!',
+      usernameOrMobile: 'Username or Mobile Number',
+      password: 'Password',
+      signIn: 'Sign In',
+      signingIn: 'Signing In...',
+      errorRequired: 'Username/mobile and password are required.',
+      noAccountRegister: "Don't have an account? Register",
+    },
+  } as const;
 
   useEffect(() => {
     if (authError) setError(authError);
@@ -30,7 +56,7 @@ export function LoginPage() {
     setError('');
 
     if (!identifier || !password) {
-      setError('Username/mobile and password are required.');
+      setError(t[lang].errorRequired);
       return;
     }
 
@@ -48,8 +74,8 @@ export function LoginPage() {
         <div className="w-full max-w-md space-y-8">
           <Card className="p-8 space-y-6 shadow-lg rounded-xl">
             <div className="text-center">
-              <h1 className="text-3xl font-extrabold text-gray-900">Sign in to your account</h1>
-              <p className="mt-2 text-sm text-gray-600">Welcome back!</p>
+              <h1 className="text-3xl font-extrabold text-gray-900">{t[lang].title}</h1>
+              <p className="mt-2 text-sm text-gray-600">{t[lang].subtitle}</p>
             </div>
 
             {error && (
@@ -61,12 +87,12 @@ export function LoginPage() {
             <form onSubmit={handleLoginSubmit} className="space-y-6">
               <div>
                 <label htmlFor="identifier" className="sr-only">
-                  Username or Mobile Number
+                  {t[lang].usernameOrMobile}
                 </label>
                 <Input
                   id="identifier"
                   type="text"
-                  placeholder="Username or Mobile Number"
+                  placeholder={t[lang].usernameOrMobile}
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   required
@@ -75,12 +101,12 @@ export function LoginPage() {
               </div>
               <div className="relative">
                 <label htmlFor="password" className="sr-only">
-                  Password
+                  {t[lang].password}
                 </label>
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="Password"
+                  placeholder={t[lang].password}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -104,13 +130,13 @@ export function LoginPage() {
                 disabled={isLoading}
                 className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50"
               >
-                {isLoading ? 'Signing In...' : 'Sign In'}
+                {isLoading ? t[lang].signingIn : t[lang].signIn}
               </Button>
             </form>
 
             <div className="text-sm text-center">
               <a href="/register" className="font-medium text-orange-600 hover:text-orange-700">
-                Don't have an account? Register
+                {t[lang].noAccountRegister}
               </a>
             </div>
           </Card>

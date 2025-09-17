@@ -126,39 +126,36 @@ export default function BalanceSheetPage() {
       if (!balanceResp.ok) throw new Error(t[language].errorLoading);
       const balanceData = await balanceResp.json();
 
-      // Fetch debit transactions from ledger
-      const debitResp = await fetch(`/api/ledger?from=${query.startDate}&to=${query.endDate}&type=debit`, {
+      // Fetch debit transactions from ledger entries (already typed credit/debit)
+      const debitResp = await fetch(`/api/ledger/entries?startDate=${query.startDate}&endDate=${query.endDate}&type=debit&limit=1000&page=1`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      let debitData = [];
+      let debitItems: Item[] = [];
       if (debitResp.ok) {
-        const debitResult = await debitResp.json();
-        debitData = debitResult?.data || [];
+        const result = await debitResp.json();
+        const rows: any[] = result?.data || [];
+        // Group by category/under or name and sum amounts
+        const map = new Map<string, number>();
+        for (const r of rows) {
+          const key = r.under || r.name || 'Unknown';
+          const amt = Number(r.amount || 0);
+          map.set(key, (map.get(key) || 0) + (isNaN(amt) ? 0 : amt));
+        }
+        debitItems = Array.from(map.entries()).map(([account, balance]) => ({ account, balance }));
       }
 
-      setAssets(balanceData?.data?.assets || []);
-      setLiabilities(balanceData?.data?.liabilities || []);
+      // Use server-provided assets/liabilities as-is
+      const assetsList: Item[] = balanceData?.data?.assets || [];
+      const liabilitiesList: Item[] = balanceData?.data?.liabilities || [];
 
-      // Process debit data - group by account and sum amounts
-      const debitMap = new Map<string, number>();
-      debitData.forEach((entry: any) => {
-        const account = entry.category || entry.name || 'Unknown';
-        const amount = entry.debit || 0;
-        debitMap.set(account, (debitMap.get(account) || 0) + amount);
-      });
-
-      const debitItems = Array.from(debitMap.entries()).map(([account, balance]) => ({
-        account,
-        balance: Number(balance),
-      }));
+      setAssets(assetsList);
+      setLiabilities(liabilitiesList);
       setDebits(debitItems);
 
-      const totalDebits = debitItems.reduce((sum, item) => sum + item.balance, 0);
-      setTotals({
-        assets: balanceData?.data?.totals?.assets || 0,
-        liabilities: balanceData?.data?.totals?.liabilities || 0,
-        debits: totalDebits,
-      });
+      const totalDebits = debitItems.reduce((sum, item) => sum + (item.balance || 0), 0);
+      const totalAssets = assetsList.reduce((sum, item) => sum + (item.balance || 0), 0);
+      const totalLiabilities = liabilitiesList.reduce((sum, item) => sum + (item.balance || 0), 0);
+      setTotals({ assets: totalAssets, liabilities: totalLiabilities, debits: totalDebits });
 
       const od = (balanceData?.data?.openingDiff ?? balanceData?.data?.opening_balance_diff ?? 0) as number;
       setOpeningDiff(Number.isFinite(od) ? od : 0);
