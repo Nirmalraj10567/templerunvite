@@ -1,4 +1,5 @@
 const PDFDocument = require('pdfkit');
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -10,9 +11,9 @@ const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
 const https = require('https');
-
 const app = express();
 const PORT = 4000;
+const IS_PROD = process.env.NODE_ENV === 'production';
 
 // Import routes
 const propertiesRouter = require('./properties');
@@ -60,18 +61,20 @@ app.use(bodyParser.json());
 // Serve static files from the project's public directory (../public)
 app.use('/public', express.static(path.join(__dirname, '../public')));
 
-// Knex config for SQLite (database in server directory)
+// Knex config for MySQL (read settings from environment variables)
+// Required driver: mysql2
+// Expected env vars: MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE, MYSQL_TIMEZONE
 const db = knex({
-  client: 'sqlite3',
+  client: 'mysql2',
   connection: {
-    filename: path.join(__dirname, 'deev.sqlite3'),
+    host: process.env.MYSQL_HOST || '127.0.0.1',
+    port: Number(process.env.MYSQL_PORT || 3306),
+    user: process.env.MYSQL_USER || 'root',
+    password: process.env.MYSQL_PASSWORD || '',
+    database: process.env.MYSQL_DATABASE || 'templerun',
+    timezone: process.env.MYSQL_TIMEZONE || 'Z',
   },
-  useNullAsDefault: true,
-  pool: {
-    afterCreate: (conn, cb) => {
-      conn.run('PRAGMA busy_timeout = 5000', cb);
-    }
-  }
+  pool: { min: 2, max: 10 },
 });
 
 // Provide /api/ledger/accounts for account dropdowns
@@ -2652,15 +2655,23 @@ async function migrate() {
   }
 }
 
-console.log('Starting migration...');
-// Skip automatic migrations
-// await db.migrate.latest();
-migrate().then(() => {
-  console.log('Migration completed, starting server...');
-}).catch(err => {
-  console.error('Migration failed:', err);
-  console.log('Continuing with server startup...');
-});
+// Control running of migrations via environment
+// By default, migrations run in development, and are skipped in production
+// Set RUN_MIGRATIONS=true to force running in any environment
+const shouldRunMigrations = process.env.RUN_MIGRATIONS === 'true' || (!IS_PROD && process.env.RUN_MIGRATIONS !== 'false');
+if (shouldRunMigrations) {
+  console.log('Starting migration...');
+  // Skip automatic knex migrations: using custom migrate() for compatibility
+  // await db.migrate.latest();
+  migrate().then(() => {
+    console.log('Migrations completed.');
+  }).catch(err => {
+    console.error('Migration failed:', err);
+  });
+} else {
+  console.log('Skipping migrations (set RUN_MIGRATIONS=true to enable).');
+}
+console.log('Continuing with server startup...');
 
 // Mount users router (provides /api/login for username/mobile + password, and protects other user routes)
 try {
