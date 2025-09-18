@@ -11,7 +11,13 @@
     "preview": "vite preview",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "migrate:latest": "knex --knexfile server/knexfile.cjs migrate:latest --env development",
+    "migrate:rollback": "knex --knexfile server/knexfile.cjs migrate:rollback --env development",
+    "migrate:status": "knex --knexfile server/knexfile.cjs migrate:list --env development",
+    "migrate:mysql": "knex --knexfile server/knexfile.cjs migrate:latest --env mysql",
+    "migrate:sql": "node server/run-sql-migrations.cjs",
+    "migrate:sql:mysql": "NODE_ENV=mysql node server/run-sql-migrations.cjs"
   },
   "jest": {
     "testEnvironment": "jsdom",

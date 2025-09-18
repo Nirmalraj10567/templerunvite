@@ -153,7 +153,7 @@ export default function RegisterPage() {
       return;
     }
 
-    const success = await register({
+    const result = await register({
       name: formData.name,
       mobileNumber: formData.mobileNumber,
       gmail: formData.gmail,
@@ -171,7 +171,7 @@ export default function RegisterPage() {
       reg80G: formData.reg80G
     });
 
-    if (success) {
+    if (result?.success) {
       setFormData({
         name: '',
         mobileNumber: '',

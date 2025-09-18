@@ -279,15 +279,51 @@ router.get('/profit-and-loss', authenticateToken, async (req, res) => {
 // This endpoint is intentionally named /categories-used to avoid conflicts.
 router.get('/categories-used', authenticateToken, async (req, res) => {
   try {
-    const result = await db('ledger_entries')
-      .distinct('under')
-      .whereNotNull('under')
-      .orderBy('under');
-    
-    const categories = result.map(r => r.under);
+    // Prefer temple-scoped categories derived from journal activity
+    let accounts = [];
+    try {
+      const froms = await db('journal_entries')
+        .distinct('from_account as name')
+        .where('temple_id', req.user.templeId);
+      const tos = await db('journal_entries')
+        .distinct('to_account as name')
+        .where('temple_id', req.user.templeId);
+      const set = new Set();
+      [...froms, ...tos].forEach(r => { if (r?.name) set.add(r.name); });
+      accounts = Array.from(set);
+    } catch (e) {
+      accounts = [];
+    }
+
+    let categories = [];
+    if (accounts.length) {
+      try {
+        // Map accounts to categories using ledger_entries name->under mapping
+        const rows = await db('ledger_entries')
+          .distinct('under')
+          .whereIn('name', accounts)
+          .whereNotNull('under')
+          .andWhere('under', '!=', '')
+          .orderBy('under');
+        categories = rows.map(r => r.under).filter(Boolean);
+      } catch (e) {
+        categories = [];
+      }
+    }
+
+    // Fallback to global distinct-under if temple-scoped result is empty
+    if (!categories.length) {
+      const result = await db('ledger_entries')
+        .distinct('under')
+        .whereNotNull('under')
+        .andWhere('under', '!=', '')
+        .orderBy('under');
+      categories = result.map(r => r.under).filter(Boolean);
+    }
+
     res.json({ data: categories });
   } catch (error) {
-    console.error('Error fetching categories:', error);
+    console.error('Error fetching categories-used:', error);
     res.status(500).json({ error: 'Failed to fetch categories' });
   }
 });

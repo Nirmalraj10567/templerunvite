@@ -1,11 +1,10 @@
 /**
- * Creates the user_heirs table if it doesn't exist
- * @param {Object} db - Knex database instance
- * @returns {Promise<void>}
+ * @param { import("knex").Knex } knex
+ * @returns { Promise<void> }
  */
-async function createUserHeirsTable(db) {
-  if (!(await db.schema.hasTable('user_heirs'))) {
-    await db.schema.createTable('user_heirs', (table) => {
+exports.up = async function(knex) {
+  if (!(await knex.schema.hasTable('user_heirs'))) {
+    await knex.schema.createTable('user_heirs', (table) => {
       table.increments('id').primary();
       table.integer('registration_id').notNullable().references('id').inTable('user_registrations').onDelete('CASCADE');
       table.integer('serial_number').notNullable().defaultTo(1);
@@ -14,17 +13,17 @@ async function createUserHeirsTable(db) {
       table.string('marital_status');
       table.string('education');
       table.string('birth_date');
-      table.timestamp('created_at').defaultTo(db.fn.now());
-      table.timestamp('updated_at').defaultTo(db.fn.now());
+      table.timestamp('created_at').defaultTo(knex.fn.now());
+      table.timestamp('updated_at').defaultTo(knex.fn.now());
     });
     console.log('Created user_heirs table.');
   } else {
     // add columns if missing
-    const columns = await db.raw('PRAGMA table_info(user_heirs)');
+    const columns = await knex.raw('PRAGMA table_info(user_heirs)');
     const names = columns.map((c) => c.name);
     const add = async (name, type) => {
       if (!names.includes(name)) {
-        await db.raw(`ALTER TABLE user_heirs ADD COLUMN ${name} ${type}`);
+        await knex.raw(`ALTER TABLE user_heirs ADD COLUMN ${name} ${type}`);
         console.log(`Added ${name} to user_heirs`);
       }
     };
@@ -34,6 +33,12 @@ async function createUserHeirsTable(db) {
     await add('education', 'TEXT');
     await add('birth_date', 'TEXT');
   }
-}
+};
 
-module.exports = createUserHeirsTable;
+/**
+ * @param { import("knex").Knex } knex
+ * @returns { Promise<void> }
+ */
+exports.down = async function(knex) {
+  await knex.schema.dropTableIfExists('user_heirs');
+};

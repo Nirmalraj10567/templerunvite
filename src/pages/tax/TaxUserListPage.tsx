@@ -120,7 +120,7 @@ export default function TaxUserListPage() {
       if (statusTab === 'pending') params.set('pending', '1');
       if (statusTab === 'paid') params.set('paid', '1');
 
-      const res = await fetch(`http://localhost:4000/api/tax-registrations?${params.toString()}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -156,7 +156,7 @@ export default function TaxUserListPage() {
 
   const handleDownloadPdf = async (id: number) => {
     try {
-      const res = await fetch(`http://localhost:4000/api/tax-registrations/${id}/pdf`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations/${id}/pdf`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
@@ -179,7 +179,7 @@ export default function TaxUserListPage() {
       if (statusTab === 'paid') params.set('paid', '1');
 
       const res = await fetch(
-        `http://localhost:4000/api/tax-registrations/export/pdf?${params.toString()}`,
+        `https://tmsapi.xesstechlink.com/api/tax-registrations/export/pdf?${params.toString()}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }

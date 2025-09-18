@@ -1,11 +1,10 @@
 /**
- * Creates the user_registrations table if it doesn't exist
- * @param {Object} db - Knex database instance
- * @returns {Promise<void>}
+ * @param { import("knex").Knex } knex
+ * @returns { Promise<void> }
  */
-async function createUserRegistrationsTable(db) {
-  if (!(await db.schema.hasTable('user_registrations'))) {
-    await db.schema.createTable('user_registrations', (table) => {
+exports.up = async function(knex) {
+  if (!(await knex.schema.hasTable('user_registrations'))) {
+    await knex.schema.createTable('user_registrations', (table) => {
       table.increments('id').primary();
       table.integer('temple_id').defaultTo(1);
       table.string('reference_number');
@@ -36,13 +35,13 @@ async function createUserRegistrationsTable(db) {
       table.boolean('is_approved').defaultTo(false);
       table.integer('approved_by').references('id').inTable('users');
       table.timestamp('approved_at');
-      table.timestamp('created_at').defaultTo(db.fn.now());
-      table.timestamp('updated_at').defaultTo(db.fn.now());
+      table.timestamp('created_at').defaultTo(knex.fn.now());
+      table.timestamp('updated_at').defaultTo(knex.fn.now());
     });
     console.log('Created user_registrations table.');
   } else {
     // Check if we need to add missing columns to existing table
-    const columns = await db.raw("PRAGMA table_info(user_registrations)");
+    const columns = await knex.raw("PRAGMA table_info(user_registrations)");
     const columnNames = columns.map(col => col.name);
     
     const columnsToAdd = [
@@ -65,21 +64,21 @@ async function createUserRegistrationsTable(db) {
         const defaultValue = column.defaultValue !== undefined 
           ? `DEFAULT ${column.defaultValue}` 
           : '';
-        await db.raw(`ALTER TABLE user_registrations ADD COLUMN ${column.name} ${column.type} ${defaultValue}`);
+        await knex.raw(`ALTER TABLE user_registrations ADD COLUMN ${column.name} ${column.type} ${defaultValue}`);
         console.log(`Added ${column.name} column to user_registrations table.`);
       }
     }
 
     // Check if aadhaar_number has NOT NULL constraint and fix it if needed
     try {
-      const tableInfo = await db.raw("PRAGMA table_info(user_registrations)");
+      const tableInfo = await knex.raw("PRAGMA table_info(user_registrations)");
       const aadhaarColumn = tableInfo.find(col => col.name === 'aadhaar_number');
       
       if (aadhaarColumn && aadhaarColumn.notnull === 1) {
         console.log('Fixing aadhaar_number NOT NULL constraint...');
         
         // Create a new table with correct schema
-        await db.schema.createTable('user_registrations_new', (table) => {
+        await knex.schema.createTable('user_registrations_new', (table) => {
           table.increments('id').primary();
           table.integer('temple_id').defaultTo(1);
           table.string('reference_number');
@@ -109,19 +108,19 @@ async function createUserRegistrationsTable(db) {
           table.boolean('is_approved').defaultTo(false);
           table.integer('approved_by').references('id').inTable('users');
           table.timestamp('approved_at');
-          table.timestamp('created_at').defaultTo(db.fn.now());
-          table.timestamp('updated_at').defaultTo(db.fn.now());
+          table.timestamp('created_at').defaultTo(knex.fn.now());
+          table.timestamp('updated_at').defaultTo(knex.fn.now());
         });
 
         // Copy data from old table to new table
-        await db.raw(`
+        await knex.raw(`
           INSERT INTO user_registrations_new 
           SELECT * FROM user_registrations
         `);
 
         // Drop old table and rename new table
-        await db.schema.dropTable('user_registrations');
-        await db.schema.renameTable('user_registrations_new', 'user_registrations');
+        await knex.schema.dropTable('user_registrations');
+        await knex.schema.renameTable('user_registrations_new', 'user_registrations');
         
         console.log('Fixed aadhaar_number constraint - now nullable.');
       }
@@ -129,6 +128,12 @@ async function createUserRegistrationsTable(db) {
       console.log('Note: Could not check/fix aadhaar_number constraint:', error.message);
     }
   }
-}
+};
 
-module.exports = createUserRegistrationsTable;
+/**
+ * @param { import("knex").Knex } knex
+ * @returns { Promise<void> }
+ */
+exports.down = async function(knex) {
+  await knex.schema.dropTableIfExists('user_registrations');
+};

@@ -2,7 +2,7 @@ import axios from 'axios';
 import { getAuthToken } from '@/lib/auth';
 
 // Using Vite environment variables
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://tmsapi.xesstechlink.com';
 
 // Create configured axios instance
 const api = axios.create({
@@ -76,30 +76,24 @@ export interface ProfitAndLoss {
 
 export const ledgerService = {
   async createEntry(entry: Omit<LedgerEntry, 'id' | 'created_at' | 'updated_at'>): Promise<LedgerEntry> {
-    const response = await api.post<LedgerEntry>(`/api/ledger/entries`, entry);
-    return response.data;
+    // NOTE: Backend journal API expects from_account/to_account; this will be adapted separately.
+    const response = await api.post<any>(`/api/journal/entries`, entry as any);
+    return (response.data?.data || response.data) as LedgerEntry;
   },
 
   async updateEntry(entry: LedgerEntry): Promise<LedgerEntry> {
     const { id, ...updateData } = entry;
-    const response = await api.put<LedgerEntry>(`/api/ledger/entries/${id}`, {
-      date: updateData.date,
-      name: updateData.name,
-      type: updateData.type,
-      under: updateData.under,
-      amount: updateData.amount,
-      remarks: updateData.remarks
-    });
-    return response.data;
+    const response = await api.put<any>(`/api/journal/entries/${id}`, updateData as any);
+    return (response.data?.data || response.data) as LedgerEntry;
   },
 
   async deleteEntry(id: number): Promise<void> {
-    await api.delete(`/api/ledger/entries/${id}`);
+    await api.delete(`/api/journal/entries/${id}`);
   },
 
   async getEntry(id: number): Promise<LedgerEntry> {
-    const response = await api.get<LedgerEntry>(`/api/ledger/entries/${id}`);
-    return response.data;
+    const response = await api.get<any>(`/api/journal/entries/${id}`);
+    return (response.data?.data || response.data) as LedgerEntry;
   },
 
   async getEntries(params?: {
@@ -111,13 +105,16 @@ export const ledgerService = {
     page?: number;
     limit?: number;
   }): Promise<PaginatedResponse<LedgerEntry>> {
-    const response = await api.get<PaginatedResponse<LedgerEntry>>(`/api/ledger/entries`, { params });
-    return response.data;
+    const response = await api.get<any>(`/api/journal/entries`, { params });
+    const data = response.data?.data ?? response.data?.rows ?? [];
+    const pagination = response.data?.pagination ?? { total: 0, page: params?.page || 1, limit: params?.limit || 20, totalPages: 1 };
+    return { data, pagination } as PaginatedResponse<LedgerEntry>;
   },
 
   async getCurrentBalance(): Promise<number> {
-    const response = await api.get<BalanceResponse>(`/api/ledger/balance`);
-    return response.data.balance;
+    const response = await api.get<any>(`/api/journal/balance`);
+    const body = response.data;
+    return (body?.balance ?? body?.data?.balance ?? 0) as number;
   },
 
   async getProfitAndLoss(params?: { 
@@ -151,13 +148,11 @@ export const ledgerService = {
   },
 
   async getNames(): Promise<string[]> {
-    const response = await api.get<any>(`/api/ledger/names`);
-    const raw = response?.data;
-    const list: any[] = Array.isArray(raw?.data) ? raw.data : Array.isArray(raw) ? raw : [];
-    const normalized = list
+    const response = await api.get<any>(`/api/journal/accounts`);
+    const list: any[] = Array.isArray(response.data?.data) ? response.data.data : [];
+    return list
       .map((it) => (typeof it === 'string' ? it : it?.name))
       .filter((s: any): s is string => !!s && typeof s === 'string');
-    return normalized;
   },
 
   async exportAsCSV(params: Record<string, any>): Promise<Blob> {

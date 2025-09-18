@@ -26,33 +26,12 @@ process.env.JWT_SECRET = process.env.JWT_SECRET || JWT_SECRET;
 
 // CORS: allow localhost and LAN IPs during development
 app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin like curl or mobile apps
-    if (!origin) return callback(null, true);
-
-    const allowList = [
-      'http://localhost:3000',
-      'http://localhost:4002',
-      'http://localhost:4000',
-      'http://localhost:8081',
-      "http://192.168.1.3:8081/",
-      'http://localhost:5173',
-      'http://localhost:8080'
-    ];
-
-    const isLocalhost = allowList.includes(origin);
-    const isLan = /^http:\/\/192\.168\.[0-9]+\.[0-9]+:\d+$/.test(origin);
-
-    if (isLocalhost || isLan) {
-      return callback(null, true);
-    }
-    // Default deny
-    return callback(new Error(`CORS not allowed for origin ${origin}`));
-  },
+  origin: true, // This allows all origins
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
 
 // Explicitly handle preflight for all routes
 app.options('*', cors());
@@ -70,7 +49,7 @@ const db = knex({
     host: process.env.MYSQL_HOST || '127.0.0.1',
     port: Number(process.env.MYSQL_PORT || 3306),
     user: process.env.MYSQL_USER || 'root',
-    password: process.env.MYSQL_PASSWORD || '',
+    password: process.env.MYSQL_PASSWORD || 'rootroot',
     database: process.env.MYSQL_DATABASE || 'templerun',
     timezone: process.env.MYSQL_TIMEZONE || 'Z',
   },
@@ -182,6 +161,36 @@ const retryOnBusy = async (fn, maxRetries = 5, delay = 100) => {
 
 // Middleware to authenticate JWT token
 function authenticateToken(req, res, next) {
+  const method = req.method;
+  const url = req.originalUrl || req.url || '';
+
+  // Always allow CORS preflight
+  if (method === 'OPTIONS') {
+    return next();
+  }
+
+  // Normalize path and allowlist public endpoints
+  const pathOnly = (url.split('?')[0] || '').replace(/\/$/, '');
+  const isPublic = (
+    // Login endpoints
+    (method === 'POST' && (/^\/api\/login$/.test(pathOnly) || /^\/login$/.test(pathOnly))) ||
+    (method === 'POST' && (/^\/api\/login\/otp$/.test(pathOnly) || /^\/login\/otp$/.test(pathOnly))) ||
+    (method === 'POST' && (/^\/api\/login\/smart$/.test(pathOnly) || /^\/login\/smart$/.test(pathOnly))) ||
+    // Login mode discovery
+    (method === 'GET' && (/^\/api\/login\/mode$/.test(pathOnly) || /^\/login\/mode$/.test(pathOnly))) ||
+    // Public register
+    (method === 'POST' && (/^\/api\/register$/.test(pathOnly) || /^\/register$/.test(pathOnly))) ||
+    // Mobile events
+    (method === 'GET' && /^\/api\/mobile\/events$/.test(pathOnly)) ||
+    // Receipt/PDF endpoints that use query token
+    (method === 'GET' && /^\/api\/hall-bookings\/[0-9]+\/receipt\.pdf$/.test(pathOnly)) ||
+    (method === 'GET' && /^\/api\/(?:[^\s]+)\/receipt\.pdf$/.test(pathOnly)) ||
+    (method === 'GET' && /^\/api\/.*\.pdf$/.test(pathOnly))
+  );
+  if (isPublic) {
+    return next();
+  }
+
   const authHeader = req.header('Authorization');
   if (!authHeader) return res.status(401).json({ error: 'Access denied. No JWT provided.' });
 
@@ -2012,166 +2021,32 @@ async function migrate() {
       `);
     }
 
-    // Create users table with enhanced schema
-    if (!(await db.schema.hasTable('users'))) {
-      await db.schema.createTable('users', (table) => {
-        table.increments('id').primary();
-        table.string('mobile').notNullable().unique();
-        table.string('username').notNullable();
-        table.string('password').notNullable();
-        table.string('email');
-        table.string('full_name');
-        table.string('website_link');
-        table.string('profile_image');
-        table.string('trust_information');
-        table.integer('temple_id').notNullable().references('id').inTable('temples');
-        table.string('role').defaultTo('member'); // member, admin, superadmin
-        table.string('status').defaultTo('active'); // active, inactive, suspended
-        table.timestamp('created_at').defaultTo(db.fn.now());
-        table.timestamp('updated_at').defaultTo(db.fn.now());
-        table.timestamp('last_login');
-      });
-    } else {
-      // Check if migration for new fields is needed
-      const columns = await db.raw("PRAGMA table_info(users)");
-      const columnNames = columns.map(col => col.name);
-      
-      if (!columnNames.includes('temple_id')) {
-        console.log('Migrating users table to add temple_id and role fields...');
-        
-        // Add new columns if they don't exist
-        if (!columnNames.includes('temple_id')) {
-          await db.raw('ALTER TABLE users ADD COLUMN temple_id INTEGER DEFAULT 1');
-        }
-        if (!columnNames.includes('role')) {
-          await db.raw('ALTER TABLE users ADD COLUMN role TEXT DEFAULT "member"');
-        }
-        if (!columnNames.includes('status')) {
-          await db.raw('ALTER TABLE users ADD COLUMN status TEXT DEFAULT "active"');
-        }
-        if (!columnNames.includes('last_login')) {
-          await db.raw('ALTER TABLE users ADD COLUMN last_login DATETIME');
-        }
-        
-        console.log('Migration completed. Added new fields to users table.');
-      }
-    }
+  
 
     // Import and run user_tax_registrations table migration
-    const createUserTaxRegistrationsTable = require('./db/migrations/createUserTaxRegistrationsTable');
-    await createUserTaxRegistrationsTable(db);
+   // const createUserTaxRegistrationsTable = require('./db/migrations/createUserTaxRegistrationsTable');
+    //await createUserTaxRegistrationsTable(db);
 
     // Import and run pdf_settings table migration
-    const createPdfSettingsTable = require('./db/migrations/createPdfSettingsTable');
-    await createPdfSettingsTable(db);
+  //  const createPdfSettingsTable = require('./db/migrations/createPdfSettingsTable');
+    //await createPdfSettingsTable(db);
 
     // Import and run tax_settings table migration
-    const createTaxSettingsTable = require('./db/migrations/createTaxSettingsTable');
-    await createTaxSettingsTable(db);
+    // const createTaxSettingsTable = require('./db/migrations/createTaxSettingsTable');
+    //await createTaxSettingsTable(db);
 
     // Import and run user_settings table migration
-    const createUserSettingsTable = require('./db/migrations/createUserSettingsTable');
-    await createUserSettingsTable(db);
+    //const createUserSettingsTable = require('./db/migrations/createUserSettingsTable');
+    //await createUserSettingsTable(db);
 
     // Import and run migration to add include_previous_years to tax_settings
-    const addIncludePreviousYearsToTaxSettings = require('./db/migrations/addIncludePreviousYearsToTaxSettings');
-    await addIncludePreviousYearsToTaxSettings(db);
+   // const addIncludePreviousYearsToTaxSettings = require('./db/migrations/addIncludePreviousYearsToTaxSettings');
+    //await addIncludePreviousYearsToTaxSettings(db);
 
     // Import and run tax settings data seeder
-    const seedTaxSettingsData = require('./db/seed/taxSettingsData');
-    await seedTaxSettingsData(db);
+    //const seedTaxSettingsData = require('./db/seed/taxSettingsData');
+    //await seedTaxSettingsData(db);
 
-    // Import dummy data utilities
-    const { createDummyTaxRegistrations, createDefaultUsers } = require('./db/seed/dummyData');
-    
-    // Create default users (superadmin and admin)
-    await createDefaultUsers(db, bcrypt);
-    
-    // Create dummy tax registrations for testing
-    await createDummyTaxRegistrations(db);
-
-    // Import and run master table migrations
-    const createMasterTables = require('./db/migrations/createMasterTables');
-    await createMasterTables(db);
-
-    // Import and run master_people table migration
-    const createMasterPeopleTable = require('./db/migrations/createMasterPeopleTable');
-    await createMasterPeopleTable(db);
-
-    // Import and run master_groups table migration
-    const createMasterGroupsTable = require('./db/migrations/createMasterGroupsTable');
-    await createMasterGroupsTable(db);
-
-    // Import and run master_clans table migration
-    const createMasterClansTable = require('./db/migrations/createMasterClansTable');
-    await createMasterClansTable(db);
-
-    // Import and run master_occupations table migration
-    const createMasterOccupationsTable = require('./db/migrations/createMasterOccupationsTable');
-    await createMasterOccupationsTable(db);
-
-    // Import and run master_villages table migration
-    const createMasterVillagesTable = require('./db/migrations/createMasterVillagesTable');
-    await createMasterVillagesTable(db);
-
-    // Import and run master_educations table migration
-    const createMasterEducationsTable = require('./db/migrations/createMasterEducationsTable');
-    await createMasterEducationsTable(db);
-
-    // Import and run master_halls and master_hall_events table migrations
-    try {
-      const createMasterHallsTable = require('./db/migrations/createMasterHallsTable');
-      await createMasterHallsTable(db);
-    } catch (e) { console.warn('createMasterHallsTable migration failed:', e.message); }
-    try {
-      const createMasterHallEventsTable = require('./db/migrations/createMasterHallEventsTable');
-      await createMasterHallEventsTable(db);
-    } catch (e) { console.warn('createMasterHallEventsTable migration failed:', e.message); }
-
-    // Create user_registrations table using the modular migration
-    const createUserRegistrationsTable = require('./db/migrations/createUserRegistrationsTable');
-    await createUserRegistrationsTable(db);
-
-    // Create user_heirs table (for heirs/family details)
-    const createUserHeirsTable = require('./db/migrations/createUserHeirsTable');
-    await createUserHeirsTable(db);
-
-    // Create session_logs table
-    if (!(await db.schema.hasTable('session_logs'))) {
-      await db.schema.createTable('session_logs', (table) => {
-        table.increments('id').primary();
-        table.integer('user_id').notNullable();
-        table.timestamp('login_time').defaultTo(db.fn.now());
-        table.timestamp('logout_time');
-        table.string('ip_address').notNullable();
-        table.string('user_agent');
-        table.integer('duration_seconds');
-      });
-      console.log('Created session_logs table.');
-    }
-    
-    // Create external temple databases registry (for superadmin cross-tenant monitoring)
-    if (!(await db.schema.hasTable('external_temple_databases'))) {
-      await db.schema.createTable('external_temple_databases', (table) => {
-        table.increments('id').primary();
-        table.string('name').notNullable();
-        table.string('db_path').notNullable();
-        table.string('status').notNullable().defaultTo('active'); // active/inactive
-        table.timestamp('created_at').defaultTo(db.fn.now());
-        table.timestamp('updated_at').defaultTo(db.fn.now());
-      });
-      console.log('Created external_temple_databases table.');
-    }
-    
-    // Create simple key-value system settings table
-    if (!(await db.schema.hasTable('system_settings'))) {
-      await db.schema.createTable('system_settings', (table) => {
-        table.string('key').primary();
-        table.text('value');
-        table.timestamp('updated_at').defaultTo(db.fn.now());
-      });
-      console.log('Created system_settings table.');
-    }
     // Seed default year-end flags if missing
     const ensureSetting = async (key, defaultValue) => {
       const row = await db('system_settings').where({ key }).first();
@@ -2261,157 +2136,8 @@ async function migrate() {
       console.log('Enhanced permissions migration skipped (file not found or already applied):', migrationErr.message);
     }
 
-    // Create marriage_registers table
-    if (!(await db.schema.hasTable('marriage_registers'))) {
-      await db.schema.createTable('marriage_registers', (table) => {
-        table.increments('id').primary();
-        table.integer('temple_id').notNullable().defaultTo(1);
-        table.string('register_no');
-        table.string('date');
-        table.string('time');
-        table.string('event'); // ceremony type
-        table.string('groom_name');
-        table.string('bride_name');
-        table.string('address');
-        table.string('village');
-        table.string('guardian_name');
-        table.string('witness_one');
-        table.string('witness_two');
-        table.string('remarks');
-        table.timestamp('created_at').defaultTo(db.fn.now());
-        table.timestamp('updated_at').defaultTo(db.fn.now());
-      });
-      console.log('Created marriage_registers table.');
-    }
-
-    // Create marriage_hall_bookings table
-    if (!(await db.schema.hasTable('marriage_hall_bookings'))) {
-      await db.schema.createTable('marriage_hall_bookings', (table) => {
-        table.increments('id').primary();
-        table.integer('temple_id').notNullable().defaultTo(1);
-        table.string('register_no');
-        table.string('date');
-        table.string('time');
-        table.string('event');
-        table.string('subdivision');
-        table.string('name');
-        table.string('address');
-        table.string('village');
-        table.string('mobile');
-        table.string('advance_amount');
-        table.string('total_amount');
-        table.string('balance_amount');
-        table.string('remarks');
-        table.timestamp('created_at').defaultTo(db.fn.now());
-        table.timestamp('updated_at').defaultTo(db.fn.now());
-      });
-      console.log('Created marriage_hall_bookings table.');
-    }
+   
     
-    // Add approval system fields to marriage_hall_bookings
-    try {
-      await db.raw("ALTER TABLE marriage_hall_bookings ADD COLUMN status TEXT DEFAULT 'approved' CHECK (status IN ('pending', 'approved', 'rejected', 'cancelled'))");
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    try {
-      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN submitted_by_mobile TEXT');
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    try {
-      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    try {
-      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN approved_by INTEGER REFERENCES users(id) ON DELETE SET NULL');
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    try {
-      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN approved_at TIMESTAMP');
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    try {
-      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN rejection_reason TEXT');
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    try {
-      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN admin_notes TEXT');
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    // Add transfer_to_account for ledger account mapping
-    try {
-      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN transfer_to_account TEXT');
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    // Add hall_id and event_id references to master tables (nullable for backward compat)
-    try {
-      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN hall_id INTEGER');
-    } catch (err) { /* ignore if exists */ }
-    try {
-      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN event_id INTEGER');
-    } catch (err) { /* ignore if exists */ }
-
-    // Create hall_approval_logs table
-    if (!(await db.schema.hasTable('hall_approval_logs'))) {
-      await db.schema.createTable('hall_approval_logs', (table) => {
-        table.increments('id').primary();
-        table.integer('booking_id').notNullable().references('id').inTable('marriage_hall_bookings').onDelete('CASCADE');
-        table.string('action').notNullable();
-        table.integer('performed_by').references('id').inTable('users').onDelete('SET NULL');
-        table.timestamp('performed_at').defaultTo(db.fn.now());
-        table.text('notes');
-        table.string('old_status');
-        table.string('new_status');
-        table.index(['booking_id']);
-        table.index(['action']);
-      });
-      console.log('Created hall_approval_logs table.');
-    }
-
-    // Add permissions for hall approval system
-    await db.raw(`
-      INSERT OR IGNORE INTO permissions (id, name, description) VALUES 
-      ('hall_approval', 'Hall Approval', 'Approve or reject hall booking requests from mobile users'),
-      ('hall_mobile_submit', 'Hall Mobile Submit', 'Submit hall booking requests from mobile app')
-    `);
-
-    // Grant permissions to roles
-    await db.raw(`
-      INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level) VALUES
-      ('admin', 'hall_approval', 'full'),
-      ('superadmin', 'hall_approval', 'full'),
-      ('member', 'hall_mobile_submit', 'full')
-    `);
-
-    // Ensure ledger_categories table exists (for Manage Categories)
-    if (!(await db.schema.hasTable('ledger_categories'))) {
-      await db.schema.createTable('ledger_categories', (table) => {
-        table.increments('id').primary();
-        table.string('value').notNullable();
-        table.string('label').notNullable();
-        table.timestamp('created_at').defaultTo(db.fn.now());
-        table.timestamp('updated_at');
-        table.unique(['value']);
-        table.unique(['label']);
-      });
-      console.log('Created ledger_categories table.');
-    }
-
     // Seed ledger_categories from existing ledger_entries.under (idempotent)
     try {
       const existingValues = new Set((await db('ledger_categories').select('value')).map(r => r.value));

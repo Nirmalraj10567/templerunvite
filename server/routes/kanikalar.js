@@ -8,7 +8,7 @@ const router = express.Router();
 router.post('/', async (req, res) => {
   try {
     const { bride_name, groom_name, wedding_date, venue, contact_number, email } = req.body;
-    
+
     if (!bride_name || !groom_name || !wedding_date || !venue) {
       return res.status(400).json({ error: 'Bride name, groom name, wedding date, and venue are required' });
     }
@@ -56,11 +56,11 @@ router.get('/:id', async (req, res) => {
     const wedding = await req.db('kanikalar')
       .where({ id: req.params.id, temple_id: req.user.templeId })
       .first();
-    
+
     if (!wedding) {
       return res.status(404).json({ error: 'Wedding not found' });
     }
-    
+
     res.json(wedding);
   } catch (error) {
     console.error('Error fetching wedding:', error);
@@ -75,11 +75,11 @@ router.get('/:id', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { bride_name, groom_name, wedding_date, venue, contact_number, email } = req.body;
-    
+
     const updated = await req.db('kanikalar')
-      .where({ 
+      .where({
         id: req.params.id,
-        temple_id: req.user.templeId 
+        temple_id: req.user.templeId
       })
       .update({
         bride_name,
@@ -94,7 +94,7 @@ router.put('/:id', async (req, res) => {
     if (!updated) {
       return res.status(404).json({ error: 'Wedding not found' });
     }
-    
+
     res.json({ message: 'Wedding updated successfully' });
   } catch (error) {
     console.error('Error updating wedding:', error);
@@ -115,16 +115,16 @@ router.delete('/:id', async (req, res) => {
 
     // Then delete the wedding
     const deleted = await req.db('kanikalar')
-      .where({ 
+      .where({
         id: req.params.id,
-        temple_id: req.user.templeId 
+        temple_id: req.user.templeId
       })
       .del();
 
     if (!deleted) {
       return res.status(404).json({ error: 'Wedding not found' });
     }
-    
+
     res.json({ message: 'Wedding and associated events deleted successfully' });
   } catch (error) {
     console.error('Error deleting wedding:', error);

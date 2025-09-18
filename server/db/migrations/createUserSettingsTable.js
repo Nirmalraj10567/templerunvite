@@ -1,8 +1,12 @@
-module.exports = async function createUserSettingsTable(db) {
+/**
+ * @param { import("knex").Knex } knex
+ * @returns { Promise<void> }
+ */
+exports.up = async function(knex) {
   // Create user_settings table if it doesn't exist
-  const has = await db.schema.hasTable('user_settings').catch(() => false);
+  const has = await knex.schema.hasTable('user_settings').catch(() => false);
   if (!has) {
-    await db.schema.createTable('user_settings', (t) => {
+    await knex.schema.createTable('user_settings', (t) => {
       t.increments('id').primary();
       t.integer('user_id').notNullable().unique();
       t.string('landing_route', 255).defaultTo('/dashboard');
@@ -11,16 +15,16 @@ module.exports = async function createUserSettingsTable(db) {
       t.text('quick_actions'); // JSON string array of action keys
       t.string('language', 32); // optional persisted language
       t.string('theme', 32); // optional theme
-      t.timestamp('created_at').defaultTo(db.fn.now());
-      t.timestamp('updated_at').defaultTo(db.fn.now());
+      t.timestamp('created_at').defaultTo(knex.fn.now());
+      t.timestamp('updated_at').defaultTo(knex.fn.now());
     });
   }
 
   // Ensure columns exist for older DBs (idempotent guards)
   const ensureColumn = async (name, cb) => {
-    const hasCol = await db.schema.hasColumn('user_settings', name).catch(() => false);
+    const hasCol = await knex.schema.hasColumn('user_settings', name).catch(() => false);
     if (!hasCol) {
-      try { await db.schema.table('user_settings', cb); } catch (e) {
+      try { await knex.schema.table('user_settings', cb); } catch (e) {
         console.log(`Note: Could not add column ${name} to user_settings:`, e.message);
       }
     }
@@ -32,4 +36,12 @@ module.exports = async function createUserSettingsTable(db) {
   await ensureColumn('quick_actions', (t) => t.text('quick_actions'));
   await ensureColumn('language', (t) => t.string('language', 32));
   await ensureColumn('theme', (t) => t.string('theme', 32));
+};
+
+/**
+ * @param { import("knex").Knex } knex
+ * @returns { Promise<void> }
+ */
+exports.down = async function(knex) {
+  await knex.schema.dropTableIfExists('user_settings');
 };

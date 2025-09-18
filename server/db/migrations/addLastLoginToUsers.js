@@ -1,5 +1,3 @@
-const { db } = require('../db');
-
 /**
  * @param { import("knex").Knex } knex
  * @returns { Promise<void> }

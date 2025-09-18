@@ -38,6 +38,7 @@ interface AuthContextType {
   userPermissions: UserPermission[];
   isSuperAdmin: boolean;
   login: (email: string, password: string) => Promise<void>;
+  register: (userData: RegisterData) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   isLoading: boolean;
   error: string;
@@ -58,6 +59,7 @@ const AuthContext = createContext<AuthContextType>({
   userPermissions: [], // already initialized
   isSuperAdmin: false,
   login: async () => {},
+  register: async () => ({ success: false, error: 'Not initialized' }),
   logout: () => {},
   isLoading: false,
   error: '',
@@ -109,7 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, isLoading: true, error: '' }));
     
     try {
-      const response = await fetch('http://localhost:4000/api/login', {
+      const response = await fetch('https://tmsapi.xesstechlink.com/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mobile: identifier, username: identifier, password }),
@@ -216,6 +218,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       userPermissions: state.userPermissions,
       isSuperAdmin: state.isSuperAdmin,
       login,
+      register,
       logout,
       isLoading: state.isLoading,
       error: state.error,

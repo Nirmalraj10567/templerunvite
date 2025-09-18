@@ -1,12 +1,11 @@
 /**
- * Creates master database tables if they don't exist
- * @param {Object} db - Knex database instance
- * @returns {Promise<void>}
+ * @param { import("knex").Knex } knex
+ * @returns { Promise<void> }
  */
-async function createMasterTables(db) {
+exports.up = async function(knex) {
   // Create master_records table if it doesn't exist
-  if (!(await db.schema.hasTable('master_records'))) {
-    await db.schema.createTable('master_records', (table) => {
+  if (!(await knex.schema.hasTable('master_records'))) {
+    await knex.schema.createTable('master_records', (table) => {
       table.increments('id').primary();
       table.integer('temple_id').defaultTo(1);
       table.string('date').notNullable();
@@ -23,21 +22,21 @@ async function createMasterTables(db) {
       table.string('mobile').defaultTo('');
       table.string('email').defaultTo('');
       table.string('note').defaultTo('');
-      table.timestamp('created_at').defaultTo(db.fn.now());
-      table.timestamp('updated_at').defaultTo(db.fn.now());
+      table.timestamp('created_at').defaultTo(knex.fn.now());
+      table.timestamp('updated_at').defaultTo(knex.fn.now());
     });
     console.log('Created master_records table.');
   }
 
   // Create user_permissions table if it doesn't exist
-  if (!(await db.schema.hasTable('user_permissions'))) {
-    await db.schema.createTable('user_permissions', (table) => {
+  if (!(await knex.schema.hasTable('user_permissions'))) {
+    await knex.schema.createTable('user_permissions', (table) => {
       table.increments('id').primary();
       table.integer('user_id').unsigned().references('id').inTable('users').onDelete('CASCADE');
       table.string('permission_id').notNullable();
       table.enum('access_level', ['view', 'edit', 'full', 'none']).defaultTo('none');
-      table.timestamp('created_at').defaultTo(db.fn.now());
-      table.timestamp('updated_at').defaultTo(db.fn.now());
+      table.timestamp('created_at').defaultTo(knex.fn.now());
+      table.timestamp('updated_at').defaultTo(knex.fn.now());
       
       // Unique constraint to prevent duplicate permissions for same user
       table.unique(['user_id', 'permission_id']);
@@ -46,8 +45,8 @@ async function createMasterTables(db) {
   }
 
   // Create activity_logs table if it doesn't exist
-  if (!(await db.schema.hasTable('activity_logs'))) {
-    await db.schema.createTable('activity_logs', (table) => {
+  if (!(await knex.schema.hasTable('activity_logs'))) {
+    await knex.schema.createTable('activity_logs', (table) => {
       table.increments('id').primary();
       table.integer('temple_id').notNullable();
       table.integer('actor_user_id').notNullable();
@@ -55,10 +54,16 @@ async function createMasterTables(db) {
       table.string('target_table'); // e.g., user_registrations
       table.integer('target_id');
       table.text('details'); // JSON string for extra info
-      table.timestamp('created_at').defaultTo(db.fn.now());
+      table.timestamp('created_at').defaultTo(knex.fn.now());
     });
     console.log('Created activity_logs table.');
   }
-}
+};
 
-module.exports = createMasterTables;
+/**
+ * @param { import("knex").Knex } knex
+ * @returns { Promise<void> }
+ */
+exports.down = async function(knex) {
+  await knex.schema.dropTableIfExists('master_records');
+};

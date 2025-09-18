@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
+const sendOtp = require('./sendOtp'); // Import the SMS OTP service
 
 module.exports = function(deps = {}) {
   const { db, JWT_SECRET, authenticateToken } = deps;
@@ -12,10 +13,28 @@ module.exports = function(deps = {}) {
   const smartLimiter = rateLimit({ windowMs: 60 * 1000, max: 10 }); // 10/min per IP
 
   // Note: Public routes are defined below. Removed stray early /login block.
+  // In-memory OTP storage (consider using Redis in production)
+  const otpStore = new Map();
+
+  // Generate 6-digit OTP
+  const generateOtp = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  };
+
+  // Clean up expired OTPs every 10 minutes
+  setInterval(() => {
+    const now = Date.now();
+    for (const [mobile, data] of otpStore.entries()) {
+      if (now > data.expiry) {
+        otpStore.delete(mobile);
+      }
+    }
+  }, 10 * 60 * 1000);
+
   // Smart login (public)
   // POST /api/login/smart { mobile, name?, receiptNumber? }
   // - If mobile belongs to admin or a user with password => respond with password mode and username hint
-  // - Else => auto-trigger OTP (development: returns TEST_OTP) and the matching registration users list
+  // - Else => auto-trigger OTP and the matching registration users list
   router.post('/login/smart', smartLimiter, async (req, res) => {
     try {
       const { mobile, name, receiptNumber } = req.body || {};
@@ -35,8 +54,21 @@ module.exports = function(deps = {}) {
         return res.json({ mode: 'password', username: sysUser.username || sysUser.mobile, isAdmin });
       }
 
-      // Otherwise fallback to OTP for member users
-      const TEST_OTP = '123456'; // Development only; replace with SMS integration in production
+      // Generate and send OTP for member users
+      const otp = generateOtp();
+      const otpExpiry = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
+      
+      // Store OTP with expiry
+      otpStore.set(cleanMobile, { otp, expiry: otpExpiry });
+
+      // Send OTP via SMS
+      const smsResult = await sendOtp(cleanMobile, otp);
+      if (!smsResult.success) {
+        console.error('Failed to send OTP:', smsResult.error);
+        return res.status(500).json({ error: 'Failed to send OTP. Please try again.' });
+      }
+
+      // Get matching users from registrations
       let query = db('user_registrations').where('mobile_number', cleanMobile);
       if (name) query = query.andWhere('name', 'like', `%${name}%`);
       if (receiptNumber) query = query.andWhere('reference_number', receiptNumber);
@@ -48,12 +80,91 @@ module.exports = function(deps = {}) {
       return res.json({
         mode: 'otp',
         message: 'OTP sent successfully',
-        otp: TEST_OTP, // Development only; do not expose in production
         users
       });
 
     } catch (err) {
       console.error('POST /api/login/smart error:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // OTP verification and login (public)
+  router.post('/login/otp', async (req, res) => {
+    try {
+      const { mobile, otp, userId } = req.body || {};
+      if (!mobile || !otp) {
+        return res.status(400).json({ error: 'Mobile and OTP are required' });
+      }
+
+      const cleanMobile = String(mobile).replace(/\D/g, '');
+      
+      // Check if OTP exists and is valid
+      const storedOtpData = otpStore.get(cleanMobile);
+      if (!storedOtpData) {
+        return res.status(400).json({ error: 'OTP not found or expired' });
+      }
+
+      if (Date.now() > storedOtpData.expiry) {
+        otpStore.delete(cleanMobile);
+        return res.status(400).json({ error: 'OTP has expired' });
+      }
+
+      if (storedOtpData.otp !== otp) {
+        return res.status(400).json({ error: 'Invalid OTP' });
+      }
+
+      // OTP is valid, remove it from store
+      otpStore.delete(cleanMobile);
+
+      // Get user information
+      let user;
+      if (userId) {
+        // Get specific user from registrations
+        user = await db('user_registrations')
+          .where('id', userId)
+          .andWhere('mobile_number', cleanMobile)
+          .first();
+      } else {
+        // Get first user with this mobile number
+        user = await db('user_registrations')
+          .where('mobile_number', cleanMobile)
+          .first();
+      }
+
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Create JWT token for member user
+      const token = jwt.sign(
+        { 
+          id: user.id, 
+          mobile: user.mobile_number, 
+          name: user.name,
+          type: 'member',
+          referenceNumber: user.reference_number
+        },
+        JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+
+      return res.json({
+        success: true,
+        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          mobile: user.mobile_number,
+          referenceNumber: user.reference_number,
+          fatherName: user.father_name,
+          alternativeName: user.alternative_name,
+          type: 'member'
+        }
+      });
+
+    } catch (err) {
+      console.error('POST /api/login/otp error:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
   });
@@ -165,7 +276,7 @@ module.exports = function(deps = {}) {
   // Protect all routes after this point with JWT authentication
   router.use((req, res, next) => {
     // Skip auth for these public routes
-    const publicRoutes = ['/login', '/login/mode', '/login/smart'];
+    const publicRoutes = ['/login', '/login/mode', '/login/smart', '/login/otp', '/register'];
     if (publicRoutes.includes(req.path)) return next();
     
     if (typeof authenticateToken === 'function') {
@@ -174,75 +285,231 @@ module.exports = function(deps = {}) {
     return res.status(401).json({ error: 'Access denied. No auth middleware configured.' });
   });
 
-  // Register endpoint (admin/superadmin only)
+  // Register endpoint
+  // Public self-registration: creates a new temple automatically when unauthenticated and no templeId provided
+  // Authenticated admin/superadmin: can create users under their own temple
   router.post('/register', async (req, res) => {
-    const { mobile, username, password, email, fullName, role, templeId, customPermissions } = req.body;
-    
-    if (!mobile || !username || !password || !templeId) {
-      return res.status(400).json({ error: 'Mobile, username, password, and templeId are required.' });
+    const {
+      mobile,
+      username,
+      password,
+      email,
+      fullName,
+      role,
+      templeId: bodyTempleId,
+      customPermissions,
+      // Extra fields from public RegisterPage (ignored/stored later if needed)
+      websiteLink,
+      isTrust,
+      trustType,
+      trustRegistrationNumber,
+      dateOfRegistration,
+      panNumber,
+      tanNumber,
+      gstNumber,
+      reg12A,
+      reg80G,
+    } = req.body || {};
+
+    if (!mobile || !username || !password) {
+      return res.status(400).json({ error: 'Mobile, username, and password are required.' });
     }
 
-    // Check if user has permission to create users for this temple
-    if (req.user.templeId !== templeId) {
-      return res.status(403).json({ error: 'You can only create users for your own temple.' });
-    }
-
-    // Validate role permissions
-    if (req.user.role === 'admin' && role === 'superadmin') {
-      return res.status(403).json({ error: 'Admins cannot create superadmin users.' });
-    }
+    let resolvedTempleId = bodyTempleId;
 
     try {
+      // If authenticated, enforce temple scope; else create a new temple if none provided
+      if (req.user && req.user.id) {
+        if (!resolvedTempleId) {
+          resolvedTempleId = req.user.templeId;
+        }
+        if (resolvedTempleId !== req.user.templeId) {
+          return res.status(403).json({ error: 'You can only create users for your own temple.' });
+        }
+        if (req.user.role === 'admin' && role === 'superadmin') {
+          return res.status(403).json({ error: 'Admins cannot create superadmin users.' });
+        }
+      } else {
+        // Public self-registration path
+        if (!resolvedTempleId) {
+          // Auto-create a temple with minimal required fields compatible with MySQL schema
+          const templeName = (fullName && String(fullName).trim()) || `Temple ${String(mobile).trim()}`;
+          // Insert only existing columns in temples schema
+          const [newTempleId] = await db('temples').insert({
+            name: templeName,
+            address: 'N/A',
+          });
+          resolvedTempleId = newTempleId;
+        }
+      }
+
       // Check if user already exists
-      const exists = await db('users').where({ mobile }).orWhere({ username }).first();
+      const exists = await db('users')
+        .where({ mobile })
+        .orWhere({ username })
+        .first();
       if (exists) {
         return res.status(409).json({ error: 'Mobile number or username already registered.' });
       }
 
-      // Check if temple exists
-      const temple = await db('temples').where('id', templeId).first();
+      // Ensure temple exists (for both paths)
+      const temple = await db('temples').where('id', resolvedTempleId).first();
       if (!temple) {
         return res.status(400).json({ error: 'Invalid temple ID.' });
       }
 
       const hashedPassword = await bcrypt.hash(password, 10);
-      
-      const newUser = await db('users').insert({ 
-        mobile, 
-        username, 
-        password: hashedPassword,
-        email,
-        full_name: fullName,
-        temple_id: templeId,
-        role: role || 'member'
-      }).returning('*');
 
-      // If custom permissions are provided, save them
-      if (customPermissions && Array.isArray(customPermissions)) {
+      const defaultRole = req.user && req.user.id ? (role || 'member') : 'admin';
+
+      const safeFullName = (fullName && String(fullName).trim()) || String(username).trim();
+      let safeEmail = (email && String(email).trim()) || `${String(username).trim()}@generated.local`;
+      // Ensure email uniqueness for MySQL schema (NOT NULL UNIQUE)
+      const emailExists = await db('users').where({ email: safeEmail }).first();
+      if (emailExists) {
+        const base = String(username).trim() || 'user';
+        safeEmail = `${base}+${Date.now()}@generated.local`;
+      }
+
+      const [insertId] = await db('users').insert({
+        mobile,
+        username,
+        password: hashedPassword,
+        email: safeEmail,
+        full_name: safeFullName,
+        temple_id: resolvedTempleId,
+        role: defaultRole,
+        // created_at/updated_at have defaults in schema
+      });
+
+      const createdUser = await db('users').where({ id: insertId }).first();
+
+      // Grant ALL permissions (full) to newly registered user
+      const ALL_PERMISSION_IDS = [
+        'dashboard',
+        'member_entry',
+        'master_data',
+        'balance_sheet',
+        'ledger_management',
+        'transaction',
+        'report', // legacy singular
+        'reports', // frontend uses plural
+        'setting',
+        'pdf_settings',
+        'property_registrations',
+        'view_donations',
+        'edit_donations',
+        'receipts',
+        'donation_approval',
+        'session_logs',
+        'view_session_logs',
+        'activity_logs',
+        'tax_registrations',
+        'user_registrations',
+        'pooja_registrations',
+        'pooja_approval',
+        'hall_booking',
+        'hall_approval',
+        'view_events',
+        'edit_events',
+        'annadhanam_registrations',
+        'annadhanam_approval',
+      ];
+
+      // Seed permissions table with required IDs to satisfy FK constraint
+      const PERMISSION_NAMES = {
+        dashboard: 'Dashboard',
+        member_entry: 'Member Entry',
+        master_data: 'Master Data',
+        balance_sheet: 'Balance Sheet',
+        ledger_management: 'Ledger Management',
+        transaction: 'Transactions',
+        report: 'Reports',
+        reports: 'Reports',
+        setting: 'Settings',
+        pdf_settings: 'PDF Settings',
+        property_registrations: 'Property Registrations',
+        view_donations: 'View Donations',
+        edit_donations: 'Edit Donations',
+        receipts: 'Receipts',
+        donation_approval: 'Donation Approval',
+        session_logs: 'Session Logs',
+        view_session_logs: 'Session Logs',
+        activity_logs: 'Activity Logs',
+        tax_registrations: 'Tax Registrations',
+        user_registrations: 'User Registrations',
+        pooja_registrations: 'Pooja Registrations',
+        pooja_approval: 'Pooja Approval',
+        hall_booking: 'Hall Booking',
+        hall_approval: 'Hall Approval',
+        view_events: 'View Events',
+        edit_events: 'Edit Events',
+        annadhanam_registrations: 'Annadhanam Registrations',
+        annadhanam_approval: 'Annadhanam Approval',
+      };
+
+      const permRows = ALL_PERMISSION_IDS.map(id => ({ id, name: PERMISSION_NAMES[id] || id, description: null }));
+      try {
+        if (typeof db.client.config.client === 'string' && db.client.config.client.includes('mysql')) {
+          await db('permissions')
+            .insert(permRows)
+            .onConflict('id')
+            .ignore();
+        } else {
+          await db('permissions')
+            .insert(permRows)
+            .onConflict('id')
+            .ignore();
+        }
+      } catch (e) {
+        // Best-effort; ignore if table or constraint differs
+        console.warn('Permission seed skipped:', e.message);
+      }
+
+      for (const pid of ALL_PERMISSION_IDS) {
+        const existing = await db('user_permissions')
+          .where({ user_id: createdUser.id, permission_id: pid })
+          .first();
+        if (existing) {
+          await db('user_permissions')
+            .where({ user_id: createdUser.id, permission_id: pid })
+            .update({ access_level: 'full', updated_at: db.fn.now() });
+        } else {
+          await db('user_permissions').insert({
+            user_id: createdUser.id,
+            permission_id: pid,
+            access_level: 'full',
+            created_at: db.fn.now(),
+            updated_at: db.fn.now(),
+          });
+        }
+      }
+
+      // If custom permissions are provided, save them (overrides are allowed)
+      if (customPermissions && Array.isArray(customPermissions) && customPermissions.length) {
         const permissionRecords = customPermissions.map(perm => ({
-          user_id: newUser[0].id,
+          user_id: createdUser.id,
           permission_id: perm.id,
           access_level: perm.access
         }));
-
         await db('user_permissions').insert(permissionRecords);
       }
 
-      res.json({ 
-        success: true, 
+      return res.json({
+        success: true,
         user: {
-          id: newUser[0].id,
-          mobile: newUser[0].mobile,
-          username: newUser[0].username,
-          email: newUser[0].email,
-          fullName: newUser[0].full_name,
-          role: newUser[0].role,
-          templeId: newUser[0].temple_id
+          id: createdUser.id,
+          mobile: createdUser.mobile,
+          username: createdUser.username,
+          email: createdUser.email,
+          fullName: createdUser.full_name,
+          role: createdUser.role,
+          templeId: createdUser.temple_id,
         }
       });
     } catch (err) {
       console.error('Registration error:', err);
-      res.status(500).json({ error: 'Database error during registration.' });
+      return res.status(500).json({ error: 'Database error during registration.' });
     }
   });
 

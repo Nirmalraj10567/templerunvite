@@ -1,12 +1,11 @@
 /**
- * Creates the user_tax_registrations table if it doesn't exist
- * @param {Object} db - Knex database instance
- * @returns {Promise<void>}
+ * @param { import("knex").Knex } knex
+ * @returns { Promise<void> }
  */
-async function createUserTaxRegistrationsTable(db) {
-  const hasTable = await db.schema.hasTable('user_tax_registrations');
+exports.up = async function(knex) {
+  const hasTable = await knex.schema.hasTable('user_tax_registrations');
   if (!hasTable) {
-    await db.schema.createTable('user_tax_registrations', (table) => {
+    await knex.schema.createTable('user_tax_registrations', (table) => {
       table.increments('id').primary();
       table.integer('temple_id').defaultTo(1);
       table.string('reference_number');
@@ -37,20 +36,20 @@ async function createUserTaxRegistrationsTable(db) {
       table.integer('approved_by').references('id').inTable('users');
       table.timestamp('approved_at');
       table.text('note');
-      table.timestamp('created_at').defaultTo(db.fn.now());
-      table.timestamp('updated_at').defaultTo(db.fn.now());
+      table.timestamp('created_at').defaultTo(knex.fn.now());
+      table.timestamp('updated_at').defaultTo(knex.fn.now());
     });
     console.log('Created user_tax_registrations table.');
   } else {
     // Ensure required columns exist (safe ALTERs)
     try {
-      const cols = await db.raw('PRAGMA table_info(user_tax_registrations)');
+      const cols = await knex.raw('PRAGMA table_info(user_tax_registrations)');
       const columnNames = cols.map(c => c.name);
 
       const addIfMissing = async (name, sql) => {
         if (!columnNames.includes(name)) {
           try {
-            await db.raw(sql);
+            await knex.raw(sql);
             console.log(`Added column ${name} to user_tax_registrations.`);
           } catch (e) {
             console.log(`Note: Could not add column ${name}: ${e.message}`);
@@ -82,6 +81,12 @@ async function createUserTaxRegistrationsTable(db) {
       console.log('Note: Column synchronization for user_tax_registrations skipped:', e.message);
     }
   }
-}
+};
 
-module.exports = createUserTaxRegistrationsTable;
+/**
+ * @param { import("knex").Knex } knex
+ * @returns { Promise<void> }
+ */
+exports.down = async function(knex) {
+  await knex.schema.dropTableIfExists('user_tax_registrations');
+};

@@ -2,16 +2,17 @@ const knex = require('knex');
 const path = require('path');
 
 const db = knex({
-  client: 'sqlite3',
+  client: 'mysql2',
   connection: {
-    filename: path.join(__dirname, 'deev.sqlite3'),
+    host: process.env.MYSQL_HOST || '127.0.0.1',
+    port: Number(process.env.MYSQL_PORT || 3306),
+    user: process.env.MYSQL_USER || 'root',
+    password: process.env.MYSQL_PASSWORD || 'rootroot',
+    database: process.env.MYSQL_DATABASE || 'templerun',
+    timezone: process.env.MYSQL_TIMEZONE || 'Z',
   },
-  useNullAsDefault: true,
-  pool: {
-    afterCreate: (conn, cb) => {
-      conn.run('PRAGMA busy_timeout = 5000', cb);
-    }
-  }
+  pool: { min: 2, max: 10 },
 });
 
 module.exports = db;
+
