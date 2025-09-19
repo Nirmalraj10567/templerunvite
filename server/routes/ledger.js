@@ -12,7 +12,7 @@ function authenticateToken(req, res, next) {
   }
 
   const jwt = require('jsonwebtoken');
-  const JWT_SECRET = 'your-super-secret-jwt-key-change-in-production';
+  const JWT_SECRET = process.env.JWT_SECRET;
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {

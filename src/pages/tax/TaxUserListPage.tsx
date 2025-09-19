@@ -31,6 +31,7 @@ export default function TaxUserListPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [statusTab, setStatusTab] = useState<'all' | 'pending' | 'paid'>('all');
+  const [currentYearTax, setCurrentYearTax] = useState<number>(0);
 
   const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
@@ -108,27 +109,126 @@ export default function TaxUserListPage() {
 
   const visibleColCount = useMemo(() => Object.values(visibleCols).filter(Boolean).length, [visibleCols]);
 
-  // Load data
+  // Helper: safe number parser
+  const toNum = (v: any): number => {
+    if (v === null || v === undefined) return 0;
+    const n = Number(String(v).toString().replace(/[,\s]/g, ''));
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  // Fetch current year's default tax (used for users without a tax registration)
+  useEffect(() => {
+    const year = new Date().getFullYear();
+    (async () => {
+      try {
+        const res = await fetch(`/api/tax-settings/year/${year}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const amt = toNum(data?.data?.tax_amount);
+          if (amt > 0) setCurrentYearTax(amt);
+        }
+      } catch (e) {
+        // ignore; fallback 0
+      }
+    })();
+  }, [token]);
+
+  // Load data (combined view: tax registrations + base registrations)
   const load = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        page: String(page),
-        pageSize: String(pageSize),
-        search,
-      });
-      if (statusTab === 'pending') params.set('pending', '1');
-      if (statusTab === 'paid') params.set('paid', '1');
-
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations?${params.toString()}`, {
+      // Always fetch all tax registrations matching search (no tab filter; we will filter client-side)
+      const taxParams = new URLSearchParams({ page: '1', pageSize: '1000' });
+      if (search) taxParams.set('search', search);
+      const taxRes = await fetch(`http://localhost:4000/api/tax-registrations?${taxParams.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      const taxData = await taxRes.json();
+      if (!taxRes.ok) throw new Error(taxData.error || 'Failed to load tax registrations');
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to load data');
+      const taxRows: TaxRegistration[] = (taxData.data || []).map((r: any) => {
+        const tax = toNum(r.tax_amount ?? r.taxAmount ?? r.total_tax ?? r.totalAmount);
+        const paid = toNum(r.amount_paid ?? r.amountPaid ?? r.paid_amount ?? r.paidAmount);
+        const outstandingRaw = r.outstanding_amount ?? r.outstandingAmount;
+        const outstanding = outstandingRaw !== null && outstandingRaw !== undefined
+          ? toNum(outstandingRaw)
+          : Math.max(0, tax - paid);
+        return {
+          id: r.id,
+          name: r.name,
+          mobile_number: r.mobile_number ?? r.mobileNumber,
+          aadhaar_number: r.aadhaar_number ?? r.aadhaarNumber ?? null,
+          reference_number: r.reference_number ?? r.referenceNumber,
+          village: r.village,
+          created_at: r.created_at ?? r.createdAt,
+          tax_amount: tax,
+          amount_paid: paid,
+          outstanding_amount: outstanding,
+        } as TaxRegistration;
+      });
 
-      setRows(data.data || []);
-      setTotal(data.total || 0);
+      // Fetch base registrations to include users without a tax registration yet
+      const regParams = new URLSearchParams({ page: '1', pageSize: '1000' });
+      if (search) regParams.set('search', search);
+      const regRes = await fetch(`http://localhost:4000/api/registrations?${regParams.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const regData = await regRes.json();
+      if (!regRes.ok) throw new Error(regData.error || 'Failed to load registrations');
+
+      // Build a set of mobiles present in tax registrations for quick lookup
+      const normalizeMobile = (m?: string) => (m ? String(m).replace(/\D/g, '') : '');
+      const taxByMobile = new Map<string, TaxRegistration[]>();
+      taxRows.forEach((row) => {
+        const key = normalizeMobile(row.mobile_number);
+        if (!taxByMobile.has(key)) taxByMobile.set(key, []);
+        taxByMobile.get(key)!.push(row);
+      });
+
+      // Create synthetic tax rows for base registrations without tax registration
+      const synthetic: TaxRegistration[] = (regData.data || []).map((r: any) => {
+        const mobile = normalizeMobile(r.mobile_number ?? r.mobileNumber);
+        const hasTax = mobile && taxByMobile.has(mobile);
+        if (hasTax) return null as any; // will skip
+        const tax = currentYearTax > 0 ? currentYearTax : 0;
+        return {
+          id: -Math.abs(Number(r.id) || Math.floor(Math.random() * 1e9)), // negative id to avoid clash
+          name: r.name,
+          mobile_number: r.mobile_number ?? r.mobileNumber,
+          aadhaar_number: r.aadhaar_number ?? r.aadhaarNumber ?? null,
+          reference_number: r.reference_number ?? r.referenceNumber,
+          village: r.village,
+          created_at: r.created_at ?? r.createdAt,
+          tax_amount: tax,
+          amount_paid: 0,
+          outstanding_amount: tax,
+        } as TaxRegistration;
+      }).filter(Boolean);
+
+      // Merge: existing tax rows + synthetic rows
+      let merged: TaxRegistration[] = [...taxRows, ...synthetic];
+
+      // Apply tab filter client-side
+      if (statusTab === 'pending') {
+        merged = merged.filter((r) => toNum(r.outstanding_amount) > 0);
+      } else if (statusTab === 'paid') {
+        merged = merged.filter((r) => toNum(r.outstanding_amount) <= 0);
+      }
+
+      // Sort by created_at desc (fallback name)
+      merged.sort((a, b) => {
+        const da = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const db = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return db - da || String(a.name).localeCompare(String(b.name));
+      });
+
+      // Client-side pagination
+      const start = (page - 1) * pageSize;
+      const end = start + pageSize;
+      setTotal(merged.length);
+      setRows(merged.slice(start, end));
     } catch (e) {
       console.error('Failed to load tax registrations:', e);
       setRows([]);
@@ -156,7 +256,7 @@ export default function TaxUserListPage() {
 
   const handleDownloadPdf = async (id: number) => {
     try {
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations/${id}/pdf`, {
+      const res = await fetch(`http://localhost:4000/api/tax-registrations/${id}/pdf`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
@@ -179,7 +279,7 @@ export default function TaxUserListPage() {
       if (statusTab === 'paid') params.set('paid', '1');
 
       const res = await fetch(
-        `https://tmsapi.xesstechlink.com/api/tax-registrations/export/pdf?${params.toString()}`,
+        `http://localhost:4000/api/tax-registrations/export/pdf?${params.toString()}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }

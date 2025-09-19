@@ -16,6 +16,7 @@ interface UserPermission {
 
 interface RegisterData {
   name: string;
+  username?: string;
   mobileNumber: string;
   gmail: string;
   weblink: string;
@@ -111,7 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, isLoading: true, error: '' }));
     
     try {
-      const response = await fetch('https://tmsapi.xesstechlink.com/api/login', {
+      const response = await fetch('http://localhost:4000/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mobile: identifier, username: identifier, password }),
@@ -162,7 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mobile: userData.mobileNumber,
-          username: userData.name.replace(/\s+/g, '').toLowerCase(),
+          username: (userData.username?.trim() || userData.name.replace(/\s+/g, '').toLowerCase()),
           password: userData.password,
           email: userData.gmail,
           fullName: userData.name,
@@ -179,21 +180,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-
       const data = await response.json();
+
+      if (!response.ok) {
+        // Handle validation errors or other API errors
+        const errorMessage = data.message || data.error || 'Registration failed';
+        throw new Error(errorMessage);
+      }
 
       if (data.success) {
         return { success: true };
       } else {
-        setState(prev => ({ ...prev, error: data.error || 'Registration failed', isLoading: false }));
-        return { success: false, error: data.error };
+        const message = data.message || data.error || 'Registration failed';
+        setState(prev => ({ ...prev, error: message, isLoading: false }));
+        return { success: false, error: message };
       }
-    } catch (err) {
-      setState(prev => ({ ...prev, error: 'Network error. Please try again.', isLoading: false }));
-      return { success: false, error: 'Network error. Please try again.' };
+    } catch (err: any) {
+      const errorMessage = err.message || 'An error occurred during registration';
+      setState(prev => ({ ...prev, error: errorMessage, isLoading: false }));
+      return { success: false, error: errorMessage };
     }
   };
 

@@ -146,7 +146,7 @@ module.exports = function(deps = {}) {
           referenceNumber: user.reference_number
         },
         JWT_SECRET,
-        { expiresIn: '24h' }
+        { expiresIn: '365d' }
       );
 
       return res.json({
@@ -206,7 +206,7 @@ module.exports = function(deps = {}) {
       const token = jwt.sign(
         { id: user.id, mobile: user.mobile, username: user.username, templeId: user.temple_id, role: user.role },
         JWT_SECRET,
-        { expiresIn: '24h' }
+        { expiresIn: '365d' }
       );
 
       // Load permissions

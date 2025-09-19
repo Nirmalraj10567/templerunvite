@@ -1,12 +1,23 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Header } from '../components/Header';
 import { useLanguage } from '../lib/language';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '@/components/ui/use-toast';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
     name: '',
+    username: '',
     mobileNumber: '',
     gmail: '',
     weblink: '',
@@ -27,11 +38,18 @@ export default function RegisterPage() {
   const { register, isLoading, error } = useAuth();
   const { language } = useLanguage();
   const lang = (String(language).toLowerCase() === 'english' ? 'tamil' : 'english') as 'tamil' | 'english';
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   const t = {
     tamil: {
       createAccountTitle: 'உங்கள் கணக்கை உருவாக்குங்கள்',
       joinCommunity: 'எங்கள் கோவில் சமூகத்தில் இணைக',
+      username: 'பயனர்பெயர்',
+      usernamePlaceholder: 'உங்கள் பயனர்பெயரை உள்ளிடவும்',
       fullName: 'முழுபெயர்',
       fullNamePlaceholder: 'உங்கள் முழுப்பெயரை உள்ளிடவும்',
       mobileNumber: 'மொபைல் எண்',
@@ -72,10 +90,20 @@ export default function RegisterPage() {
       signInHere: 'இங்கே உள்நுழைக',
       alertPasswordMin: 'கடவுச்சொல் குறைந்தது 8 எழுத்துகள் இருக்க வேண்டும்',
       alertMobileValid: 'சரியான 10 இலக்க மொபைல் எண்ணை உள்ளிடவும்',
+      mobileAlreadyRegistered: 'இந்த மொபைல் எண் ஏற்கனவே பதிவு செய்யப்பட்டுள்ளது',
+      usernameAlreadyRegistered: 'இந்த பயனர் பெயர் ஏற்கனவே பயன்பாட்டில் உள்ளது',
+      successRegistered: 'வெற்றிகரமாக பதிவு செய்யப்பட்டது',
+      accountReady: 'உங்கள் கணக்கு வெற்றிகரமாக உருவாக்கப்பட்டது!',
+      continueRegistration: 'மேலும் பதிவு செய்க',
+      goToLogin: 'உள்நுள்ளவும்',
+      registrationFailed: 'பதிவு தோல்வியடைந்தது',
+      close: 'மூடு',
     },
     english: {
       createAccountTitle: 'Create Your Account',
       joinCommunity: 'Join our temple community',
+      username: 'Username',
+      usernamePlaceholder: 'Enter your username',
       fullName: 'Full Name',
       fullNamePlaceholder: 'Enter your full name',
       mobileNumber: 'Mobile Number',
@@ -116,6 +144,14 @@ export default function RegisterPage() {
       signInHere: 'Sign in here',
       alertPasswordMin: 'Password must be at least 8 characters',
       alertMobileValid: 'Please enter a valid 10-digit mobile number',
+      mobileAlreadyRegistered: 'This mobile number is already registered',
+      usernameAlreadyRegistered: 'This username is already taken',
+      successRegistered: 'Account Created!',
+      accountReady: 'Your account has been successfully created!',
+      continueRegistration: 'Register Another',
+      goToLogin: 'Go to Login',
+      registrationFailed: 'Registration Failed',
+      close: 'Close',
     },
   } as const;
 
@@ -129,14 +165,18 @@ export default function RegisterPage() {
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] as File | undefined;
-    if (file) {
-      setFormData(prev => ({ ...prev, image: file }));
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    try {
+      const file = e.target.files?.[0] as File | undefined;
+      if (file) {
+        setFormData(prev => ({ ...prev, image: file }));
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
+    } catch (err: any) {
+      console.error(err);
     }
   };
 
@@ -144,36 +184,46 @@ export default function RegisterPage() {
     e.preventDefault();
     
     if (formData.password.length < 8) {
-      alert(t[lang].alertPasswordMin);
+      setErrorMessage(t[lang].alertPasswordMin as string);
+      setShowErrorModal(true);
       return;
     }
 
     if (formData.mobileNumber.length !== 10) {
-      alert(t[lang].alertMobileValid);
+      setErrorMessage(t[lang].alertMobileValid as string);
+      setShowErrorModal(true);
       return;
     }
 
-    const result = await register({
-      name: formData.name,
-      mobileNumber: formData.mobileNumber,
-      gmail: formData.gmail,
-      weblink: formData.weblink,
-      password: formData.password,
-      image: formData.image,
-      isTrust: formData.isTrust,
-      trustType: formData.trustType,
-      trustRegistrationNumber: formData.trustRegistrationNumber,
-      dateOfRegistration: formData.dateOfRegistration,
-      panNumber: formData.panNumber,
-      tanNumber: formData.tanNumber,
-      gstNumber: formData.gstNumber,
-      reg12A: formData.reg12A,
-      reg80G: formData.reg80G
-    });
+    try {
+      const result = await register({
+        name: formData.name,
+        username: formData.username,
+        mobileNumber: formData.mobileNumber,
+        gmail: formData.gmail,
+        weblink: formData.weblink,
+        password: formData.password,
+        image: formData.image,
+        isTrust: formData.isTrust,
+        trustType: formData.trustType,
+        trustRegistrationNumber: formData.trustRegistrationNumber,
+        dateOfRegistration: formData.dateOfRegistration,
+        panNumber: formData.panNumber,
+        tanNumber: formData.tanNumber,
+        gstNumber: formData.gstNumber,
+        reg12A: formData.reg12A,
+        reg80G: formData.reg80G
+      });
 
-    if (result?.success) {
+      if (!result?.success) {
+        setErrorMessage(result?.error || (t[lang].registrationFailed as string));
+        setShowErrorModal(true);
+        return;
+      }
+
       setFormData({
         name: '',
+        username: '',
         mobileNumber: '',
         gmail: '',
         weblink: '',
@@ -190,6 +240,11 @@ export default function RegisterPage() {
         reg80G: ''
       });
       setImagePreview('');
+      setShowSuccessModal(true);
+    } catch (err: any) {
+      const message = (err && err.message) ? err.message : (t[lang].registrationFailed as string);
+      setErrorMessage(message);
+      setShowErrorModal(true);
     }
   };
 
@@ -221,6 +276,19 @@ export default function RegisterPage() {
                   placeholder={t[lang].fullNamePlaceholder}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-black mb-2">
+                  {t[lang].username}
+                </label>
+                <input
+                  type="text"
+                  name="username"
+                  value={formData.username}
+                  onChange={handleInputChange}
+                  placeholder={t[lang].usernamePlaceholder}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 />
               </div>
               <div>
@@ -455,6 +523,40 @@ export default function RegisterPage() {
           </form>
         </div>
       </main>
+
+      {/* Success Registration Modal */}
+      <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl text-center text-green-600">🎉 {t[lang].successRegistered}</DialogTitle>
+            <DialogDescription className="text-center py-4">
+              {t[lang].accountReady}
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+
+      {/* Error Modal */}
+      <Dialog open={showErrorModal} onOpenChange={setShowErrorModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl text-center text-red-600">⚠️ {t[lang].registrationFailed}</DialogTitle>
+            <DialogDescription className="text-center py-4 text-black">
+              {errorMessage}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="sm:justify-center gap-4 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowErrorModal(false)}
+              className="w-full"
+            >
+              {t[lang].close}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

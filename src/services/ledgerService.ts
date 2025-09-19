@@ -2,7 +2,7 @@ import axios from 'axios';
 import { getAuthToken } from '@/lib/auth';
 
 // Using Vite environment variables
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://tmsapi.xesstechlink.com';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
 // Create configured axios instance
 const api = axios.create({
@@ -33,9 +33,13 @@ api.interceptors.response.use(
 export interface LedgerEntry {
   id?: number;
   date: string;
-  name: string;
-  type: 'credit' | 'debit';
+  // Optional legacy fields
+  name?: string;
+  type?: 'credit' | 'debit';
   under?: string;
+  // Required for journal API
+  from_account: string;
+  to_account?: string;
   amount: number;
   remarks?: string;
   temple_id?: number;
@@ -76,8 +80,16 @@ export interface ProfitAndLoss {
 
 export const ledgerService = {
   async createEntry(entry: Omit<LedgerEntry, 'id' | 'created_at' | 'updated_at'>): Promise<LedgerEntry> {
-    // NOTE: Backend journal API expects from_account/to_account; this will be adapted separately.
-    const response = await api.post<any>(`/api/journal/entries`, entry as any);
+    // Backend journal API expects from_account/to_account/amount/date and optional remarks/entry_type
+    const payload: any = {
+      date: entry.date,
+      from_account: entry.from_account,
+      amount: entry.amount,
+      remarks: entry.remarks,
+      entry_type: entry.type, // optional mapping; backend defaults to 'transfer'
+    };
+    if (entry.to_account) payload.to_account = entry.to_account;
+    const response = await api.post<any>(`/api/journal/entries`, payload);
     return (response.data?.data || response.data) as LedgerEntry;
   },
 
@@ -106,13 +118,38 @@ export const ledgerService = {
     limit?: number;
   }): Promise<PaginatedResponse<LedgerEntry>> {
     const response = await api.get<any>(`/api/journal/entries`, { params });
-    const data = response.data?.data ?? response.data?.rows ?? [];
-    const pagination = response.data?.pagination ?? { total: 0, page: params?.page || 1, limit: params?.limit || 20, totalPages: 1 };
-    return { data, pagination } as PaginatedResponse<LedgerEntry>;
+    const raw = response.data?.data ?? response.data?.rows ?? [];
+    // Adapt backend journal rows to UI LedgerEntry shape
+    const adapted: LedgerEntry[] = (raw as any[]).map((r) => {
+      const entryType: string = String(r.entry_type || r.type || '').toLowerCase();
+      let type: 'credit' | 'debit' = 'credit';
+      if (entryType === 'expense' || entryType === 'debit') type = 'debit';
+      else if (entryType === 'income' || entryType === 'credit') type = 'credit';
+      else {
+        // Transfer heuristic: treat as credit if to_account is CASH A/C else debit
+        type = (String(r.to_account || '').toUpperCase() === 'CASH A/C') ? 'credit' : 'debit';
+      }
+      return {
+        id: r.id,
+        date: r.date,
+        name: r.from_account || r.name || '',
+        under: r.under || '',
+        type,
+        amount: Number(r.amount ?? 0) || 0,
+        // Optional passthroughs (not displayed in list but kept for edit dialog compatibility)
+        remarks: r.remarks,
+        temple_id: r.temple_id,
+        created_by: r.created_by,
+        created_at: r.created_at,
+      } as LedgerEntry;
+    });
+    const pagination = response.data?.pagination ?? { total: adapted.length, page: params?.page || 1, limit: params?.limit || 20, totalPages: 1 };
+    return { data: adapted, pagination } as PaginatedResponse<LedgerEntry>;
   },
 
   async getCurrentBalance(): Promise<number> {
-    const response = await api.get<any>(`/api/journal/balance`);
+    // Use compatibility endpoint which supports defaulting to CASH A/C when no account is provided
+    const response = await api.get<any>(`/api/ledger/balance`);
     const body = response.data;
     return (body?.balance ?? body?.data?.balance ?? 0) as number;
   },

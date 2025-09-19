@@ -1,27 +1,19 @@
 const jwt = require('jsonwebtoken');
-const knex = require('knex');
 const db = require('./db');
 
 // JWT Secret (must match the one in backend.js)
-const JWT_SECRET = 'your-super-secret-jwt-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET
 
-// Knex instance
-const knexDb = knex({
-  client: 'sqlite3',
-  connection: {
-    filename: __dirname + '/deev.sqlite3',
-  },
-  useNullAsDefault: true
-});
+// Knex instance (MySQL via shared configuration in server/db.js)
+const knexDb = db;
 
-// Function to retry database operations on SQLITE_BUSY
-const retryOnBusy = async (fn, maxRetries = 5, delay = 100) => {
+// Generic retry helper (still useful for transient DB errors)
+const retryOnBusy = async (fn, maxRetries = 3, delay = 150) => {
   for (let i = 0; i < maxRetries; i++) {
     try {
       return await fn();
     } catch (err) {
-      if (err.code === 'SQLITE_BUSY' && i < maxRetries - 1) {
-        console.log(`Database busy, retrying (${i+1}/${maxRetries})...`);
+      if (i < maxRetries - 1) {
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }

@@ -190,26 +190,7 @@ export default function MoneyDonationEntry() {
       const createdId = typeof newId === 'number' ? newId : null;
       setLastCreatedId(createdId);
 
-      // Create corresponding journal entry so balances reflect this donation dynamically
-      // Accounting: Debit selected account (e.g., CASH A/C), Credit DONATIONS INCOME
-      try {
-        const amt = Number(form.amount);
-        if (!Number.isNaN(amt) && amt > 0 && form.transferTo) {
-          await journalService.createEntry({
-            date: form.date,
-            from_account: 'DONATIONS INCOME',
-            to_account: form.transferTo,
-            amount: amt,
-            entry_type: 'income',
-            remarks: `Donation ${freshRN || form.registerNo} - ${form.name || ''} ${form.reason || ''}`.trim(),
-            reference_type: 'money_donation',
-            reference_id: createdId ?? undefined,
-          });
-        }
-      } catch (jErr) {
-        // Do not block the UI on journal failure, but log for investigation
-        console.warn('Journal entry creation failed for donation', jErr);
-      }
+      // Journal entry is now created by the backend in /api/money-donations to avoid duplicates
       setForm(createInitialState());
       // Regenerate register number after successful submission
       const newRegisterNo = await computeNextRegisterNo();

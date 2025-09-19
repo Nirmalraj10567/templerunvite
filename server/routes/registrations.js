@@ -23,6 +23,30 @@ function createRegistrationsRouter(db) {
         errors[field] = message;
       }
     });
+
+  // GET /api/registrations/next-ref?date=YYYY-MM-DD
+  router.get('/next-ref', authenticateToken, async (req, res) => {
+    try {
+      const dStr = (req.query.date && String(req.query.date).slice(0,10)) || new Date().toISOString().slice(0,10);
+      const year = Number(dStr.slice(0,4));
+      let nextRef = `${year}-0001`;
+      const last = await db('user_registrations')
+        .where({ temple_id: req.user.templeId })
+        .andWhere('reference_number', 'like', `${year}-%`)
+        .orderBy('reference_number', 'desc')
+        .first();
+      if (last && last.reference_number) {
+        const m = String(last.reference_number).match(new RegExp(`^${year}-([0-9]+)$`));
+        const seq = m ? parseInt(m[1], 10) : 0;
+        const next = (Number.isFinite(seq) ? seq : 0) + 1;
+        nextRef = `${year}-${String(next).padStart(4, '0')}`;
+      }
+      res.json({ success: true, reference_number: nextRef });
+    } catch (err) {
+      console.error('Next ref error:', err);
+      res.status(500).json({ error: 'Failed to compute next reference number' });
+    }
+  });
     
     // Additional format validation
     if (payload.mobileNumber && !/^\d{10}$/.test(payload.mobileNumber.replace(/\D/g, ''))) {
@@ -32,7 +56,7 @@ function createRegistrationsRouter(db) {
     return Object.keys(errors).length ? errors : null;
   };
 
-  // POST endpoint for new registrations
+  // POST endpoint for new registrations (auto-generate reference_number as YYYY-0001 per calendar year)
   router.post('/', authenticateToken, async (req, res) => {
     try {
       console.log('Received registration request with body:', req.body);
@@ -57,11 +81,32 @@ function createRegistrationsRouter(db) {
         });
       }
 
+      // Derive registration date and compute next reference number for the calendar year
+      const dateStr = (payload.date && String(payload.date).slice(0, 10)) || new Date().toISOString().slice(0, 10);
+      const year = Number(dateStr.slice(0, 4));
+      // Find highest reference_number like YYYY-XXXX for this temple and year
+      let nextRef = `${year}-0001`;
+      try {
+        const last = await db('user_registrations')
+          .where({ temple_id: req.user.templeId })
+          .andWhere('reference_number', 'like', `${year}-%`)
+          .orderBy('reference_number', 'desc')
+          .first();
+        if (last && last.reference_number) {
+          const m = String(last.reference_number).match(new RegExp(`^${year}-([0-9]+)$`));
+          const seq = m ? parseInt(m[1], 10) : 0;
+          const next = (Number.isFinite(seq) ? seq : 0) + 1;
+          nextRef = `${year}-${String(next).padStart(4, '0')}`;
+        }
+      } catch (e) {
+        // Fallback keeps default nextRef
+      }
+
       // Insert registration
       const [id] = await db('user_registrations').insert({
         temple_id: req.user.templeId,
-        reference_number: payload.referenceNumber,
-        date: payload.date,
+        reference_number: nextRef,
+        date: dateStr,
         subdivision: payload.subdivision,
         name: payload.name,
         alternative_name: payload.alternativeName,
@@ -132,7 +177,7 @@ function createRegistrationsRouter(db) {
         }
       }
 
-      res.json({ success: true, id });
+      res.json({ success: true, id, reference_number: nextRef });
     } catch (err) {
       console.error('Registration error:', err);
       res.status(500).json({ error: 'Failed to save registration' });

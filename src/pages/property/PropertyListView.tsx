@@ -128,6 +128,26 @@ export default function PropertyListView() {
 
   const visibleColCount = useMemo(() => Object.values(visibleCols).filter(Boolean).length, [visibleCols]);
 
+  // Helpers
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const safeCsv = (v: any) => {
+    if (v == null) return '';
+    const s = String(v).replace(/"/g, '""');
+    return /[",\n]/.test(s) ? '"' + s + '"' : s;
+  };
+
+  const formatDate = (s?: string) => (s ? new Date(s).toLocaleDateString() : '');
+
   // Fetch properties
   const fetchProperties = async () => {
     try {
@@ -279,14 +299,85 @@ export default function PropertyListView() {
     printWindow?.print();
   };
 
-  // Export all as PDF (uses print)
-  const handleExportPDF = () => {
-    window.print();
+  // Fetch all properties matching current search (ignores pagination for export)
+  const fetchAllForExport = async (): Promise<Property[]> => {
+    try {
+      // Try to use the service with a large page size
+      const all: Property[] = await propertyService.getProperties(1, 5000, searchTerm);
+      return Array.isArray(all) ? all : [];
+    } catch (e) {
+      console.error('Export fetch error:', e);
+      return [];
+    }
   };
 
-  // Export CSV placeholder (implement if needed)
-  const handleExportCSV = () => {
-    alert(t("CSV Export not implemented", "CSV ஏற்றுமதி செயல்படுத்தப்படவில்லை"));
+  // Export all as PDF: open printable window with a compact table
+  const handleExportPDF = async () => {
+    const rows = await fetchAllForExport();
+    const tableRows = rows
+      .map(
+        (p) => `
+          <tr>
+            <td style="padding:6px;border-bottom:1px solid #eee;">${p.name || ''}</td>
+            <td style="padding:6px;border-bottom:1px solid #eee;">${(p.details || '').toString().replace(/</g,'&lt;')}</td>
+            <td style="padding:6px;border-bottom:1px solid #eee; text-align:right;">${p.value || ''}</td>
+            <td style="padding:6px;border-bottom:1px solid #eee;">${formatDate(p.created_at)}</td>
+          </tr>`
+      )
+      .join('');
+
+    const html = `
+      <html>
+        <head>
+          <title>${t('Property List', 'சொத்து பட்டியல்')}</title>
+          <meta charset="utf-8" />
+          <style>
+            body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; padding: 16px; }
+            h2 { margin: 0 0 12px; }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; }
+            th { text-align: left; background: #f3f4f6; border-bottom: 1px solid #e5e7eb; padding: 8px; }
+          </style>
+        </head>
+        <body>
+          <h2>${t('Property List', 'சொத்து பட்டியல்')}</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>${t('Name', 'பெயர்')}</th>
+                <th>${t('Details', 'விவரங்கள்')}</th>
+                <th style="text-align:right;">${t('Value', 'மதிப்பு')}</th>
+                <th>${t('Created', 'உருவாக்கப்பட்டது')}</th>
+              </tr>
+            </thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </body>
+      </html>`;
+
+    const win = window.open('', '', 'width=900,height=700');
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    win.print();
+  };
+
+  // Export CSV: generate CSV for all matching rows
+  const handleExportCSV = async () => {
+    const rows = await fetchAllForExport();
+    const headers = ['id','name','details','value','created_at','updated_at'];
+    const lines = [headers.join(',')].concat(
+      rows.map((p) => [
+        safeCsv(p.id),
+        safeCsv(p.name),
+        safeCsv(p.details),
+        safeCsv(p.value),
+        safeCsv(p.created_at),
+        safeCsv(p.updated_at),
+      ].join(','))
+    );
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    downloadBlob(blob, 'properties.csv');
   };
 
   return (

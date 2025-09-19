@@ -20,9 +20,78 @@ const propertiesRouter = require('./properties');
 const ledgerRouter = require('./routes/ledger');
 
 // JWT Secret (in production, use environment variable)
-const JWT_SECRET = 'your-super-secret-jwt-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
+if (!process.env.JWT_SECRET) {
+  console.warn('[WARN] JWT_SECRET env not set. Using development fallback secret. Set JWT_SECRET in .env for production.');
+}
 // Ensure middleware that reads process.env.JWT_SECRET uses the same secret
-process.env.JWT_SECRET = process.env.JWT_SECRET || JWT_SECRET;
+
+// ===================== TEMP DEBUG ROUTE (REMOVE AFTER USE) =====================
+// This route helps diagnose JWT verification problems in production.
+// It is guarded with a simple debug key. Set DEBUG_KEY env var before using.
+// Call example:
+//   curl -s "https://<host>/api/debug/verify-token?key=YOUR_DEBUG_KEY" \
+//     -H "Authorization: Bearer <TOKEN>" | jq .
+// IMPORTANT: Remove this route after debugging.
+app.get('/api/debug/verify-token', (req, res) => {
+  try {
+    const debugKey = req.query.key;
+    const expected = process.env.DEBUG_KEY || 'disabled';
+    if (!debugKey || debugKey !== expected) {
+      return res.status(403).json({ error: 'Forbidden: missing or invalid debug key' });
+    }
+
+    const auth = req.header('authorization') || req.header('Authorization') || '';
+    const token = (req.query.token && String(req.query.token)) ||
+                  (auth.startsWith('Bearer ') ? auth.slice(7) : null);
+    if (!token) {
+      return res.status(400).json({ error: 'No token provided. Use Authorization header or ?token=' });
+    }
+
+    const jwt = require('jsonwebtoken');
+
+    // Decode without verify
+    let decoded;
+    try {
+      decoded = jwt.decode(token, { complete: true });
+    } catch (e) {
+      decoded = { decodeError: e?.message || String(e) };
+    }
+
+    const activeSecret =  process.env.JWT_SECRET
+    const fallbackLiteral = 'your-super-secret-jwt-key-change-in-production';
+
+    const result = {
+      envSecretSet: !!process.env.JWT_SECRET,
+      usingSecretFrom: process.env.JWT_SECRET ? 'process.env.JWT_SECRET' : 'code fallback JWT_SECRET',
+      verify: { ok: false, with: null, error: null },
+      fallbackTest: { tried: false, ok: false, error: null },
+    };
+
+    try {
+      jwt.verify(token, activeSecret);
+      result.verify.ok = true;
+      result.verify.with = result.usingSecretFrom;
+    } catch (e) {
+      result.verify.error = e?.message || String(e);
+      if (activeSecret !== fallbackLiteral) {
+        result.fallbackTest.tried = true;
+        try {
+          jwt.verify(token, fallbackLiteral);
+          result.fallbackTest.ok = true;
+        } catch (e2) {
+          result.fallbackTest.error = e2?.message || String(e2);
+        }
+      }
+    }
+
+    return res.json({ decoded, ...result });
+  } catch (err) {
+    console.error('Debug verify-token error:', err);
+    return res.status(500).json({ error: 'Internal error in debug verifier' });
+  }
+});
+// =================== END TEMP DEBUG ROUTE (REMOVE AFTER USE) ====================
 
 // CORS: allow localhost and LAN IPs during development
 app.use(cors({
@@ -281,11 +350,17 @@ const authorizeTempleAccess = (req, res, next) => {
 // Enhanced authorizePermission middleware with superadmin bypass
 const authorizePermission = (permissionId, requiredLevel = 'view') => {
   return async (req, res, next) => {
-    if (req.user.role === 'superadmin') {
-      return next();
-    }
-
     try {
+      // Superadmin bypass
+      if (req?.user?.role === 'superadmin') {
+        return next();
+      }
+
+      // Validate user context
+      if (!req?.user?.id) {
+        return res.status(401).json({ error: 'Unauthorized: missing user context' });
+      }
+
       const userPermissions = await db('user_permissions')
         .where({ user_id: req.user.id, permission_id: permissionId })
         .first();
@@ -294,15 +369,19 @@ const authorizePermission = (permissionId, requiredLevel = 'view') => {
         return res.status(403).json({ error: 'Access denied. No permission.' });
       }
 
-      const userAccessLevel = userPermissions.access_level;
-      if (userAccessLevel !== requiredLevel && userAccessLevel !== 'full') {
+      // Compare access levels using a rank map
+      const levels = { view: 1, edit: 2, full: 3 };
+      const userAccessLevel = userPermissions.access_level || 'view';
+      const userRank = levels[userAccessLevel] ?? 0;
+      const requiredRank = levels[requiredLevel] ?? 1;
+      if (userRank < requiredRank) {
         return res.status(403).json({ error: 'Access denied. Insufficient permission level.' });
       }
 
-      next();
+      return next();
     } catch (err) {
       console.error('Error authorizing permission:', err);
-      res.status(500).json({ error: 'Database error while authorizing permission.' });
+      return res.status(500).json({ error: 'Database error while authorizing permission.' });
     }
   };
 };
@@ -1026,14 +1105,36 @@ const ledgerCategoriesCompat = (() => {
       const b = req.body || {};
       const amount = Number(b.amount);
       if (!b.date) return res.status(400).json({ error: 'Date is required' });
-      if (!b.from_account || !b.to_account) return res.status(400).json({ error: 'Both from_account and to_account are required' });
-      if (!amount || !Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: 'Valid amount is required' });
+      if (!Number.isFinite(amount) || amount < 0) return res.status(400).json({ error: 'Amount must be a number and cannot be negative' });
+
+      // Derive missing accounts where possible
+      const entryType = (b.entry_type || b.type || 'transfer').toString().toLowerCase();
+      // Normalize entry_type to match DB allowed set
+      let normalizedEntryType = entryType;
+      if (normalizedEntryType === 'credit') normalizedEntryType = 'income';
+      if (normalizedEntryType === 'debit') normalizedEntryType = 'expense';
+      if (!['transfer','income','expense'].includes(normalizedEntryType)) {
+        normalizedEntryType = 'transfer';
+      }
+      const from_account = b.from_account || b.name; // allow 'name' as from_account alias from legacy UI
+      let to_account = b.to_account;
+      if (!to_account) {
+        if (entryType === 'credit' || entryType === 'income') {
+          to_account = 'CASH A/C';
+        } else if (entryType === 'debit' || entryType === 'expense') {
+          to_account = 'EXPENSE A/C';
+        }
+      }
+      if (!from_account) return res.status(400).json({ error: 'from_account is required' });
+      if (!to_account) return res.status(400).json({ error: 'to_account is required' });
+      if (from_account === to_account) return res.status(400).json({ error: 'from_account and to_account cannot be the same' });
+
       const entry = {
         date: b.date,
-        from_account: b.from_account,
-        to_account: b.to_account,
+        from_account,
+        to_account,
         amount,
-        entry_type: b.entry_type || 'transfer',
+        entry_type: normalizedEntryType,
         remarks: b.remarks || null,
         reference_type: b.reference_type || null,
         reference_id: b.reference_id || null,
@@ -1106,10 +1207,95 @@ const ledgerCategoriesCompat = (() => {
       const countRow = await base.clone().count({ c: '*' }).first();
       const total = Number(countRow?.c || countRow?.count || 0);
       const rows = await base.clone().orderBy('date', 'desc').orderBy('id', 'desc').limit(limit).offset(offset);
-      res.json({ success: true, data: rows, pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) } });
+
+      // Enrich with category (under) by mapping account name -> under from legacy ledger_entries
+      let enriched = rows;
+      try {
+        const accountNames = Array.from(new Set(rows.flatMap(r => [r.from_account, r.to_account]).filter(Boolean)));
+        if (accountNames.length) {
+          const catRows = await db('ledger_entries')
+            .distinct('under as category', 'name as account')
+            .whereIn('name', accountNames)
+            .whereNotNull('under')
+            .andWhere('under', '!=', '');
+          const catMap = new Map();
+          for (const cr of catRows) {
+            if (!catMap.has(cr.account)) catMap.set(cr.account, cr.category);
+          }
+          enriched = rows.map(r => ({
+            ...r,
+            under: catMap.get(r.from_account) || null,
+          }));
+        }
+      } catch (e) {
+        // If mapping fails, return rows as-is
+        enriched = rows;
+      }
+
+      res.json({ success: true, data: enriched, pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) } });
     } catch (err) {
       console.error('Error fetching journal entries:', err);
       res.status(500).json({ error: 'Failed to fetch journal entries' });
+    }
+  });
+
+  // PUT /api/journal/entries/:id - update a journal entry
+  r.put('/entries/:id', authenticateToken, authorizePermission('ledger_management', 'edit'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const b = req.body || {};
+
+      // Normalize entry_type
+      const rawType = (b.entry_type || b.type || '').toString().toLowerCase();
+      let normalizedEntryType = rawType || undefined;
+      if (normalizedEntryType === 'credit') normalizedEntryType = 'income';
+      if (normalizedEntryType === 'debit') normalizedEntryType = 'expense';
+      if (normalizedEntryType && !['transfer','income','expense'].includes(normalizedEntryType)) {
+        normalizedEntryType = 'transfer';
+      }
+
+      // Build update payload (only provided fields)
+      const payload = {};
+      if (b.date) payload.date = b.date;
+      const from_account = b.from_account || b.name;
+      if (from_account) payload.from_account = from_account;
+      if (b.to_account) payload.to_account = b.to_account;
+      if (b.amount != null && b.amount !== '') {
+        const amt = Number(b.amount);
+        if (!Number.isFinite(amt) || amt < 0) return res.status(400).json({ error: 'Amount must be a number and cannot be negative' });
+        payload.amount = amt;
+      }
+      if (normalizedEntryType) payload.entry_type = normalizedEntryType;
+      if (b.remarks !== undefined) payload.remarks = b.remarks;
+      if (b.reference_type !== undefined) payload.reference_type = b.reference_type;
+      if (b.reference_id !== undefined) payload.reference_id = b.reference_id;
+
+      // Ensure record belongs to current temple
+      const existing = await db('journal_entries').where({ id }).first();
+      if (!existing) return res.status(404).json({ error: 'Entry not found' });
+      if (existing.temple_id !== req.user.templeId) return res.status(403).json({ error: 'Forbidden' });
+
+      await db('journal_entries').where({ id }).update({ ...payload });
+      const row = await db('journal_entries').where({ id }).first();
+      res.json({ success: true, data: row });
+    } catch (err) {
+      console.error('Error updating journal entry:', err);
+      res.status(500).json({ error: 'Failed to update journal entry' });
+    }
+  });
+
+  // DELETE /api/journal/entries/:id - delete a journal entry
+  r.delete('/entries/:id', authenticateToken, authorizePermission('ledger_management', 'edit'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const existing = await db('journal_entries').where({ id }).first();
+      if (!existing) return res.status(404).json({ error: 'Entry not found' });
+      if (existing.temple_id !== req.user.templeId) return res.status(403).json({ error: 'Forbidden' });
+      await db('journal_entries').where({ id }).del();
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error deleting journal entry:', err);
+      res.status(500).json({ error: 'Failed to delete journal entry' });
     }
   });
 
@@ -1987,38 +2173,33 @@ async function migrate() {
         table.index(['tax_status']);
       });
       
-      // Add property_registrations permission if it doesn't exist
-      await db.raw(`
-        INSERT OR IGNORE INTO permissions (id, name, description)
-        VALUES ('property_registrations', 'Property Registrations', 'Manage property registrations and tax details')
-      `);
+      // Add property_registrations permission if it doesn't exist (MySQL compatible)
+      await db('permissions')
+        .insert({ id: 'property_registrations', name: 'Property Registrations', description: 'Manage property registrations and tax details' })
+        .onConflict('id')
+        .ignore();
 
-      // Add pdf_settings permission if it doesn't exist
-      await db.raw(`
-        INSERT OR IGNORE INTO permissions (id, name, description)
-        VALUES ('pdf_settings', 'PDF Settings', 'Manage receipt PDF titles and logo')
-        VALUES ('pdf_settings', 'PDF Settings', 'Manage receipt PDF titles and logo');
-      `);
+      // Add pdf_settings permission if it doesn't exist (MySQL compatible)
+      await db('permissions')
+        .insert({ id: 'pdf_settings', name: 'PDF Settings', description: 'Manage receipt PDF titles and logo' })
+        .onConflict('id')
+        .ignore();
       
-      // Grant full permission to admin role
-      await db.raw(`
-        INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level)
-        SELECT 'admin', 'property_registrations', 'full'
-        WHERE NOT EXISTS (
-          SELECT 1 FROM role_permissions 
-          WHERE role_id = 'admin' AND permission_id = 'property_registrations'
-        )
-      `);
+      // Grant full permission to admin role (idempotent)
+      const existsAdminProp = await db('role_permissions')
+        .where({ role_id: 'admin', permission_id: 'property_registrations' })
+        .first();
+      if (!existsAdminProp) {
+        await db('role_permissions').insert({ role_id: 'admin', permission_id: 'property_registrations', access_level: 'full' });
+      }
       
-      // Grant view permission to member role
-      await db.raw(`
-        INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level)
-        SELECT 'member', 'property_registrations', 'view'
-        WHERE NOT EXISTS (
-          SELECT 1 FROM role_permissions 
-          WHERE role_id = 'member' AND permission_id = 'property_registrations'
-        )
-      `);
+      // Grant view permission to member role (idempotent)
+      const existsMemberProp = await db('role_permissions')
+        .where({ role_id: 'member', permission_id: 'property_registrations' })
+        .first();
+      if (!existsMemberProp) {
+        await db('role_permissions').insert({ role_id: 'member', permission_id: 'property_registrations', access_level: 'view' });
+      }
     }
 
   
@@ -2057,6 +2238,45 @@ async function migrate() {
     await ensureSetting('year_end_enforced', false);
     await ensureSetting('year_end_locked', false);
     
+    // Ensure journal_entries table exists (MySQL-compatible)
+    if (!(await db.schema.hasTable('journal_entries'))) {
+      await db.schema.createTable('journal_entries', (table) => {
+        table.increments('id').primary();
+        table.date('date').notNullable();
+        table.string('from_account').notNullable();
+        table.string('to_account').notNullable();
+        table.decimal('amount', 12, 2).notNullable();
+        // Restrict to allowed values
+        try {
+          table.enu('entry_type', ['transfer', 'income', 'expense']).notNullable().defaultTo('transfer');
+        } catch (e) {
+          table.string('entry_type').notNullable().defaultTo('transfer');
+        }
+        table.text('remarks');
+        table.string('reference_type');
+        table.integer('reference_id');
+        table.integer('temple_id').notNullable();
+        table.integer('created_by').notNullable();
+        table.timestamp('created_at').defaultTo(db.fn.now());
+        table.index(['temple_id']);
+        table.index(['date']);
+        table.index(['from_account']);
+        table.index(['to_account']);
+      });
+      console.log('Created journal_entries table.');
+    }
+    // Ensure entry_type column accepts expected values in MySQL
+    try {
+      await db.raw("ALTER TABLE journal_entries MODIFY entry_type ENUM('transfer','income','expense') NOT NULL DEFAULT 'transfer'");
+    } catch (e) {
+      try {
+        // Fallback: ensure it is at least VARCHAR if ENUM alter not supported
+        await db.raw("ALTER TABLE journal_entries MODIFY entry_type VARCHAR(20) NOT NULL DEFAULT 'transfer'");
+      } catch (_) {
+        // Ignore if cannot alter; normalization in code will still keep values safe
+      }
+    }
+
     // Ensure ledger_entries table and add registration_id linkage
     if (!(await db.schema.hasTable('ledger_entries'))) {
       await db.schema.createTable('ledger_entries', (table) => {
@@ -2224,52 +2444,35 @@ async function migrate() {
       console.log('Created annadhanam table.');
       
       // Add annadhanam_registrations permission if it doesn't exist
-      await db.raw(`
-        INSERT OR IGNORE INTO permissions (id, name, description)
-        VALUES ('annadhanam_registrations', 'Annadhanam Registrations', 'Manage annadhanam registrations and food distribution')
-      `);
+      await db('permissions')
+        .insert({ id: 'annadhanam_registrations', name: 'Annadhanam Registrations', description: 'Manage annadhanam registrations and food distribution' })
+        .onConflict('id')
+        .ignore();
       
-      // Grant full permission to admin role
-      await db.raw(`
-        INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level)
-        SELECT 'admin', 'annadhanam_registrations', 'full'
-        WHERE NOT EXISTS (
-          SELECT 1 FROM role_permissions 
-          WHERE role_id = 'admin' AND permission_id = 'annadhanam_registrations'
-        )
-      `);
+      // Grant full permission to admin role (idempotent)
+      if (!await db('role_permissions').where({ role_id: 'admin', permission_id: 'annadhanam_registrations' }).first()) {
+        await db('role_permissions').insert({ role_id: 'admin', permission_id: 'annadhanam_registrations', access_level: 'full' });
+      }
       
-      // Grant view permission to member role
-      await db.raw(`
-        INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level)
-        SELECT 'member', 'annadhanam_registrations', 'view'
-        WHERE NOT EXISTS (
-          SELECT 1 FROM role_permissions 
-          WHERE role_id = 'member' AND permission_id = 'annadhanam_registrations'
-        )
-      `);
+      // Grant view permission to member role (idempotent)
+      if (!await db('role_permissions').where({ role_id: 'member', permission_id: 'annadhanam_registrations' }).first()) {
+        await db('role_permissions').insert({ role_id: 'member', permission_id: 'annadhanam_registrations', access_level: 'view' });
+      }
       
-      // Grant full permission to superadmin role
-      await db.raw(`
-        INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level)
-        SELECT 'superadmin', 'annadhanam_registrations', 'full'
-        WHERE NOT EXISTS (
-          SELECT 1 FROM role_permissions 
-          WHERE role_id = 'superadmin' AND permission_id = 'annadhanam_registrations'
-        )
-      `);
+      // Grant full permission to superadmin role (idempotent)
+      if (!await db('role_permissions').where({ role_id: 'superadmin', permission_id: 'annadhanam_registrations' }).first()) {
+        await db('role_permissions').insert({ role_id: 'superadmin', permission_id: 'annadhanam_registrations', access_level: 'full' });
+      }
 
-      // Grant specific permission to user with mobile 9999999999
-      await db.raw(`
-        INSERT OR IGNORE INTO user_permissions (user_id, permission_id, access_level)
-        SELECT u.id, 'annadhanam_registrations', 'full'
-        FROM users u
-        WHERE u.mobile = '9999999999'
-        AND NOT EXISTS (
-          SELECT 1 FROM user_permissions up
-          WHERE up.user_id = u.id AND up.permission_id = 'annadhanam_registrations'
-        )
-      `);
+      // Grant specific permission to user with mobile 9999999999 (best effort)
+      try {
+        const u = await db('users').where({ mobile: '9999999999' }).first();
+        if (u) {
+          if (!await db('user_permissions').where({ user_id: u.id, permission_id: 'annadhanam_registrations' }).first()) {
+            await db('user_permissions').insert({ user_id: u.id, permission_id: 'annadhanam_registrations', access_level: 'full' });
+          }
+        }
+      } catch {}
 
       // Insert sample test data
       await db.raw(`
@@ -2348,31 +2551,35 @@ async function migrate() {
     }
 
     // Add permissions for annadhanam approval system
-    await db.raw(`
-      INSERT OR IGNORE INTO permissions (id, name, description) VALUES 
-      ('annadhanam_approval', 'Annadhanam Approval', 'Approve or reject annadhanam requests from mobile users'),
-      ('annadhanam_mobile_submit', 'Annadhanam Mobile Submit', 'Submit annadhanam requests from mobile app')
-    `);
+    await db('permissions')
+      .insert([
+        { id: 'annadhanam_approval', name: 'Annadhanam Approval', description: 'Approve or reject annadhanam requests from mobile users' },
+        { id: 'annadhanam_mobile_submit', name: 'Annadhanam Mobile Submit', description: 'Submit annadhanam requests from mobile app' }
+      ])
+      .onConflict('id')
+      .ignore();
 
-    // Grant permissions to roles
-    await db.raw(`
-      INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level) VALUES
-      ('admin', 'annadhanam_approval', 'full'),
-      ('superadmin', 'annadhanam_approval', 'full'),
-      ('member', 'annadhanam_mobile_submit', 'full')
-    `);
+    // Grant permissions to roles (idempotent)
+    const roleSeeds = [
+      { role_id: 'admin', permission_id: 'annadhanam_approval', access_level: 'full' },
+      { role_id: 'superadmin', permission_id: 'annadhanam_approval', access_level: 'full' },
+      { role_id: 'member', permission_id: 'annadhanam_mobile_submit', access_level: 'full' },
+    ];
+    for (const r of roleSeeds) {
+      if (!await db('role_permissions').where(r).first()) {
+        await db('role_permissions').insert(r);
+      }
+    }
 
     // Grant specific permission to user with mobile 9999999999
-    await db.raw(`
-      INSERT OR IGNORE INTO user_permissions (user_id, permission_id, access_level)
-      SELECT u.id, 'annadhanam_mobile_submit', 'full'
-      FROM users u
-      WHERE u.mobile = '9999999999'
-      AND NOT EXISTS (
-        SELECT 1 FROM user_permissions up
-        WHERE up.user_id = u.id AND up.permission_id = 'annadhanam_mobile_submit'
-      )
-    `);
+    try {
+      const u2 = await db('users').where({ mobile: '9999999999' }).first();
+      if (u2) {
+        if (!await db('user_permissions').where({ user_id: u2.id, permission_id: 'annadhanam_mobile_submit' }).first()) {
+          await db('user_permissions').insert({ user_id: u2.id, permission_id: 'annadhanam_mobile_submit', access_level: 'full' });
+        }
+      }
+    } catch {}
 
     console.log('Migration completed successfully!');
   } catch (err) {

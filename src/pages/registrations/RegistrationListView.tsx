@@ -97,7 +97,7 @@ export default function RegistrationListView() {
   const handleExportPDF = async (registration: Registration) => {
     setIsGeneratingPdf(true);
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/registrations/${registration.id}/pdf`, {
+      const response = await fetch(`http://localhost:4000/api/registrations/${registration.id}/pdf`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -129,7 +129,7 @@ export default function RegistrationListView() {
   const handleExportAllPDF = async () => {
     setIsGeneratingPdf(true);
     try {
-      const response = await fetch('https://tmsapi.xesstechlink.com/api/registrations/export-pdf', {
+      const response = await fetch('http://localhost:4000/api/registrations/export-pdf', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },

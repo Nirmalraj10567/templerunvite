@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -14,6 +14,7 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, isLoading, error: authError, user, token } = useAuth();
   const { language } = useLanguage();
   const lang = (String(language).toLowerCase() === 'english' ? 'tamil' : 'english') as 'tamil' | 'english';
@@ -46,10 +47,11 @@ export function LoginPage() {
   }, [authError]);
 
   useEffect(() => {
-    if (user && token) {
+    const fromRegister = Boolean((location.state as any)?.fromRegister);
+    if (user && token && !fromRegister) {
       navigate('/dashboard', { replace: true });
     }
-  }, [user, token, navigate]);
+  }, [user, token, navigate, location.state]);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

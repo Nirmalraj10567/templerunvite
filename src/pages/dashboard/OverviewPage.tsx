@@ -99,21 +99,6 @@ export default function OverviewPage() {
       setLoading(true);
       setError('');
       try {
-        // Fetch dashboard stats for paid/unpaid + total
-        const statsRes = await fetch(`/api/dashboard/stats`, {
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        });
-        const statsJson = await statsRes.json();
-        if (!statsRes.ok) throw new Error(statsJson?.error || 'Failed to load stats');
-        if (!cancelled) {
-          setTotalMembers(Number(statsJson?.data?.totalMembers ?? 0));
-          setPaidMembersThisMonth(Number(statsJson?.data?.paidMembersThisMonth ?? 0));
-          setUnpaidMembersThisMonth(Number(statsJson?.data?.unpaidMembersThisMonth ?? 0));
-        }
-
         // Fetch registrations (for total + recent)
         const regRes = await fetch(`/api/registrations?page=1&pageSize=5`, {
           headers: {
@@ -127,6 +112,97 @@ export default function OverviewPage() {
           // totalMembers already from stats; keep as fallback
           if (regJson?.total != null) setTotalMembers((prev) => prev ?? Number(regJson.total));
           setRecentMembers(Array.isArray(regJson?.data) ? regJson.data : []);
+        }
+
+        // Fetch full registrations list (for counts)
+        const regAllRes = await fetch(`/api/registrations?page=1&pageSize=5000`, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        const regAllJson = await regAllRes.json();
+        if (!regAllRes.ok) throw new Error(regAllJson?.error || 'Failed to load registrations list');
+
+        // Fetch current year's tax setting
+        const year = new Date().getFullYear();
+        const taxSetRes = await fetch(`/api/tax-settings/year/${year}`, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        const taxSetJson = await taxSetRes.json().catch(() => ({}));
+        const currentYearTax = Number(taxSetJson?.data?.tax_amount || 0) || 0;
+
+        // Fetch tax registrations (limit reasonably)
+        const taxRes = await fetch(`/api/tax-registrations?page=1&pageSize=1000`, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        const taxJson = await taxRes.json();
+        if (!taxRes.ok) throw new Error(taxJson?.error || 'Failed to load tax registrations');
+
+        // Helpers
+        const toNum = (v: any): number => {
+          if (v === null || v === undefined) return 0;
+          const n = Number(String(v).replace(/[\,\s]/g, ''));
+          return Number.isFinite(n) ? n : 0;
+        };
+        const normalizeMobile = (m?: string) => (m ? String(m).replace(/\D/g, '') : '');
+
+        // Build mobile sets
+        const allRegs: any[] = Array.isArray(regAllJson?.data) ? regAllJson.data : [];
+        const allMobiles = new Set<string>();
+        allRegs.forEach((r) => {
+          const mob = normalizeMobile(r.mobile_number ?? r.mobileNumber);
+          if (mob) allMobiles.add(mob);
+        });
+
+        // Map latest tax record per mobile for current year
+        const taxRows: any[] = Array.isArray(taxJson?.data) ? taxJson.data : [];
+        const byMobile = new Map<string, any>();
+        taxRows.forEach((r) => {
+          const mob = normalizeMobile(r.mobile_number ?? r.mobileNumber);
+          if (!mob) return;
+          if (Number(r.year) !== year) return;
+          const prev = byMobile.get(mob);
+          const curTs = r.created_at ? new Date(r.created_at).getTime() : 0;
+          const prevTs = prev && prev.created_at ? new Date(prev.created_at).getTime() : -1;
+          if (!prev || curTs >= prevTs) byMobile.set(mob, r);
+        });
+
+        // Compute paid/unpaid
+        const paidMobiles = new Set<string>();
+        const pendingMobiles = new Set<string>();
+        for (const [mob, r] of byMobile.entries()) {
+          const tax = toNum(r.tax_amount ?? r.taxAmount ?? r.total_tax ?? r.totalAmount);
+          const paid = toNum(r.amount_paid ?? r.amountPaid ?? r.paid_amount ?? r.paidAmount);
+          const outstandingRaw = r.outstanding_amount ?? r.outstandingAmount;
+          const outstanding = outstandingRaw !== null && outstandingRaw !== undefined ? toNum(outstandingRaw) : Math.max(0, tax - paid);
+          if (outstanding <= 0) paidMobiles.add(mob);
+          else pendingMobiles.add(mob);
+        }
+
+        // Members without any tax registration for current year are considered unpaid (pending) by default
+        // If there is no tax setting, we still count them as unpaid to match combined list logic
+        for (const mob of allMobiles) {
+          if (!byMobile.has(mob)) {
+            // Treat as pending
+            pendingMobiles.add(mob);
+          }
+        }
+
+        const total = allMobiles.size;
+        const paid = paidMobiles.size;
+        const unpaid = Math.max(0, pendingMobiles.size); // already excludes paid
+
+        if (!cancelled) {
+          setTotalMembers(total);
+          setPaidMembersThisMonth(paid);
+          setUnpaidMembersThisMonth(unpaid);
         }
 
         // Fetch events (for upcoming count)

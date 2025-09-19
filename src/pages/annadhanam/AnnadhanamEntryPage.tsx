@@ -407,7 +407,7 @@ export default function AnnadhanamEntryPage() {
               className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 text-xs"
               onClick={() => {
                 const q = token ? `?token=${encodeURIComponent(token)}` : '';
-                const url = `https://tmsapi.xesstechlink.com/api/annadhanam/${lastCreatedId}/receipt.pdf${q}`;
+                const url = `http://localhost:4000/api/annadhanam/${lastCreatedId}/receipt.pdf${q}`;
                 window.open(url, '_blank');
                 setShowPrintPrompt(false);
               }}

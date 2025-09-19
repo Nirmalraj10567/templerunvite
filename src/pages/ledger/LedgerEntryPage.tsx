@@ -114,6 +114,7 @@ export default function LedgerEntryPage() {
 
   // Watch form values to detect changes
   const watchedValues = watch();
+  const watchType = watch('type');
   
   useEffect(() => {
     const hasChanges = Object.keys(watchedValues).some(key => {
@@ -198,22 +199,24 @@ export default function LedgerEntryPage() {
     fetchCategories();
   }, []);
 
+  // No to_account field: backend derives sensible default based on type
+
   const onSubmit = async (data: LedgerEntry) => {
     setIsSubmitting(true);
     try {
+      // Validate minimal required fields: name -> from_account, to_account, amount
+      if (!data.name) {
+        throw new Error(t('Name is required', 'பெயர் தேவை'));
+      }
+      const derivedFrom = data.name;
+
       const entryData = {
         date: data.date,
-        name: data.name,
-        under: data.under,
-        address: data.address,
-        city: data.city,
-        phone: data.phone,
-        mobile: data.mobile,
-        email: data.email,
-        note: data.note,
+        from_account: derivedFrom,
+        amount: Number(data.amount),
+        remarks: data.note,
         type: data.type,
-        amount: Number(data.amount)
-      };
+      } as any;
 
       await ledgerService.createEntry(entryData);
       
@@ -539,8 +542,8 @@ export default function LedgerEntryPage() {
                     className={inputClass}
                     {...registerWithKeyNav('amount', { 
                       min: { 
-                        value: 0.00, 
-                        message: t('Amount must be greater than 0', 'தொகை 0 க்கும் அதிகமாக இருக்க வேண்டும்') 
+                        value: 0, 
+                        message: t('Amount cannot be negative', 'தொகை மைனஸாக இருக்கக்கூடாது') 
                       }
                     })}
                     placeholder="0.00"

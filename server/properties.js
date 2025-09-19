@@ -75,4 +75,25 @@ router.put('/:id', authenticateToken, authorizePermission('property_registration
   }
 });
 
+// DELETE endpoint to remove a property
+router.delete('/:id', authenticateToken, authorizePermission('property_registrations', 'full'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Ensure the property belongs to the user's temple
+    const deleted = await db('properties')
+      .where({ id, temple_id: req.user.templeId })
+      .del();
+
+    if (deleted === 0) {
+      return res.status(404).json({ error: 'Property not found' });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error deleting property:', err);
+    res.status(500).json({ error: 'Failed to delete property' });
+  }
+});
+
 module.exports = router;
