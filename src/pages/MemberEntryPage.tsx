@@ -24,7 +24,7 @@ export default function MemberEntryPage() {
     role: 'member',
   } as unknown as Member);
 
-  const [editingMember, setEditingMember] = useState<Member | null>(null);
+  const [editingMember] = useState<Member | null>(null);
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,12 +48,41 @@ export default function MemberEntryPage() {
         })
       });
 
-      if (!response.ok) throw new Error('Failed to add member');
+      const responseData = await response.json();
+      
+      if (!response.ok) {
+        // Handle specific error cases
+        if (response.status === 400 || response.status === 409) {
+          let errorMessage = responseData.message || 'Failed to add member';
+          
+          // Handle duplicate email error
+          if (errorMessage.includes('users_email_unique') || errorMessage.includes('email already exists')) {
+            errorMessage = language === 'tamil' 
+              ? 'இந்த மின்னஞ்சல் ஏற்கனவே பயன்பாட்டில் உள்ளது' 
+              : 'This email is already in use';
+          } 
+          // Handle duplicate mobile error
+          else if (errorMessage.includes('users_mobile_unique') || errorMessage.includes('mobile already exists')) {
+            errorMessage = language === 'tamil'
+              ? 'இந்த மொபைல் எண் ஏற்கனவே பயன்பாட்டில் உள்ளது'
+              : 'This mobile number is already in use';
+          }
+          // Handle duplicate username error
+          else if (errorMessage.includes('users_username_unique') || errorMessage.includes('username already exists')) {
+            errorMessage = language === 'tamil'
+              ? 'இந்த பயனர் பெயர் ஏற்கனவே பயன்பாட்டில் உள்ளது'
+              : 'This username is already taken';
+          }
+          
+          throw new Error(errorMessage);
+        }
+        throw new Error(responseData.message || 'Failed to add member');
+      }
 
-      const data = await response.json();
       toast({
         title: language === 'tamil' ? 'உறுப்பினர் உருவாக்கப்பட்டது' : 'Member created',
-        description: `${language === 'tamil' ? 'செயல்பாடு பதிவு செய்யப்பட்டது.' : 'Activity logged.'} ` + (data.createdUserId ? (language === 'tamil' ? 'உள்நுழைவு உருவாக்கப்பட்டது.' : 'Login created.') : '')
+        description: `${language === 'tamil' ? 'செயல்பாடு பதிவு செய்யப்பட்டது.' : 'Activity logged.'} ` + 
+          (responseData.createdUserId ? (language === 'tamil' ? 'உள்நுழைவு உருவாக்கப்பட்டது.' : 'Login created.') : '')
       });
 
       // Reset form after create
@@ -71,9 +100,13 @@ export default function MemberEntryPage() {
 
       // Optionally navigate back to members list
       navigate('/dashboard/members');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error adding member:', err);
-      toast({ title: language === 'tamil' ? 'பிழை' : 'Error', description: language === 'tamil' ? 'உறுப்பினரை உருவாக்க முடியவில்லை' : 'Failed to create member', variant: 'destructive' });
+      toast({ 
+        title: language === 'tamil' ? 'பிழை' : 'Error', 
+        description: err.message || (language === 'tamil' ? 'உறுப்பினரை உருவாக்க முடியவில்லை' : 'Failed to create member'), 
+        variant: 'destructive' 
+      });
     }
   };
 

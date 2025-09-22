@@ -19,6 +19,7 @@ export default function LedgerListPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [filters, setFilters] = useState({
     startDate: '',
     endDate: '',
@@ -32,7 +33,7 @@ export default function LedgerListPage() {
   const [editEntry, setEditEntry] = useState<LedgerEntry | null>(null);
 
   const t = (en: string, ta: string) => language === 'english' ? ta : en;
-  const itemsPerPage = 15;
+  const itemsPerPage = 10;
 
   // Column Keys
   type ColKey = 'date' | 'name' | 'category' | 'credit' | 'debit' | 'balance' | 'actions';
@@ -140,6 +141,7 @@ export default function LedgerListPage() {
       setEntries(entries.data);
       setCurrentBalance(balance);
       setTotalPages(entries.pagination.totalPages);
+      setTotalCount(entries.pagination.total);
     } catch (error) {
       console.error('Failed to load data:', error);
       toast({
@@ -506,13 +508,11 @@ export default function LedgerListPage() {
         <div className="px-2 py-1 flex items-center justify-between border-t border-gray-200 text-xs">
           <div className="text-gray-700">
             {t('Showing', 'காட்டப்படுகிறது')}{' '}
-            <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span>{' '}
+            <span className="font-medium">{totalCount === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}</span>{' '}
             {t('to', 'இலிருந்து')}{' '}
-            <span className="font-medium">
-              {Math.min(currentPage * itemsPerPage, entries.length)}
-            </span>{' '}
+            <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalCount)}</span>{' '}
             {t('of', 'மொத்தம்')}{' '}
-            <span className="font-medium">{entries.length}</span>
+            <span className="font-medium">{totalCount}</span>
           </div>
           <div className="text-gray-700">
             {t('Balance', 'இருப்பு')}: <span className="font-medium">₹{currentBalance.toFixed(2)}</span>

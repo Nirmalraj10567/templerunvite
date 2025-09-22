@@ -533,6 +533,26 @@ export default function RegisterPage() {
               {t[lang].accountReady}
             </DialogDescription>
           </DialogHeader>
+          <DialogFooter className="sm:justify-center gap-4 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowSuccessModal(false)}
+              className="w-full"
+            >
+              {t[lang].continueRegistration}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setShowSuccessModal(false);
+                navigate('/login');
+              }}
+              className="w-full"
+            >
+              {t[lang].goToLogin}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

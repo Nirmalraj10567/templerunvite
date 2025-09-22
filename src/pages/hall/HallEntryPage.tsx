@@ -12,13 +12,28 @@ const generateReceiptNo = async (token: string) => {
     const response = await fetch('/api/hall-bookings/generate-receipt-number', {
       headers: { Authorization: `Bearer ${token}` }
     });
-    if (!response.ok) throw new Error('Failed to generate receipt number');
+    if (!response.ok) {
+      console.error('Receipt number API failed:', response.status, response.statusText);
+      throw new Error('Failed to generate receipt number');
+    }
     const data = await response.json();
+    console.log('Generated receipt number:', data.receiptNo);
     return data.receiptNo;
-  } catch {
-    const year = new Date().getFullYear();
-    const counter = Math.floor(1000 + Math.random() * 9000);
-    return `${year}-${counter.toString().padStart(4, '0')}`;
+  } catch (error) {
+    console.error('Receipt number generation error:', error);
+    // Enhanced fallback: generate sequential number based on current date/time
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+
+    // Create a more unique fallback number
+    const fallbackNo = `${year}-${month}${day}${hours}${minutes}${seconds}`;
+    console.log('Using enhanced fallback receipt number:', fallbackNo);
+    return fallbackNo;
   }
 };
 
@@ -54,7 +69,7 @@ const initialState: FormState = {
   totalAmount: '',
   balanceAmount: '',
   remarks: '',
-  transferTo: '',
+  transferTo: 'INCOME A/C',
   hallId: '',
   eventId: '',
   bookingStatus: 'pending'
@@ -94,10 +109,16 @@ export default function HallEntryPage() {
   // Load booking data if editing
   useEffect(() => {
     if (isEdit && id) {
+      const idNum = Number(id);
+      if (Number.isNaN(idNum)) {
+        setIsError(true);
+        setMessage(t('Invalid booking id', 'தவறான அடையாள எண்'));
+        return;
+      }
       (async () => {
         setLoading(true);
         try {
-          const response = await fetch(`/api/hall-bookings/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+          const response = await fetch(`/api/hall-bookings/${idNum}`, { headers: { Authorization: `Bearer ${token}` } });
           const data = await response.json();
           const booking = data.data || data;
           setForm({
@@ -113,7 +134,7 @@ export default function HallEntryPage() {
             totalAmount: booking.totalAmount?.toString() || '',
             balanceAmount: booking.balanceAmount?.toString() || '',
             remarks: booking.remarks || '',
-            transferTo: booking.transferTo || '',
+            transferTo: booking.transferTo || 'INCOME A/C',
             hallId: booking.hallId || '',
             eventId: booking.eventId || '',
             bookingStatus: booking.bookingStatus || 'pending'
@@ -153,7 +174,21 @@ export default function HallEntryPage() {
 
   // Generate receipt number for new
   useEffect(() => {
-    if (!isEdit) generateReceiptNo(token).then(receipt => setForm(prev => ({ ...prev, registerNo: receipt })));
+    if (!isEdit) {
+      generateReceiptNo(token)
+        .then(receipt => {
+          setForm(prev => ({ ...prev, registerNo: receipt }));
+        })
+        .catch(error => {
+          console.error('Failed to generate receipt number:', error);
+          // Set a default receipt number if generation fails
+          const now = new Date();
+          const year = now.getFullYear();
+          const timestamp = Date.now().toString().slice(-6);
+          const defaultReceipt = `${year}-${timestamp}`;
+          setForm(prev => ({ ...prev, registerNo: defaultReceipt }));
+        });
+    }
   }, [isEdit, token]);
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -169,39 +204,124 @@ export default function HallEntryPage() {
       setForm(prev => ({ ...prev, hallId: idNum }));
       return;
     }
-    setForm(prev => ({ ...prev, [name]: value }));
+
+    setForm(prev => {
+      const updated = { ...prev, [name]: value };
+
+      // Auto-calculate balance when total or advance changes
+      if (name === 'totalAmount' || name === 'advanceAmount') {
+        const total = Number(updated.totalAmount) || 0;
+        const advance = Number(updated.advanceAmount) || 0;
+        const balance = Math.max(0, total - advance);
+        updated.balanceAmount = balance.toString();
+      }
+
+      return updated;
+    });
   };
+
+  // Journal entry is handled by backend using fromAccount/transferTo/amount payload
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(undefined);
-    if (!form.date || !form.time || !form.name || !form.mobile) return;
+    if (!form.date || !form.time || !form.name || !form.mobile) {
+      setIsError(true);
+      setMessage(t('Please fill all required fields', 'தேவையான அனைத்து புலங்களையும் நிரப்பவும்'));
+      return;
+    }
     setSaving(true);
     try {
-      const res = await fetch(isEdit ? `/api/hall-bookings/${id}` : '/api/hall-bookings', {
+      // Validate id for edit
+      let endpoint = '/api/hall-bookings';
+      if (isEdit) {
+        const idNum = Number(id);
+        if (Number.isNaN(idNum)) {
+          setIsError(true);
+          setMessage(t('Invalid booking id', 'தவறான அடையாள எண்'));
+          setSaving(false);
+          return;
+        }
+        endpoint = `/api/hall-bookings/${idNum}`;
+      }
+
+      const payload = {
+        ...form,
+        fromAccount: 'HALL ENTRY A/C',
+        transferTo: form.transferTo || 'INCOME A/C',
+        // Amount used for journal mirror (prefer advance, fallback to total)
+        amount: String(parseFloat(form.advanceAmount || form.totalAmount || '0') || 0)
+      } as any;
+
+      // Create or update the booking
+      const res = await fetch(endpoint, {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
+
       const data = await res.json();
-      if (!res.ok) throw new Error();
-      const bookingId = data?.data?.id || id;
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to save booking');
+      }
+
+      const rawId = data?.data?.id;
+      const createdIdNum = typeof rawId === 'number' ? rawId : Number(rawId);
+
       if (!isEdit) {
-        setLastCreatedId(bookingId);
+        if (!Number.isNaN(createdIdNum)) {
+          setLastCreatedId(createdIdNum);
+        }
         setShowPrintPrompt(true);
         setForm({ ...initialState, registerNo: '' });
       }
+      
       setIsError(false);
       setMessage(t(isEdit ? 'Updated successfully' : 'Saved successfully', isEdit ? 'புதுப்பிக்கப்பட்டது' : 'சேமிக்கப்பட்டது'));
-    } catch {
+    } catch (error: any) {
       setIsError(true);
-      setMessage(t(isEdit ? 'Update failed' : 'Save failed', isEdit ? 'புதுப்பிப்பில் தோல்வி' : 'சேமிப்பு தோல்வி'));
+      setMessage(t(error.message || (isEdit ? 'Update failed' : 'Save failed'), error.message || (isEdit ? 'புதுப்பிப்பில் தோல்வி' : 'சேமிப்பு தோல்வி')));
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) return <div className="p-4 text-center">{t('Loading...', 'ஏற்றுகிறது...')}</div>;
+  const handleDelete = async () => {
+    try {
+      const idNum = Number(id);
+      if (Number.isNaN(idNum)) {
+        setIsError(true);
+        setMessage(t('Invalid booking id', 'தவறான அடையாள எண்'));
+        return;
+      }
+
+      const res = await fetch(`/api/hall-bookings/${idNum}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to delete booking');
+      }
+
+      setMessage(t('Deleted successfully', 'வெற்றிகரமாக நீக்கப்பட்டது'));
+      setShowDeleteModal(false);
+      navigate('/dashboard/hall/list');
+    } catch (error: any) {
+      setIsError(true);
+      setMessage(t(error.message || 'Delete failed', error.message || 'நீக்குவதில் தோல்வி'));
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="max-w-3xl mx-auto bg-white p-3 rounded shadow text-xs">
+        <div className="p-4 text-center">
+          <div className="animate-pulse">{t('Loading...', 'ஏற்றுகிறது...')}</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto bg-white p-3 rounded shadow text-xs">
@@ -212,7 +332,12 @@ export default function HallEntryPage() {
         {isEdit && <button type="button" className="bg-red-600 text-white px-2 py-1 rounded" onClick={() => setShowDeleteModal(true)}>{t('Delete', 'நீக்கு')}</button>}
       </div>
 
-      {message && <Alert variant={isError ? 'destructive' : 'default'} className="mb-2"><AlertTitle>{isError ? t('Error','பிழை'):t('Success','வெற்றி')}</AlertTitle><AlertDescription>{message}</AlertDescription></Alert>}
+      {message && (
+        <Alert variant={isError ? 'destructive' : 'default'} className="mb-2">
+          <AlertTitle>{isError ? t('Error','பிழை') : t('Success','வெற்றி')}</AlertTitle>
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      )}
 
       {/* Compact Form Grid */}
       <form onSubmit={onSubmit} className="grid grid-cols-2 gap-2">
@@ -223,34 +348,45 @@ export default function HallEntryPage() {
           <option value="cancelled">{t('Cancelled','ரத்து')}</option>
           <option value="completed">{t('Completed','முடிந்தது')}</option>
         </select>
-        <input type="date" name="date" value={form.date} onChange={onChange} className="border px-2 py-1 rounded" />
-        <input type="time" name="time" value={form.time} onChange={onChange} className="border px-2 py-1 rounded" />
-        <input name="name" value={form.name} onChange={onChange} placeholder={t('Name','பெயர்')} className="border px-2 py-1 rounded" />
+        <input type="date" name="date" value={form.date} onChange={onChange} className="border px-2 py-1 rounded" required />
+        <input type="time" name="time" value={form.time} onChange={onChange} className="border px-2 py-1 rounded" required />
+        <input name="name" value={form.name} onChange={onChange} placeholder={t('Name','பெயர்')} className="border px-2 py-1 rounded" required />
         <textarea name="address" rows={2} value={form.address} onChange={onChange} placeholder={t('Address','முகவரி')} className="col-span-2 border px-2 py-1 rounded" />
         <input name="village" value={form.village} onChange={onChange} placeholder={t('Village','கிராமம்')} className="border px-2 py-1 rounded" />
-       
         <select name="hallId" value={form.hallId ?? ''} onChange={onChange} className="border px-2 py-1 rounded col-span-1">
           <option value="">{t('Select hall','மண்டபத்தைத் தேர்வு')}</option>
-          {halls.map(h => (<option key={h.id} value={h.id}>{h.name}{h.base_price ? ` - ₹${h.base_price}` : ''}</option>))}
+          {halls.length > 0 ? halls.map(h => (
+            <option key={h.id} value={h.id}>{h.name}{h.base_price ? ` - ₹${h.base_price}` : ''}</option>
+          )) : <option disabled>{t('No halls available', 'மண்டபங்கள் இல்லை')}</option>}
         </select>
         <select name="eventId" value={form.eventId ?? ''} onChange={onChange} className="border px-2 py-1 rounded">
           <option value="">{t('Event','நிகழ்வு')}</option>
-          {hallEvents.map(ev => (<option key={ev.id} value={ev.id}>{ev.name}</option>))}
+          {hallEvents.length > 0 ? hallEvents.map(ev => (
+            <option key={ev.id} value={ev.id}>{ev.name}</option>
+          )) : <option disabled>{t('No events available', 'நிகழ்வுகள் இல்லை')}</option>}
         </select>
-        <input name="mobile" value={form.mobile} onChange={onChange} placeholder={t('Phone','தொலைபேசி')} maxLength={10} className="border px-2 py-1 rounded" />
-        <input name="totalAmount" value={form.totalAmount} onChange={onChange} placeholder={t('Total','மொத்தம்')} className="border px-2 py-1 rounded" />
-        <input name="advanceAmount" value={form.advanceAmount} onChange={onChange} placeholder={t('Advance','முன்பணம்')} className="border px-2 py-1 rounded" />
+        <input name="mobile" value={form.mobile} onChange={onChange} placeholder={t('Phone','தொலைபேசி')} maxLength={10} className="border px-2 py-1 rounded" required />
+        <input name="totalAmount" value={form.totalAmount} onChange={onChange} placeholder={t('Total','மொத்தம்')} className="border px-2 py-1 rounded" type="number" min="0" step="0.01" />
+        <input name="advanceAmount" value={form.advanceAmount} onChange={onChange} placeholder={t('Advance','முன்பணம்')} className="border px-2 py-1 rounded" type="number" min="0" step="0.01" />
         <input name="balanceAmount" readOnly value={form.balanceAmount} placeholder={t('Balance','இருப்பு')} className="border px-2 py-1 rounded bg-gray-50" />
-        
+
+        {false && (
         <select name="transferTo" value={form.transferTo} onChange={onChange} className="col-span-2 border px-2 py-1 rounded">
           <option value="">{t('Select account','கணக்கு')}</option>
           {accounts.map(a => (<option key={a.id} value={a.value}>{a.label}</option>))}
         </select>
+        )}
         <textarea name="remarks" rows={2} value={form.remarks} onChange={onChange} placeholder={t('Remarks','குறிப்புகள்')} className="col-span-2 border px-2 py-1 rounded" />
         <div className="col-span-2 flex flex-wrap gap-2 mt-1">
-          <button type="submit" disabled={saving} className="bg-orange-600 text-white px-3 py-1 rounded disabled:opacity-50">{saving?t('Saving...','சேமிக்கிறது'):t(isEdit?'Update':'Save',isEdit?'புதுப்பி':'சேமி')}</button>
-          <button type="button" className="border px-3 py-1 rounded" onClick={()=>navigate('/dashboard/hall/list')}>{t('View List','பட்டியல்')}</button>
-          <button type="button" className="border px-3 py-1 rounded" onClick={()=>setForm({...initialState,registerNo:''})}>{t('Clear','அழி')}</button>
+          <button type="submit" disabled={saving} className="bg-orange-600 text-white px-3 py-1 rounded disabled:opacity-50">
+            {saving ? t('Saving...','சேமிக்கிறது...') : t(isEdit?'Update':'Save', isEdit?'புதுப்பி':'சேமி')}
+          </button>
+          <button type="button" className="border px-3 py-1 rounded" onClick={()=>navigate('/dashboard/hall/list')}>
+            {t('View List','பட்டியல்')}
+          </button>
+          <button type="button" className="border px-3 py-1 rounded" onClick={()=>setForm({...initialState, registerNo: ''})}>
+            {t('Clear','அழி')}
+          </button>
         </div>
       </form>
 
@@ -273,7 +409,7 @@ export default function HallEntryPage() {
           <p className="mb-2">{t('Are you sure to delete?','நீக்க வேண்டுமா?')}</p>
           <div className="flex justify-end gap-2">
             <button className="border px-3 py-1 rounded" onClick={()=>setShowDeleteModal(false)}>{t('Cancel','ரத்து')}</button>
-            <button className="bg-red-600 text-white px-3 py-1 rounded" onClick={()=>{}}>{t('Delete','நீக்கு')}</button>
+            <button className="bg-red-600 text-white px-3 py-1 rounded" onClick={handleDelete}>{t('Delete','நீக்கு')}</button>
           </div>
         </Modal>}
     </div>

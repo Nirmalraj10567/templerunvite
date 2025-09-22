@@ -48,7 +48,8 @@ export default function TaxUserEntryPage() {
     taxAmount: '',
     amountPaid: '',
     outstandingAmount: '',
-    transferTo: '',
+    fromAccount: 'TAX A/C',
+    transferTo: 'INCOME A/C',
   });
 
   const [newUser, setNewUser] = useState({
@@ -660,10 +661,7 @@ export default function TaxUserEntryPage() {
       newErrors.aadhaarNumber = 'Aadhaar number must be 12 digits / ஆதார் எண் 12 இலக்கமாக இருக்க வேண்டும்';
     }
 
-    // Transfer and amounts
-    if (!(form as any).transferTo || String((form as any).transferTo).trim() === '') {
-      newErrors.transferTo = 'Please select the account to transfer to / எந்த கணக்கிற்கு மாற்றுவது என்பதைத் தேர்ந்தெடுக்கவும்';
-    }
+    // Transfer and amounts (transferTo is set by default and hidden)
     const paid = Number(form.amountPaid);
     if (!form.amountPaid || isNaN(paid) || paid <= 0) {
       newErrors.amountPaid = 'Enter a valid amount to be paid (> 0) / செலுத்தும் தொகையை சரியாக உள்ளிடவும்';
@@ -726,7 +724,8 @@ export default function TaxUserEntryPage() {
       formData.append('amountPaid', form.amountPaid);
       // Send remaining due as outstandingAmount
       formData.append('outstandingAmount', String(remainingDue));
-      formData.append('transferTo', (form as any).transferTo || '');
+      formData.append('fromAccount', (form as any).fromAccount || 'TAX A/C');
+      formData.append('transferTo', (form as any).transferTo || 'INCOME A/C');
       formData.append('templeId', user.templeId.toString());
 
       // Append heirs as JSON array if present
@@ -798,7 +797,8 @@ export default function TaxUserEntryPage() {
         taxAmount: '',
         amountPaid: '',
         outstandingAmount: '',
-        transferTo: '',
+        fromAccount: 'TAX A/C',
+        transferTo: 'INCOME A/C',
       });
 
       setNewUser({
@@ -842,7 +842,8 @@ export default function TaxUserEntryPage() {
       taxAmount: '',
       amountPaid: '',
       outstandingAmount: '',
-      transferTo: '',
+      fromAccount: 'TAX A/C',
+      transferTo: 'INCOME A/C',
     });
     // Fetch tax amount for current year after clearing
     fetchTaxAmountForYear(currentYear);
@@ -1415,7 +1416,8 @@ export default function TaxUserEntryPage() {
                 )}
               </div>
 
-              {/* Transfer To Account */}
+              {/* Transfer To Account - hidden (default set to INCOME A/C) */}
+              {false && (
               <div className="bg-gray-50 rounded-lg p-2">
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">{L('Transfer To Account', 'எந்த கணக்கிற்கு மாற்றுவது')}</h3>
                 <label htmlFor="transfer-to" className="block text-xs font-medium text-gray-900 mb-1">
@@ -1437,6 +1439,7 @@ export default function TaxUserEntryPage() {
                   <p className="text-red-500 text-xs mt-1">{errors.transferTo}</p>
                 )}
               </div>
+              )}
 
               {/* Amounts Summary */}
               <div className="bg-gray-50 rounded-lg p-2">

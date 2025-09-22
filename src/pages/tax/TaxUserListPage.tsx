@@ -32,6 +32,9 @@ export default function TaxUserListPage() {
   const [loading, setLoading] = useState(false);
   const [statusTab, setStatusTab] = useState<'all' | 'pending' | 'paid'>('all');
   const [currentYearTax, setCurrentYearTax] = useState<number>(0);
+  const [totalUsers, setTotalUsers] = useState<number>(0);
+  const [paidCount, setPaidCount] = useState<number>(0);
+  const [pendingCount, setPendingCount] = useState<number>(0);
 
   const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
@@ -142,7 +145,7 @@ export default function TaxUserListPage() {
       // Always fetch all tax registrations matching search (no tab filter; we will filter client-side)
       const taxParams = new URLSearchParams({ page: '1', pageSize: '1000' });
       if (search) taxParams.set('search', search);
-      const taxRes = await fetch(`http://localhost:4000/api/tax-registrations?${taxParams.toString()}`, {
+      const taxRes = await fetch(`/api/tax-registrations?${taxParams.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const taxData = await taxRes.json();
@@ -209,6 +212,13 @@ export default function TaxUserListPage() {
 
       // Merge: existing tax rows + synthetic rows
       let merged: TaxRegistration[] = [...taxRows, ...synthetic];
+
+      // Compute stats BEFORE applying tab filter & pagination
+      const paidUsers = merged.filter((r) => toNum(r.outstanding_amount) <= 0).length;
+      const pendingUsers = merged.filter((r) => toNum(r.outstanding_amount) > 0).length;
+      setTotalUsers(merged.length);
+      setPaidCount(paidUsers);
+      setPendingCount(pendingUsers);
 
       // Apply tab filter client-side
       if (statusTab === 'pending') {
@@ -306,6 +316,26 @@ export default function TaxUserListPage() {
       <div className="flex justify-between items-center mb-2 px-1">
         <h1 className="text-lg font-bold text-gray-800">{t('Tax Registrations', 'வரி பதிவுகள்')}</h1>
       </div>
+
+      {/* Summary Stats */}
+      <Card className="mb-3">
+        <CardContent className="p-2">
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="bg-blue-50 border border-blue-200 rounded p-2">
+              <div className="text-[11px] text-blue-700 font-medium">{t('Total Users', 'மொத்த பயனர்கள்')}</div>
+              <div className="text-lg font-bold text-blue-900">{totalUsers}</div>
+            </div>
+            <div className="bg-green-50 border border-green-200 rounded p-2">
+              <div className="text-[11px] text-green-700 font-medium">{t('Paid', 'செலுத்தப்பட்டது')}</div>
+              <div className="text-lg font-bold text-green-900">{paidCount}</div>
+            </div>
+            <div className="bg-yellow-50 border border-yellow-200 rounded p-2">
+              <div className="text-[11px] text-yellow-700 font-medium">{t('Pending', 'நிலுவை')}</div>
+              <div className="text-lg font-bold text-yellow-900">{pendingCount}</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Filters */}
       <Card className="mb-3">

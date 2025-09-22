@@ -300,8 +300,9 @@ export default function DashboardLayout() {
   // Open palette on Ctrl+F, navigate with Enter, arrows to move
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      // Open with Ctrl+F
-      if (e.key.toLowerCase() === 'f' && e.ctrlKey) {
+      // Open with Ctrl/Cmd + F
+      const key = String((e as any)?.key || '').toLowerCase();
+      if (key === 'f' && (e.ctrlKey || (e as any)?.metaKey)) {
         e.preventDefault();
         setIsSearchOpen(true);
         setSearchQuery('');

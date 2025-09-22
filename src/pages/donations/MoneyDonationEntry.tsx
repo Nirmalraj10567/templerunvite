@@ -18,7 +18,7 @@ const createInitialState = (): MoneyDonationFormData => ({
   phone: '',
   amount: '',
   reason: '',
-  transferTo: ''
+  transferTo: 'INCOME A/C'
 });
 
 export default function MoneyDonationEntry() {
@@ -177,14 +177,10 @@ export default function MoneyDonationEntry() {
         setMessage(t('Enter a valid amount greater than 0', '0-ஐ விட அதிகமான செல்லுபடியான தொகையை உள்ளிடவும்'));
         return;
       }
-      if (!form.transferTo || form.transferTo.trim() === '') {
-        setIsError(true);
-        setMessage(t('Please select an account to transfer to', 'எந்த கணக்கிற்கு மாற்றுவது என்பதைத் தேர்ந்தெடுக்கவும்'));
-        return;
-      }
+      // transferTo is defaulted to INCOME A/C
       // Finalize register number right before submit to reduce collision risk
       const freshRN = await computeNextRegisterNo();
-      const payload = { ...form, registerNo: freshRN || form.registerNo };
+      const payload = { ...form, registerNo: freshRN || form.registerNo, fromAccount: 'DONATION A/C', transferTo: form.transferTo || 'INCOME A/C' } as any;
       const resp = await moneyDonationService.create(token, payload);
       const newId = resp?.data?.id;
       const createdId = typeof newId === 'number' ? newId : null;
@@ -269,6 +265,8 @@ export default function MoneyDonationEntry() {
           <input className="w-full border p-1 rounded text-xs" name="amount" value={form.amount} onChange={onChange} placeholder={t('Enter amount', 'தொகை')} />
         </div>
         
+        {/* Transfer To hidden (defaults to INCOME A/C) */}
+        {false && (
         <div>
           <label className="block text-xs mb-1">{t('Transfer To', 'எங்கு')}</label>
           <select
@@ -283,6 +281,7 @@ export default function MoneyDonationEntry() {
             ))}
           </select>
         </div>
+        )}
         <div className="md:col-span-3">
           <label className="block text-xs mb-1">{t('Reason', 'காரணம்')}</label>
           <input className="w-full border p-1 rounded text-xs" name="reason" value={form.reason} onChange={onChange} />

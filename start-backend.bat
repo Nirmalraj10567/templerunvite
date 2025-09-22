@@ -1,0 +1,13 @@
+@echo off
+echo Starting Temple Management Backend Server...
+cd /d "%~dp0server"
+echo Current directory: %CD%
+echo.
+echo Checking Node.js version...
+node --version
+echo.
+echo Starting server on port 4000...
+node backend.js
+echo.
+echo Server stopped. Press any key to exit...
+pause

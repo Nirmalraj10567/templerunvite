@@ -82,6 +82,8 @@ export default function PoojaEntryPage() {
     const generateAndSetReceiptNo = async () => {
       const receiptNo = await generateReceiptNo(token);
       setValue('receiptNumber', receiptNo);
+      // Default transfer account for new entries
+      setValue('transferTo', 'INCOME A/C');
     };
     
     if (!id) {
@@ -177,7 +179,7 @@ export default function PoojaEntryPage() {
         return;
       }
 
-      const payload: PoojaFormData = {
+      const payload: PoojaFormData & { fromAccount?: string } = {
         receiptNumber: data.receiptNumber,
         name: data.name,
         mobileNumber: data.mobileNumber,
@@ -185,8 +187,9 @@ export default function PoojaEntryPage() {
         fromDate: data.fromDate,
         toDate: data.toDate,
         remarks: data.remarks || '',
-        transferTo: data.transferTo || '',
-        amount: data.amount || ''
+        transferTo: data.transferTo || 'INCOME A/C',
+        amount: data.amount || '',
+        fromAccount: 'POOJA A/C'
       };
 
       const result = id 
@@ -205,7 +208,9 @@ export default function PoojaEntryPage() {
       if (!id) {
         // Reset form for new entry
         reset();
-        setValue('receiptNumber', generateReceiptNo());
+        const rn = await generateReceiptNo(token);
+        setValue('receiptNumber', rn);
+        setValue('transferTo', 'INCOME A/C');
       } else {
         navigate('/dashboard/pooja');
       }
@@ -221,12 +226,14 @@ export default function PoojaEntryPage() {
     }
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     if (id) {
       navigate('/dashboard/pooja');
     } else {
       reset();
-      setValue('receiptNumber', generateReceiptNo());
+      const rn = await generateReceiptNo(token);
+      setValue('receiptNumber', rn);
+      setValue('transferTo', 'INCOME A/C');
     }
   };
 
@@ -350,7 +357,8 @@ export default function PoojaEntryPage() {
               </div>
             </div>
 
-            {/* Transfer To Account */}
+            {/* Transfer To Account - hidden (defaults to INCOME A/C) */}
+            {false && (
             <div className="space-y-2">
               <Label htmlFor="transferTo">
                 {t('Transfer To Account', 'எந்த கணக்கிற்கு மாற்றுவது')}
@@ -359,7 +367,7 @@ export default function PoojaEntryPage() {
                 id="transferTo"
                 className="w-full border p-2 rounded"
                 {...register('transferTo')}
-                defaultValue=""
+                defaultValue="INCOME A/C"
               >
                 <option value="">{t('Select', 'தேர்ந்தெடு')}</option>
                 {accounts.map(acc => (
@@ -367,6 +375,7 @@ export default function PoojaEntryPage() {
                 ))}
               </select>
             </div>
+            )}
 
             {/* Remarks */}
             <div className="space-y-2">

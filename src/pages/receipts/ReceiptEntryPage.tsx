@@ -105,6 +105,15 @@ export default function ReceiptEntryPage() {
   const { register, handleSubmit, reset, setValue, watch } = useForm<ReceiptFormData>();
   const [ledgerNames, setLedgerNames] = useState<string[]>([]);
   const [fromBalance, setFromBalance] = useState<number | null>(null);
+  
+  // Function to get today's date in YYYY-MM-DD format
+  const getTodayDate = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   // Derived UI state to control Save button availability
   const typeValue = watch('type');
@@ -138,9 +147,10 @@ export default function ReceiptEntryPage() {
 
   useEffect(() => {
     if (!id) {
-      // Receipt number will be generated on the server
+      // Set default values for new receipt
       setValue('receiptNumber', '');
       setValue('type', 'income');
+      setValue('date', getTodayDate());
     }
   }, [id, setValue]);
 
@@ -304,6 +314,7 @@ export default function ReceiptEntryPage() {
         reset();
         await fetchNextReceiptNumber();
         setValue('type', 'income');
+        setValue('date', getTodayDate()); // Set today's date after reset
       } else {
         navigate('/dashboard/receipts');
       }

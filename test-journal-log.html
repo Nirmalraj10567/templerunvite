@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Journal Log Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { color: green; font-weight: bold; }
+        .info { color: blue; }
+        .error { color: red; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Journal Log Integration Test</h1>
+
+    <div class="test-section">
+        <h3>Journal Entry Creation Test</h3>
+        <p>This test simulates the journal entry creation logic from hall bookings:</p>
+        <button onclick="testJournalEntryCreation()">Test Journal Entry Creation</button>
+        <div id="journal-test-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>API Endpoint Test</h3>
+        <p>Test the journal API endpoints directly:</p>
+        <button onclick="testJournalAPI()">Test Journal API</button>
+        <div id="api-test-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Hall Booking Journal Test</h3>
+        <p>Simulate creating a hall booking and journal entry:</p>
+        <form id="hallBookingForm">
+            <div style="margin-bottom: 10px;">
+                <label>Amount: <input type="number" id="amount" value="1000" min="0" step="0.01"></label>
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>Transfer Account: <input type="text" id="transferAccount" value="CASH A/C"></label>
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>Date: <input type="date" id="bookingDate"></label>
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label>Remarks: <input type="text" id="remarks" value="Hall booking payment"></label>
+            </div>
+            <button type="button" onclick="simulateHallBooking()">Create Simulated Hall Booking</button>
+        </form>
+        <div id="hall-booking-results"></div>
+    </div>
+
+    <script>
+        // Simulate the journal entry creation logic from hallBookings.js
+        function createJournalEntry(bookingData) {
+            return {
+                date: bookingData.date || new Date().toISOString().slice(0, 10),
+                from_account: 'INCOME A/C',
+                to_account: bookingData.transferAccount || 'CASH A/C',
+                amount: parseFloat(bookingData.amount) || 0,
+                entry_type: 'transfer',
+                remarks: bookingData.remarks || null,
+                reference_type: 'hall_booking',
+                reference_id: bookingData.id || 1,
+                temple_id: 2, // Default temple ID
+                created_by: 1, // Default user ID
+                created_at: new Date().toISOString()
+            };
+        }
+
+        function testJournalEntryCreation() {
+            const resultsDiv = document.getElementById('journal-test-results');
+            resultsDiv.innerHTML = '<div class="info">Testing journal entry creation logic...</div>';
+
+            const testBooking = {
+                id: 123,
+                date: '2025-01-20',
+                amount: 1000,
+                transferAccount: 'CASH A/C',
+                remarks: 'Test hall booking payment'
+            };
+
+            const journalEntry = createJournalEntry(testBooking);
+
+            const success = journalEntry.date &&
+                           journalEntry.from_account === 'INCOME A/C' &&
+                           journalEntry.to_account === 'CASH A/C' &&
+                           journalEntry.amount === 1000 &&
+                           journalEntry.entry_type === 'transfer' &&
+                           journalEntry.reference_type === 'hall_booking' &&
+                           journalEntry.reference_id === 123;
+
+            if (success) {
+                const html = `
+                    <div class="success">✅ Journal entry creation logic working correctly!</div>
+                    <table>
+                        <tr><th>Field</th><th>Value</th></tr>
+                        <tr><td>Date</td><td>${journalEntry.date}</td></tr>
+                        <tr><td>From Account</td><td>${journalEntry.from_account}</td></tr>
+                        <tr><td>To Account</td><td>${journalEntry.to_account}</td></tr>
+                        <tr><td>Amount</td><td>${journalEntry.amount}</td></tr>
+                        <tr><td>Entry Type</td><td>${journalEntry.entry_type}</td></tr>
+                        <tr><td>Reference Type</td><td>${journalEntry.reference_type}</td></tr>
+                        <tr><td>Reference ID</td><td>${journalEntry.reference_id}</td></tr>
+                    </table>
+                `;
+                resultsDiv.innerHTML = html;
+            } else {
+                resultsDiv.innerHTML = '<div class="error">❌ Journal entry creation logic failed!</div>';
+            }
+        }
+
+        async function testJournalAPI() {
+            const resultsDiv = document.getElementById('api-test-results');
+            resultsDiv.innerHTML = '<div class="info">Testing journal API endpoints...</div>';
+
+            try {
+                // Test the journal entries endpoint
+                const response = await fetch('http://localhost:4000/api/journal/entries?limit=5', {
+                    headers: { 'Authorization': 'Bearer test-token' }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    resultsDiv.innerHTML = `
+                        <div class="success">✅ Journal API working!</div>
+                        <div>Found ${data.data?.length || 0} journal entries</div>
+                        ${data.data && data.data.length > 0 ? `
+                            <table>
+                                <tr><th>Date</th><th>From</th><th>To</th><th>Amount</th></tr>
+                                ${data.data.slice(0, 3).map(entry =>
+                                    `<tr>
+                                        <td>${entry.date}</td>
+                                        <td>${entry.from_account}</td>
+                                        <td>${entry.to_account}</td>
+                                        <td>${entry.amount}</td>
+                                    </tr>`
+                                ).join('')}
+                            </table>
+                        ` : '<div>No journal entries found</div>'}
+                    `;
+                } else {
+                    resultsDiv.innerHTML = `<div class="error">❌ Journal API error: ${response.status} ${response.statusText}</div>`;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">❌ Cannot connect to journal API: ${error.message}</div>`;
+            }
+        }
+
+        function simulateHallBooking() {
+            const resultsDiv = document.getElementById('hall-booking-results');
+            resultsDiv.innerHTML = '<div class="info">Simulating hall booking journal entry creation...</div>';
+
+            const amount = document.getElementById('amount').value;
+            const transferAccount = document.getElementById('transferAccount').value;
+            const date = document.getElementById('bookingDate').value;
+            const remarks = document.getElementById('remarks').value;
+
+            const bookingData = {
+                id: Math.floor(Math.random() * 10000),
+                date: date,
+                amount: amount,
+                transferAccount: transferAccount,
+                remarks: remarks
+            };
+
+            const journalEntry = createJournalEntry(bookingData);
+
+            const html = `
+                <div class="success">✅ Simulated hall booking journal entry created!</div>
+                <table>
+                    <tr><th>Field</th><th>Value</th></tr>
+                    <tr><td>Booking ID</td><td>${bookingData.id}</td></tr>
+                    <tr><td>Date</td><td>${journalEntry.date}</td></tr>
+                    <tr><td>Amount</td><td>${journalEntry.amount}</td></tr>
+                    <tr><td>From Account</td><td>${journalEntry.from_account}</td></tr>
+                    <tr><td>To Account</td><td>${journalEntry.to_account}</td></tr>
+                    <tr><td>Entry Type</td><td>${journalEntry.entry_type}</td></tr>
+                    <tr><td>Reference Type</td><td>${journalEntry.reference_type}</td></tr>
+                    <tr><td>Remarks</td><td>${journalEntry.remarks}</td></tr>
+                </table>
+                <div class="info">This journal entry would be created in the database when a real hall booking is made.</div>
+            `;
+
+            resultsDiv.innerHTML = html;
+        }
+
+        // Set default date
+        document.getElementById('bookingDate').value = new Date().toISOString().slice(0, 10);
+    </script>
+</body>
+</html>

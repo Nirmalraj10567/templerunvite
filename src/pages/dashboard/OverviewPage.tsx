@@ -164,10 +164,20 @@ export default function OverviewPage() {
         // Map latest tax record per mobile for current year
         const taxRows: any[] = Array.isArray(taxJson?.data) ? taxJson.data : [];
         const byMobile = new Map<string, any>();
+        const recordYear = (rec: any): number => {
+          const y = Number(rec?.year);
+          if (Number.isFinite(y) && y > 1900) return y;
+          const dt = rec?.created_at || rec?.updated_at || rec?.date;
+          if (dt) {
+            const d = new Date(dt);
+            if (!isNaN(d.getTime())) return d.getFullYear();
+          }
+          return year; // fallback assume current year
+        };
         taxRows.forEach((r) => {
           const mob = normalizeMobile(r.mobile_number ?? r.mobileNumber);
           if (!mob) return;
-          if (Number(r.year) !== year) return;
+          if (recordYear(r) !== year) return;
           const prev = byMobile.get(mob);
           const curTs = r.created_at ? new Date(r.created_at).getTime() : 0;
           const prevTs = prev && prev.created_at ? new Date(prev.created_at).getTime() : -1;

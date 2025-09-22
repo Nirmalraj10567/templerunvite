@@ -191,7 +191,9 @@ function createRegistrationsRouter(db) {
       const pageSize = Math.min(100, Math.max(1, parseInt(String(req.query.pageSize || '20'), 10)));
       const search = String(req.query.search || '').trim();
 
-      const base = db('user_registrations').where('temple_id', req.user.templeId);
+      const base = db('user_registrations')
+        .where('temple_id', req.user.templeId)
+        .whereNotNull('reference_number');
       if (search) {
         base.andWhere((qb) => {
           qb.orWhere('name', 'like', `%${search}%`)
@@ -345,6 +347,7 @@ function createRegistrationsRouter(db) {
     try {
       const registrations = await db('user_registrations')
         .where('temple_id', req.user.templeId)
+        .whereNotNull('reference_number')
         .select('*');
       await exportRegistrationsToPdf(registrations, res);
     } catch (error) {
@@ -360,7 +363,9 @@ function createRegistrationsRouter(db) {
   router.get('/export/pdf', authenticateToken, async (req, res) => {
     try {
       const { search } = req.query;
-      const q = db('user_registrations').where('temple_id', req.user.templeId);
+      const q = db('user_registrations')
+        .where('temple_id', req.user.templeId)
+        .whereNotNull('reference_number');
       if (search) {
         q.andWhere((b) => {
           b.orWhere('name', 'like', `%${search}%`)
@@ -430,7 +435,9 @@ function createRegistrationsRouter(db) {
   router.get('/export/csv', authenticateToken, async (req, res) => {
     try {
       const { search } = req.query;
-      const q = db('user_registrations').where('temple_id', req.user.templeId);
+      const q = db('user_registrations')
+        .where('temple_id', req.user.templeId)
+        .whereNotNull('reference_number');
       if (search) {
         q.andWhere((b) => {
           b.orWhere('name', 'like', `%${search}%`)

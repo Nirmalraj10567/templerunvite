@@ -1,5 +1,4 @@
 const PDFDocument = require('pdfkit');
-require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -11,96 +10,53 @@ const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
 const https = require('https');
+const dotenv = require('dotenv');
+
 const app = express();
 const PORT = 4000;
-const IS_PROD = process.env.NODE_ENV === 'production';
+
+// Load environment variables from server/env BEFORE accessing process.env
+// This ensures JWT_SECRET and other vars are available.
+dotenv.config({ path: path.join(__dirname, 'env') });
 
 // Import routes
 const propertiesRouter = require('./properties');
 const ledgerRouter = require('./routes/ledger');
 
 // JWT Secret (in production, use environment variable)
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
-if (!process.env.JWT_SECRET) {
-  console.warn('[WARN] JWT_SECRET env not set. Using development fallback secret. Set JWT_SECRET in .env for production.');
-}
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-insecure-secret-change-me';
 // Ensure middleware that reads process.env.JWT_SECRET uses the same secret
-
-// ===================== TEMP DEBUG ROUTE (REMOVE AFTER USE) =====================
-// This route helps diagnose JWT verification problems in production.
-// It is guarded with a simple debug key. Set DEBUG_KEY env var before using.
-// Call example:
-//   curl -s "https://<host>/api/debug/verify-token?key=YOUR_DEBUG_KEY" \
-//     -H "Authorization: Bearer <TOKEN>" | jq .
-// IMPORTANT: Remove this route after debugging.
-app.get('/api/debug/verify-token', (req, res) => {
-  try {
-    const debugKey = req.query.key;
-    const expected = process.env.DEBUG_KEY || 'disabled';
-    if (!debugKey || debugKey !== expected) {
-      return res.status(403).json({ error: 'Forbidden: missing or invalid debug key' });
-    }
-
-    const auth = req.header('authorization') || req.header('Authorization') || '';
-    const token = (req.query.token && String(req.query.token)) ||
-                  (auth.startsWith('Bearer ') ? auth.slice(7) : null);
-    if (!token) {
-      return res.status(400).json({ error: 'No token provided. Use Authorization header or ?token=' });
-    }
-
-    const jwt = require('jsonwebtoken');
-
-    // Decode without verify
-    let decoded;
-    try {
-      decoded = jwt.decode(token, { complete: true });
-    } catch (e) {
-      decoded = { decodeError: e?.message || String(e) };
-    }
-
-    const activeSecret =  process.env.JWT_SECRET
-    const fallbackLiteral = 'your-super-secret-jwt-key-change-in-production';
-
-    const result = {
-      envSecretSet: !!process.env.JWT_SECRET,
-      usingSecretFrom: process.env.JWT_SECRET ? 'process.env.JWT_SECRET' : 'code fallback JWT_SECRET',
-      verify: { ok: false, with: null, error: null },
-      fallbackTest: { tried: false, ok: false, error: null },
-    };
-
-    try {
-      jwt.verify(token, activeSecret);
-      result.verify.ok = true;
-      result.verify.with = result.usingSecretFrom;
-    } catch (e) {
-      result.verify.error = e?.message || String(e);
-      if (activeSecret !== fallbackLiteral) {
-        result.fallbackTest.tried = true;
-        try {
-          jwt.verify(token, fallbackLiteral);
-          result.fallbackTest.ok = true;
-        } catch (e2) {
-          result.fallbackTest.error = e2?.message || String(e2);
-        }
-      }
-    }
-
-    return res.json({ decoded, ...result });
-  } catch (err) {
-    console.error('Debug verify-token error:', err);
-    return res.status(500).json({ error: 'Internal error in debug verifier' });
-  }
-});
-// =================== END TEMP DEBUG ROUTE (REMOVE AFTER USE) ====================
+process.env.JWT_SECRET = JWT_SECRET;
 
 // CORS: allow localhost and LAN IPs during development
 app.use(cors({
-  origin: true, // This allows all origins
+  origin: (origin, callback) => {
+    // Allow requests with no origin like curl or mobile apps
+    if (!origin) return callback(null, true);
+
+    const allowList = [
+      'http://localhost:3000',
+      'http://localhost:4002',
+      'http://localhost:4000',
+      'http://localhost:8081',
+      "http://192.168.1.3:8081/",
+      'http://localhost:5173',
+      'http://localhost:8080'
+    ];
+
+    const isLocalhost = allowList.includes(origin);
+    const isLan = /^http:\/\/192\.168\.[0-9]+\.[0-9]+:\d+$/.test(origin);
+
+    if (isLocalhost || isLan) {
+      return callback(null, true);
+    }
+    // Default deny
+    return callback(new Error(`CORS not allowed for origin ${origin}`));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-
 
 // Explicitly handle preflight for all routes
 app.options('*', cors());
@@ -109,22 +65,8 @@ app.use(bodyParser.json());
 // Serve static files from the project's public directory (../public)
 app.use('/public', express.static(path.join(__dirname, '../public')));
 
-// Knex config for MySQL (read settings from environment variables)
-// Required driver: mysql2
-// Expected env vars: MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE, MYSQL_TIMEZONE
-const db = knex({
-  client: 'mysql2',
-  connection: {
-    host: process.env.MYSQL_HOST || '127.0.0.1',
-    port: Number(process.env.MYSQL_PORT || 3306),
-    user: process.env.MYSQL_USER || 'root',
-    password: process.env.MYSQL_PASSWORD || 'rootroot',
-    database: process.env.MYSQL_DATABASE || 'templerun',
-    timezone: process.env.MYSQL_TIMEZONE || 'Z',
-  },
-  pool: { min: 2, max: 10 },
-});
-
+// Knex config for SQLite (database in server directory)
+const db = require('./db');
 // Provide /api/ledger/accounts for account dropdowns
 app.get('/api/ledger/accounts', authenticateToken, async (req, res) => {
   try {
@@ -230,36 +172,6 @@ const retryOnBusy = async (fn, maxRetries = 5, delay = 100) => {
 
 // Middleware to authenticate JWT token
 function authenticateToken(req, res, next) {
-  const method = req.method;
-  const url = req.originalUrl || req.url || '';
-
-  // Always allow CORS preflight
-  if (method === 'OPTIONS') {
-    return next();
-  }
-
-  // Normalize path and allowlist public endpoints
-  const pathOnly = (url.split('?')[0] || '').replace(/\/$/, '');
-  const isPublic = (
-    // Login endpoints
-    (method === 'POST' && (/^\/api\/login$/.test(pathOnly) || /^\/login$/.test(pathOnly))) ||
-    (method === 'POST' && (/^\/api\/login\/otp$/.test(pathOnly) || /^\/login\/otp$/.test(pathOnly))) ||
-    (method === 'POST' && (/^\/api\/login\/smart$/.test(pathOnly) || /^\/login\/smart$/.test(pathOnly))) ||
-    // Login mode discovery
-    (method === 'GET' && (/^\/api\/login\/mode$/.test(pathOnly) || /^\/login\/mode$/.test(pathOnly))) ||
-    // Public register
-    (method === 'POST' && (/^\/api\/register$/.test(pathOnly) || /^\/register$/.test(pathOnly))) ||
-    // Mobile events
-    (method === 'GET' && /^\/api\/mobile\/events$/.test(pathOnly)) ||
-    // Receipt/PDF endpoints that use query token
-    (method === 'GET' && /^\/api\/hall-bookings\/[0-9]+\/receipt\.pdf$/.test(pathOnly)) ||
-    (method === 'GET' && /^\/api\/(?:[^\s]+)\/receipt\.pdf$/.test(pathOnly)) ||
-    (method === 'GET' && /^\/api\/.*\.pdf$/.test(pathOnly))
-  );
-  if (isPublic) {
-    return next();
-  }
-
   const authHeader = req.header('Authorization');
   if (!authHeader) return res.status(401).json({ error: 'Access denied. No JWT provided.' });
 
@@ -272,6 +184,134 @@ function authenticateToken(req, res, next) {
     }
     req.user = user;
     next();
+  });
+
+  // Journal API endpoints for JournalLogPage and services
+  // GET /api/journal/entries - list with optional date range, account filter, pagination
+  app.get('/api/journal/entries', authenticateToken, async (req, res) => {
+    try {
+      const templeId = req.user.templeId;
+      const startDate = (req.query.startDate || '').toString().trim();
+      const endDate = (req.query.endDate || '').toString().trim();
+      const account = (req.query.account || '').toString().trim();
+      const excludeZero = req.query.excludeZero === '1' || req.query.excludeZero === 'true';
+      const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+      const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 20));
+      const offset = (page - 1) * limit;
+
+      let q = db('journal_entries').where('temple_id', templeId);
+      if (startDate) q = q.andWhere('date', '>=', startDate);
+      if (endDate) q = q.andWhere('date', '<=', endDate);
+      if (account) {
+        q = q.andWhere(builder => {
+          builder
+            .where('from_account', 'like', `%${account}%`)
+            .orWhere('to_account', 'like', `%${account}%`);
+        });
+      }
+      if (excludeZero) {
+        q = q.andWhere('amount', '>', 0);
+      }
+
+      const totalRow = await q.clone().count({ c: '*' }).first();
+      const total = Number(totalRow?.c || totalRow?.count || 0);
+
+      const rows = await q
+        .clone()
+        .orderBy('date', 'desc')
+        .orderBy('id', 'desc')
+        .limit(limit)
+        .offset(offset)
+        .select('*');
+
+      res.json({ data: rows, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } });
+    } catch (err) {
+      console.error('Error fetching /api/journal/entries:', err);
+      res.status(500).json({ error: 'Failed to fetch journal entries' });
+    }
+  });
+
+  // GET /api/journal/accounts - distinct account names seen in journal
+  app.get('/api/journal/accounts', authenticateToken, async (req, res) => {
+    try {
+      const templeId = req.user.templeId;
+      const froms = await db('journal_entries').where('temple_id', templeId).distinct('from_account as name');
+      const tos = await db('journal_entries').where('temple_id', templeId).distinct('to_account as name');
+      const list = [...froms, ...tos]
+        .map(r => r.name)
+        .filter(Boolean);
+      const uniq = Array.from(new Set(list)).sort();
+      res.json({ data: uniq.map(n => ({ name: n })) });
+    } catch (err) {
+      console.error('Error fetching /api/journal/accounts:', err);
+      res.status(500).json({ error: 'Failed to fetch accounts' });
+    }
+  });
+
+  // GET /api/journal/balance - alias of ledger balance for compatibility
+  app.get('/api/journal/balance', authenticateToken, async (req, res) => {
+    try {
+      const account = (req.query.account ? String(req.query.account) : 'CASH A/C').trim();
+      const hasJournal = await db.schema.hasTable('journal_entries');
+      if (!hasJournal) return res.json({ balance: 0, account });
+      const inflowRow = await db('journal_entries').where({ temple_id: req.user.templeId, to_account: account }).sum({ s: 'amount' }).first();
+      const outflowRow = await db('journal_entries').where({ temple_id: req.user.templeId, from_account: account }).sum({ s: 'amount' }).first();
+      const inflow = Number(inflowRow?.s || inflowRow?.sum || 0);
+      const outflow = Number(outflowRow?.s || outflowRow?.sum || 0);
+      const balance = inflow - outflow;
+      res.json({ balance, account });
+    } catch (err) {
+      console.error('Error in /api/journal/balance:', err);
+      res.status(500).json({ error: 'Failed to compute balance' });
+    }
+  });
+
+  // POST /api/journal/sync-pooja - manually sync existing pooja entries to journal
+  app.post('/api/journal/sync-pooja', authenticateToken, async (req, res) => {
+    try {
+      const hasJournal = await db.schema.hasTable('journal_entries');
+      if (!hasJournal) {
+        return res.status(400).json({ error: 'journal_entries table does not exist' });
+      }
+
+      const poojas = await db('pooja')
+        .where('temple_id', req.user.templeId)
+        .whereNotNull('amount')
+        .where('amount', '>', 0);
+
+      let created = 0;
+      let skipped = 0;
+
+      for (const pooja of poojas) {
+        const existing = await db('journal_entries')
+          .where({ reference_type: 'pooja', reference_id: pooja.id, temple_id: pooja.temple_id })
+          .first();
+
+        if (!existing) {
+          await db('journal_entries').insert({
+            date: new Date().toISOString().slice(0,10),
+            from_account: 'POOJA A/C',
+            to_account: pooja.transfer_to_account || 'INCOME A/C',
+            amount: Number(pooja.amount),
+            entry_type: 'transfer',
+            remarks: pooja.remarks || null,
+            reference_type: 'pooja',
+            reference_id: pooja.id,
+            temple_id: pooja.temple_id,
+            created_by: pooja.created_by,
+            created_at: db.fn.now(),
+          });
+          created++;
+        } else {
+          skipped++;
+        }
+      }
+
+      res.json({ success: true, created, skipped, total: poojas.length });
+    } catch (err) {
+      console.error('Error syncing pooja to journal:', err);
+      res.status(500).json({ error: 'Failed to sync pooja entries' });
+    }
   });
 }
 
@@ -350,17 +390,11 @@ const authorizeTempleAccess = (req, res, next) => {
 // Enhanced authorizePermission middleware with superadmin bypass
 const authorizePermission = (permissionId, requiredLevel = 'view') => {
   return async (req, res, next) => {
+    if (req.user.role === 'superadmin') {
+      return next();
+    }
+
     try {
-      // Superadmin bypass
-      if (req?.user?.role === 'superadmin') {
-        return next();
-      }
-
-      // Validate user context
-      if (!req?.user?.id) {
-        return res.status(401).json({ error: 'Unauthorized: missing user context' });
-      }
-
       const userPermissions = await db('user_permissions')
         .where({ user_id: req.user.id, permission_id: permissionId })
         .first();
@@ -369,45 +403,35 @@ const authorizePermission = (permissionId, requiredLevel = 'view') => {
         return res.status(403).json({ error: 'Access denied. No permission.' });
       }
 
-      // Compare access levels using a rank map
-      const levels = { view: 1, edit: 2, full: 3 };
-      const userAccessLevel = userPermissions.access_level || 'view';
-      const userRank = levels[userAccessLevel] ?? 0;
-      const requiredRank = levels[requiredLevel] ?? 1;
-      if (userRank < requiredRank) {
+      const userAccessLevel = userPermissions.access_level;
+      if (userAccessLevel !== requiredLevel && userAccessLevel !== 'full') {
         return res.status(403).json({ error: 'Access denied. Insufficient permission level.' });
       }
 
-      return next();
+      next();
     } catch (err) {
       console.error('Error authorizing permission:', err);
-      return res.status(500).json({ error: 'Database error while authorizing permission.' });
+      res.status(500).json({ error: 'Database error while authorizing permission.' });
     }
   };
 };
 
-// Now that we have the middleware, create the routers that depend on them
 const hallApprovalRouter = require('./hall-approval')({ db, authenticateToken, authorizePermission });
 
 // Mount routes
 app.use('/api/properties', propertiesRouter);
 app.use('/api/ledger', ledgerRouter);
 app.use('/api/hall-approval', hallApprovalRouter);
-// Mount hall bookings router (protected) but skip auth for receipt PDFs (handled by verifyQueryToken in route)
-try {
-  const hallBookingsRouter = require('./hallBookings')({ db });
-  const skipReceiptPdfAuth = (req, res, next) => {
-    const url = req.originalUrl || req.url || '';
-    // If this is a request to the receipt PDF, let the specific router handle JWT via query token
-    if (/\/api\/hall-bookings\/\d+\/receipt\.pdf(\?.*)?$/.test(url)) {
-      return next();
-    }
-    return authenticateToken(req, res, next);
-  };
-  app.use('/api/hall-bookings', skipReceiptPdfAuth, hallBookingsRouter);
-} catch (e) {
-  console.error('Failed to mount hall bookings router:', e);
-}
+// Mount users router (auth and user management endpoints)
+(() => {
+  try {
+    const usersRouter = require('./users')({ db, JWT_SECRET, authenticateToken });
+    app.use('/api/users', usersRouter);
+  } catch (e) {
+    console.error('Failed to mount users router:', e);
+  }
+})();
+// Hall bookings router will be mounted later with proper auth
 // Mount moon API routes (moon-phases and moon-dates)
 (() => {
   try {
@@ -842,20 +866,21 @@ app.get('/api/mobile/events', async (req, res) => {
         address: b.address || '',
         village: b.village || '',
         phone: b.phone || '',
-        amount,
+        amount: amount,
         reason: b.reason || '',
-        transfer_to_account: b.transfer_to_account || b.transferTo || null,
+        transfer_to_account: b.transfer_to_account || b.transferTo || 'INCOME A/C',
         temple_id: req.user.templeId,
         created_at: db.fn.now(),
         updated_at: db.fn.now(),
       };
+
       const [id] = await db('money_donations').insert(payload);
       const row = await db('money_donations').where({ id }).first();
 
-      // Also record a journal entry: record income flowing into CASH A/C (or selected account)
+      // Also record a journal entry: DONATION A/C -> INCOME A/C (or selected)
       try {
-        const fromAccount = 'INCOME A/C';
-        const toAccount = row.transfer_to_account || b.transferTo || 'CASH A/C';
+        const fromAccount = b.fromAccount || 'DONATION A/C';
+        const toAccount = row.transfer_to_account || b.transferTo || 'INCOME A/C';
         const hasJournal = await db.schema.hasTable('journal_entries');
         if (hasJournal) {
           await db('journal_entries').insert({
@@ -877,6 +902,7 @@ app.get('/api/mobile/events', async (req, res) => {
         console.error('Failed to insert journal entry for donation:', e);
         // Do not fail the main request
       }
+
       res.json({ success: true, data: row });
     } catch (err) {
       console.error('Error creating /api/money-donations:', err);
@@ -1105,36 +1131,23 @@ const ledgerCategoriesCompat = (() => {
       const b = req.body || {};
       const amount = Number(b.amount);
       if (!b.date) return res.status(400).json({ error: 'Date is required' });
-      if (!Number.isFinite(amount) || amount < 0) return res.status(400).json({ error: 'Amount must be a number and cannot be negative' });
+      if (!b.from_account || !b.to_account) return res.status(400).json({ error: 'Both from_account and to_account are required' });
+      // Allow zero amount; disallow negative or non-finite
+      if (!Number.isFinite(amount) || amount < 0) return res.status(400).json({ error: 'Amount cannot be negative' });
 
-      // Derive missing accounts where possible
-      const entryType = (b.entry_type || b.type || 'transfer').toString().toLowerCase();
-      // Normalize entry_type to match DB allowed set
-      let normalizedEntryType = entryType;
-      if (normalizedEntryType === 'credit') normalizedEntryType = 'income';
-      if (normalizedEntryType === 'debit') normalizedEntryType = 'expense';
-      if (!['transfer','income','expense'].includes(normalizedEntryType)) {
-        normalizedEntryType = 'transfer';
-      }
-      const from_account = b.from_account || b.name; // allow 'name' as from_account alias from legacy UI
-      let to_account = b.to_account;
-      if (!to_account) {
-        if (entryType === 'credit' || entryType === 'income') {
-          to_account = 'CASH A/C';
-        } else if (entryType === 'debit' || entryType === 'expense') {
-          to_account = 'EXPENSE A/C';
-        }
-      }
-      if (!from_account) return res.status(400).json({ error: 'from_account is required' });
-      if (!to_account) return res.status(400).json({ error: 'to_account is required' });
-      if (from_account === to_account) return res.status(400).json({ error: 'from_account and to_account cannot be the same' });
+      // Normalize entry_type to MySQL ENUM set
+      const allowedTypes = new Set(['transfer','receipt','payment','donation','adjustment']);
+      let normalizedType = (b.entry_type || '').toString().toLowerCase();
+      if (normalizedType === 'income' || normalizedType === 'credit') normalizedType = 'receipt';
+      else if (normalizedType === 'expense' || normalizedType === 'debit') normalizedType = 'payment';
+      if (!allowedTypes.has(normalizedType)) normalizedType = 'transfer';
 
       const entry = {
         date: b.date,
-        from_account,
-        to_account,
+        from_account: b.from_account,
+        to_account: b.to_account,
         amount,
-        entry_type: normalizedEntryType,
+        entry_type: normalizedType,
         remarks: b.remarks || null,
         reference_type: b.reference_type || null,
         reference_id: b.reference_id || null,
@@ -1207,95 +1220,10 @@ const ledgerCategoriesCompat = (() => {
       const countRow = await base.clone().count({ c: '*' }).first();
       const total = Number(countRow?.c || countRow?.count || 0);
       const rows = await base.clone().orderBy('date', 'desc').orderBy('id', 'desc').limit(limit).offset(offset);
-
-      // Enrich with category (under) by mapping account name -> under from legacy ledger_entries
-      let enriched = rows;
-      try {
-        const accountNames = Array.from(new Set(rows.flatMap(r => [r.from_account, r.to_account]).filter(Boolean)));
-        if (accountNames.length) {
-          const catRows = await db('ledger_entries')
-            .distinct('under as category', 'name as account')
-            .whereIn('name', accountNames)
-            .whereNotNull('under')
-            .andWhere('under', '!=', '');
-          const catMap = new Map();
-          for (const cr of catRows) {
-            if (!catMap.has(cr.account)) catMap.set(cr.account, cr.category);
-          }
-          enriched = rows.map(r => ({
-            ...r,
-            under: catMap.get(r.from_account) || null,
-          }));
-        }
-      } catch (e) {
-        // If mapping fails, return rows as-is
-        enriched = rows;
-      }
-
-      res.json({ success: true, data: enriched, pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) } });
+      res.json({ success: true, data: rows, pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) } });
     } catch (err) {
       console.error('Error fetching journal entries:', err);
       res.status(500).json({ error: 'Failed to fetch journal entries' });
-    }
-  });
-
-  // PUT /api/journal/entries/:id - update a journal entry
-  r.put('/entries/:id', authenticateToken, authorizePermission('ledger_management', 'edit'), async (req, res) => {
-    try {
-      const { id } = req.params;
-      const b = req.body || {};
-
-      // Normalize entry_type
-      const rawType = (b.entry_type || b.type || '').toString().toLowerCase();
-      let normalizedEntryType = rawType || undefined;
-      if (normalizedEntryType === 'credit') normalizedEntryType = 'income';
-      if (normalizedEntryType === 'debit') normalizedEntryType = 'expense';
-      if (normalizedEntryType && !['transfer','income','expense'].includes(normalizedEntryType)) {
-        normalizedEntryType = 'transfer';
-      }
-
-      // Build update payload (only provided fields)
-      const payload = {};
-      if (b.date) payload.date = b.date;
-      const from_account = b.from_account || b.name;
-      if (from_account) payload.from_account = from_account;
-      if (b.to_account) payload.to_account = b.to_account;
-      if (b.amount != null && b.amount !== '') {
-        const amt = Number(b.amount);
-        if (!Number.isFinite(amt) || amt < 0) return res.status(400).json({ error: 'Amount must be a number and cannot be negative' });
-        payload.amount = amt;
-      }
-      if (normalizedEntryType) payload.entry_type = normalizedEntryType;
-      if (b.remarks !== undefined) payload.remarks = b.remarks;
-      if (b.reference_type !== undefined) payload.reference_type = b.reference_type;
-      if (b.reference_id !== undefined) payload.reference_id = b.reference_id;
-
-      // Ensure record belongs to current temple
-      const existing = await db('journal_entries').where({ id }).first();
-      if (!existing) return res.status(404).json({ error: 'Entry not found' });
-      if (existing.temple_id !== req.user.templeId) return res.status(403).json({ error: 'Forbidden' });
-
-      await db('journal_entries').where({ id }).update({ ...payload });
-      const row = await db('journal_entries').where({ id }).first();
-      res.json({ success: true, data: row });
-    } catch (err) {
-      console.error('Error updating journal entry:', err);
-      res.status(500).json({ error: 'Failed to update journal entry' });
-    }
-  });
-
-  // DELETE /api/journal/entries/:id - delete a journal entry
-  r.delete('/entries/:id', authenticateToken, authorizePermission('ledger_management', 'edit'), async (req, res) => {
-    try {
-      const { id } = req.params;
-      const existing = await db('journal_entries').where({ id }).first();
-      if (!existing) return res.status(404).json({ error: 'Entry not found' });
-      if (existing.temple_id !== req.user.templeId) return res.status(403).json({ error: 'Forbidden' });
-      await db('journal_entries').where({ id }).del();
-      res.json({ success: true });
-    } catch (err) {
-      console.error('Error deleting journal entry:', err);
-      res.status(500).json({ error: 'Failed to delete journal entry' });
     }
   });
 
@@ -1792,7 +1720,7 @@ app.delete('/api/receipts/:id', authenticateToken, authorizePermission('receipts
 });
 
 // Reports: Daily aggregation
-app.get('/api/reports/daily', authenticateToken, authorizePermission('reports', 'view'), async (req, res) => {
+app.get('/api/reports/daily', authenticateToken, async (req, res) => {
   try {
     const date = (req.query.date || new Date().toISOString().slice(0,10)).toString();
     const templeId = req.user.templeId;
@@ -2173,61 +2101,200 @@ async function migrate() {
         table.index(['tax_status']);
       });
       
-      // Add property_registrations permission if it doesn't exist (MySQL compatible)
-      await db('permissions')
-        .insert({ id: 'property_registrations', name: 'Property Registrations', description: 'Manage property registrations and tax details' })
-        .onConflict('id')
-        .ignore();
+      // Add property_registrations permission if it doesn't exist
+      await db.raw(`
+        INSERT OR IGNORE INTO permissions (id, name, description)
+        VALUES ('property_registrations', 'Property Registrations', 'Manage property registrations and tax details')
+      `);
 
-      // Add pdf_settings permission if it doesn't exist (MySQL compatible)
-      await db('permissions')
-        .insert({ id: 'pdf_settings', name: 'PDF Settings', description: 'Manage receipt PDF titles and logo' })
-        .onConflict('id')
-        .ignore();
+      // Add pdf_settings permission if it doesn't exist
+      await db.raw(`
+        INSERT OR IGNORE INTO permissions (id, name, description)
+        VALUES ('pdf_settings', 'PDF Settings', 'Manage receipt PDF titles and logo')
+        VALUES ('pdf_settings', 'PDF Settings', 'Manage receipt PDF titles and logo');
+      `);
       
-      // Grant full permission to admin role (idempotent)
-      const existsAdminProp = await db('role_permissions')
-        .where({ role_id: 'admin', permission_id: 'property_registrations' })
-        .first();
-      if (!existsAdminProp) {
-        await db('role_permissions').insert({ role_id: 'admin', permission_id: 'property_registrations', access_level: 'full' });
-      }
+      // Grant full permission to admin role
+      await db.raw(`
+        INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level)
+        SELECT 'admin', 'property_registrations', 'full'
+        WHERE NOT EXISTS (
+          SELECT 1 FROM role_permissions 
+          WHERE role_id = 'admin' AND permission_id = 'property_registrations'
+        )
+      `);
       
-      // Grant view permission to member role (idempotent)
-      const existsMemberProp = await db('role_permissions')
-        .where({ role_id: 'member', permission_id: 'property_registrations' })
-        .first();
-      if (!existsMemberProp) {
-        await db('role_permissions').insert({ role_id: 'member', permission_id: 'property_registrations', access_level: 'view' });
+      // Grant view permission to member role
+      await db.raw(`
+        INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level)
+        SELECT 'member', 'property_registrations', 'view'
+        WHERE NOT EXISTS (
+          SELECT 1 FROM role_permissions 
+          WHERE role_id = 'member' AND permission_id = 'property_registrations'
+        )
+      `);
+    }
+
+    // Create users table with enhanced schema
+    if (!(await db.schema.hasTable('users'))) {
+      await db.schema.createTable('users', (table) => {
+        table.increments('id').primary();
+        table.string('mobile').notNullable().unique();
+        table.string('username').notNullable();
+        table.string('password').notNullable();
+        table.string('email');
+        table.string('full_name');
+        table.string('website_link');
+        table.string('profile_image');
+        table.string('trust_information');
+        table.integer('temple_id').notNullable().references('id').inTable('temples');
+        table.string('role').defaultTo('member'); // member, admin, superadmin
+        table.string('status').defaultTo('active'); // active, inactive, suspended
+        table.timestamp('created_at').defaultTo(db.fn.now());
+        table.timestamp('updated_at').defaultTo(db.fn.now());
+        table.timestamp('last_login');
+      });
+    } else {
+      // Check if migration for new fields is needed
+      const columns = await db.raw("PRAGMA table_info(users)");
+      const columnNames = columns.map(col => col.name);
+      
+      if (!columnNames.includes('temple_id')) {
+        console.log('Migrating users table to add temple_id and role fields...');
+        
+        // Add new columns if they don't exist
+        if (!columnNames.includes('temple_id')) {
+          await db.raw('ALTER TABLE users ADD COLUMN temple_id INTEGER DEFAULT 1');
+        }
+        if (!columnNames.includes('role')) {
+          await db.raw('ALTER TABLE users ADD COLUMN role TEXT DEFAULT "member"');
+        }
+        if (!columnNames.includes('status')) {
+          await db.raw('ALTER TABLE users ADD COLUMN status TEXT DEFAULT "active"');
+        }
+        if (!columnNames.includes('last_login')) {
+          await db.raw('ALTER TABLE users ADD COLUMN last_login DATETIME');
+        }
+        
+        console.log('Migration completed. Added new fields to users table.');
       }
     }
 
-  
-
     // Import and run user_tax_registrations table migration
-   // const createUserTaxRegistrationsTable = require('./db/migrations/createUserTaxRegistrationsTable');
-    //await createUserTaxRegistrationsTable(db);
+    const createUserTaxRegistrationsTable = require('./db/migrations/createUserTaxRegistrationsTable');
+    await createUserTaxRegistrationsTable(db);
 
     // Import and run pdf_settings table migration
-  //  const createPdfSettingsTable = require('./db/migrations/createPdfSettingsTable');
-    //await createPdfSettingsTable(db);
+    const createPdfSettingsTable = require('./db/migrations/createPdfSettingsTable');
+    await createPdfSettingsTable(db);
 
     // Import and run tax_settings table migration
-    // const createTaxSettingsTable = require('./db/migrations/createTaxSettingsTable');
-    //await createTaxSettingsTable(db);
+    const createTaxSettingsTable = require('./db/migrations/createTaxSettingsTable');
+    await createTaxSettingsTable(db);
 
     // Import and run user_settings table migration
-    //const createUserSettingsTable = require('./db/migrations/createUserSettingsTable');
-    //await createUserSettingsTable(db);
+    const createUserSettingsTable = require('./db/migrations/createUserSettingsTable');
+    await createUserSettingsTable(db);
 
     // Import and run migration to add include_previous_years to tax_settings
-   // const addIncludePreviousYearsToTaxSettings = require('./db/migrations/addIncludePreviousYearsToTaxSettings');
-    //await addIncludePreviousYearsToTaxSettings(db);
+    const addIncludePreviousYearsToTaxSettings = require('./db/migrations/addIncludePreviousYearsToTaxSettings');
+    await addIncludePreviousYearsToTaxSettings(db);
 
     // Import and run tax settings data seeder
-    //const seedTaxSettingsData = require('./db/seed/taxSettingsData');
-    //await seedTaxSettingsData(db);
+    const seedTaxSettingsData = require('./db/seed/taxSettingsData');
+    await seedTaxSettingsData(db);
 
+    // Import dummy data utilities
+    const { createDummyTaxRegistrations, createDefaultUsers } = require('./db/seed/dummyData');
+    
+    // Create default users (superadmin and admin)
+    await createDefaultUsers(db, bcrypt);
+    
+    // Create dummy tax registrations for testing
+    await createDummyTaxRegistrations(db);
+
+    // Import and run master table migrations
+    const createMasterTables = require('./db/migrations/createMasterTables');
+    await createMasterTables(db);
+
+    // Import and run master_people table migration
+    const createMasterPeopleTable = require('./db/migrations/createMasterPeopleTable');
+    await createMasterPeopleTable(db);
+
+    // Import and run master_groups table migration
+    const createMasterGroupsTable = require('./db/migrations/createMasterGroupsTable');
+    await createMasterGroupsTable(db);
+
+    // Import and run master_clans table migration
+    const createMasterClansTable = require('./db/migrations/createMasterClansTable');
+    await createMasterClansTable(db);
+
+    // Import and run master_occupations table migration
+    const createMasterOccupationsTable = require('./db/migrations/createMasterOccupationsTable');
+    await createMasterOccupationsTable(db);
+
+    // Import and run master_villages table migration
+    const createMasterVillagesTable = require('./db/migrations/createMasterVillagesTable');
+    await createMasterVillagesTable(db);
+
+    // Import and run master_educations table migration
+    const createMasterEducationsTable = require('./db/migrations/createMasterEducationsTable');
+    await createMasterEducationsTable(db);
+
+    // Import and run master_halls and master_hall_events table migrations
+    try {
+      const createMasterHallsTable = require('./db/migrations/createMasterHallsTable');
+      await createMasterHallsTable(db);
+    } catch (e) { console.warn('createMasterHallsTable migration failed:', e.message); }
+    try {
+      const createMasterHallEventsTable = require('./db/migrations/createMasterHallEventsTable');
+      await createMasterHallEventsTable(db);
+    } catch (e) { console.warn('createMasterHallEventsTable migration failed:', e.message); }
+
+    // Create user_registrations table using the modular migration
+    const createUserRegistrationsTable = require('./db/migrations/createUserRegistrationsTable');
+    await createUserRegistrationsTable(db);
+
+    // Create user_heirs table (for heirs/family details)
+    const createUserHeirsTable = require('./db/migrations/createUserHeirsTable');
+    await createUserHeirsTable(db);
+
+    // Create session_logs table
+    if (!(await db.schema.hasTable('session_logs'))) {
+      await db.schema.createTable('session_logs', (table) => {
+        table.increments('id').primary();
+        table.integer('user_id').notNullable();
+        table.timestamp('login_time').defaultTo(db.fn.now());
+        table.timestamp('logout_time');
+        table.string('ip_address').notNullable();
+        table.string('user_agent');
+        table.integer('duration_seconds');
+      });
+      console.log('Created session_logs table.');
+    }
+    
+    // Create external temple databases registry (for superadmin cross-tenant monitoring)
+    if (!(await db.schema.hasTable('external_temple_databases'))) {
+      await db.schema.createTable('external_temple_databases', (table) => {
+        table.increments('id').primary();
+        table.string('name').notNullable();
+        table.string('db_path').notNullable();
+        table.string('status').notNullable().defaultTo('active'); // active/inactive
+        table.timestamp('created_at').defaultTo(db.fn.now());
+        table.timestamp('updated_at').defaultTo(db.fn.now());
+      });
+      console.log('Created external_temple_databases table.');
+    }
+    
+    // Create simple key-value system settings table
+    if (!(await db.schema.hasTable('system_settings'))) {
+      await db.schema.createTable('system_settings', (table) => {
+        table.string('key').primary();
+        table.text('value');
+        table.timestamp('updated_at').defaultTo(db.fn.now());
+      });
+      console.log('Created system_settings table.');
+    }
     // Seed default year-end flags if missing
     const ensureSetting = async (key, defaultValue) => {
       const row = await db('system_settings').where({ key }).first();
@@ -2238,45 +2305,6 @@ async function migrate() {
     await ensureSetting('year_end_enforced', false);
     await ensureSetting('year_end_locked', false);
     
-    // Ensure journal_entries table exists (MySQL-compatible)
-    if (!(await db.schema.hasTable('journal_entries'))) {
-      await db.schema.createTable('journal_entries', (table) => {
-        table.increments('id').primary();
-        table.date('date').notNullable();
-        table.string('from_account').notNullable();
-        table.string('to_account').notNullable();
-        table.decimal('amount', 12, 2).notNullable();
-        // Restrict to allowed values
-        try {
-          table.enu('entry_type', ['transfer', 'income', 'expense']).notNullable().defaultTo('transfer');
-        } catch (e) {
-          table.string('entry_type').notNullable().defaultTo('transfer');
-        }
-        table.text('remarks');
-        table.string('reference_type');
-        table.integer('reference_id');
-        table.integer('temple_id').notNullable();
-        table.integer('created_by').notNullable();
-        table.timestamp('created_at').defaultTo(db.fn.now());
-        table.index(['temple_id']);
-        table.index(['date']);
-        table.index(['from_account']);
-        table.index(['to_account']);
-      });
-      console.log('Created journal_entries table.');
-    }
-    // Ensure entry_type column accepts expected values in MySQL
-    try {
-      await db.raw("ALTER TABLE journal_entries MODIFY entry_type ENUM('transfer','income','expense') NOT NULL DEFAULT 'transfer'");
-    } catch (e) {
-      try {
-        // Fallback: ensure it is at least VARCHAR if ENUM alter not supported
-        await db.raw("ALTER TABLE journal_entries MODIFY entry_type VARCHAR(20) NOT NULL DEFAULT 'transfer'");
-      } catch (_) {
-        // Ignore if cannot alter; normalization in code will still keep values safe
-      }
-    }
-
     // Ensure ledger_entries table and add registration_id linkage
     if (!(await db.schema.hasTable('ledger_entries'))) {
       await db.schema.createTable('ledger_entries', (table) => {
@@ -2356,8 +2384,157 @@ async function migrate() {
       console.log('Enhanced permissions migration skipped (file not found or already applied):', migrationErr.message);
     }
 
-   
+    // Create marriage_registers table
+    if (!(await db.schema.hasTable('marriage_registers'))) {
+      await db.schema.createTable('marriage_registers', (table) => {
+        table.increments('id').primary();
+        table.integer('temple_id').notNullable().defaultTo(1);
+        table.string('register_no');
+        table.string('date');
+        table.string('time');
+        table.string('event'); // ceremony type
+        table.string('groom_name');
+        table.string('bride_name');
+        table.string('address');
+        table.string('village');
+        table.string('guardian_name');
+        table.string('witness_one');
+        table.string('witness_two');
+        table.string('remarks');
+        table.timestamp('created_at').defaultTo(db.fn.now());
+        table.timestamp('updated_at').defaultTo(db.fn.now());
+      });
+      console.log('Created marriage_registers table.');
+    }
+
+    // Create marriage_hall_bookings table
+    if (!(await db.schema.hasTable('marriage_hall_bookings'))) {
+      await db.schema.createTable('marriage_hall_bookings', (table) => {
+        table.increments('id').primary();
+        table.integer('temple_id').notNullable().defaultTo(1);
+        table.string('register_no');
+        table.string('date');
+        table.string('time');
+        table.string('event');
+        table.string('subdivision');
+        table.string('name');
+        table.string('address');
+        table.string('village');
+        table.string('mobile');
+        table.string('advance_amount');
+        table.string('total_amount');
+        table.string('balance_amount');
+        table.string('remarks');
+        table.timestamp('created_at').defaultTo(db.fn.now());
+        table.timestamp('updated_at').defaultTo(db.fn.now());
+      });
+      console.log('Created marriage_hall_bookings table.');
+    }
     
+    // Add approval system fields to marriage_hall_bookings
+    try {
+      await db.raw("ALTER TABLE marriage_hall_bookings ADD COLUMN status TEXT DEFAULT 'approved' CHECK (status IN ('pending', 'approved', 'rejected', 'cancelled'))");
+    } catch (err) {
+      // Column might already exist, ignore error
+    }
+
+    try {
+      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN submitted_by_mobile TEXT');
+    } catch (err) {
+      // Column might already exist, ignore error
+    }
+
+    try {
+      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
+    } catch (err) {
+      // Column might already exist, ignore error
+    }
+
+    try {
+      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN approved_by INTEGER REFERENCES users(id) ON DELETE SET NULL');
+    } catch (err) {
+      // Column might already exist, ignore error
+    }
+
+    try {
+      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN approved_at TIMESTAMP');
+    } catch (err) {
+      // Column might already exist, ignore error
+    }
+
+    try {
+      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN rejection_reason TEXT');
+    } catch (err) {
+      // Column might already exist, ignore error
+    }
+
+    try {
+      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN admin_notes TEXT');
+    } catch (err) {
+      // Column might already exist, ignore error
+    }
+
+    // Add transfer_to_account for ledger account mapping
+    try {
+      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN transfer_to_account TEXT');
+    } catch (err) {
+      // Column might already exist, ignore error
+    }
+
+    // Add hall_id and event_id references to master tables (nullable for backward compat)
+    try {
+      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN hall_id INTEGER');
+    } catch (err) { /* ignore if exists */ }
+    try {
+      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN event_id INTEGER');
+    } catch (err) { /* ignore if exists */ }
+
+    // Create hall_approval_logs table
+    if (!(await db.schema.hasTable('hall_approval_logs'))) {
+      await db.schema.createTable('hall_approval_logs', (table) => {
+        table.increments('id').primary();
+        table.integer('booking_id').notNullable().references('id').inTable('marriage_hall_bookings').onDelete('CASCADE');
+        table.string('action').notNullable();
+        table.integer('performed_by').references('id').inTable('users').onDelete('SET NULL');
+        table.timestamp('performed_at').defaultTo(db.fn.now());
+        table.text('notes');
+        table.string('old_status');
+        table.string('new_status');
+        table.index(['booking_id']);
+        table.index(['action']);
+      });
+      console.log('Created hall_approval_logs table.');
+    }
+
+    // Add permissions for hall approval system
+    await db.raw(`
+      INSERT OR IGNORE INTO permissions (id, name, description) VALUES 
+      ('hall_approval', 'Hall Approval', 'Approve or reject hall booking requests from mobile users'),
+      ('hall_mobile_submit', 'Hall Mobile Submit', 'Submit hall booking requests from mobile app')
+    `);
+
+    // Grant permissions to roles
+    await db.raw(`
+      INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level) VALUES
+      ('admin', 'hall_approval', 'full'),
+      ('superadmin', 'hall_approval', 'full'),
+      ('member', 'hall_mobile_submit', 'full')
+    `);
+
+    // Ensure ledger_categories table exists (for Manage Categories)
+    if (!(await db.schema.hasTable('ledger_categories'))) {
+      await db.schema.createTable('ledger_categories', (table) => {
+        table.increments('id').primary();
+        table.string('value').notNullable();
+        table.string('label').notNullable();
+        table.timestamp('created_at').defaultTo(db.fn.now());
+        table.timestamp('updated_at');
+        table.unique(['value']);
+        table.unique(['label']);
+      });
+      console.log('Created ledger_categories table.');
+    }
+
     // Seed ledger_categories from existing ledger_entries.under (idempotent)
     try {
       const existingValues = new Set((await db('ledger_categories').select('value')).map(r => r.value));
@@ -2444,35 +2621,52 @@ async function migrate() {
       console.log('Created annadhanam table.');
       
       // Add annadhanam_registrations permission if it doesn't exist
-      await db('permissions')
-        .insert({ id: 'annadhanam_registrations', name: 'Annadhanam Registrations', description: 'Manage annadhanam registrations and food distribution' })
-        .onConflict('id')
-        .ignore();
+      await db.raw(`
+        INSERT OR IGNORE INTO permissions (id, name, description)
+        VALUES ('annadhanam_registrations', 'Annadhanam Registrations', 'Manage annadhanam registrations and food distribution')
+      `);
       
-      // Grant full permission to admin role (idempotent)
-      if (!await db('role_permissions').where({ role_id: 'admin', permission_id: 'annadhanam_registrations' }).first()) {
-        await db('role_permissions').insert({ role_id: 'admin', permission_id: 'annadhanam_registrations', access_level: 'full' });
-      }
+      // Grant full permission to admin role
+      await db.raw(`
+        INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level)
+        SELECT 'admin', 'annadhanam_registrations', 'full'
+        WHERE NOT EXISTS (
+          SELECT 1 FROM role_permissions 
+          WHERE role_id = 'admin' AND permission_id = 'annadhanam_registrations'
+        )
+      `);
       
-      // Grant view permission to member role (idempotent)
-      if (!await db('role_permissions').where({ role_id: 'member', permission_id: 'annadhanam_registrations' }).first()) {
-        await db('role_permissions').insert({ role_id: 'member', permission_id: 'annadhanam_registrations', access_level: 'view' });
-      }
+      // Grant view permission to member role
+      await db.raw(`
+        INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level)
+        SELECT 'member', 'annadhanam_registrations', 'view'
+        WHERE NOT EXISTS (
+          SELECT 1 FROM role_permissions 
+          WHERE role_id = 'member' AND permission_id = 'annadhanam_registrations'
+        )
+      `);
       
-      // Grant full permission to superadmin role (idempotent)
-      if (!await db('role_permissions').where({ role_id: 'superadmin', permission_id: 'annadhanam_registrations' }).first()) {
-        await db('role_permissions').insert({ role_id: 'superadmin', permission_id: 'annadhanam_registrations', access_level: 'full' });
-      }
+      // Grant full permission to superadmin role
+      await db.raw(`
+        INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level)
+        SELECT 'superadmin', 'annadhanam_registrations', 'full'
+        WHERE NOT EXISTS (
+          SELECT 1 FROM role_permissions 
+          WHERE role_id = 'superadmin' AND permission_id = 'annadhanam_registrations'
+        )
+      `);
 
-      // Grant specific permission to user with mobile 9999999999 (best effort)
-      try {
-        const u = await db('users').where({ mobile: '9999999999' }).first();
-        if (u) {
-          if (!await db('user_permissions').where({ user_id: u.id, permission_id: 'annadhanam_registrations' }).first()) {
-            await db('user_permissions').insert({ user_id: u.id, permission_id: 'annadhanam_registrations', access_level: 'full' });
-          }
-        }
-      } catch {}
+      // Grant specific permission to user with mobile 9999999999
+      await db.raw(`
+        INSERT OR IGNORE INTO user_permissions (user_id, permission_id, access_level)
+        SELECT u.id, 'annadhanam_registrations', 'full'
+        FROM users u
+        WHERE u.mobile = '9999999999'
+        AND NOT EXISTS (
+          SELECT 1 FROM user_permissions up
+          WHERE up.user_id = u.id AND up.permission_id = 'annadhanam_registrations'
+        )
+      `);
 
       // Insert sample test data
       await db.raw(`
@@ -2551,35 +2745,31 @@ async function migrate() {
     }
 
     // Add permissions for annadhanam approval system
-    await db('permissions')
-      .insert([
-        { id: 'annadhanam_approval', name: 'Annadhanam Approval', description: 'Approve or reject annadhanam requests from mobile users' },
-        { id: 'annadhanam_mobile_submit', name: 'Annadhanam Mobile Submit', description: 'Submit annadhanam requests from mobile app' }
-      ])
-      .onConflict('id')
-      .ignore();
+    await db.raw(`
+      INSERT OR IGNORE INTO permissions (id, name, description) VALUES 
+      ('annadhanam_approval', 'Annadhanam Approval', 'Approve or reject annadhanam requests from mobile users'),
+      ('annadhanam_mobile_submit', 'Annadhanam Mobile Submit', 'Submit annadhanam requests from mobile app')
+    `);
 
-    // Grant permissions to roles (idempotent)
-    const roleSeeds = [
-      { role_id: 'admin', permission_id: 'annadhanam_approval', access_level: 'full' },
-      { role_id: 'superadmin', permission_id: 'annadhanam_approval', access_level: 'full' },
-      { role_id: 'member', permission_id: 'annadhanam_mobile_submit', access_level: 'full' },
-    ];
-    for (const r of roleSeeds) {
-      if (!await db('role_permissions').where(r).first()) {
-        await db('role_permissions').insert(r);
-      }
-    }
+    // Grant permissions to roles
+    await db.raw(`
+      INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level) VALUES
+      ('admin', 'annadhanam_approval', 'full'),
+      ('superadmin', 'annadhanam_approval', 'full'),
+      ('member', 'annadhanam_mobile_submit', 'full')
+    `);
 
     // Grant specific permission to user with mobile 9999999999
-    try {
-      const u2 = await db('users').where({ mobile: '9999999999' }).first();
-      if (u2) {
-        if (!await db('user_permissions').where({ user_id: u2.id, permission_id: 'annadhanam_mobile_submit' }).first()) {
-          await db('user_permissions').insert({ user_id: u2.id, permission_id: 'annadhanam_mobile_submit', access_level: 'full' });
-        }
-      }
-    } catch {}
+    await db.raw(`
+      INSERT OR IGNORE INTO user_permissions (user_id, permission_id, access_level)
+      SELECT u.id, 'annadhanam_mobile_submit', 'full'
+      FROM users u
+      WHERE u.mobile = '9999999999'
+      AND NOT EXISTS (
+        SELECT 1 FROM user_permissions up
+        WHERE up.user_id = u.id AND up.permission_id = 'annadhanam_mobile_submit'
+      )
+    `);
 
     console.log('Migration completed successfully!');
   } catch (err) {
@@ -2588,23 +2778,15 @@ async function migrate() {
   }
 }
 
-// Control running of migrations via environment
-// By default, migrations run in development, and are skipped in production
-// Set RUN_MIGRATIONS=true to force running in any environment
-const shouldRunMigrations = process.env.RUN_MIGRATIONS === 'true' || (!IS_PROD && process.env.RUN_MIGRATIONS !== 'false');
-if (shouldRunMigrations) {
-  console.log('Starting migration...');
-  // Skip automatic knex migrations: using custom migrate() for compatibility
-  // await db.migrate.latest();
-  migrate().then(() => {
-    console.log('Migrations completed.');
-  }).catch(err => {
-    console.error('Migration failed:', err);
-  });
-} else {
-  console.log('Skipping migrations (set RUN_MIGRATIONS=true to enable).');
-}
-console.log('Continuing with server startup...');
+console.log('Starting migration...');
+// Skip automatic migrations
+// await db.migrate.latest();
+migrate().then(() => {
+  console.log('Migration completed, starting server...');
+}).catch(err => {
+  console.error('Migration failed:', err);
+  console.log('Continuing with server startup...');
+});
 
 // Mount users router (provides /api/login for username/mobile + password, and protects other user routes)
 try {
@@ -3153,20 +3335,8 @@ app.post('/api/members',
               await trx('user_permissions')
                 .insert(permissionRecords)
                 .onConflict(['user_id', 'permission_id'])
-                .merge({
-                  access_level: trx.raw('excluded.access_level'),
-                  updated_at: trx.fn.now(),
-                });
+                .merge(['access_level', 'updated_at']);
             }
-          } else if (permissionLevel) {
-            // Backward compatibility: if only a single permission level is provided, set it for member_entry
-            await trx('user_permissions').insert({
-              user_id: createdUser.id,
-              permission_id: 'member_entry',
-              access_level: permissionLevel,
-              created_at: db.fn.now(),
-              updated_at: db.fn.now()
-            });
           }
         }
         
@@ -3241,7 +3411,9 @@ app.post('/api/admin/grant-all-permissions', authenticateToken, authorizeRole(['
 // Member list endpoint with pure permission check
 app.get('/api/members', 
   authenticateToken, 
-  authorizePermission('member_view', 'view'), 
+  authorizePermission('member_entry', 'full') || 
+  authorizePermission('member_view', 'view')
+  , 
   async (req, res) => {
     try {
       const members = await db('user_registrations')
@@ -3701,9 +3873,21 @@ const marriagesRouter = createMarriagesRouter({
 });
 app.use('/api/marriages', marriagesRouter);
 
-// Mount hall bookings router
+// Mount hall bookings router with special PDF receipt handling
 const hallBookingsRouter = require('./hallBookings')({ db });
-app.use('/api/hall-bookings', authenticateToken, authorizeRole(['admin','superadmin']), hallBookingsRouter);
+const skipReceiptPdfAuth = (req, res, next) => {
+  const url = req.originalUrl || req.url || '';
+  // If this is a request to the receipt PDF, let the specific router handle JWT via query token
+  if (/\/api\/hall-bookings\/\d+\/receipt\.pdf(\?.*)?$/.test(url)) {
+    return next();
+  }
+  return authenticateToken(req, res, next);
+};
+app.use('/api/hall-bookings', skipReceiptPdfAuth, authorizeRole(['admin','superadmin']), hallBookingsRouter);
+
+// Mount journal router
+const journalRouter = require('./routes/journal')({ db });
+app.use('/api/journal', authenticateToken, authorizeRole(['admin','superadmin']), journalRouter);
 
 // Mount donations router
 const donationsRouter = require('./donations')({ db });
@@ -3713,6 +3897,7 @@ app.use('/api/donations', authenticateToken, donationsRouter);
 const annadhanamRouter = require('./annadhanam')({ db });
 app.use('/api/annadhanam', authenticateToken, authorizePermission('annadhanam_registrations', 'view'), annadhanamRouter);
 
+// ... (rest of the code remains the same)
 // Mount pooja router
 const poojaRouter = require('./pooja')({ db });
 app.use('/api/pooja', authenticateToken, authorizePermission('pooja_registrations', 'view'), poojaRouter);
@@ -3785,12 +3970,12 @@ const upload = multer({
 
 app.use('/api/registrations', upload.single('photo'), registrationsRouter);
 
+// Mount tax registrations router (ensure correct index.js is used)
+const taxRegistrationsRouter = require('./components/tax-registrations/index.js');
+app.use('/api/tax-registrations', taxRegistrationsRouter);
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 }).on('error', (err) => {
   console.error('Server startup error:', err);
 });
-
-// Mount tax registrations router (ensure correct index.js is used)
-const taxRegistrationsRouter = require('./components/tax-registrations/index.js');
-app.use('/api/tax-registrations', taxRegistrationsRouter);

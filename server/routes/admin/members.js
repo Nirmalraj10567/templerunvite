@@ -29,6 +29,30 @@ function createAdminMembersRouter({ db, authenticateToken, authorizePermission, 
     }
   });
 
+  // Fetch a single member with current permissions (admins or member_entry:full)
+  router.get('/:id', authenticateToken, async (req, res, next) => {
+    if (['admin', 'superadmin'].includes(req.user?.role)) return next();
+    return authorizePermission('member_entry', 'full')(req, res, next);
+  }, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const user = await db('users')
+        .select('id', 'full_name', 'username', 'mobile', 'email', 'role', 'status')
+        .where({ id })
+        .first();
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
+      const perms = await db('user_permissions')
+        .where({ user_id: id })
+        .select('permission_id as id', 'access_level as access');
+
+      res.json({ success: true, data: { user, customPermissions: perms } });
+    } catch (err) {
+      console.error('Error fetching member:', err);
+      res.status(500).json({ error: 'Failed to fetch member' });
+    }
+  });
+
   // Block/Unblock member (superadmin only)
   router.put('/:id/block', authenticateToken, authorizePermission('member_management', 'edit'), async (req, res) => {
     try {
@@ -74,28 +98,46 @@ function createAdminMembersRouter({ db, authenticateToken, authorizePermission, 
     }
   });
 
-  // Update member details and permissions (superadmin only)
-  router.put('/:id', authenticateToken, authorizeRole(['superadmin']), async (req, res) => {
+  // Update member details and permissions (admins or member_management:edit)
+  router.put('/:id', authenticateToken, async (req, res, next) => {
+    // If admin/superadmin, allow
+    if (['admin', 'superadmin'].includes(req.user?.role)) return next();
+    // Else require explicit permission
+    return authorizePermission('member_entry', 'full')(req, res, next);
+  }, async (req, res) => {
     const { id } = req.params;
     const { email, fullName, role, status, customPermissions } = req.body;
   
     try {
+      // Resolve target users.id even if a registration id is sent
+      const userRow = await db('users')
+        .leftJoin('user_registrations', 'users.mobile', 'user_registrations.mobile_number')
+        .where('user_registrations.id', id)
+        .orWhere('users.id', id)
+        .select('users.id')
+        .first();
+      if (!userRow) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      const userId = userRow.id;
+
+      // Only update fields that are explicitly provided to avoid NULL constraint errors
       const updateData = {
-        email: email || null,
-        full_name: fullName || null,
-        role: role || 'member',
-        status: status || 'active',
         updated_at: db.fn.now()
       };
+      if (email !== undefined) updateData.email = email;
+      if (fullName !== undefined) updateData.full_name = fullName;
+      if (role !== undefined) updateData.role = role;
+      if (status !== undefined) updateData.status = status;
   
-      await db('users').where('id', id).update(updateData);
+      await db('users').where('id', userId).update(updateData);
   
       // Update permissions if provided
       if (customPermissions && Array.isArray(customPermissions)) {
-        await db('user_permissions').where('user_id', id).del();
+        await db('user_permissions').where('user_id', userId).del();
         
         const permissionRecords = customPermissions.map(perm => ({
-          user_id: id,
+          user_id: userId,
           permission_id: perm.id,
           access_level: perm.access
         }));

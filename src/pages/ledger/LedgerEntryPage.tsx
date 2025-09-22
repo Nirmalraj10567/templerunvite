@@ -59,7 +59,9 @@ export default function LedgerEntryPage() {
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
+  const categoryInputRef = useRef<HTMLButtonElement | null>(null);
   
   const { 
     register, 
@@ -67,7 +69,7 @@ export default function LedgerEntryPage() {
     setValue, 
     watch, 
     reset,
-    formState: { errors } 
+    formState: { errors, isDirty } 
   } = useForm<LedgerEntry>({
     defaultValues: {
       type: 'credit',
@@ -110,20 +112,11 @@ export default function LedgerEntryPage() {
     }
   };
 
-  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
 
-  // Watch form values to detect changes
+  // Watch common fields
   const watchedValues = watch();
   const watchType = watch('type');
-  
-  useEffect(() => {
-    const hasChanges = Object.keys(watchedValues).some(key => {
-      if (key === 'date' || key === 'type' || key === 'currentBalance') return false;
-      const value = watchedValues[key as keyof LedgerEntry];
-      return value !== undefined && value !== '' && value !== 0;
-    });
-    setIsDirty(hasChanges);
-  }, [watchedValues]);
 
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
@@ -199,7 +192,7 @@ export default function LedgerEntryPage() {
     fetchCategories();
   }, []);
 
-  // No to_account field: backend derives sensible default based on type
+  // Journal API requires both from_account and to_account; map counterpart as CASH A/C depending on type
 
   const onSubmit = async (data: LedgerEntry) => {
     setIsSubmitting(true);
@@ -208,11 +201,23 @@ export default function LedgerEntryPage() {
       if (!data.name) {
         throw new Error(t('Name is required', 'பெயர் தேவை'));
       }
+      if (Number(data.amount) < 0) {
+        throw new Error(t('Amount cannot be negative', 'தொகை மைனஸாக இருக்கக்கூடாது'));
+      }
       const derivedFrom = data.name;
+      const cashAccount = 'CASH A/C';
+      const debitAccount = 'DEBIT A/C';
+      // Mapping per requirement:
+      // - Credit: to_account = CASH A/C
+      // - Debit: to_account = DEBIT A/C
+      // In both cases, from_account = entered name
+      const fromAccount = derivedFrom;
+      const toAccount = (data.type === 'credit') ? cashAccount : debitAccount;
 
       const entryData = {
         date: data.date,
-        from_account: derivedFrom,
+        from_account: fromAccount,
+        to_account: toAccount,
         amount: Number(data.amount),
         remarks: data.note,
         type: data.type,
@@ -349,7 +354,7 @@ export default function LedgerEntryPage() {
     });
     setSelectedCategory(null);
     setIsCategoryOpen(false);
-    setIsDirty(false);
+    // isDirty comes from react-hook-form; no manual reset needed
   };
 
   const handleSaveAndNew = async (data: LedgerEntry) => {
@@ -449,6 +454,7 @@ export default function LedgerEntryPage() {
                     <Button
                       variant="outline"
                       role="combobox"
+                      ref={categoryInputRef}
                       className={cn(
                         "w-full justify-between text-xs h-8",
                         !watch('under') && "text-muted-foreground"
@@ -539,7 +545,7 @@ export default function LedgerEntryPage() {
                   <Input
                     type="number"
                     id="amount"
-                    className={inputClass}
+                    className={cn(inputClass, "pl-6 text-xs h-8")}
                     {...registerWithKeyNav('amount', { 
                       min: { 
                         value: 0, 
@@ -547,7 +553,9 @@ export default function LedgerEntryPage() {
                       }
                     })}
                     placeholder="0.00"
-                    className="pl-6 text-xs h-8"
+                    min={0}
+                    step="0.01"
+                    inputMode="decimal"
                   />
                 </div>
                 {errors.amount && <p className="text-xs text-red-500">{errors.amount.message}</p>}
@@ -613,10 +621,9 @@ export default function LedgerEntryPage() {
                   <Label className="text-xs">{t('Notes', 'குறிப்பு')}</Label>
                   <Textarea
                     id="note"
-                    className={inputClass}
+                    className={cn(inputClass, "resize-none text-xs")}
                     {...registerWithKeyNav('note')}
                     rows={2}
-                    className="resize-none text-xs"
                   />
                 </div>
               </div>

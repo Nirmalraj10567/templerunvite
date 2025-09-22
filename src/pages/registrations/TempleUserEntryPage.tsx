@@ -3,7 +3,6 @@ import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-// Removed Modal import as PDF print is not used on this page
 
 type Heir = {
   id: number;
@@ -235,6 +234,7 @@ export default function TempleUserEntryPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [existingPhotoUrl, setExistingPhotoUrl] = useState<string | null>(null);
+
   // Removed print-related state
 
   // Master data
@@ -358,9 +358,120 @@ export default function TempleUserEntryPage() {
         console.error('Failed to load registration for edit', e);
       }
     };
-
     loadForEdit();
   }, [editId, token, today]);
+
+  // Helper Function: Format Mobile Number
+  // This is a basic formatter. It strips all non-digits and then limits to 10 digits.
+  // You can enhance it to add spaces or dashes (e.g., "123 456 7890") if desired.
+  const formatMobileNumber = (value: string): string => {
+    const digitsOnly = value.replace(/\D/g, '');
+    return digitsOnly.slice(0, 10);
+  };
+
+  // Helper Function: Format Aadhaar Number
+  // Formats as XXXX-XXXX-XXXX as the user types.
+  const formatAadhaarNumber = (value: string): string => {
+    const digitsOnly = value.replace(/\D/g, '');
+    if (digitsOnly.length <= 4) {
+      return digitsOnly;
+    } else if (digitsOnly.length <= 8) {
+      return `${digitsOnly.slice(0, 4)}-${digitsOnly.slice(4)}`;
+    } else {
+      return `${digitsOnly.slice(0, 4)}-${digitsOnly.slice(4, 8)}-${digitsOnly.slice(8, 12)}`;
+    }
+  };
+
+  // Helper Function: Handle Field Change
+  // A generic handler for most input fields.
+  const handleFieldChange = (field: keyof typeof newUser, value: string | number) => {
+    setNewUser((prev) => ({ ...prev, [field]: value }));
+    if (errors[field as string]) {
+      setErrors((prev) => ({ ...prev, [field as string]: '' }));
+    }
+  };
+
+  // Helper Function: Validate Form
+  // Performs basic validation. You should expand this based on your requirements.
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (!newUser.date) newErrors.date = t[language as 'tamil' | 'english'].errors.required;
+    if (!newUser.mobileNumber || newUser.mobileNumber.length !== 10) newErrors.mobileNumber = t[language as 'tamil' | 'english'].errors.required;
+    if (!newUser.name) newErrors.name = t[language as 'tamil' | 'english'].errors.required;
+    if (!newUser.fatherName) newErrors.fatherName = t[language as 'tamil' | 'english'].errors.required;
+    if (!newUser.education) newErrors.education = t[language as 'tamil' | 'english'].errors.required;
+    if (!newUser.occupation) newErrors.occupation = t[language as 'tamil' | 'english'].errors.required;
+    if (!newUser.address) newErrors.address = t[language as 'tamil' | 'english'].errors.required;
+
+    // Validate heirs if the section is visible or if there are heirs
+    if (newUser.heirs && newUser.heirs.length > 0) {
+      newUser.heirs.forEach((heir, index) => {
+        if (!heir.name) {
+          newErrors[`heir_${index}_name`] = t[language as 'tamil' | 'english'].errors.required;
+        }
+        if (!heir.race) {
+          newErrors[`heir_${index}_race`] = t[language as 'tamil' | 'english'].errors.required;
+        }
+      });
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Helper Function: Clear Form
+  // This resets the form and also clears any messages.
+  const clearForm = () => {
+    setNewUser({
+      receiptNumber: '',
+      date: today,
+      mobileNumber: '',
+      name: '',
+      alternativeName: '',
+      wifeName: '',
+      fatherName: '',
+      address: '',
+      postalCode: '',
+      year: new Date().getFullYear().toString(),
+      amount: '',
+      amountPaid: '',
+      donation: '',
+      totalAmount: '',
+      education: '',
+      occupation: '',
+      aadhaarNumber: '',
+      clan: '',
+      group: '',
+      maleHeirs: 0,
+      femaleHeirs: 0,
+      outstandingAmount: '',
+      photo: null,
+      heirs: [],
+    });
+    setErrors({});
+    setErr(null);
+    setMsg(null);
+    setExistingPhotoUrl(null);
+    // Optionally, you could call `fetchNextRef()` here if you want to pre-fill a new ref number.
+  };
+
+  // Helper Function: Fetch Next Reference Number
+  // This is a placeholder. You need to implement the actual API call.
+  const fetchNextRef = async () => {
+    if (!token || !user?.templeId) return;
+    try {
+      const res = await fetch(`/api/registrations/next-reference?templeId=${user.templeId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setNewUser((prev) => ({ ...prev, receiptNumber: data.nextReference || '' }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch next reference number', error);
+    }
+  };
 
   // Handle mobile with simple formatting; lookup can be added later if needed
   const handleMobileChange = (value: string) => {
@@ -474,8 +585,12 @@ export default function TempleUserEntryPage() {
       if (!res.ok) throw new Error(data?.error || 'Failed');
       if (!isEdit) {
         const ref = data?.reference_number as string | undefined;
-        if (ref) setNewUser(prev => ({ ...prev, receiptNumber: ref }));
+        // Show success message first, then clear the form fields while keeping the message visible
         setMsg(t[language as 'tamil' | 'english'].success.saved);
+        if (ref) {
+          // If backend sent a ref, we can briefly show it in message; form will reset anyway
+        }
+        resetFormFieldsWithoutClearingMessage();
       } else {
         setMsg(t[language as 'tamil' | 'english'].success.updated);
       }
@@ -486,74 +601,8 @@ export default function TempleUserEntryPage() {
     }
   };
 
-  const handleFieldChange = (field: string, value: any) => {
-    setNewUser((prev) => ({ ...prev, [field]: value }));
-    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: '' }));
-  };
-
-  const formatMobileNumber = (value: string) => {
-    const clean = value.replace(/\D/g, '').slice(0, 10);
-    if (clean.length >= 6) return `${clean.slice(0, 3)}-${clean.slice(3, 6)}-${clean.slice(6)}`;
-    if (clean.length >= 3) return `${clean.slice(0, 3)}-${clean.slice(3)}`;
-    return clean;
-  };
-
-  const formatAadhaarNumber = (value: string) => {
-    const clean = value.replace(/\D/g, '').slice(0, 12);
-    if (clean.length >= 8) return `${clean.slice(0, 4)}-${clean.slice(4, 8)}-${clean.slice(8)}`;
-    if (clean.length >= 4) return `${clean.slice(0, 4)}-${clean.slice(4)}`;
-    return clean;
-  };
-
-  // Prefill receipt number from backend helper
-  const fetchNextRef = React.useCallback(async () => {
-    try {
-      if (!token || editId) return;
-      const params = new URLSearchParams();
-      if (newUser.date) params.set('date', newUser.date);
-      const res = await fetch(`/api/registrations/next-ref?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      const next = data?.reference_number;
-      if (res.ok && next) {
-        setNewUser((prev) => ({ ...prev, receiptNumber: next }));
-      }
-    } catch {}
-  }, [token, editId, newUser.date]);
-
-  useEffect(() => {
-    fetchNextRef();
-  }, [fetchNextRef]);
-
-  const validateForm = () => {
-    const e: Record<string, string> = {};
-    if (!newUser.date.trim()) 
-      e.date = `${t[language as 'tamil' | 'english'].date} ${t[language as 'tamil' | 'english'].errors.required}`;
-    if (!newUser.name.trim()) 
-      e.name = `${t[language as 'tamil' | 'english'].name} ${t[language as 'tamil' | 'english'].errors.required}`;
-    if (!newUser.fatherName.trim()) 
-      e.fatherName = `${t[language as 'tamil' | 'english'].fatherName} ${t[language as 'tamil' | 'english'].errors.required}`;
-    const cleanMobile = newUser.mobileNumber.replace(/\D/g, '');
-    if (!cleanMobile || cleanMobile.length !== 10) 
-      e.mobileNumber = `${t[language as 'tamil' | 'english'].mobileNumber} (10 digits required)`;
-    if (!newUser.address.trim()) 
-      e.address = `${t[language as 'tamil' | 'english'].address} ${t[language as 'tamil' | 'english'].errors.required}`;
-    if (!newUser.education.trim()) 
-      e.education = `${t[language as 'tamil' | 'english'].educationLabel} ${t[language as 'tamil' | 'english'].errors.required}`;
-    if (!newUser.occupation.trim()) 
-      e.occupation = `${t[language as 'tamil' | 'english'].occupationLabel} ${t[language as 'tamil' | 'english'].errors.required}`;
-    newUser.heirs?.forEach((h, i) => {
-      if (!h.name.trim()) 
-        e[`heir_${i}_name`] = `${t[language as 'tamil' | 'english'].heirsTable.name} ${t[language as 'tamil' | 'english'].errors.required}`;
-      if (!h.race.trim()) 
-        e[`heir_${i}_race`] = `${t[language as 'tamil' | 'english'].heirsTable.race} ${t[language as 'tamil' | 'english'].errors.required}`;
-    });
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const clearForm = () => {
+  // Reset only the form fields but KEEP any success message intact.
+  const resetFormFieldsWithoutClearingMessage = () => {
     setNewUser({
       receiptNumber: '',
       date: today,
@@ -581,7 +630,6 @@ export default function TempleUserEntryPage() {
       heirs: [],
     });
     setErrors({});
-    setMsg(null);
     setErr(null);
     setExistingPhotoUrl(null);
     // Prefill next reference number from backend after clearing
@@ -602,17 +650,24 @@ export default function TempleUserEntryPage() {
         {/* Status Messages */}
         {(msg || err) && (
           <div className="mb-3">
-            <Alert variant={err ? 'destructive' : 'default'}>
-              <AlertTitle>{err ? 'Error / பிழை' : 'Success / வெற்றி'}</AlertTitle>
-              <AlertDescription>{err ? err : msg}</AlertDescription>
+            <Alert
+              variant={err ? 'destructive' : 'default'}
+              className={err ? '' : 'border-green-500 bg-green-50 text-green-700'}
+            >
+              <AlertTitle className={err ? '' : 'text-green-800 font-semibold'}>
+                {err ? 'Error / பிழை' : 'Success / வெற்றி'}
+              </AlertTitle>
+              <AlertDescription className={err ? '' : 'text-green-700'}>
+                {err ? err : msg}
+              </AlertDescription>
             </Alert>
           </div>
         )}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-2">
-          {/* Left Column - Main Form Fields (3/4 width) */}
-          <div className="lg:col-span-3 space-y-2">
-            {/* Basic Info Section */}
-            <div className="bg-gray-50 rounded-lg p-1.5">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          {/* Left Column - Form Fields (3/4 width) */}
+          <div className="lg:col-span-3 space-y-3">
+            {/* General Info */}
+            <div className="bg-gray-50 rounded-lg p-2">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-sm font-semibold text-gray-900">{t[language as 'tamil' | 'english'].generalInfo}</h3>
                 <button
@@ -650,7 +705,6 @@ export default function TempleUserEntryPage() {
                   />
                   {errors.date && <p className="text-red-500 text-xs mt-1">{errors.date}</p>}
                 </div>
-                
                 <div>
                   <label className="block text-xs font-medium text-gray-900 mb-1">
                     {t[language as 'tamil' | 'english'].year}
@@ -1010,12 +1064,12 @@ export default function TempleUserEntryPage() {
                   >
                     {newUser.photo ? t[language as 'tamil' | 'english'].replacePhoto : t[language as 'tamil' | 'english'].uploadPhoto}
                   </label>
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    onChange={handlePhotoChange} 
-                    className="hidden" 
-                    id="photo-upload" 
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoChange}
+                    className="hidden"
+                    id="photo-upload"
                   />
                 </div>
               )}

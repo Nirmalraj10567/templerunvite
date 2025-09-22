@@ -2,15 +2,18 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { journalService, JournalEntryItem } from '@/services/journalService';
 import { useLanguage } from '@/lib/language';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Download, FileText } from 'lucide-react';
 
 const PAGE_SIZE = 20;
 
 export default function JournalLogPage() {
   const { language } = useLanguage();
+  const { token } = useAuth();
   const t = (en: string, ta: string) => (language === 'english' ? ta : en);
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -20,9 +23,13 @@ export default function JournalLogPage() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
-  const startDate = params.get('startDate') || new Date().toISOString().slice(0,10);
-  const endDate = params.get('endDate') || new Date().toISOString().slice(0,10);
+  const today = new Date();
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(today.getDate() - 30);
+  const startDate = params.get('startDate') || thirtyDaysAgo.toISOString().slice(0,10);
+  const endDate = params.get('endDate') || today.toISOString().slice(0,10);
   const account = params.get('account') || '';
 
   const query = useMemo(() => ({ startDate, endDate, account }), [startDate, endDate, account]);
@@ -37,9 +44,11 @@ export default function JournalLogPage() {
         account: query.account || undefined,
         page,
         limit: PAGE_SIZE,
+        excludeZero: true,
       });
       setEntries(res.data || []);
       setTotalCount(res.pagination?.total || 0);
+      setTotalPages(res.pagination?.totalPages || 1);
     } catch (e: any) {
       setError(e?.message || 'Failed to load entries');
       setEntries([]);
@@ -62,6 +71,149 @@ export default function JournalLogPage() {
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
+  };
+
+  // Export functions
+  const exportToCSV = async () => {
+    try {
+      setIsLoading(true);
+      // Get all entries (not just current page) for export
+      const res = await journalService.listEntries({
+        startDate: query.startDate,
+        endDate: query.endDate,
+        account: query.account || undefined,
+        page: 1,
+        limit: 10000, // Get all entries
+        excludeZero: true,
+      });
+      
+      const allEntries = res.data || [];
+      
+      // Create CSV content
+      const headers = ['Date', 'From Account', 'To Account', 'Amount', 'Reference', 'Remarks'];
+      const csvContent = [
+        headers.join(','),
+        ...allEntries.map(entry => [
+          entry.date?.slice(0, 10) || '',
+          `"${entry.from_account || ''}"`,
+          `"${entry.to_account || ''}"`,
+          Number(entry.amount || 0).toFixed(2),
+          `"${(entry.reference_type && entry.reference_id) ? `${entry.reference_type}#${entry.reference_id}` : (entry.remarks || '')}"`,
+          `"${entry.remarks || ''}"`
+        ].join(','))
+      ].join('\n');
+
+      // Download CSV
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `journal-log-${query.startDate}-to-${query.endDate}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('CSV export failed:', error);
+      alert('Failed to export CSV: ' + (error as Error).message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const exportToPDF = async () => {
+    try {
+      setIsLoading(true);
+      // Get all entries for export
+      const res = await journalService.listEntries({
+        startDate: query.startDate,
+        endDate: query.endDate,
+        account: query.account || undefined,
+        page: 1,
+        limit: 10000,
+        excludeZero: true,
+      });
+      
+      const allEntries = res.data || [];
+      
+      // Create HTML content for PDF
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Journal Log Report</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .filters { margin-bottom: 20px; font-size: 14px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f5f5f5; font-weight: bold; }
+            .amount { text-align: right; }
+            .total-row { font-weight: bold; background-color: #f9f9f9; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Journal Log Report</h1>
+            <p>Generated on: ${new Date().toLocaleString()}</p>
+          </div>
+          
+          <div class="filters">
+            <strong>Filters Applied:</strong><br>
+            Date Range: ${query.startDate} to ${query.endDate}<br>
+            ${query.account ? `Account Filter: ${query.account}<br>` : ''}
+            Total Entries: ${allEntries.length}
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>From Account</th>
+                <th>To Account</th>
+                <th>Amount</th>
+                <th>Reference</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${allEntries.map(entry => `
+                <tr>
+                  <td>${entry.date?.slice(0, 10) || ''}</td>
+                  <td>${entry.from_account || ''}</td>
+                  <td>${entry.to_account || ''}</td>
+                  <td class="amount">${Number(entry.amount || 0).toFixed(2)}</td>
+                  <td>${(entry.reference_type && entry.reference_id) ? `${entry.reference_type}#${entry.reference_id}` : (entry.remarks || '')}</td>
+                </tr>
+              `).join('')}
+              <tr class="total-row">
+                <td colspan="3"><strong>Total Amount</strong></td>
+                <td class="amount"><strong>${allEntries.reduce((sum, entry) => sum + Number(entry.amount || 0), 0).toFixed(2)}</strong></td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+        </body>
+        </html>
+      `;
+
+      // Create and download PDF using print
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => {
+          printWindow.print();
+          printWindow.close();
+        }, 250);
+      }
+    } catch (error) {
+      console.error('PDF export failed:', error);
+      alert('Failed to export PDF: ' + (error as Error).message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -107,9 +259,51 @@ export default function JournalLogPage() {
               <Button 
                 variant="outline" 
                 onClick={() => handlePageChange(page + 1)} 
-                disabled={isLoading || entries.length < PAGE_SIZE}
+                disabled={isLoading || page >= totalPages}
               >
                 {t('Next', 'அடுத்து')}
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={async () => {
+                  try {
+                    const response = await fetch('/api/journal/sync-pooja', {
+                      method: 'POST',
+                      headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                      }
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                      alert(`Synced ${result.created} pooja entries to journal (${result.skipped} already existed)`);
+                      load(); // Refresh the list
+                    } else {
+                      alert('Sync failed: ' + result.error);
+                    }
+                  } catch (e: any) {
+                    alert('Sync failed: ' + e.message);
+                  }
+                }}
+                disabled={isLoading || !token}
+              >
+                {t('Sync Pooja', 'பூஜை ஒத்திசைவு')}
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={exportToCSV}
+                disabled={isLoading}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {t('Export CSV', 'CSV ஏற்றுமதி')}
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={exportToPDF}
+                disabled={isLoading}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                {t('Export PDF', 'PDF ஏற்றுமதி')}
               </Button>
               <Button variant="outline" onClick={() => navigate(-1)}>{t('Back', 'பின் செல்ல')}</Button>
               <Button onClick={load} disabled={isLoading}>{t('Refresh', 'புதுப்பிக்க')}</Button>

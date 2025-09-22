@@ -124,7 +124,8 @@ class PoojaService {
       toDate: data.toDate,
       remarks: data.remarks || '',
       transferTo: data.transferTo || '',
-      amount: data.amount || ''
+      amount: data.amount || '',
+      fromAccount: (data as any).fromAccount || 'POOJA A/C'
     };
 
     const response = await fetch(this.baseUrl, {
@@ -146,7 +147,8 @@ class PoojaService {
       toDate: data.toDate,
       remarks: data.remarks || '',
       transferTo: data.transferTo || '',
-      amount: data.amount || ''
+      amount: data.amount || '',
+      fromAccount: (data as any).fromAccount || 'POOJA A/C'
     };
 
     const response = await fetch(`${this.baseUrl}/${id}`, {

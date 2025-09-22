@@ -1,0 +1,30 @@
+{
+  "info": {
+    "_postman_id": "b2c3d4e5-f6a7-8901",
+    "name": "OTP Verification",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Verify OTP",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"mobile\": \"9876543210\",\n    \"otp\": \"123456\",\n    \"userId\": 1\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/login/otp",
+          "host": ["{{base_url}}"],
+          "path": ["api", "login", "otp"]
+        }
+      }
+    }
+  ]
+}

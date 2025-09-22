@@ -76,6 +76,7 @@ exports.up = async function(knex) {
       await addIfMissing('approved_at', 'ALTER TABLE user_tax_registrations ADD COLUMN approved_at TIMESTAMP');
       await addIfMissing('note', 'ALTER TABLE user_tax_registrations ADD COLUMN note TEXT');
       await addIfMissing('transfer_to_account', 'ALTER TABLE user_tax_registrations ADD COLUMN transfer_to_account TEXT');
+      await addIfMissing('from_account', 'ALTER TABLE user_tax_registrations ADD COLUMN from_account TEXT');
       await addIfMissing('donation_amount', 'ALTER TABLE user_tax_registrations ADD COLUMN donation_amount DECIMAL(10,2) DEFAULT 0');
     } catch (e) {
       console.log('Note: Column synchronization for user_tax_registrations skipped:', e.message);

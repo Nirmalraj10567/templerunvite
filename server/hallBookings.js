@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const PDFDocument = require('pdfkit');
 
-module.exports = function(deps = {}) {
+module.exports = function (deps = {}) {
   const { db } = deps;
 
   // List with optional search and date filter
@@ -200,7 +200,15 @@ module.exports = function(deps = {}) {
         updated_at: db.fn.now(),
       };
       const inserted = await db('marriage_hall_bookings').insert(record).returning('*');
-      const row = inserted[0];
+      let row = inserted && inserted[0];
+      // MySQL may return only the insert id as a number
+      if (typeof row === 'number') {
+        const newId = row;
+        row = await db('marriage_hall_bookings').where({ id: newId }).first();
+      } else if (row && typeof row === 'object' && row.id == null && inserted && inserted.insertId) {
+        // Some drivers expose insertId differently
+        row = await db('marriage_hall_bookings').where({ id: inserted.insertId }).first();
+      }
 
       // Mirror to ledger as a credit so balances reflect revenue collection
       try {
@@ -208,7 +216,7 @@ module.exports = function(deps = {}) {
         const amountNum = Number(p.advanceAmount || p.totalAmount || 0);
         if (!isNaN(amountNum) && amountNum > 0) {
           await db('ledger_entries').insert({
-            date: row.date || new Date().toISOString().slice(0,10),
+            date: row.date || new Date().toISOString().slice(0, 10),
             name: row.name ? `Hall Booking - ${row.name}${row.event ? ' (' + row.event + ')' : ''}` : 'Hall Booking',
             type: 'credit',
             under,
@@ -224,35 +232,34 @@ module.exports = function(deps = {}) {
         // Do not fail the main request
       }
 
-      // Mirror to journal: INCOME A/C -> selected account for collected money
+      // Mirror to journal: INCOME A/C -> CASH A/C (matching existing pattern)
       try {
-        const hasJournal = await db.schema.hasTable('journal_entries');
         const amountNum = Number(p.advanceAmount || p.totalAmount || 0);
-        if (hasJournal && !isNaN(amountNum) && amountNum > 0) {
-          const fromAccount = 'INCOME A/C';
-          const toAccount = row.transfer_to_account || p.transferTo || 'CASH A/C';
-          // prevent duplicate mirror
-          const existing = await db('journal_entries')
-            .where({ reference_type: 'hall_booking', reference_id: row.id, temple_id: row.temple_id })
-            .first();
-          if (!existing) {
-            await db('journal_entries').insert({
-              date: row.date || new Date().toISOString().slice(0,10),
-              from_account: fromAccount,
-              to_account: toAccount,
-              amount: amountNum,
-              entry_type: 'transfer',
-              remarks: row.remarks || null,
-              reference_type: 'hall_booking',
-              reference_id: row.id,
-              temple_id: row.temple_id,
-              created_by: req.user.id,
-              created_at: db.fn.now(),
-            });
-          }
+
+        if (row && row.id && amountNum > 0) {
+          const entryData = {
+            date: row.date || new Date().toISOString().slice(0, 10),
+            from_account: 'HALL A/C',
+            to_account: 'INCOME A/C',
+            amount: amountNum,
+            entry_type: 'transfer',
+            remarks: row.remarks || p.remarks || `Hall booking payment - ${row.name || 'Unknown'}`,
+            reference_type: 'hall_booking',
+            reference_id: row.id,
+            temple_id: row.temple_id,
+            created_by: req.user?.id || 1,
+            created_at: db.fn.now()
+          };
+
+          console.log('🔍 Hall booking journal mirror debug - Inserting entry:', entryData);
+          await db('journal_entries').insert(entryData);
+          console.log(`✅ Journal entry created for hall booking ${row.id}`);
+        } else {
+          console.log('⚠️ Skipping journal entry for hall booking:', { hasRow: !!row, hasId: !!row?.id, amount: amountNum });
         }
       } catch (e) {
-        console.error('Failed to mirror hall booking into journal_entries:', e);
+        console.error('❌ Failed to mirror hall booking into journal_entries:', e.message);
+        console.error('❌ Full error:', e);
       }
 
       res.json({ success: true, data: row });
@@ -266,8 +273,16 @@ module.exports = function(deps = {}) {
   router.put('/:id', async (req, res) => {
     try {
       const { id } = req.params;
+      const idNum = Number(id);
+
+      // Validate ID is a valid number
+      if (isNaN(idNum) || idNum <= 0) {
+        console.error('Invalid hall booking ID for update:', id);
+        return res.status(400).json({ error: 'Invalid booking ID' });
+      }
+
       const p = req.body || {};
-      
+
       const updateData = {
         register_no: p.registerNo || null,
         date: p.date || null,
@@ -289,44 +304,48 @@ module.exports = function(deps = {}) {
       };
 
       const result = await db('marriage_hall_bookings')
-        .where({ id })
+        .where({ id: idNum })
         .andWhere('temple_id', req.user.templeId)
         .update(updateData);
-      
+
       if (!result) {
         return res.status(404).json({ error: 'Hall booking not found' });
       }
-      
-      const booking = await db('marriage_hall_bookings').where({ id }).first();
+
+      const booking = await db('marriage_hall_bookings').where({ id: idNum }).first();
 
       // Sync journal mirror on update
       try {
-        const hasJournal = await db.schema.hasTable('journal_entries');
-        if (hasJournal) {
-          await db('journal_entries')
-            .where({ reference_type: 'hall_booking', reference_id: Number(id), temple_id: req.user.templeId })
-            .del();
-          const amountNum = Number(p.advanceAmount || p.totalAmount || booking.total_amount || 0);
-          if (!isNaN(amountNum) && amountNum > 0) {
-            const fromAccount = 'INCOME A/C';
-            const toAccount = booking.transfer_to_account || p.transferTo || 'CASH A/C';
-            await db('journal_entries').insert({
-              date: booking.date || new Date().toISOString().slice(0,10),
-              from_account: fromAccount,
-              to_account: toAccount,
-              amount: amountNum,
-              entry_type: 'transfer',
-              remarks: booking.remarks || null,
-              reference_type: 'hall_booking',
-              reference_id: Number(id),
-              temple_id: req.user.templeId,
-              created_by: req.user.id,
-              created_at: db.fn.now(),
-            });
-          }
+        const amountNum = Number(p.advanceAmount || p.totalAmount || booking.total_amount || 0);
+
+        // First, delete existing journal entries for this booking
+        await db('journal_entries')
+          .where({ reference_type: 'hall_booking', reference_id: idNum })
+          .del();
+
+        if (amountNum > 0) {
+          const entryData = {
+            date: booking.date || new Date().toISOString().slice(0, 10),
+            from_account: 'HALL A/C',
+            to_account: 'INCOME A/C',
+            amount: amountNum,
+            entry_type: 'transfer',
+            remarks: booking.remarks || p.remarks || `Updated hall booking payment - ${booking.name || 'Unknown'}`,
+            reference_type: 'hall_booking',
+            reference_id: idNum,
+            temple_id: booking.temple_id,
+            created_by: req.user.id,
+            created_at: db.fn.now()
+          };
+
+          console.log('🔍 Hall booking journal mirror debug - Updating entry:', entryData);
+          await db('journal_entries').insert(entryData);
+          console.log(`✅ Journal entry updated for hall booking ${idNum}`);
+        } else {
+          console.log(`⚠️ Skipping journal update for hall booking ${idNum} due to zero amount`);
         }
       } catch (e) {
-        console.error('Failed to sync hall booking journal mirror:', e);
+        console.error('❌ Failed to sync hall booking journal mirror on update:', e.message);
       }
 
       res.json({ success: true, data: booking });
@@ -336,12 +355,85 @@ module.exports = function(deps = {}) {
     }
   });
 
+  // Generate sequential receipt number (MUST be before /:id route)
+  router.get('/generate-receipt-number', async (req, res) => {
+    try {
+      const year = new Date().getFullYear();
+
+      // Ensure table exists (works for both SQLite/MySQL)
+      const hasTable = await db.schema.hasTable('receipt_counter');
+      if (!hasTable) {
+        await db.schema.createTable('receipt_counter', (t) => {
+          t.integer('year').primary();
+          t.integer('last_number').notNullable().defaultTo(0);
+          t.timestamp('created_at').defaultTo(db.fn.now());
+          t.timestamp('updated_at').defaultTo(db.fn.now());
+        });
+      }
+
+      // Use a transaction to avoid race conditions
+      const result = await db.transaction(async (trx) => {
+        // Lock row for update if DB supports it (MySQL). For SQLite this is safe within the transaction.
+        const row = await trx('receipt_counter').where({ year }).first();
+        if (!row) {
+          await trx('receipt_counter').insert({ year, last_number: 0 });
+        }
+        const current = row ? Number(row.last_number) : 0;
+        const newNumber = current + 1;
+        await trx('receipt_counter')
+          .where({ year })
+          .update({ last_number: newNumber, updated_at: trx.fn.now() });
+        return newNumber;
+      });
+
+      const receiptNo = `${year}-${String(result).padStart(4, '0')}`;
+      res.json({ receiptNo });
+    } catch (error) {
+      console.error('Error generating receipt number:', error);
+      res.status(500).json({ error: 'Failed to generate receipt number' });
+    }
+  });
+
+  // Export to CSV
+  router.get('/export', async (req, res) => {
+    try {
+      const rows = await db('marriage_hall_bookings')
+        .where('temple_id', req.user.templeId)
+        .orderBy('date', 'desc');
+
+      const headers = [
+        'id,register_no,date,time,event,subdivision,name,address,village,mobile,advance_amount,total_amount,balance_amount,remarks,transfer_to_account'
+      ];
+
+      const csv = rows.map(r => [
+        r.id, r.register_no, r.date, r.time, r.event, r.subdivision, r.name,
+        (r.address || '').replaceAll(',', ' '), (r.village || '').replaceAll(',', ' '), (r.mobile || '').replaceAll(',', ' '),
+        r.advance_amount, r.total_amount, r.balance_amount, (r.remarks || '').replaceAll(',', ' '), (r.transfer_to_account || '').replaceAll(',', ' ')
+      ].join(',')).join('\n');
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="hall_bookings.csv"');
+      res.send(headers.join('\n') + '\n' + csv);
+    } catch (err) {
+      console.error('GET /api/hall-bookings/export error:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // Get single hall booking (camelCase response for frontend)
   router.get('/:id', async (req, res) => {
     try {
       const { id } = req.params;
+      const idNum = Number(id);
+
+      // Validate ID is a valid number
+      if (isNaN(idNum) || idNum <= 0) {
+        console.error('Invalid hall booking ID:', id);
+        return res.status(400).json({ error: 'Invalid booking ID' });
+      }
+
       const row = await db('marriage_hall_bookings')
-        .where({ id: Number(id) })
+        .where({ id: idNum })
         .andWhere('temple_id', req.user.templeId)
         .first();
       if (!row) return res.status(404).json({ error: 'Hall booking not found' });
@@ -376,11 +468,19 @@ module.exports = function(deps = {}) {
   router.delete('/:id', async (req, res) => {
     try {
       const { id } = req.params;
+      const idNum = Number(id);
+
+      // Validate ID is a valid number
+      if (isNaN(idNum) || idNum <= 0) {
+        console.error('Invalid hall booking ID for delete:', id);
+        return res.status(400).json({ error: 'Invalid booking ID' });
+      }
+
       const result = await db('marriage_hall_bookings')
-        .where({ id })
+        .where({ id: idNum })
         .andWhere('temple_id', req.user.templeId)
         .del();
-      
+
       if (!result) {
         return res.status(404).json({ error: 'Hall booking not found' });
       }
@@ -390,79 +490,17 @@ module.exports = function(deps = {}) {
         const hasJournal = await db.schema.hasTable('journal_entries');
         if (hasJournal) {
           await db('journal_entries')
-            .where({ reference_type: 'hall_booking', reference_id: Number(id), temple_id: req.user.templeId })
+            .where({ reference_type: 'hall_booking', reference_id: idNum, temple_id: req.user.templeId })
             .del();
         }
       } catch (e) {
         console.warn('Failed to cleanup hall booking journal mirror:', e);
       }
-      
+
       res.json({ success: true });
     } catch (err) {
       console.error('DELETE /api/hall-bookings/:id error:', err);
       res.status(500).json({ error: 'Internal server error' });
-    }
-  });
-
-  // Export to CSV
-  router.get('/export', async (req, res) => {
-    try {
-      const rows = await db('marriage_hall_bookings')
-        .where('temple_id', req.user.templeId)
-        .orderBy('date', 'desc');
-      
-      const headers = [
-        'id,register_no,date,time,event,subdivision,name,address,village,mobile,advance_amount,total_amount,balance_amount,remarks,transfer_to_account'
-      ];
-      
-      const csv = rows.map(r => [
-        r.id, r.register_no, r.date, r.time, r.event, r.subdivision, r.name,
-        (r.address||'').replaceAll(',', ' '), (r.village||'').replaceAll(',', ' '), (r.mobile||'').replaceAll(',', ' '),
-        r.advance_amount, r.total_amount, r.balance_amount, (r.remarks||'').replaceAll(',', ' '), (r.transfer_to_account||'').replaceAll(',', ' ')
-      ].join(',')).join('\n');
-      
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', 'attachment; filename="hall_bookings.csv"');
-      res.send(headers.join('\n') + '\n' + csv);
-    } catch (err) {
-      console.error('GET /api/hall-bookings/export error:', err);
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  });
-
-  // Generate sequential receipt number
-  router.get('/generate-receipt-number', async (req, res) => {
-    try {
-      const year = new Date().getFullYear();
-      
-      // Get or create counter for current year
-      let counter = await db.get(
-        'SELECT last_number FROM receipt_counter WHERE year = ?', 
-        [year]
-      );
-      
-      if (!counter) {
-        await db.run(
-          'INSERT INTO receipt_counter (year, last_number) VALUES (?, 0)',
-          [year]
-        );
-        counter = { last_number: 0 };
-      }
-      
-      // Increment and update counter
-      const newNumber = counter.last_number + 1;
-      await db.run(
-        'UPDATE receipt_counter SET last_number = ? WHERE year = ?',
-        [newNumber, year]
-      );
-      
-      // Format as YYYY-NNNN
-      const receiptNo = `${year}-${newNumber.toString().padStart(4, '0')}`;
-      res.json({ receiptNo });
-      
-    } catch (error) {
-      console.error('Error generating receipt number:', error);
-      res.status(500).json({ error: 'Failed to generate receipt number' });
     }
   });
 

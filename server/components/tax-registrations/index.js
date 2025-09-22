@@ -45,6 +45,41 @@ router.post('/', authenticateToken, authorizePermission('tax_registrations', 'ed
       photoPath: req.file ? `/uploads/tax-photos/${req.file.filename}` : null
     };
 
+    // Ensure required DB columns exist (database-agnostic)
+    try {
+      const ensureColumn = async (table, col, builderCb, rawSql) => {
+        try {
+          const exists = await db.schema.hasColumn(table, col);
+          if (!exists) {
+            try {
+              await db.schema.alterTable(table, builderCb);
+            } catch (e1) {
+              if (rawSql) {
+                try { await db.raw(rawSql); } catch (e2) {}
+              }
+            }
+          }
+        } catch (e) {
+          // Fallback to raw alter if hasColumn not supported
+          if (rawSql) {
+            try { await db.raw(rawSql); } catch (e2) {}
+          }
+        }
+      };
+      await ensureColumn(
+        'user_tax_registrations',
+        'from_account',
+        (t) => { try { t.text('from_account'); } catch (e) {} },
+        'ALTER TABLE user_tax_registrations ADD COLUMN from_account TEXT'
+      );
+      await ensureColumn(
+        'user_tax_registrations',
+        'transfer_to_account',
+        (t) => { try { t.text('transfer_to_account'); } catch (e) {} },
+        'ALTER TABLE user_tax_registrations ADD COLUMN transfer_to_account TEXT'
+      );
+    } catch (e) { /* ignore */ }
+
     // Persist to user_tax_registrations
     const effectiveTempleId = req.user.templeId;
     const year = Number(cleanedData.year || new Date().getFullYear());
@@ -77,7 +112,8 @@ router.post('/', authenticateToken, authorizePermission('tax_registrations', 'ed
       tax_amount: taxAmount,
       amount_paid: amountPaid,
       outstanding_amount: outstandingAmount,
-      transfer_to_account: cleanedData.transferTo || cleanedData.transfer_to || '',
+      from_account: cleanedData.fromAccount || cleanedData.from_account || 'TAX A/C',
+      transfer_to_account: cleanedData.transferTo || cleanedData.transfer_to || 'INCOME A/C',
       created_at: db.fn.now(),
       updated_at: db.fn.now(),
     };
@@ -88,8 +124,8 @@ router.post('/', authenticateToken, authorizePermission('tax_registrations', 'ed
     try {
       const hasJournal = await db.schema.hasTable('journal_entries');
       if (hasJournal && amountPaid > 0) {
-        const fromAccount = 'INCOME A/C';
-        const toAccount = insertPayload.transfer_to_account || 'CASH A/C';
+        const fromAccount = insertPayload.from_account || 'TAX A/C';
+        const toAccount = insertPayload.transfer_to_account || 'INCOME A/C';
         await db('journal_entries').insert({
           date: insertPayload.date,
           from_account: fromAccount,

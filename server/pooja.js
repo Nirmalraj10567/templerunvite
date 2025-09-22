@@ -229,7 +229,7 @@ module.exports = function(deps = {}) {
         from_date: p.fromDate,
         to_date: p.toDate,
         remarks: p.remarks || null,
-        transfer_to_account: p.transfer_to_account || p.transferTo || null,
+        transfer_to_account: p.transfer_to_account || p.transferTo || 'INCOME A/C',
         amount: p.amount != null && p.amount !== '' ? Number(p.amount) : null,
         created_by: req.user.id,
         created_at: db.fn.now(),
@@ -243,16 +243,29 @@ module.exports = function(deps = {}) {
       try {
         const hasJournal = await db.schema.hasTable('journal_entries');
         const amountNum = Number(p.amount || row.amount || 0);
+        console.log('🔍 Pooja journal mirror check:', { 
+          hasJournal, 
+          amountNum, 
+          amount: p.amount, 
+          rowAmount: row.amount,
+          fromAccount: p.fromAccount,
+          transferTo: p.transferTo,
+          poojaId: row.id
+        });
+        
         if (hasJournal && !isNaN(amountNum) && amountNum > 0) {
-          const fromAccount = 'INCOME A/C';
-          const toAccount = row.transfer_to_account || p.transferTo || 'CASH A/C';
+          const fromAccount = p.fromAccount || 'POOJA A/C';
+          const toAccount = row.transfer_to_account || p.transferTo || 'INCOME A/C';
+          
           // Prevent duplicate mirror just in case
           const existing = await db('journal_entries')
             .where({ reference_type: 'pooja', reference_id: row.id, temple_id: row.temple_id })
             .first();
+            
           if (!existing) {
-            await db('journal_entries').insert({
-              date: row.from_date || new Date().toISOString().slice(0,10),
+            const journalEntry = {
+              // Use today's date so the amount reflects in today's balance/daily reports
+              date: new Date().toISOString().slice(0,10),
               from_account: fromAccount,
               to_account: toAccount,
               amount: amountNum,
@@ -263,11 +276,24 @@ module.exports = function(deps = {}) {
               temple_id: row.temple_id,
               created_by: row.created_by,
               created_at: db.fn.now(),
-            });
+            };
+            
+            console.log('📝 Inserting journal entry:', journalEntry);
+            await db('journal_entries').insert(journalEntry);
+            console.log('✅ Pooja journal entry created successfully for pooja ID:', row.id);
+          } else {
+            console.log('⚠️ Journal entry already exists for pooja:', row.id);
           }
+        } else {
+          console.log('❌ Pooja journal mirror skipped:', { 
+            hasJournal, 
+            amountNum, 
+            isValidAmount: !isNaN(amountNum) && amountNum > 0,
+            reason: !hasJournal ? 'No journal table' : amountNum <= 0 ? 'Amount is zero or negative' : 'Unknown'
+          });
         }
       } catch (e) {
-        console.error('Failed to mirror pooja into journal_entries:', e);
+        console.error('❌ Failed to mirror pooja into journal_entries:', e);
         // Do not fail the main request
       }
 
@@ -313,7 +339,7 @@ module.exports = function(deps = {}) {
         from_date: p.fromDate,
         to_date: p.toDate,
         remarks: p.remarks || null,
-        transfer_to_account: p.transfer_to_account ?? p.transferTo,
+        transfer_to_account: p.transfer_to_account ?? p.transferTo ?? 'INCOME A/C',
         amount: p.amount != null && p.amount !== '' ? Number(p.amount) : undefined,
         updated_at: db.fn.now(),
       };
@@ -338,10 +364,11 @@ module.exports = function(deps = {}) {
             .del();
           const amountNum = Number(p.amount || pooja.amount || 0);
           if (!isNaN(amountNum) && amountNum > 0) {
-            const fromAccount = 'INCOME A/C';
-            const toAccount = pooja.transfer_to_account || p.transferTo || 'CASH A/C';
+            const fromAccount = p.fromAccount || 'POOJA A/C';
+            const toAccount = pooja.transfer_to_account || p.transferTo || 'INCOME A/C';
             await db('journal_entries').insert({
-              date: pooja.from_date || new Date().toISOString().slice(0,10),
+              // Use today's date so the amount reflects in today's balance/daily reports
+              date: new Date().toISOString().slice(0,10),
               from_account: fromAccount,
               to_account: toAccount,
               amount: amountNum,

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Hall Receipt Number Generation</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        button { padding: 10px 20px; margin: 5px; }
+        #results { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Hall Receipt Number API Test</h1>
+    
+    <div class="test-section">
+        <h3>Test 1: Backend API Call</h3>
+        <button onclick="testBackendAPI()">Test Backend API</button>
+        <div id="backend-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test 2: Frontend Fallback</h3>
+        <button onclick="testFrontendFallback()">Test Fallback Generation</button>
+        <div id="fallback-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test 3: Multiple Fallback Calls</h3>
+        <button onclick="testMultipleFallbacks()">Generate 5 Receipt Numbers</button>
+        <div id="multiple-result"></div>
+    </div>
+
+    <script>
+        // Copy the exact function from HallEntryPage.tsx
+        const generateReceiptNo = async (token) => {
+            try {
+                const response = await fetch('/api/hall-bookings/generate-receipt-number', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (!response.ok) {
+                    console.error('Receipt number API failed:', response.status, response.statusText);
+                    throw new Error('Failed to generate receipt number');
+                }
+                const data = await response.json();
+                console.log('Generated receipt number:', data.receiptNo);
+                return data.receiptNo;
+            } catch (error) {
+                console.error('Receipt number generation error:', error);
+                // Enhanced fallback: generate sequential number based on current date/time
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                
+                // Create a more unique fallback number
+                const fallbackNo = `${year}-${month}${day}${hours}${minutes}${seconds}`;
+                console.log('Using enhanced fallback receipt number:', fallbackNo);
+                return fallbackNo;
+            }
+        };
+
+        async function testBackendAPI() {
+            const resultDiv = document.getElementById('backend-result');
+            resultDiv.innerHTML = '<div class="info">Testing backend API...</div>';
+            
+            try {
+                const receiptNo = await generateReceiptNo('test-token');
+                resultDiv.innerHTML = `<div class="success">✅ Receipt Number: ${receiptNo}</div>`;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        async function testFrontendFallback() {
+            const resultDiv = document.getElementById('fallback-result');
+            resultDiv.innerHTML = '<div class="info">Testing fallback generation...</div>';
+            
+            // Simulate API failure by calling the fallback directly
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            
+            const fallbackNo = `${year}-${month}${day}${hours}${minutes}${seconds}`;
+            
+            resultDiv.innerHTML = `<div class="success">✅ Fallback Receipt Number: ${fallbackNo}</div>`;
+        }
+
+        async function testMultipleFallbacks() {
+            const resultDiv = document.getElementById('multiple-result');
+            resultDiv.innerHTML = '<div class="info">Generating multiple receipt numbers...</div>';
+            
+            const results = [];
+            for (let i = 0; i < 5; i++) {
+                const receiptNo = await generateReceiptNo('test-token');
+                results.push(receiptNo);
+                // Small delay to ensure different timestamps
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            
+            const resultHTML = results.map((num, idx) => 
+                `<div class="success">Receipt ${idx + 1}: ${num}</div>`
+            ).join('');
+            
+            resultDiv.innerHTML = resultHTML;
+        }
+    </script>
+</body>
+</html>

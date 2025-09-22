@@ -9,7 +9,7 @@ export default function MemberEntryForm({
   newMember,
   setNewMember,
   editingMember,
-  language, // 👈 Already passed, but now used dynamically
+  _language, // kept for backward-compat; actual language comes from context
   user,
   handleAddMember,
   handleUpdateMember,
@@ -18,21 +18,22 @@ export default function MemberEntryForm({
   newMember: any;
   setNewMember: (member: any) => void;
   editingMember?: Member | null;
-  language: string; // 👈 Will be overridden by hook for consistency
+  _language?: string; // prop ignored; using useLanguage()
   user: any;
   handleAddMember?: (e: React.FormEvent) => Promise<void>;
   handleUpdateMember?: (e: React.FormEvent) => Promise<void>;
   isEditing?: boolean;
 }) {
-  // 👇 Override passed `language` with context for consistency
-  const { language: currentLanguage } = useLanguage();
-  const lang = currentLanguage as 'tamil' | 'english';
+  // Get current language and invert mapping for UI
+  const { language } = useLanguage(); // Get current language
+  const lang = (String(language).toLowerCase() === 'english' ? 'tamil' : 'english') as 'tamil' | 'english';
+
   const [showSummary, setShowSummary] = useState(false);
   const [showLoginDetails, setShowLoginDetails] = useState(true);
 
   // Translation object
   const t = {
-    english: {
+    tamil: {
       updateMember: 'உறுப்பினர் விவரங்களை புதுப்பிக்கவும்',
       memberEntry: 'உறுப்பினர் பதிவு',
       basicDetails: 'அடிப்படை விவரங்கள்',
@@ -64,7 +65,7 @@ export default function MemberEntryForm({
       member: 'உறுப்பினர்',
       admin: 'நிர்வாகி',
     },
-    tamil: {
+    english: {
       updateMember: 'Update Member',
       memberEntry: 'Member Entry',
       basicDetails: 'Basic Details',
@@ -100,6 +101,7 @@ export default function MemberEntryForm({
 
   // Permission labels in Tamil (for UI display only)
   const PERMISSION_OPTIONS_TAMIL: Record<string, { label: string; description: string }> = {
+    dashboard: { label: 'டாஷ்போர்டு', description: 'ஒதுக்கீடுகள், சுருக்கங்கள் மற்றும் விரைவான அணுகல்கள்' },
     member_entry: { label: 'உறுப்பினர்கள்', description: 'உறுப்பினர்களை பார்க்கவும், நிர்வகிக்கவும்' },
     master_data: { label: 'மாஸ்டர் தரவு', description: 'குழுக்கள், குலங்கள், தொழில்கள், கிராமங்கள், கல்வி பட்டங்கள் மேலாண்மை' },
     ledger_management: { label: 'இருப்பு மேலாண்மை', description: 'நிதி பதிவுகள் மற்றும் பரிவர்த்தனைகள் மேலாண்மை' },
@@ -143,6 +145,7 @@ export default function MemberEntryForm({
   // Comprehensive permission options aligned with backend permission IDs and routing guards
   const PERMISSION_OPTIONS = [
     // Core modules
+    { id: 'dashboard', label: 'Dashboard', description: 'Access overview, summaries and quick actions', icon: '📊', color: 'blue' },
     { id: 'member_entry', label: 'Members', description: 'View and manage members', icon: '👥', color: 'blue' },
     { id: 'master_data', label: 'Master Data', description: 'Manage groups, clans, occupations, villages, educations', icon: '📊', color: 'purple' },
     { id: 'ledger_management', label: 'Ledger Management', description: 'Manage financial records and transactions', icon: '💰', color: 'yellow' },

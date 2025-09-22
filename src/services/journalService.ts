@@ -59,6 +59,7 @@ export const journalService = {
     account?: string; // filter either from or to includes
     page?: number;
     limit?: number;
+    excludeZero?: boolean;
   }): Promise<Paginated<JournalEntryItem>> {
     const resp = await api.get<ApiOk<Paginated<JournalEntryItem> | JournalEntryItem[]>>('/api/journal/entries', { params });
     const body: any = resp.data;

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hall Entry Frontend Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { color: green; font-weight: bold; }
+        .info { color: blue; }
+        .error { color: red; }
+        .form-group { margin: 10px 0; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, select, textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 3px; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Hall Entry Frontend Test</h1>
+
+    <div class="test-section">
+        <h3>Test 1: Receipt Number Generation</h3>
+        <p>Testing the enhanced receipt number generation with fallback system:</p>
+        <button onclick="testReceiptGeneration()">Generate Receipt Numbers</button>
+        <div id="receipt-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test 2: Balance Calculation</h3>
+        <p>Testing automatic balance calculation when total or advance changes:</p>
+        <div class="form-group">
+            <label>Total Amount:</label>
+            <input type="number" id="totalAmount" placeholder="Enter total amount" min="0" step="0.01">
+        </div>
+        <div class="form-group">
+            <label>Advance Amount:</label>
+            <input type="number" id="advanceAmount" placeholder="Enter advance amount" min="0" step="0.01">
+        </div>
+        <div class="form-group">
+            <label>Balance Amount (auto-calculated):</label>
+            <input type="number" id="balanceAmount" readonly>
+        </div>
+        <button onclick="testBalanceCalculation()">Test Balance Calculation</button>
+    </div>
+
+    <div class="test-section">
+        <h3>Test 3: Form Validation</h3>
+        <p>Testing form validation with required fields:</p>
+        <div class="form-group">
+            <label>Date: *</label>
+            <input type="date" id="testDate" required>
+        </div>
+        <div class="form-group">
+            <label>Time: *</label>
+            <input type="time" id="testTime" required>
+        </div>
+        <div class="form-group">
+            <label>Name: *</label>
+            <input type="text" id="testName" required>
+        </div>
+        <div class="form-group">
+            <label>Mobile: *</label>
+            <input type="text" id="testMobile" maxlength="10" required>
+        </div>
+        <button onclick="testValidation()">Test Validation</button>
+        <div id="validation-results"></div>
+    </div>
+
+    <script>
+        // Copy the exact functions from the fixed HallEntryPage.tsx
+
+        const generateReceiptNo = async (token) => {
+            try {
+                const response = await fetch('/api/hall-bookings/generate-receipt-number', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (!response.ok) {
+                    console.error('Receipt number API failed:', response.status, response.statusText);
+                    throw new Error('Failed to generate receipt number');
+                }
+                const data = await response.json();
+                console.log('Generated receipt number:', data.receiptNo);
+                return data.receiptNo;
+            } catch (error) {
+                console.error('Receipt number generation error:', error);
+                // Enhanced fallback: generate sequential number based on current date/time
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+
+                // Create a more unique fallback number
+                const fallbackNo = `${year}-${month}${day}${hours}${minutes}${seconds}`;
+                console.log('Using enhanced fallback receipt number:', fallbackNo);
+                return fallbackNo;
+            }
+        };
+
+        async function testReceiptGeneration() {
+            const resultsDiv = document.getElementById('receipt-results');
+            resultsDiv.innerHTML = '<div class="info">Generating receipt numbers...</div>';
+
+            try {
+                const results = [];
+                for (let i = 0; i < 5; i++) {
+                    const receiptNo = await generateReceiptNo('test-token');
+                    results.push(`Receipt ${i + 1}: ${receiptNo}`);
+                    // Small delay to ensure different timestamps
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+
+                const resultHTML = results.map(result =>
+                    `<div class="success">${result}</div>`
+                ).join('');
+
+                resultsDiv.innerHTML = resultHTML;
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        function calculateBalance() {
+            const total = parseFloat(document.getElementById('totalAmount').value) || 0;
+            const advance = parseFloat(document.getElementById('advanceAmount').value) || 0;
+            const balance = Math.max(0, total - advance);
+            document.getElementById('balanceAmount').value = balance.toFixed(2);
+        }
+
+        function testBalanceCalculation() {
+            // Simulate the onChange logic from the fixed component
+            const totalInput = document.getElementById('totalAmount');
+            const advanceInput = document.getElementById('advanceAmount');
+
+            // Trigger change events
+            totalInput.dispatchEvent(new Event('input'));
+            advanceInput.dispatchEvent(new Event('input'));
+
+            setTimeout(() => {
+                const balance = document.getElementById('balanceAmount').value;
+                const resultsDiv = document.getElementById('receipt-results');
+                resultsDiv.innerHTML = `<div class="success">Balance calculated: ₹${balance}</div>`;
+            }, 100);
+        }
+
+        function testValidation() {
+            const date = document.getElementById('testDate').value;
+            const time = document.getElementById('testTime').value;
+            const name = document.getElementById('testName').value;
+            const mobile = document.getElementById('testMobile').value;
+
+            const resultsDiv = document.getElementById('validation-results');
+            const errors = [];
+
+            if (!date) errors.push('Date is required');
+            if (!time) errors.push('Time is required');
+            if (!name) errors.push('Name is required');
+            if (!mobile) errors.push('Mobile is required');
+
+            if (errors.length > 0) {
+                resultsDiv.innerHTML = errors.map(error =>
+                    `<div class="error">${error}</div>`
+                ).join('');
+            } else {
+                resultsDiv.innerHTML = '<div class="success">✅ All required fields are filled</div>';
+            }
+        }
+
+        // Add event listeners for balance calculation
+        document.getElementById('totalAmount').addEventListener('input', calculateBalance);
+        document.getElementById('advanceAmount').addEventListener('input', calculateBalance);
+    </script>
+</body>
+</html>

@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const sendOtp = require('./sendOtp'); // Import the SMS OTP service
 
-module.exports = function(deps = {}) {
+module.exports = function (deps = {}) {
   const { db, JWT_SECRET, authenticateToken } = deps;
 
   // Rate limiters (protect public login discovery endpoints)
@@ -44,7 +44,7 @@ module.exports = function(deps = {}) {
       if (cleanMobile.length !== 10) return res.status(400).json({ error: 'Invalid mobile number' });
 
       // Check main users table (admin/staff)
-      const sysUser = await db('users').select('id','username','mobile','role','password')
+      const sysUser = await db('users').select('id', 'username', 'mobile', 'role', 'password')
         .where('mobile', cleanMobile).first();
 
       const isAdmin = !!sysUser && (sysUser.role === 'admin' || sysUser.role === 'superadmin');
@@ -57,7 +57,7 @@ module.exports = function(deps = {}) {
       // Generate and send OTP for member users
       const otp = generateOtp();
       const otpExpiry = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
-      
+
       // Store OTP with expiry
       otpStore.set(cleanMobile, { otp, expiry: otpExpiry });
 
@@ -73,7 +73,7 @@ module.exports = function(deps = {}) {
       if (name) query = query.andWhere('name', 'like', `%${name}%`);
       if (receiptNumber) query = query.andWhere('reference_number', receiptNumber);
       const users = await query.select(
-        'id','name','reference_number as referenceNumber','mobile_number as mobileNumber','father_name as fatherName','alternative_name as alternativeName'
+        'id', 'name', 'reference_number as referenceNumber', 'mobile_number as mobileNumber', 'father_name as fatherName', 'alternative_name as alternativeName'
       );
 
       // Always respond success with OTP mode to avoid leaking whether the number exists in staff table
@@ -98,7 +98,7 @@ module.exports = function(deps = {}) {
       }
 
       const cleanMobile = String(mobile).replace(/\D/g, '');
-      
+
       // Check if OTP exists and is valid
       const storedOtpData = otpStore.get(cleanMobile);
       if (!storedOtpData) {
@@ -125,22 +125,26 @@ module.exports = function(deps = {}) {
           .where('id', userId)
           .andWhere('mobile_number', cleanMobile)
           .first();
+
+        if (!user) {
+          return res.status(404).json({ error: 'User not found with provided ID' });
+        }
       } else {
         // Get first user with this mobile number
         user = await db('user_registrations')
           .where('mobile_number', cleanMobile)
           .first();
-      }
 
-      if (!user) {
-        return res.status(404).json({ error: 'User not found' });
+        if (!user) {
+          return res.status(404).json({ error: 'No user found with this mobile number' });
+        }
       }
 
       // Create JWT token for member user
       const token = jwt.sign(
-        { 
-          id: user.id, 
-          mobile: user.mobile_number, 
+        {
+          id: user.id,
+          mobile: user.mobile_number,
           name: user.name,
           type: 'member',
           referenceNumber: user.reference_number
@@ -201,7 +205,7 @@ module.exports = function(deps = {}) {
       try {
         const hasLastLogin = await db.schema.hasColumn('users', 'last_login');
         if (hasLastLogin) await db('users').where('id', user.id).update({ last_login: db.fn.now() });
-      } catch {}
+      } catch { }
 
       const token = jwt.sign(
         { id: user.id, mobile: user.mobile, username: user.username, templeId: user.temple_id, role: user.role },
@@ -209,11 +213,15 @@ module.exports = function(deps = {}) {
         { expiresIn: '365d' }
       );
 
-      // Load permissions
-      const permissions = await db('user_permissions').where({ user_id: user.id }).select('permission_id', 'access_level');
+      // Load permissions and normalize to { id, access }
+      const permissions = await db('user_permissions')
+        .where({ user_id: user.id })
+        .select('permission_id', 'access_level');
+      const permissionsMapped = permissions.map(p => ({ id: p.permission_id, access: p.access_level }));
+      try { console.log(`[LOGIN] user ${user.id} permissions count:`, permissionsMapped.length); } catch { }
 
       // Log session (best effort)
-      db('session_logs').insert({ user_id: user.id, login_time: db.fn.now(), ip_address: req.ip, user_agent: req.headers['user-agent'] }).catch(() => {});
+      db('session_logs').insert({ user_id: user.id, login_time: db.fn.now(), ip_address: req.ip, user_agent: req.headers['user-agent'] }).catch(() => { });
 
       return res.json({
         success: true,
@@ -227,7 +235,7 @@ module.exports = function(deps = {}) {
           templeName: user.templeName,
           fullName: user.full_name,
           email: user.email,
-          permissions,
+          permissions: permissionsMapped,
         },
       });
     } catch (err) {
@@ -246,7 +254,7 @@ module.exports = function(deps = {}) {
         return res.status(400).json({ error: 'mobile or username is required' });
       }
 
-      const q = db('users').select('id','username','mobile','role','password');
+      const q = db('users').select('id', 'username', 'mobile', 'role', 'password');
       if (mobile && username) {
         q.where(builder => builder.where('mobile', mobile).orWhere('username', username));
       } else if (mobile) {
@@ -278,7 +286,7 @@ module.exports = function(deps = {}) {
     // Skip auth for these public routes
     const publicRoutes = ['/login', '/login/mode', '/login/smart', '/login/otp', '/register'];
     if (publicRoutes.includes(req.path)) return next();
-    
+
     if (typeof authenticateToken === 'function') {
       return authenticateToken(req, res, next);
     }
@@ -405,6 +413,7 @@ module.exports = function(deps = {}) {
         'view_session_logs',
         'activity_logs',
         'tax_registrations',
+        "marriage_register",
         'user_registrations',
         'pooja_registrations',
         'pooja_approval',
@@ -623,7 +632,7 @@ module.exports = function(deps = {}) {
       if (Array.isArray(customPermissions)) {
         // Delete existing permissions
         await db('user_permissions').where('user_id', userId).delete();
-        
+
         // Insert new permissions
         if (customPermissions.length > 0) {
           const permissionRecords = customPermissions.map(perm => ({
@@ -644,7 +653,7 @@ module.exports = function(deps = {}) {
       // Format the response
       const responseUser = {
         ...userWithPermissions[0],
-        permissions: userWithPermissions[0].permissions 
+        permissions: userWithPermissions[0].permissions
           ? JSON.parse(userWithPermissions[0].permissions).filter(p => p.id !== null)
           : []
       };
@@ -657,10 +666,46 @@ module.exports = function(deps = {}) {
     }
   });
 
+  // Delete user (admin/superadmin only)
+  router.delete('/:userId', async (req, res) => {
+    const { userId } = req.params;
+    try {
+      const target = await db('users').where({ id: userId }).first();
+      if (!target) return res.status(404).json({ error: 'User not found.' });
+
+      // Only same temple admins/superadmins
+      if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+        return res.status(403).json({ error: 'Only admin or superadmin can delete users.' });
+      }
+      if (target.temple_id !== req.user.templeId) {
+        return res.status(403).json({ error: 'You can only delete users from your own temple.' });
+      }
+      // Prevent deleting superadmin unless requester is superadmin
+      if (target.role === 'superadmin' && req.user.role !== 'superadmin') {
+        return res.status(403).json({ error: 'Only superadmin can delete a superadmin user.' });
+      }
+      // Optional: prevent self-delete to avoid locking out
+      if (Number(userId) === Number(req.user.id)) {
+        return res.status(400).json({ error: 'You cannot delete your own account.' });
+      }
+
+      // Delete dependent rows first
+      await db('user_permissions').where({ user_id: userId }).del();
+
+      // Finally delete the user
+      await db('users').where({ id: userId }).del();
+
+      return res.json({ success: true });
+    } catch (err) {
+      console.error('DELETE /api/users/:userId error:', err);
+      return res.status(500).json({ error: 'Internal server error.' });
+    }
+  });
+
   // Logout endpoint
   router.post('/logout', (req, res) => {
     const userId = req.user.id;
-    
+
     // Find the latest session log without a logout time for this user
     db('session_logs')
       .where({

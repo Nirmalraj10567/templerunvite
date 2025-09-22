@@ -89,6 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             permission_id: permission.permission_id,
             access_level: permission.access_level,
           }));
+      
       setState(prev => ({
         ...prev,
         token: savedToken,
@@ -189,6 +190,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (data.success) {
+        // Ensure loading state is cleared on success
+        setState(prev => ({ ...prev, isLoading: false, error: '' }));
         return { success: true };
       } else {
         const message = data.message || data.error || 'Registration failed';

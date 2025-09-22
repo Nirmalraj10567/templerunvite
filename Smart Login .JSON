@@ -1,0 +1,30 @@
+{
+    "info": {
+      "_postman_id": "a1b2c3d4-e5f6-7890",
+      "name": "Smart Login",
+      "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+      {
+        "name": "Smart Login",
+        "request": {
+          "method": "POST",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n    \"mobile\": \"9876543210\"\n}"
+          },
+          "url": {
+            "raw": "{{base_url}}/api/login/smart",
+            "host": ["{{base_url}}"],
+            "path": ["api", "login", "smart"]
+          }
+        }
+      }
+    ]
+  }

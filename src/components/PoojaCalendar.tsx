@@ -60,12 +60,15 @@ export default function PoojaCalendar({
   };
 
   const getBookingsForDate = (date: string) => {
-    return bookings.filter(booking => {
-      // Parse dates without timezone issues
-      const bookingStart = new Date(booking.from_date + 'T00:00:00');
-      const bookingEnd = new Date(booking.to_date + 'T23:59:59');
+    // Normalize date strings from backend: they may be 'YYYY-MM-DD' or ISO with time (e.g., '2025-09-20T00:00:00.000Z')
+    const norm = (s: string) => (s || '').slice(0, 10);
+    return bookings.filter((booking) => {
+      const from = norm((booking as any).from_date);
+      const to = norm((booking as any).to_date);
+      // Anchor comparisons at 12:00 local to avoid timezone crossing issues
+      const bookingStart = new Date(from + 'T00:00:00');
+      const bookingEnd = new Date(to + 'T23:59:59');
       const checkDate = new Date(date + 'T12:00:00');
-      
       return checkDate >= bookingStart && checkDate <= bookingEnd;
     });
   };
@@ -216,7 +219,7 @@ export default function PoojaCalendar({
             {showBookingTimes && selectedDate && (
               <div className="mt-4 p-3 bg-gray-50 rounded-lg">
                 <h4 className="text-sm font-medium mb-2">
-                  {t('Bookings for', 'பதிவுகள்')} {new Date(selectedDate).toLocaleDateString()}
+                  {t('Bookings for', 'பதிவுகள்')} {new Date(selectedDate + 'T12:00:00').toLocaleDateString()}
                 </h4>
                 {(() => {
                   const dayBookings = getBookingsForDate(selectedDate);

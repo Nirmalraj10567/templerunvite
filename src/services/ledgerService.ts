@@ -86,7 +86,11 @@ export const ledgerService = {
       from_account: entry.from_account,
       amount: entry.amount,
       remarks: entry.remarks,
-      entry_type: entry.type, // optional mapping; backend defaults to 'transfer'
+      // Map UI type to backend-supported entry_type (MySQL ENUM)
+      // credit -> receipt, debit -> payment, undefined -> transfer (handled by backend default)
+      ...(entry.type
+        ? { entry_type: entry.type === 'credit' ? 'receipt' : 'payment' }
+        : {}),
     };
     if (entry.to_account) payload.to_account = entry.to_account;
     const response = await api.post<any>(`/api/journal/entries`, payload);
