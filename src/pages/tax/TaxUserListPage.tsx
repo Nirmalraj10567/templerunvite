@@ -78,7 +78,7 @@ export default function TaxUserListPage() {
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(visibleCols));
-    } catch {}
+    } catch { }
   }, [visibleCols]);
 
   // Context Menu
@@ -112,12 +112,14 @@ export default function TaxUserListPage() {
 
   const visibleColCount = useMemo(() => Object.values(visibleCols).filter(Boolean).length, [visibleCols]);
 
-  // Helper: safe number parser
+  // Helper functions
   const toNum = (v: any): number => {
     if (v === null || v === undefined) return 0;
-    const n = Number(String(v).toString().replace(/[,\s]/g, ''));
+    const n = Number(String(v).replace(/[,\s]/g, ''));
     return Number.isFinite(n) ? n : 0;
   };
+
+  const normalizeMobile = (m?: string) => (m ? String(m).replace(/\D/g, '') : '');
 
   // Fetch current year's default tax (used for users without a tax registration)
   useEffect(() => {
@@ -133,15 +135,24 @@ export default function TaxUserListPage() {
           if (amt > 0) setCurrentYearTax(amt);
         }
       } catch (e) {
-        // ignore; fallback 0
+        // Failed to load tax settings, fallback to 0
       }
     })();
   }, [token]);
 
   // Load data (combined view: tax registrations + base registrations)
+
   const load = async () => {
     setLoading(true);
     try {
+      // Get current year's tax amount
+      const currentYear = new Date().getFullYear();
+      const taxSettingsRes = await fetch(`https://tmsapi.xesstechlink.com/api/tax-settings/year/${currentYear}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const taxSettings = await taxSettingsRes.json();
+      const currentYearTax = taxSettings?.data?.tax_amount ? toNum(taxSettings.data.tax_amount) : 0;
+
       // Always fetch all tax registrations matching search (no tab filter; we will filter client-side)
       const taxParams = new URLSearchParams({ page: '1', pageSize: '1000' });
       if (search) taxParams.set('search', search);
@@ -181,72 +192,102 @@ export default function TaxUserListPage() {
       const regData = await regRes.json();
       if (!regRes.ok) throw new Error(regData.error || 'Failed to load registrations');
 
-      // Build a set of mobiles present in tax registrations for quick lookup
-      const normalizeMobile = (m?: string) => (m ? String(m).replace(/\D/g, '') : '');
-      const taxByMobile = new Map<string, TaxRegistration[]>();
+      // Build a map of users with tax registrations using reference number as key
+      const userTaxMap = new Map<string, TaxRegistration>();
       taxRows.forEach((row) => {
-        const key = normalizeMobile(row.mobile_number);
-        if (!taxByMobile.has(key)) taxByMobile.set(key, []);
-        taxByMobile.get(key)!.push(row);
+        const refNumber = row.reference_number;
+        if (refNumber) {
+          // Only keep the most recent tax record for each reference number
+          const existing = userTaxMap.get(refNumber);
+          if (!existing || (row.created_at && existing.created_at && row.created_at > existing.created_at)) {
+            userTaxMap.set(refNumber, row);
+          }
+        }
       });
 
       // Create synthetic tax rows for base registrations without tax registration
-      const synthetic: TaxRegistration[] = (regData.data || []).map((r: any) => {
-        const mobile = normalizeMobile(r.mobile_number ?? r.mobileNumber);
-        const hasTax = mobile && taxByMobile.has(mobile);
-        if (hasTax) return null as any; // will skip
+      const synthetic: TaxRegistration[] = [];
+      (regData.data || []).forEach((r: any) => {
+        const refNumber = r.reference_number ?? r.referenceNumber;
+        if (!refNumber) return; // Skip if missing reference number
+
+        // Check if this user has any tax record by reference number
+        const hasTax = userTaxMap.has(refNumber);
+
+        if (hasTax) return; // skip if user already has tax record
+
         const tax = currentYearTax > 0 ? currentYearTax : 0;
-        return {
-          id: -Math.abs(Number(r.id) || Math.floor(Math.random() * 1e9)), // negative id to avoid clash
-          name: r.name,
-          mobile_number: r.mobile_number ?? r.mobileNumber,
+        synthetic.push({
+          id: -Math.abs(Number(r.id) || Math.floor(Math.random() * 1e9)),
+          name: r.name || 'Unknown',
+          mobile_number: r.mobile_number ?? r.mobileNumber ?? '',
           aadhaar_number: r.aadhaar_number ?? r.aadhaarNumber ?? null,
-          reference_number: r.reference_number ?? r.referenceNumber,
-          village: r.village,
-          created_at: r.created_at ?? r.createdAt,
+          reference_number: refNumber,
+          village: r.village ?? '',
+          created_at: r.created_at ?? r.createdAt ?? new Date().toISOString(),
           tax_amount: tax,
           amount_paid: 0,
           outstanding_amount: tax,
-        } as TaxRegistration;
-      }).filter(Boolean);
-
-      // Merge: existing tax rows + synthetic rows
-      let merged: TaxRegistration[] = [...taxRows, ...synthetic];
-
-      // Get the total count from the registrations API
-      const totalRegistrations = regData.total || 0;
-      
-      // Calculate paid users from tax registrations
-      const paidUsers = taxRows.filter((r) => toNum(r.amount_paid) > 0 && toNum(r.outstanding_amount) <= 0).length;
-      
-      // Calculate unpaid users as total - paid
-      // This ensures consistency between total and paid/unpaid counts
-      const unpaidUsers = Math.max(0, totalRegistrations - paidUsers);
-      
-      setTotalUsers(totalRegistrations);
-      setPaidCount(paidUsers);
-      setPendingCount(unpaidUsers);
-      
-      console.log('User counts:', {
-        total: totalRegistrations,
-        paid: paidUsers,
-        unpaid: unpaidUsers
-      });
-      
-      console.log('Tax stats:', {
-        totalRegistrations,
-        taxRows: taxRows.length,
-        synthetic: synthetic.length,
-        paidUsers,
-        unpaidUsers
+        });
       });
 
-      // Apply tab filter client-side
+      // Convert map values to array and combine with synthetic rows
+      let merged: TaxRegistration[] = [
+        ...Array.from(userTaxMap.values()),
+        ...synthetic
+      ];
+
+      // Ensure we don't have any duplicates using reference number as primary key
+      // and name+mobile as fallback for users without reference numbers
+      const seen = new Set<string>();
+      merged = merged.filter(row => {
+        const refNumber = row.reference_number;
+        const name = row.name?.toLowerCase().trim();
+        const mobile = normalizeMobile(row.mobile_number);
+
+        // Use reference number as primary key if available
+        let key = refNumber;
+
+        // If no reference number, use name+mobile combination
+        if (!key && name && mobile) {
+          key = `${name}_${mobile}`;
+        }
+
+        // Skip if no unique identifier found or already seen
+        if (!key || seen.has(key)) return false;
+
+        seen.add(key);
+        return true;
+      });
+
+      // Calculate counts based on the merged data (after deduplication)
+      const totalUsers = merged.length;
+
+      // Separate users into paid and pending
+      const paidUsersList = merged.filter((r) => {
+        const paid = toNum(r.amount_paid);
+        const outstanding = toNum(r.outstanding_amount);
+        return paid > 0 && outstanding <= 0;
+      });
+
+      const pendingUsersList = merged.filter((r) => {
+        const paid = toNum(r.amount_paid);
+        const outstanding = toNum(r.outstanding_amount);
+        return paid === 0 || outstanding > 0;
+      });
+
+      // Set the counts
+      setTotalUsers(totalUsers);
+      setPaidCount(paidUsersList.length);
+      setPendingCount(pendingUsersList.length);
+
+      // Apply tab filter client-side using the pre-filtered lists
       if (statusTab === 'pending') {
-        merged = merged.filter((r) => toNum(r.amount_paid) === 0 || toNum(r.outstanding_amount) > 0);
+        merged = pendingUsersList;
       } else if (statusTab === 'paid') {
-        merged = merged.filter((r) => toNum(r.amount_paid) > 0 && toNum(r.outstanding_amount) <= 0);
+        merged = paidUsersList;
       }
+      // For 'all' tab, keep the original merged array
 
       // Sort by created_at desc (fallback name)
       merged.sort((a, b) => {
@@ -258,12 +299,12 @@ export default function TaxUserListPage() {
       // Client-side pagination
       const start = (page - 1) * pageSize;
       const end = start + pageSize;
-      
+
       // Use the total count from the registrations API for pagination
       setTotal(merged.length);
       setRows(merged.slice(start, end));
     } catch (e) {
-      console.error('Failed to load tax registrations:', e);
+      // Failed to load tax registrations
       setRows([]);
       setTotal(0);
     } finally {
@@ -299,7 +340,7 @@ export default function TaxUserListPage() {
       const blob = await res.blob();
       downloadBlob(blob, `tax-registration-${id}.pdf`);
     } catch (err) {
-      console.error(err);
+      // PDF download failed
       alert((err as Error).message);
     }
   };
@@ -324,7 +365,7 @@ export default function TaxUserListPage() {
       const blob = await res.blob();
       downloadBlob(blob, 'tax-registrations.pdf');
     } catch (err) {
-      console.error(err);
+      // PDF export failed
       alert((err as Error).message);
     }
   };
@@ -391,11 +432,10 @@ export default function TaxUserListPage() {
                   key={tab.key}
                   type="button"
                   onClick={() => { setStatusTab(tab.key); setPage(1); }}
-                  className={`px-2 py-0.5 rounded text-xs transition-colors ${
-                    statusTab === tab.key
+                  className={`px-2 py-0.5 rounded text-xs transition-colors ${statusTab === tab.key
                       ? 'bg-white border border-gray-300 text-gray-900 shadow-sm text-xs'
                       : 'bg-transparent text-gray-600 hover:text-gray-900 text-xs'
-                  }`}
+                    }`}
                 >
                   {tab.label}
                 </button>
@@ -435,13 +475,12 @@ export default function TaxUserListPage() {
                     visibleCols[col.key] && (
                       <th
                         key={col.key}
-                        className={`px-2 py-1 text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                          col.align === 'right'
+                        className={`px-2 py-1 text-xs font-medium text-gray-500 uppercase tracking-wider ${col.align === 'right'
                             ? 'text-right'
                             : col.align === 'center'
-                            ? 'text-center'
-                            : 'text-left'
-                        }`}
+                              ? 'text-center'
+                              : 'text-left'
+                          }`}
                       >
                         {col.label}
                       </th>
@@ -513,9 +552,8 @@ export default function TaxUserListPage() {
                           return (
                             <div className="flex flex-col items-center">
                               <span
-                                className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium ${
-                                  isPaid ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                }`}
+                                className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium ${isPaid ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                  }`}
                               >
                                 {isPaid ? t('Paid', 'செலுத்தப்பட்டது') : t('Pending', 'நிலுவை')}
                               </span>
