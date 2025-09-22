@@ -79,7 +79,7 @@ function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
-              <Route path="/dashboard" element={<Navigate to="/dashboard/" replace />} />
+              
               {/* Protected Dashboard */}
               <Route element={<ProtectedRoute />}>
                 <Route path="dashboard" element={<DashboardLayout />}>
@@ -130,7 +130,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/upgrade-now"
+                    path="upgrade-now"
                     element={
                       <PermissionGuard requiredPermission="dashboard" accessLevel="view">
                         <UpgradeNowPage />
@@ -138,7 +138,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/master-admin"
+                    path="master-admin"
                     element={
                       <PermissionGuard requiredPermission="dashboard" accessLevel="view">
                         <MasterAdminPage />
@@ -194,7 +194,7 @@ function App() {
                     />
                   </Route>
                   <Route 
-                    path="/dashboard/calendar/new-moon-days" 
+                    path="calendar/new-moon-days" 
                     element={
                       <PermissionGuard requiredPermission="view_events" accessLevel="view">
                         <NewMoonDaysPage />
@@ -202,7 +202,7 @@ function App() {
                     } 
                   />
                   <Route
-                    path="/dashboard/master-data"
+                    path="master-data"
                     element={
                       <PermissionGuard requiredPermission="master_data" accessLevel="view">
                         <MasterDataPage />
@@ -210,7 +210,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/balance-sheet"
+                    path="balance-sheet"
                     element={
                       <PermissionGuard requiredPermission="balance_sheet" accessLevel="view">
                         <BalanceSheet />
@@ -218,7 +218,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/registrations/entry"
+                    path="registrations/entry"
                     element={
                       <PermissionGuard requiredPermission="user_registrations" accessLevel="edit">
                         <YearEndLockGuard>
@@ -228,7 +228,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/registrations/edit/:id"
+                    path="registrations/edit/:id"
                     element={
                       <PermissionGuard requiredPermission="user_registrations" accessLevel="edit">
                         <YearEndLockGuard>
@@ -238,7 +238,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/registrations/text-entry"
+                    path="registrations/text-entry"
                     element={
                       <PermissionGuard requiredPermission="user_registrations" accessLevel="edit">
                         <YearEndLockGuard>
@@ -248,7 +248,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/registrations/list"
+                    path="registrations/list"
                     element={
                       <PermissionGuard requiredPermission="user_registrations" accessLevel="view">
                         <TempleUserListPage />
@@ -256,7 +256,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/tax/entry"
+                    path="tax/entry"
                     element={
                       <PermissionGuard requiredPermission="tax_registrations" accessLevel="edit">
                         <YearEndLockGuard>
@@ -266,7 +266,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/tax/list"
+                    path="tax/list"
                     element={
                       <PermissionGuard requiredPermission="tax_registrations" accessLevel="view">
                         <TaxUserListPage />
@@ -274,7 +274,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/tax/settings"
+                    path="tax/settings"
                     element={
                       <PermissionGuard requiredPermission="tax_registrations" accessLevel="edit">
                         <YearEndLockGuard>
@@ -286,7 +286,7 @@ function App() {
                   
                   {/* Property Registration Routes */}
                   <Route
-                    path="/dashboard/properties/*"
+                    path="properties/*"
                     element={
                       <PermissionGuard requiredPermission="property_registrations" accessLevel="view">
                         <PropertyRoutes />
@@ -294,7 +294,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/kanikalar"
+                    path="kanikalar"
                     element={
                       <PermissionGuard requiredPermission="view_kanikalar" accessLevel="view">
                         <KanikalarPage />
@@ -302,7 +302,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/kanikalar/:id"
+                    path="kanikalar/:id"
                     element={
                       <PermissionGuard requiredPermission="view_kanikalar" accessLevel="view">
                         <WeddingDetailPage />
@@ -310,7 +310,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/transactions"
+                    path="transactions"
                     element={
                       <PermissionGuard requiredPermission="ledger_management" accessLevel="view">
                         <TransactionsPage />
@@ -326,7 +326,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/reports/daily"
+                    path="reports/daily"
                     element={
                       <PermissionGuard requiredPermission="reports" accessLevel="view">
                         <DailyReportPage />
@@ -334,7 +334,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/reports/monthly"
+                    path="reports/monthly"
                     element={
                       <PermissionGuard requiredPermission="reports" accessLevel="view">
                         <MonthlyReportPage />
@@ -342,7 +342,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/reports/journal-log"
+                    path="reports/journal-log"
                     element={
                       <PermissionGuard requiredPermission="reports" accessLevel="view">
                         <JournalLogPage />
@@ -350,7 +350,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/reports/trial-balance"
+                    path="reports/trial-balance"
                     element={
                       <PermissionGuard requiredPermission="reports" accessLevel="view">
                         <TrialBalancePage />
@@ -358,7 +358,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/reports/balance-sheet"
+                    path="reports/balance-sheet"
                     element={
                       <PermissionGuard requiredPermission="reports" accessLevel="view">
                         <BalanceSheetPage />
@@ -374,7 +374,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/settings/pdf"
+                    path="settings/pdf"
                     element={
                       <PermissionGuard requiredPermission="pdf_settings" accessLevel="edit">
                         <PdfSettingsPage />
@@ -382,7 +382,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/settings/my-preferences"
+                    path="settings/my-preferences"
                     element={
                       <PermissionGuard requiredPermission="setting" accessLevel="view">
                         <MyPreferences />
@@ -390,7 +390,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/members"
+                    path="members"
                     element={
                       <PermissionGuard requiredPermission="member_entry" accessLevel="view">
                         <MembersPage />
@@ -398,7 +398,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/members/entry"
+                    path="members/entry"
                     element={
                       <PermissionGuard requiredPermission="member_entry" accessLevel="edit">
                         <YearEndLockGuard>
@@ -408,7 +408,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/members/edit/:id"
+                    path="members/edit/:id"
                     element={
                       <PermissionGuard requiredPermission="member_entry" accessLevel="edit">
                         <YearEndLockGuard>
@@ -418,7 +418,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/members/logs"
+                    path="members/logs"
                     element={
                       <PermissionGuard requiredPermission="view_session_logs" accessLevel="view">
                         <MemberLogsPage />
@@ -426,7 +426,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/marriage/entry"
+                    path="marriage/entry"
                     element={
                       <PermissionGuard requiredPermission="marriage_register" accessLevel="edit">
                         <YearEndLockGuard>
@@ -437,7 +437,7 @@ function App() {
                   />
                   {/* Ledger Routes */}
                   <Route
-                    path="/dashboard/ledger/entry"
+                    path="ledger/entry"
                     element={
                       <PermissionGuard requiredPermission="ledger_management" accessLevel="edit">
                         <YearEndLockGuard>
@@ -447,7 +447,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/ledger/entry/:id"
+                    path="ledger/entry/:id"
                     element={
                       <PermissionGuard requiredPermission="ledger_management" accessLevel="edit">
                         <YearEndLockGuard>
@@ -457,7 +457,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/ledger/list"
+                    path="ledger/list"
                     element={
                       <PermissionGuard requiredPermission="ledger_management" accessLevel="view">
                         <LedgerListPage />
@@ -465,7 +465,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/ledger/profit-and-loss"
+                    path="ledger/profit-and-loss"
                     element={
                       <PermissionGuard requiredPermission="reports" accessLevel="view">
                         <ProfitAndLossPage />
@@ -473,7 +473,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/ledger/cashflow-by-category"
+                    path="ledger/cashflow-by-category"
                     element={
                       <PermissionGuard requiredPermission="reports" accessLevel="view">
                         <CashflowByCategoryPage />
@@ -481,7 +481,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/ledger/category-statement"
+                    path="ledger/category-statement"
                     element={
                       <PermissionGuard requiredPermission="reports" accessLevel="view">
                         <CategoryStatementPage />
@@ -489,7 +489,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/marriage/list"
+                    path="marriage/list"
                     element={
                       <PermissionGuard requiredPermission="marriage_register" accessLevel="view">
                         <MarriageListPage />
@@ -497,7 +497,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/hall/entry"
+                    path="hall/entry"
                     element={
                       <PermissionGuard requiredPermission="hall_booking" accessLevel="edit">
                         <YearEndLockGuard>
@@ -507,7 +507,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/hall/approvals"
+                    path="hall/approvals"
                     element={
                       <PermissionGuard requiredPermission="hall_approval" accessLevel="view">
                         <HallApprovalPage />
@@ -515,7 +515,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/hall/list"
+                    path="hall/list"
                     element={
                       <PermissionGuard requiredPermission="marriage_register" accessLevel="view">
                         <HallListPage />
@@ -523,7 +523,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/annadhanam/entry"
+                    path="annadhanam/entry"
                     element={
                       <PermissionGuard requiredPermission="annadhanam_registrations" accessLevel="edit">
                         <YearEndLockGuard>
@@ -533,7 +533,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/annadhanam/new"
+                    path="annadhanam/new"
                     element={
                       <PermissionGuard requiredPermission="annadhanam_registrations" accessLevel="edit">
                         <YearEndLockGuard>
@@ -543,7 +543,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/annadhanam/edit/:id"
+                    path="annadhanam/edit/:id"
                     element={
                       <PermissionGuard requiredPermission="annadhanam_registrations" accessLevel="edit">
                         <YearEndLockGuard>
@@ -553,7 +553,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/annadhanam/list"
+                    path="annadhanam/list"
                     element={
                       <PermissionGuard requiredPermission="annadhanam_registrations" accessLevel="view">
                         <AnnadhanamListView />
@@ -561,7 +561,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/annadhanam"
+                    path="annadhanam"
                     element={
                       <PermissionGuard requiredPermission="annadhanam_registrations" accessLevel="view">
                         <AnnadhanamListView />
@@ -569,7 +569,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/pooja/entry"
+                    path="pooja/entry"
                     element={
                       <PermissionGuard requiredPermission="pooja_registrations" accessLevel="edit">
                         <YearEndLockGuard>
@@ -579,7 +579,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/pooja/new"
+                    path="pooja/new"
                     element={
                       <PermissionGuard requiredPermission="pooja_registrations" accessLevel="edit">
                         <YearEndLockGuard>
@@ -589,7 +589,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/pooja/edit/:id"
+                    path="pooja/edit/:id"
                     element={
                       <PermissionGuard requiredPermission="pooja_registrations" accessLevel="edit">
                         <YearEndLockGuard>
@@ -599,7 +599,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/pooja/list"
+                    path="pooja/list"
                     element={
                       <PermissionGuard requiredPermission="pooja_registrations" accessLevel="view">
                         <PoojaListView />
@@ -607,7 +607,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/pooja"
+                    path="pooja"
                     element={
                       <PermissionGuard requiredPermission="pooja_registrations" accessLevel="view">
                         <PoojaListView />
@@ -615,7 +615,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/pooja/request"
+                    path="pooja/request"
                     element={
                       <PermissionGuard requiredPermission="pooja_mobile_submit" accessLevel="edit">
                         <PoojaMobileRequestPage />
@@ -623,7 +623,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/pooja/my-requests"
+                    path="pooja/my-requests"
                     element={
                       <PermissionGuard requiredPermission="pooja_mobile_submit" accessLevel="view">
                         <PoojaMyRequestsPage />
@@ -631,7 +631,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/pooja/approval"
+                    path="pooja/approval"
                     element={
                       <PermissionGuard requiredPermission="pooja_approval" accessLevel="view">
                         <PoojaApprovalPage />
@@ -639,7 +639,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/annadhanam/approval"
+                    path="annadhanam/approval"
                     element={
                       <PermissionGuard requiredPermission="annadhanam_approval" accessLevel="view">
                         <AnnadhanamApprovalPage />
@@ -647,7 +647,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/donations/approval"
+                    path="donations/approval"
                     element={
                       <PermissionGuard requiredPermission="donation_approval" accessLevel="view">
                         <DonationApprovalPage />
@@ -670,7 +670,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/session-management"
+                    path="session-management"
                     element={
                       <PermissionGuard requiredPermission="session_management" accessLevel="view">
                         <SessionManagementPage />
@@ -678,7 +678,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/activity-logs"
+                    path="activity-logs"
                     element={
                       <PermissionGuard requiredPermission="activity_logs" accessLevel="view">
                         <ActivityLogsPage />
@@ -686,7 +686,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/dashboard/session-logs"
+                    path="session-logs"
                     element={
                       <PermissionGuard requiredPermission="view_session_logs" accessLevel="view">
                         <SessionLogsPage />

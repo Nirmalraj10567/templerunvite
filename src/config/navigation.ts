@@ -150,14 +150,14 @@ export const sidebarItems: NavItem[] = [
     icon: UsersIcon,
     children: [
       { 
-        to: '/dashboard/members/entry', 
+        to: 'members/entry', 
         label: navigationTranslations.english.memberEntry, 
         tamilLabel: navigationTranslations.tamil.memberEntry, 
         permissionId: 'member_entry',
         accessLevel: 'edit'
       },
       { 
-        to: '/dashboard/members', 
+        to: 'members', 
         label: navigationTranslations.english.members, 
         tamilLabel: navigationTranslations.tamil.members, 
         permissionId: 'member_entry',
@@ -171,35 +171,35 @@ export const sidebarItems: NavItem[] = [
     icon: BarChartIcon,
     children: [
       { 
-        to: '/dashboard/reports/daily', 
+        to: 'reports/daily', 
         label: navigationTranslations.english.dailyReport, 
         tamilLabel: navigationTranslations.tamil.dailyReport, 
         permissionId: 'reports',
         accessLevel: 'view'
       },
       { 
-        to: '/dashboard/reports/monthly', 
+        to: 'reports/monthly', 
         label: navigationTranslations.english.monthlyReport, 
         tamilLabel: navigationTranslations.tamil.monthlyReport, 
         permissionId: 'reports',
         accessLevel: 'view'
       },
       { 
-        to: '/dashboard/reports/journal-log', 
+        to: 'reports/journal-log', 
         label: navigationTranslations.english.journalLog, 
         tamilLabel: navigationTranslations.tamil.journalLog, 
         permissionId: 'reports',
         accessLevel: 'view'
       },
       { 
-        to: '/dashboard/reports/trial-balance', 
+        to: 'reports/trial-balance', 
         label: navigationTranslations.english.trialBalance, 
         tamilLabel: navigationTranslations.tamil.trialBalance, 
         permissionId: 'reports',
         accessLevel: 'view'
       },
       { 
-        to: '/dashboard/reports/balance-sheet', 
+        to: 'reports/balance-sheet', 
         label: navigationTranslations.english.balanceSheet, 
         tamilLabel: navigationTranslations.tamil.balanceSheet, 
         permissionId: 'reports',
@@ -210,7 +210,7 @@ export const sidebarItems: NavItem[] = [
   {
     label: navigationTranslations.english.masterData,
     tamilLabel: navigationTranslations.tamil.masterData,
-    to: '/dashboard/master-data',
+    to: 'master-data',
     icon: LandmarkIcon,
     permissionId: 'master_data',
     accessLevel: 'edit'
@@ -221,14 +221,14 @@ export const sidebarItems: NavItem[] = [
     icon: CreditCardIcon,
     children: [
       { 
-        to: '/dashboard/ledger/entry', 
+        to: 'ledger/entry', 
         label: navigationTranslations.english.newEntry, 
         tamilLabel: navigationTranslations.tamil.newEntry, 
         permissionId: 'ledger_management', 
         accessLevel: 'edit' 
       },
       { 
-        to: '/dashboard/ledger/list', 
+        to: 'ledger/list', 
         label: navigationTranslations.english.viewEntries, 
         tamilLabel: navigationTranslations.tamil.viewEntries, 
         permissionId: 'ledger_management', 
@@ -242,21 +242,21 @@ export const sidebarItems: NavItem[] = [
     icon: CalendarIcon,
     children: [
       { 
-        to: '/dashboard/pooja/list', 
+        to: 'pooja/list', 
         label: navigationTranslations.english.poojaList, 
         tamilLabel: navigationTranslations.tamil.poojaList, 
         permissionId: 'pooja_registrations',
         accessLevel: 'view'
       },
       { 
-        to: '/dashboard/pooja/entry', 
+        to: 'pooja/entry', 
         label: navigationTranslations.english.poojaEntry, 
         tamilLabel: navigationTranslations.tamil.poojaEntry, 
         permissionId: 'pooja_registrations',
         accessLevel: 'edit'
       },
       { 
-        to: '/dashboard/pooja/approval', 
+        to: 'pooja/approval', 
         label: navigationTranslations.english.poojaApproval, 
         tamilLabel: navigationTranslations.tamil.poojaApproval, 
         permissionId: 'pooja_approval',
@@ -270,21 +270,21 @@ export const sidebarItems: NavItem[] = [
     icon: CalendarIcon,
     children: [
       { 
-        to: '/dashboard/hall/list', 
+        to: 'hall/list', 
         label: navigationTranslations.english.hallBookings, 
         tamilLabel: navigationTranslations.tamil.hallBookings, 
         permissionId: 'hall_booking', 
         accessLevel: 'view' 
       },
       { 
-        to: '/dashboard/hall/entry', 
+        to: 'hall/entry', 
         label: navigationTranslations.english.newBooking, 
         tamilLabel: navigationTranslations.tamil.newBooking, 
         permissionId: 'hall_booking', 
         accessLevel: 'edit' 
       },
       { 
-        to: '/dashboard/hall/approvals', 
+        to: 'hall/approvals', 
         label: navigationTranslations.english.hallApprovals, 
         tamilLabel: navigationTranslations.tamil.hallApprovals, 
         permissionId: 'hall_approval', 
@@ -298,28 +298,28 @@ export const sidebarItems: NavItem[] = [
     icon: HeartIcon,
     children: [
       { 
-        to: '/dashboard/donation-product/entry', 
+        to: 'donation-product/entry', 
         label: navigationTranslations.english.productDonationsEntry, 
         tamilLabel: navigationTranslations.tamil.productDonationsEntry, 
         permissionId: 'edit_donations',
         accessLevel: 'edit'
       },
       { 
-        to: '/dashboard/donation-product/list', 
+        to: 'donation-product/list', 
         label: navigationTranslations.english.productDonationsList, 
         tamilLabel: navigationTranslations.tamil.productDonationsList, 
         permissionId: 'view_donations',
         accessLevel: 'view'
       },
       { 
-        to: '/dashboard/donations/money-entry', 
+        to: 'donations/money-entry', 
         label: navigationTranslations.english.moneyDonationEntry, 
         tamilLabel: navigationTranslations.tamil.moneyDonationEntry, 
         permissionId: 'edit_donations',
         accessLevel: 'edit'
       },
       { 
-        to: '/dashboard/donations/money-list', 
+        to: 'donations/money-list', 
         label: navigationTranslations.english.moneyDonationList, 
         tamilLabel: navigationTranslations.tamil.moneyDonationList, 
         permissionId: 'view_donations',
@@ -333,21 +333,21 @@ export const sidebarItems: NavItem[] = [
     icon: CalendarIcon,
     children: [
       { 
-        to: '/dashboard/events', 
+        to: 'events', 
         label: navigationTranslations.english.eventList, 
         tamilLabel: navigationTranslations.tamil.eventList, 
         permissionId: 'view_events',
         accessLevel: 'view'
       },
       { 
-        to: '/dashboard/events/new', 
+        to: 'events/new', 
         label: navigationTranslations.english.newEvent, 
         tamilLabel: navigationTranslations.tamil.newEvent, 
         permissionId: 'edit_events',
         accessLevel: 'edit'
       },
       { 
-        to: '/dashboard/calendar/new-moon-days', 
+        to: 'calendar/new-moon-days', 
         label: navigationTranslations.english.newMoonDays, 
         tamilLabel: navigationTranslations.tamil.newMoonDays, 
         permissionId: 'view_events' 
@@ -360,21 +360,21 @@ export const sidebarItems: NavItem[] = [
     icon: HeartIcon,
     children: [
       { 
-        to: '/dashboard/annadhanam/list', 
+        to: 'annadhanam/list', 
         label: navigationTranslations.english.annadhanamList, 
         tamilLabel: navigationTranslations.tamil.annadhanamList, 
         permissionId: 'annadhanam_registrations',
         accessLevel: 'view'
       },
       { 
-        to: '/dashboard/annadhanam/entry', 
+        to: 'annadhanam/entry', 
         label: navigationTranslations.english.annadhanamEntry, 
         tamilLabel: navigationTranslations.tamil.annadhanamEntry, 
         permissionId: 'annadhanam_registrations',
         accessLevel: 'edit'
       },
       { 
-        to: '/dashboard/annadhanam/approval', 
+        to: 'annadhanam/approval', 
         label: navigationTranslations.english.annadhanamApproval, 
         tamilLabel: navigationTranslations.tamil.annadhanamApproval, 
         permissionId: 'annadhanam_approval' 
@@ -387,14 +387,14 @@ export const sidebarItems: NavItem[] = [
     icon: LandmarkIcon,
     children: [
       { 
-        to: '/dashboard/receipt/list', 
+        to: 'receipt/list', 
         label: navigationTranslations.english.receiptList, 
         tamilLabel: navigationTranslations.tamil.receiptList, 
         permissionId: 'receipts', 
         accessLevel: 'view' 
       },
       { 
-        to: '/dashboard/receipt/entry', 
+        to: 'receipt/entry', 
         label: navigationTranslations.english.receiptEntry, 
         tamilLabel: navigationTranslations.tamil.receiptEntry, 
         permissionId: 'receipts', 
@@ -409,35 +409,35 @@ export const sidebarItems: NavItem[] = [
     permissionId: 'tax_registrations',
     children: [
       { 
-        to: '/dashboard/registrations/text-entry', 
+        to: 'registrations/text-entry', 
         label: navigationTranslations.english.userRegister, 
         tamilLabel: navigationTranslations.tamil.userRegister, 
         permissionId: 'user_registrations',
         accessLevel: 'edit'
       },
       { 
-        to: '/dashboard/registrations/list', 
+        to: 'registrations/list', 
         label: navigationTranslations.english.userList, 
         tamilLabel: navigationTranslations.tamil.userList, 
         permissionId: 'user_registrations',
         accessLevel: 'view'
       },
       { 
-        to: '/dashboard/tax/entry', 
+        to: 'tax/entry', 
         label: navigationTranslations.english.taxEntry, 
         tamilLabel: navigationTranslations.tamil.taxEntry, 
         permissionId: 'tax_registrations',
         accessLevel: 'edit'
       },
       { 
-        to: '/dashboard/tax/list', 
+        to: 'tax/list', 
         label: navigationTranslations.english.taxList, 
         tamilLabel: navigationTranslations.tamil.taxList, 
         permissionId: 'tax_registrations',
         accessLevel: 'view'
       },
       { 
-        to: '/dashboard/tax/settings', 
+        to: 'tax/settings', 
         label: navigationTranslations.english.taxSettings, 
         tamilLabel: navigationTranslations.tamil.taxSettings, 
         permissionId: 'tax_registrations',
@@ -451,14 +451,14 @@ export const sidebarItems: NavItem[] = [
     icon: HomeIcon,
     children: [
       { 
-        to: '/dashboard/properties', 
+        to: 'properties', 
         label: navigationTranslations.english.propertiesList, 
         tamilLabel: navigationTranslations.tamil.propertiesList, 
         permissionId: 'property_registrations',
         accessLevel: 'view'
       },
       { 
-        to: '/dashboard/properties/new', 
+        to: 'properties/new', 
         label: navigationTranslations.english.newProperty, 
         tamilLabel: navigationTranslations.tamil.newProperty, 
         permissionId: 'property_registrations',
@@ -469,7 +469,7 @@ export const sidebarItems: NavItem[] = [
   {
     label: navigationTranslations.english.sessionLogs,
     tamilLabel: navigationTranslations.tamil.sessionLogs,
-    to: '/dashboard/session-logs',
+    to: 'session-logs',
     icon: HistoryIcon,
     permissionId: 'view_session_logs',
     accessLevel: 'view'
@@ -480,21 +480,21 @@ export const sidebarItems: NavItem[] = [
     icon: SettingsIcon,
     children: [
       { 
-        to: '/dashboard/settings', 
+        to: 'settings', 
         label: navigationTranslations.english.generalSettings, 
         tamilLabel: navigationTranslations.tamil.generalSettings, 
         permissionId: 'setting',
         accessLevel: 'edit'
       },
       { 
-        to: '/dashboard/settings/pdf', 
+        to: 'settings/pdf', 
         label: navigationTranslations.english.pdfSettings, 
         tamilLabel: navigationTranslations.tamil.pdfSettings, 
         permissionId: 'pdf_settings',
         accessLevel: 'edit'
       },
       { 
-        to: '/dashboard/settings/my-preferences', 
+        to: 'settings/my-preferences', 
         label: navigationTranslations.english.myPreferences, 
         tamilLabel: navigationTranslations.tamil.myPreferences, 
         permissionId: 'setting',
