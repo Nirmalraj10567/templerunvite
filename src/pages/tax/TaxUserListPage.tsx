@@ -213,12 +213,33 @@ export default function TaxUserListPage() {
       // Merge: existing tax rows + synthetic rows
       let merged: TaxRegistration[] = [...taxRows, ...synthetic];
 
-      // Compute stats BEFORE applying tab filter & pagination
-      const paidUsers = merged.filter((r) => toNum(r.amount_paid) > 0 && toNum(r.outstanding_amount) <= 0).length;
-      const pendingUsers = merged.filter((r) => toNum(r.amount_paid) === 0 || toNum(r.outstanding_amount) > 0).length;
-      setTotalUsers(merged.length);
+      // Get the total count from the registrations API
+      const totalRegistrations = regData.total || 0;
+      
+      // Calculate paid users from tax registrations
+      const paidUsers = taxRows.filter((r) => toNum(r.amount_paid) > 0 && toNum(r.outstanding_amount) <= 0).length;
+      
+      // Calculate unpaid users as total - paid
+      // This ensures consistency between total and paid/unpaid counts
+      const unpaidUsers = Math.max(0, totalRegistrations - paidUsers);
+      
+      setTotalUsers(totalRegistrations);
       setPaidCount(paidUsers);
-      setPendingCount(pendingUsers);
+      setPendingCount(unpaidUsers);
+      
+      console.log('User counts:', {
+        total: totalRegistrations,
+        paid: paidUsers,
+        unpaid: unpaidUsers
+      });
+      
+      console.log('Tax stats:', {
+        totalRegistrations,
+        taxRows: taxRows.length,
+        synthetic: synthetic.length,
+        paidUsers,
+        unpaidUsers
+      });
 
       // Apply tab filter client-side
       if (statusTab === 'pending') {
@@ -237,6 +258,8 @@ export default function TaxUserListPage() {
       // Client-side pagination
       const start = (page - 1) * pageSize;
       const end = start + pageSize;
+      
+      // Use the total count from the registrations API for pagination
       setTotal(merged.length);
       setRows(merged.slice(start, end));
     } catch (e) {

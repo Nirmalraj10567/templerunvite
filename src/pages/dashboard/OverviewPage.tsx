@@ -155,11 +155,19 @@ export default function OverviewPage() {
 
         // Build mobile sets
         const allRegs: any[] = Array.isArray(regAllJson?.data) ? regAllJson.data : [];
+        console.log('Raw registrations data:', JSON.stringify(allRegs, null, 2));
+        
+        // Count all user records regardless of mobile number
+        const totalUsers = allRegs.length;
+        console.log('Total user records found:', totalUsers);
+        
+        // For reference, still track unique mobiles but don't use for counting
         const allMobiles = new Set<string>();
         allRegs.forEach((r) => {
           const mob = normalizeMobile(r.mobile_number ?? r.mobileNumber);
           if (mob) allMobiles.add(mob);
         });
+        console.log('Unique mobile numbers (for reference):', allMobiles.size);
 
         // Map latest tax record per mobile for current year
         const taxRows: any[] = Array.isArray(taxJson?.data) ? taxJson.data : [];
@@ -196,18 +204,22 @@ export default function OverviewPage() {
           else pendingMobiles.add(mob);
         }
 
-        // Members without any tax registration for current year are considered unpaid (pending) by default
-        // If there is no tax setting, we still count them as unpaid to match combined list logic
-        for (const mob of allMobiles) {
-          if (!byMobile.has(mob)) {
-            // Treat as pending
-            pendingMobiles.add(mob);
-          }
-        }
-
-        const total = allMobiles.size;
+        // Calculate paid users from tax registrations
         const paid = paidMobiles.size;
-        const unpaid = Math.max(0, pendingMobiles.size); // already excludes paid
+        
+        // Calculate unpaid users as total - paid
+        // This ensures consistency between total and paid/unpaid counts
+        const unpaid = Math.max(0, totalUsers - paid);
+        
+        const total = totalUsers; // Total from registrations API
+        
+        console.log('Overview counts:', {
+          total,
+          paid,
+          unpaid,
+          paidMobiles: Array.from(paidMobiles),
+          totalUsers
+        });
 
         if (!cancelled) {
           setTotalMembers(total);

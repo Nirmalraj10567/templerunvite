@@ -17,6 +17,7 @@ interface MasterDataItem {
 const MasterDataPage = () => {
   const { user, token } = useAuth();
   const { language, setLanguage } = useLanguage();
+  
   const [activeTab, setActiveTab] = useState<'clans' | 'groups' | 'occupations' | 'educations' | 'halls' | 'hall-events'>('clans');
   const [masterData, setMasterData] = useState<MasterDataItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -51,7 +52,11 @@ const MasterDataPage = () => {
       updateSuccess: 'Updated successfully!',
       deleteSuccess: 'Deleted successfully!',
       confirmDelete: 'Are you sure you want to delete this item?',
-      actions: 'Actions'
+      actions: 'Actions',
+      name: 'Name',
+      created: 'Created',
+      updated: 'Updated',
+      enterName: 'Enter name'
     },
     english: {
       title: 'மாஸ்டர் டேட்டா மேலாண்மை',
@@ -75,7 +80,11 @@ const MasterDataPage = () => {
       updateSuccess: 'வெற்றிகரமாக புதுப்பிக்கப்பட்டது!',
       deleteSuccess: 'வெற்றிகரமாக நீக்கப்பட்டது!',
       confirmDelete: 'இந்த பொருளை நீக்க விரும்புகிறீர்களா?',
-      actions: 'செயல்கள்'
+      actions: 'செயல்கள்',
+      name: 'பெயர்',
+      created: 'உருவாக்கப்பட்டது',
+      updated: 'புதுப்பிக்கப்பட்டது',
+      enterName: 'பெயரை உள்ளிடவும்'
     }
   };
 
@@ -365,7 +374,7 @@ const MasterDataPage = () => {
                 type="text"
                 value={newItemName}
                 onChange={(e) => setNewItemName(e.target.value)}
-                placeholder={`Enter ${activeTab} name`}
+                placeholder={t.enterName}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
                 autoFocus
               />
