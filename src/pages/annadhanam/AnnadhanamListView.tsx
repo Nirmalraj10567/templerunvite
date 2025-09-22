@@ -162,7 +162,7 @@ export default function AnnadhanamListView() {
     try {
       setLoading(true);
 
-      const response = await fetch(`/api/annadhanam?page=${pagination.pageIndex + 1}&pageSize=${pagination.pageSize}&q=${encodeURIComponent(searchTerm)}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam?page=${pagination.pageIndex + 1}&pageSize=${pagination.pageSize}&q=${encodeURIComponent(searchTerm)}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -244,7 +244,7 @@ export default function AnnadhanamListView() {
     if (!viewEditAnnadhanam || !editedAnnadhanam) return;
 
     try {
-      const response = await fetch(`/api/annadhanam/${viewEditAnnadhanam.id}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${viewEditAnnadhanam.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -297,7 +297,7 @@ export default function AnnadhanamListView() {
     if (!deleteId) return;
 
     try {
-      const response = await fetch(`/api/annadhanam/${deleteId}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${deleteId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

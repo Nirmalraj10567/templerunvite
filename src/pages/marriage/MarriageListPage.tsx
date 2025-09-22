@@ -138,7 +138,7 @@ export default function MarriageListPage() {
       if (q) params.append('q', q);
       if (from) params.append('from', from);
       if (to) params.append('to', to);
-      const res = await fetch(`/api/marriages?${params.toString()}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/marriages?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -159,7 +159,7 @@ export default function MarriageListPage() {
 
   const onExport = async () => {
     try {
-      const res = await fetch('/api/marriages/export', {
+      const res = await fetch('https://tmsapi.xesstechlink.com/api/marriages/export', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const blob = await res.blob();

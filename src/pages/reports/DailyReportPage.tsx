@@ -132,7 +132,7 @@ export default function DailyReportPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/reports/daily?date=${encodeURIComponent(d)}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/reports/daily?date=${encodeURIComponent(d)}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('Failed to load report');
@@ -150,7 +150,7 @@ export default function DailyReportPage() {
   const resetReport = async () => {
     if (!token || !date) return;
     try {
-      const res = await fetch(`/api/reports/daily?date=${encodeURIComponent(date)}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/reports/daily?date=${encodeURIComponent(date)}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });

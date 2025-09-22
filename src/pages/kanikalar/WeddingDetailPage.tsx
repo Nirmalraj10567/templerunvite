@@ -58,7 +58,7 @@ const WeddingDetailPage: React.FC = () => {
 
   const fetchWedding = async () => {
     try {
-      const response = await fetch(`/api/kanikalar/${id}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/kanikalar/${id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -82,7 +82,7 @@ const WeddingDetailPage: React.FC = () => {
 
   const fetchEvents = async () => {
     try {
-      const response = await fetch(`/api/wedding-events/${id}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/wedding-events/${id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -131,7 +131,7 @@ const WeddingDetailPage: React.FC = () => {
     if (!eventToDelete) return;
     
     try {
-      const response = await fetch(`/api/wedding-events/${eventToDelete}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/wedding-events/${eventToDelete}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

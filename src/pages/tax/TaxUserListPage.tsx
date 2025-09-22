@@ -124,7 +124,7 @@ export default function TaxUserListPage() {
     const year = new Date().getFullYear();
     (async () => {
       try {
-        const res = await fetch(`/api/tax-settings/year/${year}`, {
+        const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-settings/year/${year}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -145,7 +145,7 @@ export default function TaxUserListPage() {
       // Always fetch all tax registrations matching search (no tab filter; we will filter client-side)
       const taxParams = new URLSearchParams({ page: '1', pageSize: '1000' });
       if (search) taxParams.set('search', search);
-      const taxRes = await fetch(`/api/tax-registrations?${taxParams.toString()}`, {
+      const taxRes = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations?${taxParams.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const taxData = await taxRes.json();
@@ -175,7 +175,7 @@ export default function TaxUserListPage() {
       // Fetch base registrations to include users without a tax registration yet
       const regParams = new URLSearchParams({ page: '1', pageSize: '1000' });
       if (search) regParams.set('search', search);
-      const regRes = await fetch(`http://localhost:4000/api/registrations?${regParams.toString()}`, {
+      const regRes = await fetch(`https://tmsapi.xesstechlink.com/api/registrations?${regParams.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const regData = await regRes.json();
@@ -214,17 +214,17 @@ export default function TaxUserListPage() {
       let merged: TaxRegistration[] = [...taxRows, ...synthetic];
 
       // Compute stats BEFORE applying tab filter & pagination
-      const paidUsers = merged.filter((r) => toNum(r.outstanding_amount) <= 0).length;
-      const pendingUsers = merged.filter((r) => toNum(r.outstanding_amount) > 0).length;
+      const paidUsers = merged.filter((r) => toNum(r.amount_paid) > 0 && toNum(r.outstanding_amount) <= 0).length;
+      const pendingUsers = merged.filter((r) => toNum(r.amount_paid) === 0 || toNum(r.outstanding_amount) > 0).length;
       setTotalUsers(merged.length);
       setPaidCount(paidUsers);
       setPendingCount(pendingUsers);
 
       // Apply tab filter client-side
       if (statusTab === 'pending') {
-        merged = merged.filter((r) => toNum(r.outstanding_amount) > 0);
+        merged = merged.filter((r) => toNum(r.amount_paid) === 0 || toNum(r.outstanding_amount) > 0);
       } else if (statusTab === 'paid') {
-        merged = merged.filter((r) => toNum(r.outstanding_amount) <= 0);
+        merged = merged.filter((r) => toNum(r.amount_paid) > 0 && toNum(r.outstanding_amount) <= 0);
       }
 
       // Sort by created_at desc (fallback name)
@@ -266,7 +266,7 @@ export default function TaxUserListPage() {
 
   const handleDownloadPdf = async (id: number) => {
     try {
-      const res = await fetch(`http://localhost:4000/api/tax-registrations/${id}/pdf`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations/${id}/pdf`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
@@ -289,7 +289,7 @@ export default function TaxUserListPage() {
       if (statusTab === 'paid') params.set('paid', '1');
 
       const res = await fetch(
-        `http://localhost:4000/api/tax-registrations/export/pdf?${params.toString()}`,
+        `https://tmsapi.xesstechlink.com/api/tax-registrations/export/pdf?${params.toString()}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -486,7 +486,7 @@ export default function TaxUserListPage() {
                           const tax = Number(r.tax_amount || 0);
                           const paid = Number(r.amount_paid || 0);
                           const outstanding = Number(r.outstanding_amount ?? Math.max(0, tax - paid));
-                          const isPaid = outstanding <= 0;
+                          const isPaid = paid > 0 && outstanding <= 0;
                           return (
                             <div className="flex flex-col items-center">
                               <span

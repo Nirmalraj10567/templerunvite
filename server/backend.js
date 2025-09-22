@@ -37,7 +37,7 @@ app.use(cors({
     const allowList = [
       'http://localhost:3000',
       'http://localhost:4002',
-      'http://localhost:4000',
+      'https://tmsapi.xesstechlink.com',
       'http://localhost:8081',
       "http://192.168.1.3:8081/",
       'http://localhost:5173',

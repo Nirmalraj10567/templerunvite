@@ -74,7 +74,7 @@
 
         const generateReceiptNo = async (token) => {
             try {
-                const response = await fetch('/api/hall-bookings/generate-receipt-number', {
+                const response = await fetch('https://tmsapi.xesstechlink.com/api/hall-bookings/generate-receipt-number', {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 if (!response.ok) {

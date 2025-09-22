@@ -53,7 +53,7 @@ export default function MarriageEntryPage() {
     setSaving(true);
     setMessage(undefined);
     try {
-      const res = await fetch('/api/marriages', {
+      const res = await fetch('https://tmsapi.xesstechlink.com/api/marriages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(form)

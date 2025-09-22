@@ -33,7 +33,7 @@ const MOON_ICONS = {
 
 async function fetchMoonPhases(startDate: Date, endDate: Date, token: string | null): Promise<MoonPhase[]> {
   try {
-    const response = await axios.get<MoonPhase[]>('/api/moon-phases', {
+    const response = await axios.get<MoonPhase[]>('https://tmsapi.xesstechlink.com/api/moon-phases', {
       params: {
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString()

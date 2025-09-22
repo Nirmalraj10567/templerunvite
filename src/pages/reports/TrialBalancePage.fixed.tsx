@@ -172,7 +172,7 @@ function TrialBalanceContent() {
       setError(null);
       const token = getAuthToken();
 
-      const res = await fetch(`/api/journal/trial-balance?from=${query.startDate}&to=${query.endDate}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/journal/trial-balance?from=${query.startDate}&to=${query.endDate}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 

@@ -79,16 +79,17 @@ function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route path="/dashboard" element={<Navigate to="/dashboard/" replace />} />
               {/* Protected Dashboard */}
-              <Route element={<ProtectedRoute />}> 
+              <Route element={<ProtectedRoute />}>
                 <Route path="dashboard" element={<DashboardLayout />}>
-                  <Route 
-                    index 
+                  <Route
+                    index
                     element={
                       <PermissionGuard requiredPermission="dashboard" accessLevel="view">
                         <OverviewPage />
                       </PermissionGuard>
-                    } 
+                    }
                   />
                   <Route path="donation-product">
                     <Route 
@@ -702,8 +703,8 @@ function App() {
                   path="/registrations/entry"
                   element={<Navigate to="/dashboard/registrations/entry" replace />}
                 />
-                <Route 
-                  path="/session-logs" 
+                <Route
+                  path="/session-logs"
                   element={
                     <PermissionGuard requiredPermission="view_session_logs" accessLevel="view">
                       <SessionLogsPage />
@@ -711,6 +712,8 @@ function App() {
                   }
                 />
               </Route>
+              {/* Catch-all route for unmatched paths */}
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>
         </BrowserRouter>

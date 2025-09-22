@@ -51,7 +51,7 @@ export default function CategoryStatementPage() {
       const params = new URLSearchParams({ under });
       if (startDate) params.set('startDate', startDate);
       if (endDate) params.set('endDate', endDate);
-      const res = await fetch(`/api/ledger/cashflow/statement?${params.toString()}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/ledger/cashflow/statement?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('Failed to load statement');
@@ -70,7 +70,7 @@ export default function CategoryStatementPage() {
     const run = async () => {
       if (!token) return;
       try {
-        const res = await fetch('/api/ledger/categories-used', {
+        const res = await fetch('https://tmsapi.xesstechlink.com/api/ledger/categories-used', {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) return;

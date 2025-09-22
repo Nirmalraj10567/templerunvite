@@ -59,7 +59,7 @@ const KanikalarPage: React.FC = () => {
   const fetchWeddings = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/kanikalar', {
+      const response = await fetch('https://tmsapi.xesstechlink.com/api/kanikalar', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -110,7 +110,7 @@ const KanikalarPage: React.FC = () => {
     if (!weddingToDelete) return;
     
     try {
-      const response = await fetch(`/api/kanikalar/${weddingToDelete}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/kanikalar/${weddingToDelete}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

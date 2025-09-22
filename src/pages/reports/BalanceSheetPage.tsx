@@ -120,14 +120,14 @@ export default function BalanceSheetPage() {
       const token = getAuthToken();
 
       // Fetch balance sheet data
-      const balanceResp = await fetch(`/api/journal/balance-sheet?from=${query.startDate}&to=${query.endDate}`, {
+      const balanceResp = await fetch(`https://tmsapi.xesstechlink.com/api/journal/balance-sheet?from=${query.startDate}&to=${query.endDate}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!balanceResp.ok) throw new Error(t[language].errorLoading);
       const balanceData = await balanceResp.json();
 
       // Fetch debit transactions from ledger entries (already typed credit/debit)
-      const debitResp = await fetch(`/api/ledger/entries?startDate=${query.startDate}&endDate=${query.endDate}&type=debit&limit=1000&page=1`, {
+      const debitResp = await fetch(`https://tmsapi.xesstechlink.com/api/ledger/entries?startDate=${query.startDate}&endDate=${query.endDate}&type=debit&limit=1000&page=1`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       let debitItems: Item[] = [];

@@ -15,7 +15,7 @@ export default function ActivityLogsPage() {
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const response = await fetch('/api/activity-logs', {
+        const response = await fetch('https://tmsapi.xesstechlink.com/api/activity-logs', {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = await response.json();

@@ -15,7 +15,7 @@ export default function YearEndLockGuard({ children }: Props) {
       setLocked(false);
       return;
     }
-    fetch('/api/system/year-end-status', { headers: { Authorization: `Bearer ${token}` } })
+    fetch('https://tmsapi.xesstechlink.com/api/system/year-end-status', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(d => { if (mounted) setLocked(!!d?.data?.locked); })
       .catch(() => { if (mounted) setLocked(false); });

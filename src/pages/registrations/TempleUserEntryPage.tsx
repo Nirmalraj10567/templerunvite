@@ -255,10 +255,10 @@ export default function TempleUserEntryPage() {
       (async () => {
         try {
           const [clansRes, groupsRes, occupationsRes, educationsRes] = await Promise.all([
-            fetch(`/api/master/clans/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
-            fetch(`/api/master/groups/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
-            fetch(`/api/master/occupations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
-            fetch(`/api/master/educations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } })
+            fetch(`https://tmsapi.xesstechlink.com/api/master/clans/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`https://tmsapi.xesstechlink.com/api/master/groups/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`https://tmsapi.xesstechlink.com/api/master/occupations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`https://tmsapi.xesstechlink.com/api/master/educations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } })
           ]);
           if (clansRes.ok) {
             const clans = (await clansRes.json()).map((x: any) => x.name);
@@ -297,7 +297,7 @@ export default function TempleUserEntryPage() {
     if (!token) return;
     (async () => {
       try {
-        const resp = await fetch('/api/ledger/categories', {
+        const resp = await fetch('https://tmsapi.xesstechlink.com/api/ledger/categories', {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = await resp.json();
@@ -317,7 +317,7 @@ export default function TempleUserEntryPage() {
     const loadForEdit = async () => {
       if (!editId || !token) return;
       try {
-        const res = await fetch(`/api/registrations/${editId}`, {
+        const res = await fetch(`https://tmsapi.xesstechlink.com/api/registrations/${editId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
@@ -461,7 +461,7 @@ export default function TempleUserEntryPage() {
   const fetchNextRef = async () => {
     if (!token || !user?.templeId) return;
     try {
-      const res = await fetch(`/api/registrations/next-reference?templeId=${user.templeId}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/registrations/next-reference?templeId=${user.templeId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -574,7 +574,7 @@ export default function TempleUserEntryPage() {
         })),
       };
       const isEdit = !!editId;
-      const url = isEdit ? `/api/registrations/${editId}` : '/api/registrations';
+      const url = isEdit ? `https://tmsapi.xesstechlink.com/api/registrations/${editId}` : 'https://tmsapi.xesstechlink.com/api/registrations';
       const method = isEdit ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,
@@ -680,18 +680,7 @@ export default function TempleUserEntryPage() {
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
-                <div>
-                  <label className="block text-xs font-medium text-gray-900 mb-1">
-                    {t[language as 'tamil' | 'english'].receiptNumber}
-                  </label>
-                  <input
-                    type="text"
-                    className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent border-gray-300 bg-gray-50`}
-                    value={newUser.receiptNumber}
-                    readOnly
-                    placeholder="Auto-generated"
-                  />
-                </div>
+                {/* Receipt number field removed as per requirement */}
                 <div>
                   <label className="block text-xs font-medium text-gray-900 mb-1">
                     {t[language as 'tamil' | 'english'].date} *

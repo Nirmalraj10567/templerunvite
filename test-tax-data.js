@@ -5,7 +5,7 @@ async function addTaxDummyData() {
     console.log('Adding tax dummy data via API...');
     
     // Login first
-    const loginResponse = await axios.post('http://localhost:4000/api/login', {
+    const loginResponse = await axios.post('https://tmsapi.xesstechlink.com/api/login', {
       username: 'superadmin',
       password: 'superadmin123'
     });
@@ -30,7 +30,7 @@ async function addTaxDummyData() {
     console.log('\n--- Adding Tax Settings ---');
     for (const setting of taxSettings) {
       try {
-        const response = await axios.post('http://localhost:4000/api/tax-settings', setting, { headers });
+        const response = await axios.post('https://tmsapi.xesstechlink.com/api/tax-settings', setting, { headers });
         console.log(`✓ ${setting.year}: ₹${setting.taxAmount} (Include Previous: ${setting.includePreviousYears ? 'ON' : 'OFF'})`);
       } catch (err) {
         console.log(`- ${setting.year}: Already exists or error -`, err.response?.data?.error || err.message);
@@ -95,7 +95,7 @@ async function addTaxDummyData() {
     console.log('\n--- Adding Tax Registrations ---');
     for (const reg of taxRegistrations) {
       try {
-        const response = await axios.post('http://localhost:4000/api/tax-registrations', reg, { headers });
+        const response = await axios.post('https://tmsapi.xesstechlink.com/api/tax-registrations', reg, { headers });
         console.log(`✓ ${reg.name} (${reg.mobileNumber}) - ${reg.year}: ₹${reg.outstandingAmount} outstanding`);
       } catch (err) {
         console.log(`- ${reg.name}: Error -`, err.response?.data?.error || err.message);
@@ -105,7 +105,7 @@ async function addTaxDummyData() {
     // Test cumulative calculation
     console.log('\n--- Testing Cumulative Calculation ---');
     try {
-      const testResponse = await axios.get('http://localhost:4000/api/tax-calculations/cumulative/9999999999?currentYear=2025', { headers });
+      const testResponse = await axios.get('https://tmsapi.xesstechlink.com/api/tax-calculations/cumulative/9999999999?currentYear=2025', { headers });
       console.log('NEW user (9999999999) cumulative calculation:', testResponse.data);
     } catch (err) {
       console.log('Cumulative test error:', err.response?.data || err.message);
@@ -113,7 +113,7 @@ async function addTaxDummyData() {
 
     // Verify data
     console.log('\n--- Verification ---');
-    const listResponse = await axios.get('http://localhost:4000/api/tax-registrations?pageSize=10', { headers });
+    const listResponse = await axios.get('https://tmsapi.xesstechlink.com/api/tax-registrations?pageSize=10', { headers });
     console.log(`Total tax registrations: ${listResponse.data.total}`);
     
     console.log('\n🎯 Test Instructions:');

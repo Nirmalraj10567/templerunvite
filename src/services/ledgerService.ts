@@ -2,7 +2,7 @@ import axios from 'axios';
 import { getAuthToken } from '@/lib/auth';
 
 // Using Vite environment variables
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://tmsapi.xesstechlink.com';
 
 // Create configured axios instance
 const api = axios.create({
@@ -198,7 +198,7 @@ export const ledgerService = {
 
   async exportAsCSV(params: Record<string, any>): Promise<Blob> {
     const query = new URLSearchParams(params).toString();
-    const response = await fetch(`/api/ledger/export?${query}`, {
+    const response = await fetch(`https://tmsapi.xesstechlink.com/api/ledger/export?${query}`, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       }

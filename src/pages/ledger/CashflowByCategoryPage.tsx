@@ -60,7 +60,7 @@ export default function CashflowByCategoryPage() {
       if (endDate) params.set('endDate', endDate);
       if (includeEntries) params.set('includeEntries', '1');
       if (selectedCategory) params.set('under', selectedCategory);
-      const res = await fetch(`/api/ledger/cashflow/summary?${params.toString()}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/ledger/cashflow/summary?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('Failed to load cashflow summary');
@@ -85,7 +85,7 @@ export default function CashflowByCategoryPage() {
     const run = async () => {
       if (!token) return;
       try {
-        const res = await fetch('/api/ledger/categories-used', {
+        const res = await fetch('https://tmsapi.xesstechlink.com/api/ledger/categories-used', {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) return;

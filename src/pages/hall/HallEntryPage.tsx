@@ -9,7 +9,7 @@ import { getAuthToken } from '@/lib/auth';
 
 const generateReceiptNo = async (token: string) => {
   try {
-    const response = await fetch('/api/hall-bookings/generate-receipt-number', {
+    const response = await fetch('https://tmsapi.xesstechlink.com/api/hall-bookings/generate-receipt-number', {
       headers: { Authorization: `Bearer ${token}` }
     });
     if (!response.ok) {
@@ -118,7 +118,7 @@ export default function HallEntryPage() {
       (async () => {
         setLoading(true);
         try {
-          const response = await fetch(`/api/hall-bookings/${idNum}`, { headers: { Authorization: `Bearer ${token}` } });
+          const response = await fetch(`https://tmsapi.xesstechlink.com/api/hall-bookings/${idNum}`, { headers: { Authorization: `Bearer ${token}` } });
           const data = await response.json();
           const booking = data.data || data;
           setForm({
@@ -295,7 +295,7 @@ export default function HallEntryPage() {
         return;
       }
 
-      const res = await fetch(`/api/hall-bookings/${idNum}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/hall-bookings/${idNum}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });

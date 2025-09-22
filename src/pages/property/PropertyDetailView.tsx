@@ -41,7 +41,7 @@ export function PropertyDetailView() {
       try {
         setIsLoading(true);
         // TODO: Replace with actual API call
-        // const response = await fetch(`/api/properties/${id}`);
+        // const response = await fetch(`https://tmsapi.xesstechlink.com/api/properties/${id}`);
         // const data = await response.json();
         
         // Mock data for now

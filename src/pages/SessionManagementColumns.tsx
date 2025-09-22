@@ -66,7 +66,7 @@ export const columns: ColumnDef<Session>[] = [
       const handleTerminate = async () => {
         try {
           setIsTerminating(true);
-          const response = await fetch(`/api/sessions/${session.id}/terminate`, {
+          const response = await fetch(`https://tmsapi.xesstechlink.com/api/sessions/${session.id}/terminate`, {
             method: 'POST',
             headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
           });
