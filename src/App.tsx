@@ -390,14 +390,6 @@ function App() {
                     }
                   />
                   <Route
-                    path="members"
-                    element={
-                      <PermissionGuard requiredPermission="member_entry" accessLevel="view">
-                        <MembersPage />
-                      </PermissionGuard>
-                    }
-                  />
-                  <Route
                     path="members/entry"
                     element={
                       <PermissionGuard requiredPermission="member_entry" accessLevel="edit">
@@ -422,6 +414,14 @@ function App() {
                     element={
                       <PermissionGuard requiredPermission="view_session_logs" accessLevel="view">
                         <MemberLogsPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="members"
+                    element={
+                      <PermissionGuard requiredPermission="member_entry" accessLevel="view">
+                        <MembersPage />
                       </PermissionGuard>
                     }
                   />
@@ -702,6 +702,23 @@ function App() {
                 <Route
                   path="/registrations/entry"
                   element={<Navigate to="/dashboard/registrations/entry" replace />}
+                />
+                {/* Legacy redirects for members module */}
+                <Route
+                  path="/members"
+                  element={<Navigate to="/dashboard/members" replace />}
+                />
+                <Route
+                  path="/members/entry"
+                  element={<Navigate to="/dashboard/members/entry" replace />}
+                />
+                <Route
+                  path="/members/edit/:id"
+                  element={<Navigate to="/dashboard/members/edit/:id" replace />}
+                />
+                <Route
+                  path="/members/logs"
+                  element={<Navigate to="/dashboard/members/logs" replace />}
                 />
                 <Route
                   path="/session-logs"

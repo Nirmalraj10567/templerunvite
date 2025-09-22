@@ -8,8 +8,13 @@ type ProtectedRouteProps = {
 };
 
 export default function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
-  const { user, token } = useAuth();
+  const { user, token, isLoading } = useAuth();
   const location = useLocation();
+
+  // Wait for auth restoration on hard refresh/deep links to avoid false redirects
+  if (isLoading) {
+    return <div className="p-6 text-slate-600">Loading…</div>;
+  }
 
   if (!user || !token) {
     return <Navigate to="/login" replace state={{ from: location }} />;
