@@ -147,3 +147,28 @@ sqlite3 server/deev.sqlite3 "SELECT id, name, mobile_number FROM user_registrati
 Note: The backend enforces JWT auth and fine-grained permissions. Ensure your user has `member_entry` (full) to create members and `member_view` (view) to list them. See `server/backend.js` for the exact middleware wiring and `server/middlewares/auth.js` if additional auth helpers are used.
 
 # templerunvite
+
+
+
+
+build and zip it in cpanel
+
+
+cd "/Volumes/KANINFOTECH/templerunvite" && npm ci --no-audit --no-fund
+
+npm install --no-audit --no-fund
+
+
+npm run build
+
+
+cd dist && zip -r ../dist-cpanel.zip . -x "*.DS_Store" && cd .. && ls -lh dist-cpanel.zip | cat
+
+
+
+Built production bundle and created archive: dist-cpanel.zip (size ~1.2 MB) at the project root.
+Includes index.html, assets/, uploads/, robots.txt, placeholder.svg, and .htaccess.
+Deploy steps on cPanel:
+Upload dist-cpanel.zip to your target folder (public_html or a subfolder).
+Extract it so index.html, assets/, and .htaccess are in the same directory.
+If in a subfolder, ensure the folder is the site root for that domain/subdomai

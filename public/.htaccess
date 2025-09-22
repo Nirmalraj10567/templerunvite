@@ -1,3 +1,32 @@
+# Ensure correct MIME types for modern assets
+AddType application/javascript .js
+AddType text/css .css
+AddType application/wasm .wasm
+AddType application/json .json
+AddType image/svg+xml .svg
+
+# Gzip (if allowed)
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css application/javascript application/json image/svg+xml
+</IfModule>
+
+# Handle SPA routing: let real files/dirs through, otherwise serve index.html
+<IfModule mod_rewrite.c>
+  Options -Multiviews
+  RewriteEngine On
+
+  # If the request is for an existing file or directory, serve it
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Otherwise, serve index.html (for client-side routes like /dashboard/*)
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# Fallback for environments without mod_rewrite
+FallbackResource /index.html
+
 # Enable Rewrite Engine
 <IfModule mod_rewrite.c>
   RewriteEngine On

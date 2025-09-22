@@ -5,8 +5,8 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  // Use relative base for cPanel subfolder deployment
-  base: mode === 'production' ? './' : '/',
+  // Use absolute base so assets resolve from domain root on deep links
+  base: mode === 'production' ? '/' : '/',
   server: {
     host: true,
     port: 8080,
