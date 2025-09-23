@@ -78,7 +78,7 @@ export default function MoneyDonationEntry() {
     const loadLogs = async () => {
       try {
         if (!lastCreatedId || !token) return;
-        const res = await fetch(`https://tmsapi.xesstechlink.com/api/donations-approval/request/${lastCreatedId}`, {
+        const res = await fetch(`http://localhost:4000/api/donations-approval/request/${lastCreatedId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!res.ok) return;

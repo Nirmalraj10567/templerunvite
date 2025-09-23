@@ -5,12 +5,12 @@ async function testAPI() {
     console.log('Testing API connection...');
     
     // Test if backend is running
-    const healthCheck = await axios.get('https://tmsapi.xesstechlink.com/');
+    const healthCheck = await axios.get('http://localhost:4000/');
     console.log('✓ Backend is running:', healthCheck.data);
     
     // Test login
     console.log('\nTesting login...');
-    const loginResponse = await axios.post('https://tmsapi.xesstechlink.com/api/login', {
+    const loginResponse = await axios.post('http://localhost:4000/api/login', {
       username: 'superadmin',
       password: 'superadmin123'
     });
@@ -37,7 +37,7 @@ async function testAPI() {
       
       console.log('Sending member data:', memberData);
       
-      const memberResponse = await axios.post('https://tmsapi.xesstechlink.com/api/members', memberData, {
+      const memberResponse = await axios.post('http://localhost:4000/api/members', memberData, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -70,7 +70,7 @@ async function testAPI() {
         maleHeirs: 1,
         femaleHeirs: 1,
       };
-      const taxRes = await axios.post('https://tmsapi.xesstechlink.com/api/tax-registrations', taxPayload, {
+      const taxRes = await axios.post('http://localhost:4000/api/tax-registrations', taxPayload, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

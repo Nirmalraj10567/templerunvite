@@ -6,7 +6,7 @@ export async function listHallRequests(params: { status?: string; mobile?: strin
   if (params.date) query.set('date', params.date);
   if (params.time) query.set('time', params.time);
 
-  const res = await fetch(`https://tmsapi.xesstechlink.com/api/hall-approval/requests?${query.toString()}`, {
+  const res = await fetch(`http://localhost:4000/api/hall-approval/requests?${query.toString()}`, {
     headers: { Authorization: `Bearer ${token}` }
   });
   if (!res.ok) throw new Error(`Failed to load requests: ${res.status}`);
@@ -14,7 +14,7 @@ export async function listHallRequests(params: { status?: string; mobile?: strin
 }
 
 export async function getHallRequest(id: number, token: string) {
-  const res = await fetch(`https://tmsapi.xesstechlink.com/api/hall-approval/request/${id}`, {
+  const res = await fetch(`http://localhost:4000/api/hall-approval/request/${id}`, {
     headers: { Authorization: `Bearer ${token}` }
   });
   if (!res.ok) throw new Error(`Failed to load request: ${res.status}`);
@@ -22,7 +22,7 @@ export async function getHallRequest(id: number, token: string) {
 }
 
 export async function approveHallRequest(id: number, notes: string | undefined, token: string) {
-  const res = await fetch(`https://tmsapi.xesstechlink.com/api/hall-approval/approve/${id}`, {
+  const res = await fetch(`http://localhost:4000/api/hall-approval/approve/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ notes })
@@ -32,7 +32,7 @@ export async function approveHallRequest(id: number, notes: string | undefined, 
 }
 
 export async function rejectHallRequest(id: number, reason: string | undefined, notes: string | undefined, token: string) {
-  const res = await fetch(`https://tmsapi.xesstechlink.com/api/hall-approval/reject/${id}`, {
+  const res = await fetch(`http://localhost:4000/api/hall-approval/reject/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ reason, notes })

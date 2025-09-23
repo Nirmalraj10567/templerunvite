@@ -48,7 +48,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch('https://tmsapi.xesstechlink.com/api/user-settings/me', {
+        const res = await fetch('http://localhost:4000/api/user-settings/me', {
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
@@ -73,7 +73,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const updateSettings = async (partial: Partial<UserSettings>) => {
     if (!token) return false;
     try {
-      const res = await fetch('https://tmsapi.xesstechlink.com/api/user-settings/me', {
+      const res = await fetch('http://localhost:4000/api/user-settings/me', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

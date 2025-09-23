@@ -9,7 +9,7 @@ import { getAuthToken } from '@/lib/auth';
 
 const generateReceiptNo = async (token: string) => {
   try {
-    const response = await fetch('https://tmsapi.xesstechlink.com/api/hall-bookings/generate-receipt-number', {
+    const response = await fetch('http://localhost:4000/api/hall-bookings/generate-receipt-number', {
       headers: { Authorization: `Bearer ${token}` }
     });
     if (!response.ok) {
@@ -58,7 +58,7 @@ interface FormState {
 
 const initialState: FormState = {
   registerNo: '',
-  date: '',
+  date: (() => { const d = new Date(); const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0'); return `${y}-${m}-${day}`; })(),
   time: '',
   event: '',
   name: '',
@@ -72,7 +72,7 @@ const initialState: FormState = {
   transferTo: 'INCOME A/C',
   hallId: '',
   eventId: '',
-  bookingStatus: 'pending'
+  bookingStatus: 'completed'
 };
 
 export default function HallEntryPage() {
@@ -96,6 +96,59 @@ export default function HallEntryPage() {
 
   const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
+  // Print PDF in same tab using hidden iframe
+  const printPDF = (pdfUrl: string) => {
+    // Remove any existing print iframe
+    const existingFrame = document.getElementById('print-frame');
+    if (existingFrame) {
+      existingFrame.remove();
+    }
+
+    // Create hidden iframe
+    const iframe = document.createElement('iframe');
+    iframe.id = 'print-frame';
+    iframe.style.display = 'none';
+    iframe.style.position = 'fixed';
+    iframe.style.width = '0px';
+    iframe.style.height = '0px';
+    iframe.style.border = 'none';
+    
+    // Add iframe to body
+    document.body.appendChild(iframe);
+
+    // Load PDF and print
+    iframe.onload = () => {
+      try {
+        // Small delay to ensure PDF is fully loaded
+        setTimeout(() => {
+          try {
+            // Focus the iframe and trigger print
+            iframe.contentWindow?.focus();
+            iframe.contentWindow?.print();
+          } catch (error) {
+            console.error('Print error:', error);
+            // Fallback: open in new tab if iframe method fails
+            window.open(pdfUrl, '_blank');
+          }
+        }, 1000);
+      } catch (error) {
+        console.error('Iframe onload error:', error);
+        // Fallback: open in new tab
+        window.open(pdfUrl, '_blank');
+      }
+    };
+
+    // Handle iframe error
+    iframe.onerror = () => {
+      console.error('Failed to load PDF in iframe');
+      // Fallback: open in new tab
+      window.open(pdfUrl, '_blank');
+    };
+
+    // Set the source to trigger loading
+    iframe.src = pdfUrl;
+  };
+
   // Auto-balance
   useEffect(() => {
     const total = parseFloat(form.totalAmount) || 0;
@@ -118,7 +171,7 @@ export default function HallEntryPage() {
       (async () => {
         setLoading(true);
         try {
-          const response = await fetch(`https://tmsapi.xesstechlink.com/api/hall-bookings/${idNum}`, { headers: { Authorization: `Bearer ${token}` } });
+          const response = await fetch(`http://localhost:4000/api/hall-bookings/${idNum}`, { headers: { Authorization: `Bearer ${token}` } });
           const data = await response.json();
           const booking = data.data || data;
           setForm({
@@ -153,13 +206,13 @@ export default function HallEntryPage() {
   useEffect(() => {
     (async () => {
       try {
-        const accountsResp = await axios.get('/api/ledger/accounts', { headers: { Authorization: `Bearer ${getAuthToken()}` } });
+        const accountsResp = await axios.get('http://localhost:4000/api/ledger/accounts', { headers: { Authorization: `Bearer ${getAuthToken()}` } });
         const accs = accountsResp?.data?.data || accountsResp?.data || [];
         setAccounts(accs.map((a: any, i: number) => ({ id: a.id ?? i + 1, value: a.value || a.label, label: a.label || a.value })));
         if (user?.templeId) {
           const [hallsResp, eventsResp] = await Promise.all([
-            axios.get(`/api/master/halls/${user.templeId}`, { headers: { Authorization: `Bearer ${getAuthToken()}` } }),
-            axios.get(`/api/master/hall-events/${user.templeId}`, { headers: { Authorization: `Bearer ${getAuthToken()}` } }),
+            axios.get(`http://localhost:4000/api/master/halls/${user.templeId}`, { headers: { Authorization: `Bearer ${getAuthToken()}` } }),
+            axios.get(`http://localhost:4000/api/master/hall-events/${user.templeId}`, { headers: { Authorization: `Bearer ${getAuthToken()}` } }),
           ]);
           setHalls((hallsResp?.data as unknown as Array<{ id: number; name: string; base_price?: number | null }>) || []);
           setHallEvents((eventsResp?.data as unknown as Array<{ id: number; name: string }> ) || []);
@@ -190,6 +243,22 @@ export default function HallEntryPage() {
         });
     }
   }, [isEdit, token]);
+
+  // Auto-dismiss success messages after a short delay (keep errors sticky)
+  useEffect(() => {
+    if (message && !isError) {
+      const timer = setTimeout(() => {
+        setMessage(undefined);
+        // After success message disappears, generate a fresh receipt number for the next entry (only for new entries)
+        if (!isEdit) {
+          generateReceiptNo(token)
+            .then(receipt => setForm(prev => ({ ...prev, registerNo: receipt })))
+            .catch(() => {/* ignore, initialState already applied */});
+        }
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [message, isError, isEdit, token]);
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -233,7 +302,7 @@ export default function HallEntryPage() {
     setSaving(true);
     try {
       // Validate id for edit
-      let endpoint = '/api/hall-bookings';
+      let endpoint = 'http://localhost:4000/api/hall-bookings';
       if (isEdit) {
         const idNum = Number(id);
         if (Number.isNaN(idNum)) {
@@ -242,7 +311,7 @@ export default function HallEntryPage() {
           setSaving(false);
           return;
         }
-        endpoint = `/api/hall-bookings/${idNum}`;
+        endpoint = `http://localhost:4000/api/hall-bookings/${idNum}`;
       }
 
       const payload = {
@@ -295,7 +364,7 @@ export default function HallEntryPage() {
         return;
       }
 
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/hall-bookings/${idNum}`, {
+      const res = await fetch(`http://localhost:4000/api/hall-bookings/${idNum}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -329,7 +398,25 @@ export default function HallEntryPage() {
         <h1 className="text-sm font-semibold">
           {isEdit ? t('Edit Hall Booking', 'மண்டப பதிவு திருத்து') : t('Hall Booking Entry', 'மண்டப பதிவு')}
         </h1>
-        {isEdit && <button type="button" className="bg-red-600 text-white px-2 py-1 rounded" onClick={() => setShowDeleteModal(true)}>{t('Delete', 'நீக்கு')}</button>}
+        {isEdit && (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="border px-2 py-1 rounded hover:bg-gray-50"
+              onClick={() => {
+                const idNum = Number(id);
+                if (!Number.isNaN(idNum)) {
+                  const q = token ? `?token=${encodeURIComponent(token)}` : '';
+                  const pdfUrl = `http://localhost:4000/api/hall-bookings/${idNum}/receipt.pdf${q}`;
+                  printPDF(pdfUrl);
+                }
+              }}
+            >
+              {t('Print', 'அச்சிடு')}
+            </button>
+            <button type="button" className="bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700" onClick={() => setShowDeleteModal(true)}>{t('Delete', 'நீக்கு')}</button>
+          </div>
+        )}
       </div>
 
       {message && (
@@ -342,12 +429,6 @@ export default function HallEntryPage() {
       {/* Compact Form Grid */}
       <form onSubmit={onSubmit} className="grid grid-cols-2 gap-2">
         <input name="registerNo" readOnly value={form.registerNo} className="col-span-1 border px-2 py-1 rounded bg-gray-100" placeholder={t('Receipt No','ரசீது எண்')} />
-        <select name="bookingStatus" value={form.bookingStatus} onChange={onChange} className="border px-2 py-1 rounded">
-          <option value="pending">{t('Pending','நிலுவை')}</option>
-          <option value="confirmed">{t('Confirmed','உறுதி')}</option>
-          <option value="cancelled">{t('Cancelled','ரத்து')}</option>
-          <option value="completed">{t('Completed','முடிந்தது')}</option>
-        </select>
         <input type="date" name="date" value={form.date} onChange={onChange} className="border px-2 py-1 rounded" required />
         <input type="time" name="time" value={form.time} onChange={onChange} className="border px-2 py-1 rounded" required />
         <input name="name" value={form.name} onChange={onChange} placeholder={t('Name','பெயர்')} className="border px-2 py-1 rounded" required />
@@ -378,40 +459,44 @@ export default function HallEntryPage() {
         )}
         <textarea name="remarks" rows={2} value={form.remarks} onChange={onChange} placeholder={t('Remarks','குறிப்புகள்')} className="col-span-2 border px-2 py-1 rounded" />
         <div className="col-span-2 flex flex-wrap gap-2 mt-1">
-          <button type="submit" disabled={saving} className="bg-orange-600 text-white px-3 py-1 rounded disabled:opacity-50">
+          <button type="submit" disabled={saving} className="bg-orange-600 text-white px-3 py-1 rounded disabled:opacity-50 hover:bg-orange-700">
             {saving ? t('Saving...','சேமிக்கிறது...') : t(isEdit?'Update':'Save', isEdit?'புதுப்பி':'சேமி')}
           </button>
-          <button type="button" className="border px-3 py-1 rounded" onClick={()=>navigate('/dashboard/hall/list')}>
+          <button type="button" className="border px-3 py-1 rounded hover:bg-gray-50" onClick={()=>navigate('/dashboard/hall/list')}>
             {t('View List','பட்டியல்')}
           </button>
-          <button type="button" className="border px-3 py-1 rounded" onClick={()=>setForm({...initialState, registerNo: ''})}>
+          <button type="button" className="border px-3 py-1 rounded hover:bg-gray-50" onClick={()=>setForm({...initialState, registerNo: ''})}>
             {t('Clear','அழி')}
           </button>
         </div>
       </form>
 
       {/* Print Modal */}
-      {showPrintPrompt && lastCreatedId &&
+      {showPrintPrompt && lastCreatedId && (
         <Modal title={t('Print Receipt','ரசீது அச்சிடு')} onClose={()=>setShowPrintPrompt(false)}>
-          <p className="mb-2">{t('Open PDF receipt?','PDF ரசீதை திறக்கவா?')}</p>
+          <p className="mb-4">{t('Receipt saved successfully! Would you like to print it now?','ரசீது வெற்றிகரமாக சேமிக்கப்பட்டது! இப்போது அச்சிட வேண்டுமா?')}</p>
           <div className="flex justify-end gap-2">
-            <button className="border px-3 py-1 rounded" onClick={()=>setShowPrintPrompt(false)}>{t('No','இல்லை')}</button>
-            <button className="bg-blue-600 text-white px-3 py-1 rounded" onClick={()=>{
+            <button className="border px-3 py-1 rounded hover:bg-gray-50" onClick={()=>setShowPrintPrompt(false)}>{t('Skip','தவிர்')}</button>
+            <button className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700" onClick={()=>{
               const q = token?`?token=${encodeURIComponent(token)}`:'';
-              window.open(`/api/hall-bookings/${lastCreatedId}/receipt.pdf${q}`,'_blank'); setShowPrintPrompt(false);
-            }}>{t('Yes','ஆம்')}</button>
+              const pdfUrl = `http://localhost:4000/api/hall-bookings/${lastCreatedId}/receipt.pdf${q}`;
+              printPDF(pdfUrl);
+              setShowPrintPrompt(false);
+            }}>{t('Print Now','இப்போது அச்சிடு')}</button>
           </div>
-        </Modal>}
+        </Modal>
+      )}
 
       {/* Delete modal */}
-      {showDeleteModal &&
+      {showDeleteModal && (
         <Modal title={t('Confirm Delete','நீக்குவதை உறுதிப்படுத்தவும்')} onClose={()=>setShowDeleteModal(false)}>
-          <p className="mb-2">{t('Are you sure to delete?','நீக்க வேண்டுமா?')}</p>
+          <p className="mb-4">{t('Are you sure you want to delete this booking? This action cannot be undone.','இந்த பதிவை நீக்க விரும்புகிறீர்களா? இந்த நடவடிக்கையை மாற்ற முடியாது.')}</p>
           <div className="flex justify-end gap-2">
-            <button className="border px-3 py-1 rounded" onClick={()=>setShowDeleteModal(false)}>{t('Cancel','ரத்து')}</button>
-            <button className="bg-red-600 text-white px-3 py-1 rounded" onClick={handleDelete}>{t('Delete','நீக்கு')}</button>
+            <button className="border px-3 py-1 rounded hover:bg-gray-50" onClick={()=>setShowDeleteModal(false)}>{t('Cancel','ரத்து')}</button>
+            <button className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700" onClick={handleDelete}>{t('Delete','நீக்கு')}</button>
           </div>
-        </Modal>}
+        </Modal>
+      )}
     </div>
   );
 }

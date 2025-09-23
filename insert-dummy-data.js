@@ -127,7 +127,7 @@ async function insertDummyData() {
 
     console.log('\n🧪 Test Instructions:');
     console.log('Backend is on port 4000, not 8080!');
-    console.log('Use: https://tmsapi.xesstechlink.com/api/tax-registrations?search=9876543210');
+    console.log('Use: http://localhost:4000/api/tax-registrations?search=9876543210');
 
   } catch (error) {
     console.error('Error:', error);

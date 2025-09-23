@@ -26,33 +26,11 @@ const ledgerRouter = require('./routes/ledger');
 // JWT Secret (in production, use environment variable)
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-insecure-secret-change-me';
 // Ensure middleware that reads process.env.JWT_SECRET uses the same secret
-process.env.JWT_SECRET = JWT_SECRET;
+//process.env.JWT_SECRET = JWT_SECRET;
 
-// CORS: allow localhost and LAN IPs during development
+// CORS: allow all origins
 app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin like curl or mobile apps
-    if (!origin) return callback(null, true);
-
-    const allowList = [
-      'http://localhost:3000',
-      'http://localhost:4002',
-      'https://tmsapi.xesstechlink.com',
-      'http://localhost:8081',
-      "http://192.168.1.3:8081/",
-      'http://localhost:5173',
-      'http://localhost:8080'
-    ];
-
-    const isLocalhost = allowList.includes(origin);
-    const isLan = /^http:\/\/192\.168\.[0-9]+\.[0-9]+:\d+$/.test(origin);
-
-    if (isLocalhost || isLan) {
-      return callback(null, true);
-    }
-    // Default deny
-    return callback(new Error(`CORS not allowed for origin ${origin}`));
-  },
+  origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -1041,6 +1019,15 @@ try {
 } catch (e) {
   console.error('Failed to mount hall booking receipt router:', e);
 }
+
+// Mount pooja receipt route (PDF)
+try {
+  const poojaReceiptRouter = require('./routes/pooja-receipt')({ db, verifyQueryToken });
+  app.use(poojaReceiptRouter);
+} catch (e) {
+  console.error('Failed to mount pooja receipt router:', e);
+}
+
 // Backward-compatible categories router (no redirect)
 const ledgerCategoriesCompat = (() => {
   const express = require('express');

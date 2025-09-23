@@ -39,6 +39,7 @@ export default function DashboardLayout() {
 
   // Handle click outside to close mobile menu
   const mainContentRef = React.useRef<HTMLDivElement>(null);
+  const mainScrollRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -90,6 +91,16 @@ export default function DashboardLayout() {
       document.removeEventListener('pointerdown', handleClickOutside);
     };
   }, [isSidebarCollapsed, isMobileMenuOpen, isHoveringSidebar]);
+
+  // Ensure main content scroll resets to top on route change
+  useEffect(() => {
+    // Scroll the scrollable main container
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTo({ top: 0, behavior: 'auto' });
+    }
+    // Also scroll window for cases where body scroll is active (mobile/safari)
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [location.pathname]);
 
   // Translation object
   const t = {
@@ -277,7 +288,7 @@ export default function DashboardLayout() {
 
   useEffect(() => {
     let mounted = true;
-    fetch('https://tmsapi.xesstechlink.com/api/system/year-end-status', { headers: { Authorization: `Bearer ${token}` } })
+    fetch('http://localhost:4000/api/system/year-end-status', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(d => {
         if (!mounted) return;
@@ -571,7 +582,7 @@ export default function DashboardLayout() {
           <Header />
         </header>
         
-        <main className={`flex-1 p-8 overflow-y-auto bg-gradient-to-br from-slate-50 to-blue-50 
+        <main ref={mainScrollRef} className={`flex-1 p-8 overflow-y-auto bg-gradient-to-br from-slate-50 to-blue-50 
                        scrollbar-thin scrollbar-thumb-blue-400 scrollbar-track-transparent 
                        hover:scrollbar-thumb-blue-500 transition-colors duration-200`} 
                data-view-only={isViewOnlyForRoute ? 'true' : 'false'}>

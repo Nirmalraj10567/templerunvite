@@ -272,6 +272,140 @@ router.get('/export/pdf', authenticateToken, authorizePermission('tax_registrati
   }
 });
 
+// UPDATE a tax registration
+router.put('/:id', authenticateToken, authorizePermission('tax_registrations', 'edit'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const templeId = req.user.templeId;
+    const body = req.body || {};
+
+    // Map incoming fields (from frontend) to DB columns
+    const updates = {};
+    if (body.name !== undefined) updates.name = String(body.name || '');
+    if (body.mobile_number !== undefined) updates.mobile_number = (body.mobile_number || '').toString();
+    if (body.aadhaar_number !== undefined) updates.aadhaar_number = body.aadhaar_number ? String(body.aadhaar_number).replace(/\D/g, '') : null;
+    if (body.reference_number !== undefined) updates.reference_number = String(body.reference_number || '');
+    if (body.village !== undefined) updates.village = String(body.village || '');
+    if (body.tax_amount !== undefined) updates.tax_amount = Number(body.tax_amount) || 0;
+    if (body.amount_paid !== undefined) updates.amount_paid = Number(body.amount_paid) || 0;
+    if (body.outstanding_amount !== undefined) updates.outstanding_amount = Number(body.outstanding_amount);
+
+    // Recompute outstanding if not explicitly provided but tax/paid provided
+    if (updates.outstanding_amount === undefined && (updates.tax_amount !== undefined || updates.amount_paid !== undefined)) {
+      // Fetch current row to compute based on latest values
+      const current = await db('user_tax_registrations')
+        .where({ id: Number(id), temple_id: templeId })
+        .first();
+      if (!current) return res.status(404).json({ error: 'Tax registration not found' });
+      const tax = updates.tax_amount !== undefined ? Number(updates.tax_amount) : Number(current.tax_amount || 0);
+      const paid = updates.amount_paid !== undefined ? Number(updates.amount_paid) : Number(current.amount_paid || 0);
+      updates.outstanding_amount = Math.max(0, tax - paid);
+    }
+
+    updates.updated_at = db.fn.now();
+
+    const count = await db('user_tax_registrations')
+      .where({ id: Number(id), temple_id: templeId })
+      .update(updates);
+
+    if (!count) return res.status(404).json({ error: 'Tax registration not found' });
+
+    const row = await db('user_tax_registrations')
+      .where({ id: Number(id), temple_id: templeId })
+      .first();
+
+    // Mirror to journal_entries
+    try {
+      const hasJournal = await db.schema.hasTable('journal_entries');
+      if (hasJournal) {
+        const existingJE = await db('journal_entries')
+          .where({ reference_type: 'tax_registration', reference_id: Number(id), temple_id: templeId })
+          .first();
+
+        const amountPaidNow = Number(row?.amount_paid || 0);
+        const dateNow = row?.date || new Date().toISOString().slice(0,10);
+        const fromAccount = row?.from_account || 'TAX A/C';
+        const toAccount = row?.transfer_to_account || 'INCOME A/C';
+        const remarks = `TAX ${row?.year || ''} - ${row?.name || ''}`.trim();
+
+        if (amountPaidNow > 0) {
+          if (existingJE) {
+            await db('journal_entries')
+              .where({ id: existingJE.id })
+              .update({
+                date: dateNow,
+                from_account: fromAccount,
+                to_account: toAccount,
+                amount: amountPaidNow,
+                remarks,
+                updated_at: db.fn.now(),
+              });
+          } else {
+            await db('journal_entries').insert({
+              date: dateNow,
+              from_account: fromAccount,
+              to_account: toAccount,
+              amount: amountPaidNow,
+              entry_type: 'transfer',
+              remarks,
+              reference_type: 'tax_registration',
+              reference_id: Number(id),
+              temple_id: templeId,
+              created_by: req.user.id,
+              created_at: db.fn.now(),
+            });
+          }
+        } else if (existingJE) {
+          // If paid is now 0, remove the journal entry
+          await db('journal_entries').where({ id: existingJE.id }).del();
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to mirror update into journal:', e.message);
+    }
+
+    res.json({ success: true, data: row });
+  } catch (err) {
+    console.error('Error updating tax registration:', err);
+    res.status(500).json({ error: 'Failed to update tax registration' });
+  }
+});
+
+// DELETE a tax registration
+router.delete('/:id', authenticateToken, authorizePermission('tax_registrations', 'edit'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const templeId = req.user.templeId;
+
+    // Check exists and belongs to user's temple
+    const existing = await db('user_tax_registrations')
+      .where({ id: Number(id), temple_id: templeId })
+      .first();
+    if (!existing) return res.status(404).json({ error: 'Tax registration not found' });
+
+    // Delete related journal entry if present (best-effort)
+    try {
+      const hasJournal = await db.schema.hasTable('journal_entries');
+      if (hasJournal) {
+        await db('journal_entries')
+          .where({ reference_type: 'tax_registration', reference_id: Number(id), temple_id: templeId })
+          .del();
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    await db('user_tax_registrations')
+      .where({ id: Number(id), temple_id: templeId })
+      .del();
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error deleting tax registration:', err);
+    res.status(500).json({ error: 'Failed to delete tax registration' });
+  }
+});
+
 // Form validation logic
 function validateFormData(data) {
   const errors = {};

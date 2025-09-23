@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,12 +23,12 @@ const generateReceiptNo = async (token?: string) => {
     if (!token) {
       throw new Error('Missing auth token');
     }
-    const response = await axios.get('/api/pooja/latest-receipt', {
+    const response = await axios.get<any>('/api/pooja/latest-receipt', {
       headers: { Authorization: `Bearer ${token}` }
     });
     let nextNumber = 1;
     
-    if (response.data.success && response.data.latestReceipt) {
+    if (response.data?.success && response.data?.latestReceipt) {
       // Extract the number part and increment it
       const lastNumber = parseInt(response.data.latestReceipt.split('-')[1], 10) || 0;
       nextNumber = lastNumber + 1;
@@ -52,6 +53,8 @@ export default function PoojaEntryPage() {
   const navigate = useNavigate();
   const { register, handleSubmit, reset, setValue, watch } = useForm<PoojaFormData>();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPrintConfirm, setShowPrintConfirm] = useState(false);
+  const [lastSavedId, setLastSavedId] = useState<number | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [showCalendar, setShowCalendar] = useState(true); // Default to showing calendar
   const [accounts, setAccounts] = useState<Array<{ id?: number; value: string; label: string }>>([]);
@@ -67,6 +70,32 @@ export default function PoojaEntryPage() {
     } catch (error) {
       console.error('Error checking double booking:', error);
       return false;
+    }
+  };
+
+  // Open PDF helper
+  const openReceiptPdf = (poojaId: number) => {
+    try {
+      if (!token) {
+        toast({ title: t('Not authenticated', 'அங்கீகரிப்பு இல்லை'), description: t('Please login again.', 'தயவு செய்து மீண்டும் உள்நுழைக.') });
+        return;
+      }
+      const url = `/api/pooja/${poojaId}/receipt.pdf?token=${token}`;
+      // Open the receipt in a new browser tab
+      window.open(url, '_blank');
+    } catch (e) {
+      console.error('Print receipt failed:', e);
+      toast({ title: t('Error', 'பிழை'), description: t('Failed to open receipt PDF', 'ரசீது PDF-ஐ திறக்க முடியவில்லை'), variant: 'destructive' });
+    }
+  };
+
+  // Print receipt handler for existing entries via confirmation modal
+  const handlePrintReceipt = () => {
+    if (id) {
+      setLastSavedId(parseInt(id));
+      setShowPrintConfirm(true);
+    } else {
+      toast({ title: t('Save first', 'முதலில் சேமிக்கவும்'), description: t('Please save the entry before printing the receipt.', 'ரசீதை அச்சிடுவதற்கு முன் பதிவை சேமிக்கவும்.') });
     }
   };
 
@@ -201,6 +230,30 @@ export default function PoojaEntryPage() {
           title: id ? t('Pooja updated successfully', 'பூஜை வெற்றிகரமாக புதுப்பிக்கப்பட்டது') : t('Pooja created successfully', 'பூஜை வெற்றிகரமாக உருவாக்கப்பட்டது'),
           description: t('Data saved successfully', 'தரவு வெற்றிகரமாக சேமிக்கப்பட்டது')
         });
+        // Ask user if they want to print the receipt PDF
+        try {
+          let savedId = id ? parseInt(id) : (result as any)?.data?.id;
+          if (!savedId && !id) {
+            // Fallback: look up by receipt number
+            const rn = payload.receiptNumber;
+            if (rn) {
+              try {
+                const listResp = await poojaService.getPoojaList(1, 5, rn);
+                const items = (listResp?.data || []) as any[];
+                const match = items.find((it:any) => String(it.receipt_number) === String(rn));
+                if (match?.id) savedId = match.id;
+              } catch (lookupErr) {
+                console.warn('Lookup by receiptNumber failed:', lookupErr);
+              }
+            }
+          }
+          if (savedId) {
+            setLastSavedId(savedId);
+            setShowPrintConfirm(true);
+          }
+        } catch (e) {
+          console.warn('Failed to prepare receipt PDF:', e);
+        }
       } else {
         throw new Error(result.error || 'Failed to save pooja data');
       }
@@ -355,9 +408,7 @@ export default function PoojaEntryPage() {
                   {...register('amount')}
                 />
               </div>
-            </div>
-
-            {/* Transfer To Account - hidden (defaults to INCOME A/C) */}
+            
             {false && (
             <div className="space-y-2">
               <Label htmlFor="transferTo">
@@ -390,6 +441,8 @@ export default function PoojaEntryPage() {
               />
             </div>
             
+            </div>
+
             {/* Action Buttons */}
             <div className="flex justify-end space-x-4 pt-6 border-t">
               <Button 
@@ -400,6 +453,15 @@ export default function PoojaEntryPage() {
               >
                 {t('Cancel', 'ரத்து செய்')}
               </Button>
+              {id && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handlePrintReceipt}
+                >
+                  {t('Print Receipt', 'ரசீதை அச்சிட')}
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="outline"
@@ -456,6 +518,33 @@ export default function PoojaEntryPage() {
         </Card>
       </div>
       </div>
+
+      {/* Print confirmation modal */}
+      <Dialog open={showPrintConfirm} onOpenChange={setShowPrintConfirm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('Print Receipt', 'ரசீதை அச்சிட')}</DialogTitle>
+            <DialogDescription>
+              {t('Do you want to open the receipt PDF in a new tab?', 'ரசீது PDF-ஐ புதிய தாளில் திறக்க உங்களுக்குத் தோன்றுகிறதா?')}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPrintConfirm(false)}>
+              {t('No', 'இல்லை')}
+            </Button>
+            <Button
+              onClick={() => {
+                if (lastSavedId) {
+                  openReceiptPdf(lastSavedId);
+                }
+                setShowPrintConfirm(false);
+              }}
+            >
+              {t('Yes, Open', 'ஆம், திறக்க')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

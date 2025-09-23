@@ -2,7 +2,7 @@ import axios from 'axios';
 import { getAuthToken } from '@/lib/auth';
 
 // Using Vite environment variables
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://tmsapi.xesstechlink.com';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
 // Create configured axios instance
 const api = axios.create({
@@ -121,7 +121,8 @@ export const ledgerService = {
     page?: number;
     limit?: number;
   }): Promise<PaginatedResponse<LedgerEntry>> {
-    const response = await api.get<any>(`/api/journal/entries`, { params });
+    // Use ledger entries so 'under' (category) is available for UI display
+    const response = await api.get<any>(`/api/ledger/entries`, { params });
     const raw = response.data?.data ?? response.data?.rows ?? [];
     // Adapt backend journal rows to UI LedgerEntry shape
     const adapted: LedgerEntry[] = (raw as any[]).map((r) => {
@@ -136,7 +137,7 @@ export const ledgerService = {
       return {
         id: r.id,
         date: r.date,
-        name: r.from_account || r.name || '',
+        name: r.name || r.from_account || '',
         under: r.under || '',
         type,
         amount: Number(r.amount ?? 0) || 0,
@@ -198,7 +199,7 @@ export const ledgerService = {
 
   async exportAsCSV(params: Record<string, any>): Promise<Blob> {
     const query = new URLSearchParams(params).toString();
-    const response = await fetch(`https://tmsapi.xesstechlink.com/api/ledger/export?${query}`, {
+    const response = await fetch(`http://localhost:4000/api/ledger/export?${query}`, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       }

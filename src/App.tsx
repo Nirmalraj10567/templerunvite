@@ -12,6 +12,7 @@ import YearEndLockGuard from './routes/YearEndLockGuard';
 import DashboardLayout from './layouts/DashboardLayout';
 import OverviewPage from './pages/dashboard/OverviewPage';
 import TransactionsPage from './pages/dashboard/TransactionsPage';
+import BackspaceNavigator from './components/BackspaceNavigator';
 import ReportsPage from './pages/dashboard/ReportsPage';
 import DailyReportPage from './pages/reports/DailyReportPage';
 import MonthlyReportPage from './pages/reports/MonthlyReportPage';
@@ -74,6 +75,7 @@ function App() {
       <AuthProvider>
         <SettingsProvider>
         <BrowserRouter>
+          <BackspaceNavigator />
           <main>
             <Routes>
               <Route path="/" element={<HomePage />} />

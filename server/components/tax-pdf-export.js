@@ -9,6 +9,7 @@ module.exports = function createTaxRegistrationReceiptRouter({ db, verifyQueryTo
   const router = express.Router();
 
   router.get('/api/tax-registrations/:id/receipt.pdf', verifyQueryToken, async (req, res) => {
+
     try {
       const { id } = req.params;
       
@@ -25,7 +26,7 @@ module.exports = function createTaxRegistrationReceiptRouter({ db, verifyQueryTo
       const settings = await db('pdf_settings')
         .where({ temple_id: req.user.templeId })
         .first()
-        .catch(() => ({}));
+        .catch(() => ({})) || {};
 
       // Create PDF
       const doc = new PDFDocument({ 
@@ -91,38 +92,36 @@ module.exports = function createTaxRegistrationReceiptRouter({ db, verifyQueryTo
       const logoX = margin + 15;
       const logoY = y - 5;
 
-      // Temple Name — Centered, prominent
+      // Center X and configurable titles from settings
       const centerX = pageWidth / 2;
+      const titleMain = settings.title_main || 'அருள்மிகு நல்லகுமாரசுவாமி திருக்கோவில்';
+      const titleSub = settings.title_sub || 'நாமக்கல் மாவட்டம், திருச்செங்கோடு வட்டம், கூத்தம்பூண்டி கிராமம்';
+      const titleLine2 = settings.title_line2 || 'அருள்மிகு நல்லகுமாரசுவாமி துணை';
 
+      // Main Title
       doc.font(fonts.bold)
          .fontSize(18)
          .fillColor('#2c3e50')
-         .text('அருள்மிகு நல்லகுமாரசுவாமி திருக்கோவில்@@@', centerX, y - 5, { 
-           width: contentWidth - 100, 
-           align: 'center' 
-         });
+         .text(String(titleMain), centerX, y - 5, { width: contentWidth - 100, align: 'center' });
 
       y += 22;
 
-      // Subtitle 1 — Location
-      doc.font(fonts.regular)
-         .fontSize(9)
-         .fillColor('#555')
-         .text('நாமக்கல் மாவட்டம், திருச்செங்கோடு வட்டம், கூத்தம்பூண்டி கிராமம்', centerX, y, { 
-           width: contentWidth - 100, 
-           align: 'center' 
-         });
+      // Sub Title
+      if (titleSub) {
+        doc.font(fonts.regular)
+           .fontSize(9)
+           .fillColor('#555')
+           .text(String(titleSub), centerX, y, { width: contentWidth - 100, align: 'center' });
+        y += 16;
+      }
 
-      y += 16;
-
-      // Subtitle 2 — Tagline
-      doc.font(fonts.bold)
-         .fontSize(12)
-         .fillColor('#34495e')
-         .text('அருள்மிகு நல்லகுமாரசுவாமி துணை', centerX, y, { 
-           width: contentWidth - 100, 
-           align: 'center' 
-         });
+      // Title Line 2
+      if (titleLine2) {
+        doc.font(fonts.bold)
+           .fontSize(12)
+           .fillColor('#34495e')
+           .text(String(titleLine2), centerX, y, { width: contentWidth - 100, align: 'center' });
+      }
 
       // Receipt No & Date — Positioned precisely
       y += 8;
@@ -137,6 +136,16 @@ module.exports = function createTaxRegistrationReceiptRouter({ db, verifyQueryTo
                pageWidth - margin - 20, y, { align: 'right' });
 
       y += 25;
+
+      // Optional Sub-header (Tax-specific overrides general)
+      const subHeader = settings.tax_subheader || settings.subheader || '';
+      if (subHeader) {
+        y += 10;
+        doc.font(fonts.regular)
+           .fontSize(10)
+           .fillColor('#2c3e50')
+           .text(String(subHeader), centerX, y, { width: contentWidth - 100, align: 'center' });
+      }
 
       // ========== DIVIDER ==========
       doc.moveTo(margin + 20, y)
@@ -256,31 +265,37 @@ module.exports = function createTaxRegistrationReceiptRouter({ db, verifyQueryTo
          .fillColor('#555')
          .text('வசூலிப்பாளர் கையொப்பம்', sigX + (sigWidth/2) - 45, footerY + 8);
 
-      // Contact Info (Bottom left)
-      doc.fontSize(8)
-         .fillColor('#888')
-         .text('தொடர்புக்கு: temple@example.org | +91 XXXXX XXXXX', margin + 20, footerY + 5);
+      // Contact / Watermark (Bottom)
+      const watermark = settings.watermark_text || '';
+      if (watermark) {
+        doc.fontSize(8)
+           .fillColor('#cccccc')
+           .text(String(watermark), margin, footerY + 5, { width: pageWidth - margin * 2, align: 'center' });
+      }
 
       // ========== LOGO — Top Left ==========
       if (settings.logo_url) {
         try {
-          const logoBuffer = await new Promise((resolve, reject) => {
-            if (!/^https?:\/\//i.test(settings.logo_url)) return resolve(null);
-            https.get(settings.logo_url, (response) => {
-              if (response.statusCode !== 200) return resolve(null);
-              const chunks = [];
-              response.on('data', chunk => chunks.push(chunk));
-              response.on('end', () => resolve(Buffer.concat(chunks)));
-              response.on('error', () => resolve(null));
-            }).on('error', () => resolve(null));
-          });
+          let logoBuffer = null;
+          if (/^https?:\/\//i.test(settings.logo_url)) {
+            logoBuffer = await new Promise((resolve) => {
+              https.get(settings.logo_url, (response) => {
+                if (response.statusCode !== 200) return resolve(null);
+                const chunks = [];
+                response.on('data', chunk => chunks.push(chunk));
+                response.on('end', () => resolve(Buffer.concat(chunks)));
+                response.on('error', () => resolve(null));
+              }).on('error', () => resolve(null));
+            });
+          } else if (settings.logo_url.startsWith('/public/')) {
+            const filePath = path.join(__dirname, '..', '..', settings.logo_url.replace(/^\/public\//, 'public/'));
+            if (fs.existsSync(filePath)) {
+              logoBuffer = fs.readFileSync(filePath);
+            }
+          }
 
           if (logoBuffer) {
-            doc.image(logoBuffer, logoX, logoY, { 
-              width: logoSize, 
-              height: logoSize,
-              align: 'left'
-            });
+            doc.image(logoBuffer, logoX, logoY, { width: logoSize, height: logoSize, align: 'left' });
           }
         } catch (e) {
           console.warn('Logo loading failed:', e.message);

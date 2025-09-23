@@ -7,7 +7,16 @@ export interface PdfSettings {
   title_line2?: string | null;
   subheader?: string | null;
   tax_subheader?: string | null;
+  // Tax-specific labels
+  tax_receipt_label?: string | null;
+  tax_date_label?: string | null;
+  tax_year_label?: string | null;
+  tax_cell_label?: string | null;
+  tax_collector_label?: string | null;
   annadhanam_subheader?: string | null;
+  hall_subheader?: string | null;
+  // Pooja-specific
+  pooja_subheader?: string | null;
   // General
   watermark_text?: string | null;
   logo_url?: string | null;
@@ -23,11 +32,17 @@ export interface PdfSettings {
   hall_year_label?: string | null;
   hall_cell_label?: string | null;
   hall_collector_label?: string | null;
+  // Pooja-specific labels
+  pooja_receipt_label?: string | null;
+  pooja_date_label?: string | null;
+  pooja_year_label?: string | null;
+  pooja_cell_label?: string | null;
+  pooja_collector_label?: string | null;
 }
 
 export const pdfSettingsService = {
   async get(): Promise<PdfSettings> {
-    const resp: any = await axios.get('/api/pdf-settings', {
+    const resp: any = await axios.get('http://localhost:4000/api/pdf-settings', {
       headers: { Authorization: `Bearer ${getAuthToken()}` },
     });
     return resp?.data?.data || {};

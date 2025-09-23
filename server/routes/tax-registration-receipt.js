@@ -72,6 +72,13 @@ module.exports = function createTaxRegistrationReceiptRouter({ db, verifyQueryTo
       const templeTitleta2 = settings?.title_line2 || 'நாமக்கல் மாவட்டம், திருச்செங்கோடு வட்டம், கூத்தம்பூண்டி கிராமம் வெளையன் குல பங்காளிகளுக்கு பாத்தியப்பட்ட குலதெய்வம் மாணிக்கம்பாளையம்';
       const templeMainTitleta = settings?.title_main || 'அருள்மிகு நல்லகுமாரசுவாமி திருக்கோவில்';
       const subHeaderTa = settings?.tax_subheader || settings?.subheader || 'வரி ரசீது';
+      const L = {
+        receipt: settings?.tax_receipt_label || 'ரசீது எண்',
+        date: settings?.tax_date_label || 'தேதி',
+        year: settings?.tax_year_label || 'வருடம்',
+        cell: settings?.tax_cell_label || 'செல்',
+        collector: settings?.tax_collector_label || 'வசூலிப்பாளர்',
+      };
 
       // Load logo into buffer (draw later inside header for exact layout)
       let logoBuffer = null;
@@ -171,7 +178,7 @@ module.exports = function createTaxRegistrationReceiptRouter({ db, verifyQueryTo
 
       // Receipt number (left), Title (center), Date (right)
       const receiptNo = String(row.reference_number || row.id).padStart(3, '0');
-      const receiptText = `ரசீது எண் ${receiptNo}`;
+      const receiptText = `${L.receipt} ${receiptNo}`;
       drawReg(receiptText, marginLeft + 15, receiptY + 16, 12);
 
       // Title center
@@ -183,7 +190,7 @@ module.exports = function createTaxRegistrationReceiptRouter({ db, verifyQueryTo
 
       // Date right
       const donationDate = row.date || new Date().toLocaleDateString('en-GB');
-      const dateText = `தேதி ${donationDate}`;
+      const dateText = `${L.date} ${donationDate}`;
       doc.font(hasTamilBoldFont ? F_BOLD : F_REG).fontSize(12);
       const dateTextWidth = doc.widthOfString(dateText);
       const dateX = marginLeft + contentWidth - 15 - dateTextWidth;
@@ -199,8 +206,8 @@ module.exports = function createTaxRegistrationReceiptRouter({ db, verifyQueryTo
       const infoBoxY = contentYStart;
       doc.lineWidth(1).rect(infoBoxX, infoBoxY, infoBoxWidth, infoBoxHeight).stroke();
 
-      const labelYear = 'வருடம்';
-      const labelCell = 'செல்';
+      const labelYear = L.year;
+      const labelCell = L.cell;
       const labelX = infoBoxX + 15;
       const row1Y = infoBoxY + 14;
       const row2Y = infoBoxY + 44;
@@ -285,7 +292,7 @@ module.exports = function createTaxRegistrationReceiptRouter({ db, verifyQueryTo
       const currencyY = footerStartY + (rupeeBoxHeight - currencyTextHeight) / 2;
       doc.text(currencyText, currencyX, currencyY);
 
-      const collectorText = 'வசூலிப்பாளர்';
+      const collectorText = L.collector;
       doc.font(F_REG).fontSize(12);
       const collectorWidth = doc.widthOfString(collectorText);
       const collectorX = marginLeft + contentWidth - collectorWidth - 15;

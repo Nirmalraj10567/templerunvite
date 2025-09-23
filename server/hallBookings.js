@@ -371,22 +371,17 @@ module.exports = function (deps = {}) {
         });
       }
 
-      // Use a transaction to avoid race conditions
-      const result = await db.transaction(async (trx) => {
-        // Lock row for update if DB supports it (MySQL). For SQLite this is safe within the transaction.
-        const row = await trx('receipt_counter').where({ year }).first();
-        if (!row) {
-          await trx('receipt_counter').insert({ year, last_number: 0 });
-        }
-        const current = row ? Number(row.last_number) : 0;
-        const newNumber = current + 1;
-        await trx('receipt_counter')
-          .where({ year })
-          .update({ last_number: newNumber, updated_at: trx.fn.now() });
-        return newNumber;
-      });
+      // Atomic upsert: insert year with last_number=1 or increment existing last_number
+      // Keep the column set minimal to avoid errors if older schemas lack created_at/updated_at
+      await db('receipt_counter')
+        .insert({ year, last_number: 1 })
+        .onConflict('year')
+        .merge({ last_number: db.raw('last_number + 1') });
 
-      const receiptNo = `${year}-${String(result).padStart(4, '0')}`;
+      // Read back the latest counter
+      const updated = await db('receipt_counter').where({ year }).first();
+      const seq = Number(updated?.last_number || 1);
+      const receiptNo = `${year}-${String(seq).padStart(4, '0')}`;
       res.json({ receiptNo });
     } catch (error) {
       console.error('Error generating receipt number:', error);

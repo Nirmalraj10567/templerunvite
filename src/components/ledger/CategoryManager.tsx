@@ -95,7 +95,7 @@ export function CategoryManager({
     try {
       setIsLoading(true);
       const response = await axios.post<Category>(
-        'https://tmsapi.xesstechlink.com/api/ledger/categories',
+        'http://localhost:4000/api/ledger/categories',
         { value: nextVal, label: nextLabel },
         { headers: { Authorization: `Bearer ${getAuthToken()}` } }
       );

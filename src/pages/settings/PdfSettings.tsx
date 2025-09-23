@@ -78,6 +78,7 @@ export default function PdfSettingsPage() {
             <TabsTrigger value="tax">{t('Tax', 'வரி')}</TabsTrigger>
             <TabsTrigger value="annadhanam">{t('Annadhanam', 'அன்னதானம்')}</TabsTrigger>
             <TabsTrigger value="hall">{t('Hall', 'மண்டபம்')}</TabsTrigger>
+            <TabsTrigger value="pooja">{t('Pooja', 'பூஜை')}</TabsTrigger>
           </TabsList>
           <TabsContent value="general" className="grid grid-cols-1 gap-4">
             <div>
@@ -109,6 +110,48 @@ export default function PdfSettingsPage() {
                   <img src={logoSrc} alt="logo" className="h-16 w-auto border rounded" />
                 )}
               </div>
+              <div className="mt-2">
+                <label className="block text-sm mb-1">{t('Logo URL (optional)', 'லோகோ URL (விருப்ப)')}</label>
+                <input
+                  name="logo_url"
+                  value={form.logo_url || ''}
+                  onChange={onChange}
+                  placeholder={t('Paste an image URL or use Upload above', 'பட URL ஒன்றை ஒட்டவும் அல்லது மேலே உள்ள பதிவேற்றத்தை பயன்படுத்தவும்')}
+                  className="w-full border p-2 rounded"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {t('If set, this URL will be used for the logo. Upload sets a /public path automatically.', 'URL அமைக்கப்பட்டால், இந்த லோகோ பயன்படுத்தப்படும். பதிவேற்றம் தானாகவே /public பாதையை அமைக்கும்.')}
+                </p>
+              </div>
+            </div>
+          </TabsContent>
+          <TabsContent value="pooja" className="grid grid-cols-1 gap-4">
+            <div>
+              <label className="block text-sm mb-1">{t('Pooja Sub-header', 'பூஜை துணை தலைப்பு')}</label>
+              <input name="pooja_subheader" value={(form as any).pooja_subheader || ''} onChange={onChange} className="w-full border p-2 rounded" />
+              <p className="text-xs text-gray-500 mt-1">{t('Used only in Pooja receipts. If empty, default sub-header is used.', 'பூஜை ரசீதுகளில் மட்டும் பயன்படுத்தப்படும். காலியாக இருந்தால் பொதுத் துணை தலைப்பு பயன்படுத்தப்படும்.')}</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm mb-1">{t('Receipt Label', 'ரசீது தலைப்பு')}</label>
+                <input name="pooja_receipt_label" value={(form as any).pooja_receipt_label || ''} onChange={onChange} className="w-full border p-2 rounded" />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">{t('Date Label', 'தேதி தலைப்பு')}</label>
+                <input name="pooja_date_label" value={(form as any).pooja_date_label || ''} onChange={onChange} className="w-full border p-2 rounded" />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">{t('Year Label', 'வருடம் தலைப்பு')}</label>
+                <input name="pooja_year_label" value={(form as any).pooja_year_label || ''} onChange={onChange} className="w-full border p-2 rounded" />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">{t('Cell Label', 'செல் தலைப்பு')}</label>
+                <input name="pooja_cell_label" value={(form as any).pooja_cell_label || ''} onChange={onChange} className="w-full border p-2 rounded" />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">{t('Collector Label', 'வசூலிப்பாளர் தலைப்பு')}</label>
+                <input name="pooja_collector_label" value={(form as any).pooja_collector_label || ''} onChange={onChange} className="w-full border p-2 rounded" />
+              </div>
             </div>
           </TabsContent>
           <TabsContent value="tax" className="grid grid-cols-1 gap-4">
@@ -116,6 +159,28 @@ export default function PdfSettingsPage() {
               <label className="block text-sm mb-1">{t('Tax Sub-header', 'வரி துணை தலைப்பு')}</label>
               <input name="tax_subheader" value={(form as any).tax_subheader || ''} onChange={onChange} className="w-full border p-2 rounded" />
               <p className="text-xs text-gray-500 mt-1">{t('Used only in tax receipts. If empty, default sub-header is used.', 'வரி ரசீதுகளில் மட்டும் பயன்படுத்தப்படும். காலியாக இருந்தால் பொதுத் துணை தலைப்பு பயன்படுத்தப்படும்.')}</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm mb-1">{t('Receipt Label', 'ரசீது தலைப்பு')}</label>
+                <input name="tax_receipt_label" value={(form as any).tax_receipt_label || ''} onChange={onChange} className="w-full border p-2 rounded" />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">{t('Date Label', 'தேதி தலைப்பு')}</label>
+                <input name="tax_date_label" value={(form as any).tax_date_label || ''} onChange={onChange} className="w-full border p-2 rounded" />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">{t('Year Label', 'வருடம் தலைப்பு')}</label>
+                <input name="tax_year_label" value={(form as any).tax_year_label || ''} onChange={onChange} className="w-full border p-2 rounded" />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">{t('Cell Label', 'செல் தலைப்பு')}</label>
+                <input name="tax_cell_label" value={(form as any).tax_cell_label || ''} onChange={onChange} className="w-full border p-2 rounded" />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">{t('Collector Label', 'வசூலிப்பாளர் தலைப்பு')}</label>
+                <input name="tax_collector_label" value={(form as any).tax_collector_label || ''} onChange={onChange} className="w-full border p-2 rounded" />
+              </div>
             </div>
           </TabsContent>
           <TabsContent value="annadhanam" className="grid grid-cols-1 gap-4">

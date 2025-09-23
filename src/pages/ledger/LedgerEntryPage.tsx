@@ -192,58 +192,74 @@ export default function LedgerEntryPage() {
     fetchCategories();
   }, []);
 
-  // Journal API requires both from_account and to_account; map counterpart as CASH A/C depending on type
+  // Submit to Ledger API so category (under) persists in ledger_entries
 
   const onSubmit = async (data: LedgerEntry) => {
     setIsSubmitting(true);
     try {
-      // Validate minimal required fields: name -> from_account, to_account, amount
+      // Validate required fields
       if (!data.name) {
         throw new Error(t('Name is required', 'பெயர் தேவை'));
       }
-      if (Number(data.amount) < 0) {
+      if (Number.isNaN(Number(data.amount)) || Number(data.amount) < 0) {
         throw new Error(t('Amount cannot be negative', 'தொகை மைனஸாக இருக்கக்கூடாது'));
       }
-      const derivedFrom = data.name;
-      const cashAccount = 'CASH A/C';
-      const debitAccount = 'DEBIT A/C';
-      // Mapping per requirement:
-      // - Credit: to_account = CASH A/C
-      // - Debit: to_account = DEBIT A/C
-      // In both cases, from_account = entered name
-      const fromAccount = derivedFrom;
-      const toAccount = (data.type === 'credit') ? cashAccount : debitAccount;
 
-      const entryData = {
+      // Build payload for /api/ledger/entries which stores 'under'
+      const payload = {
         date: data.date,
-        from_account: fromAccount,
-        to_account: toAccount,
-        amount: Number(data.amount),
-        remarks: data.note,
+        name: data.name,
+        under: data.under || null,
         type: data.type,
-      } as any;
+        amount: Number(data.amount),
+        address: data.address || null,
+        city: data.city || null,
+        phone: data.phone || null,
+        mobile: data.mobile || null,
+        email: data.email || null,
+        note: data.note || null,
+      } as const;
 
-      await ledgerService.createEntry(entryData);
-      
+      await axios.post('/api/ledger/entries', payload, {
+        headers: { Authorization: `Bearer ${getAuthToken()}` }
+      });
+
+      // Also create a corresponding journal entry so balance (computed from journal_entries) stays in sync
+      try {
+        const cashAccount = 'CASH A/C';
+        const debitAccount = 'DEBIT A/C';
+        const fromAccount = data.name;
+        const toAccount = (data.type === 'credit') ? cashAccount : debitAccount;
+        await ledgerService.createEntry({
+          date: data.date,
+          from_account: fromAccount,
+          to_account: toAccount,
+          amount: Number(data.amount),
+          remarks: data.note,
+          type: data.type,
+        } as any);
+      } catch (e) {
+        // Do not block UI if journal sync fails; log for debugging
+        console.warn('Journal sync failed (non-blocking):', e);
+      }
+
+      // Refresh balance (backend has /api/ledger/balance)
       const newBalance = await ledgerService.getCurrentBalance();
       setCurrentBalance(newBalance);
-      
+
       // Reset form after successful submission
       handleReset();
-      
+
       toast({
         title: t('Success', 'வெற்றி'),
         description: t('Ledger entry saved successfully', 'பதிவேடு பதிவு வெற்றிகரமாக சேமிக்கப்பட்டது'),
       });
-      
     } catch (error) {
       console.error('Error saving ledger entry:', error);
       let errorMessage = t('Failed to save ledger entry', 'பதிவேடு பதிவை சேமிக்க முடியவில்லை');
-      
       if (error instanceof Error) {
         errorMessage = error.message;
       }
-      
       toast({
         title: t('Error', 'பிழை'),
         description: errorMessage,
