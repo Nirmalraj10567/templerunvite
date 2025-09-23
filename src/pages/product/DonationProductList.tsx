@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import { donationService, DonationItem } from '@/services/donationService';
 import { PrintButton } from '@/components/ui/print-button';
+import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { FileDown } from 'lucide-react';
 import jsPDF from 'jspdf';
@@ -23,49 +24,156 @@ export default function DonationProductList() {
   const [items, setItems] = useState<DonationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState('');
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  
 
   const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
   // Column keys and labels
   type ColKey =
     | '#'
+    | 'receipt'
     | 'contact'
     | 'date'
     | 'donor'
     | 'category'
     | 'product'
     | 'qty'
-    | 'price'
     | 'description'
-    | 'print';
+    | 'print'
+    | 'actions';
 
   const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' | 'center' }> = [
     { key: '#', label: '#' },
+    { key: 'receipt', label: t('Receipt No', 'ரசீது எண்') },
     { key: 'contact', label: t('Contact', 'தொடர்பு') },
     { key: 'date', label: t('Date', 'தேதி') },
     { key: 'donor', label: t('Donor', 'நன்கொடையாளர்') },
     { key: 'category', label: t('Category', 'வகை') },
     { key: 'product', label: t('Product', 'பொருள்') },
     { key: 'qty', label: t('Qty', 'அளவு'), align: 'right' },
-    { key: 'price', label: t('Price', 'விலை'), align: 'right' },
     { key: 'description', label: t('Description', 'விளக்கம்') },
     { key: 'print', label: t('Print', 'அச்சிட'), align: 'center' },
+    { key: 'actions', label: t('Actions', 'நடவடிக்கைகள்'), align: 'center' },
   ];
 
   const STORAGE_KEY = 'donation_list_visible_columns_v1';
   const defaultVisible: Record<ColKey, boolean> = {
     '#': true,
+    receipt: true,
     contact: true,
     date: true,
     donor: true,
     category: true,
     product: true,
     qty: true,
-    price: true,
     description: true,
     print: true,
+    actions: true,
+  };
+
+  // Edit modal state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editItemId, setEditItemId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState<{ 
+    product: string; 
+    quantity: number | '';
+    description: string;
+    category: string;
+    donorName: string;
+    donorContact: string;
+    donationDate: string;
+    notes: string;
+    status: string;
+  }>({
+    product: '',
+    quantity: '',
+    description: '',
+    category: 'General',
+    donorName: '',
+    donorContact: '',
+    donationDate: '',
+    notes: '',
+    status: 'available',
+  });
+
+  const openEdit = (item: DonationItem) => {
+    setEditItemId(item.id);
+    setEditForm({
+      product: item.product_name || '',
+      quantity: (item as any).quantity ?? '',
+      description: item.description || '',
+      category: item.category || 'General',
+      donorName: item.donor_name || '',
+      donorContact: item.donor_contact || '',
+      donationDate: (item.donation_date || '').slice(0,10),
+      notes: (item as any).notes || '',
+      status: (item as any).status || 'available',
+    });
+    setEditOpen(true);
+  };
+
+  const saveEdit = async () => {
+    if (!editItemId) return;
+    try {
+      await donationService.updateDonation(token, editItemId, {
+        product: editForm.product,
+        quantity: editForm.quantity === '' ? (undefined as any) : Number(editForm.quantity),
+        description: editForm.description,
+        category: editForm.category,
+        donorName: editForm.donorName,
+        donorContact: editForm.donorContact,
+        donationDate: editForm.donationDate,
+        notes: editForm.notes,
+        status: editForm.status,
+      });
+      setEditOpen(false);
+      setEditItemId(null);
+      await load();
+    } catch (e) {
+      console.error('Update failed', e);
+      alert(t('Update failed', 'புதுப்பிப்பு தோல்வியடைந்தது'));
+    }
+  };
+
+  // Delete confirmation modal state
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteItemId, setDeleteItemId] = useState<number | null>(null);
+
+  const openDelete = (item: DonationItem) => {
+    setDeleteItemId(item.id);
+    setDeleteOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteItemId) return;
+    try {
+      await donationService.deleteDonation(token, deleteItemId);
+      setDeleteOpen(false);
+      setDeleteItemId(null);
+      await load();
+    } catch (e) {
+      console.error('Delete failed', e);
+      alert(t('Delete failed', 'நீக்கம் தோல்வியடைந்தது'));
+    }
+  };
+
+  // Quick edit for quantity/description using prompts
+  const onEdit = async (item: DonationItem) => {
+    try {
+      const currentQty = (item as any).quantity ?? '';
+      const newQtyStr = window.prompt(t('Enter quantity', 'அளவை உள்ளிடுக'), String(currentQty));
+      if (newQtyStr === null) return;
+      const newQty = parseInt(newQtyStr, 10);
+      const newDesc = window.prompt(t('Enter description', 'விளக்கத்தை உள்ளிடுக'), item.description || '') ?? item.description;
+      await donationService.updateDonation(token, item.id, {
+        quantity: Number.isFinite(newQty) ? newQty : (item as any).quantity,
+        description: newDesc || '',
+      });
+      await load();
+    } catch (e) {
+      console.error('Update failed', e);
+      alert(t('Update failed', 'புதுப்பிப்பு தோல்வியடைந்தது'));
+    }
   };
 
   // Print a donation receipt via backend PDF (opens in new tab)
@@ -133,10 +241,9 @@ export default function DonationProductList() {
     return items.reduce(
       (acc, r) => {
         acc.qty += toNum((r as any).quantity);
-        acc.price += toNum((r as any).price);
         return acc;
       },
-      { qty: 0, price: 0 }
+      { qty: 0 }
     );
   }, [items]);
 
@@ -144,7 +251,7 @@ export default function DonationProductList() {
   const load = async () => {
     setLoading(true);
     try {
-      const params = { q, from, to };
+      const params = { q };
       const response = await donationService.getDonations(token, params);
       setItems(response.data);
     } catch (error) {
@@ -256,22 +363,7 @@ export default function DonationProductList() {
             />
           </div>
 
-          {/* Date range */}
-          <div className="flex items-center gap-1 w-full md:w-auto">
-            <input
-              type="date"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              className="px-2 py-1 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
-            />
-            <span className="text-gray-600 text-xs">{t('to', 'வரை')}</span>
-            <input
-              type="date"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              className="px-2 py-1 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
-            />
-          </div>
+          
 
           {/* Actions */}
           <div className="flex flex-wrap gap-1 w-full md:w-auto">
@@ -285,8 +377,6 @@ export default function DonationProductList() {
             <button
               onClick={() => {
                 setQ('');
-                setFrom('');
-                setTo('');
                 load();
               }}
               className="px-3 py-1 border border-gray-300 rounded shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -361,6 +451,9 @@ export default function DonationProductList() {
                     {visibleCols['#'] && (
                       <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">{idx + 1}</td>
                     )}
+                    {visibleCols.receipt && (
+                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">{(r as any).register_no || '-'}</td>
+                    )}
                     {visibleCols.contact && (
                       <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
                         {r.donor_contact || '-'}
@@ -368,7 +461,7 @@ export default function DonationProductList() {
                     )}
                     {visibleCols.date && (
                       <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
-                        {r.donation_date || '-'}
+                        {(r.donation_date || '').slice(0,10) || '-'}
                       </td>
                     )}
                     {visibleCols.donor && (
@@ -385,11 +478,7 @@ export default function DonationProductList() {
                         {toNum((r as any).quantity).toLocaleString()}
                       </td>
                     )}
-                    {visibleCols.price && (
-                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900 text-right">
-                        ₹{toNum((r as any).price).toLocaleString()}
-                      </td>
-                    )}
+                    
                     {visibleCols.description && (
                       <td className="px-3 py-2 text-xs text-gray-900">{r.description || '-'}</td>
                     )}
@@ -397,6 +486,26 @@ export default function DonationProductList() {
                       <td className="px-2 py-2 whitespace-nowrap text-center text-xs font-medium align-middle w-12">
                         <div className="flex justify-center items-center gap-1">
                           <PrintButton onClick={() => onPrint(r)} />
+                        </div>
+                      </td>
+                    )}
+                    {visibleCols.actions && (
+                      <td className="px-2 py-2 whitespace-nowrap text-center text-xs font-medium align-middle">
+                        <div className="flex justify-center items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(r)}
+                            className="text-blue-600 hover:underline"
+                          >
+                            {t('Edit', 'திருத்த')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openDelete(r)}
+                            className="text-red-600 hover:underline"
+                          >
+                            {t('Delete', 'நீக்கு')}
+                          </button>
                         </div>
                       </td>
                     )}
@@ -418,9 +527,6 @@ export default function DonationProductList() {
           <div className="flex gap-2 text-xs text-gray-700">
             <span>
               {t('Total Qty', 'மொத்த அளவு')}: <span className="font-medium">{totals.qty.toLocaleString()}</span>
-            </span>
-            <span>
-              {t('Total Amount', 'மொத்த தொகை')}: <span className="font-medium">₹{totals.price.toLocaleString()}</span>
             </span>
           </div>
         </div>
@@ -491,6 +597,113 @@ export default function DonationProductList() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Edit Modal */}
+      {editOpen && (
+        <Modal title={t('Edit Donation', 'நன்கொடையை திருத்துக')} onClose={() => setEditOpen(false)}>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="col-span-2">
+              <label className="block text-xs text-gray-600 mb-1">{t('Product','பொருள்')}</label>
+              <input
+                className="w-full border px-2 py-1 rounded"
+                value={editForm.product}
+                onChange={(e)=>setEditForm(prev=>({...prev, product: e.target.value}))}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">{t('Quantity','அளவு')}</label>
+              <input
+                className="w-full border px-2 py-1 rounded"
+                value={editForm.quantity}
+                onChange={(e)=>{
+                  const v = e.target.value;
+                  if (v === '') return setEditForm(prev=>({...prev, quantity: ''}));
+                  const n = parseInt(v,10);
+                  if (!isNaN(n)) setEditForm(prev=>({...prev, quantity: n}));
+                }}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">{t('Date','தேதி')}</label>
+              <input
+                type="date"
+                className="w-full border px-2 py-1 rounded"
+                value={editForm.donationDate}
+                onChange={(e)=>setEditForm(prev=>({...prev, donationDate: e.target.value}))}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">{t('Category','வகை')}</label>
+              <input
+                className="w-full border px-2 py-1 rounded"
+                value={editForm.category}
+                onChange={(e)=>setEditForm(prev=>({...prev, category: e.target.value}))}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">{t('Status','நிலை')}</label>
+              <select
+                className="w-full border px-2 py-1 rounded"
+                value={editForm.status}
+                onChange={(e)=>setEditForm(prev=>({...prev, status: e.target.value}))}
+              >
+                <option value="available">{t('Available','கிடைக்கும்')}</option>
+                <option value="reserved">{t('Reserved','ஒதுக்கப்பட்டது')}</option>
+                <option value="distributed">{t('Distributed','விநியோகிக்கப்பட்டது')}</option>
+              </select>
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs text-gray-600 mb-1">{t('Donor','நன்கொடையாளர்')}</label>
+              <input
+                className="w-full border px-2 py-1 rounded"
+                value={editForm.donorName}
+                onChange={(e)=>setEditForm(prev=>({...prev, donorName: e.target.value}))}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">{t('Contact','தொடர்பு')}</label>
+              <input
+                className="w-full border px-2 py-1 rounded"
+                value={editForm.donorContact}
+                onChange={(e)=>setEditForm(prev=>({...prev, donorContact: e.target.value}))}
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs text-gray-600 mb-1">{t('Description','விளக்கம்')}</label>
+              <textarea
+                className="w-full border px-2 py-1 rounded"
+                rows={2}
+                value={editForm.description}
+                onChange={(e)=>setEditForm(prev=>({...prev, description: e.target.value}))}
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs text-gray-600 mb-1">{t('Notes','குறிப்புகள்')}</label>
+              <textarea
+                className="w-full border px-2 py-1 rounded"
+                rows={2}
+                value={editForm.notes}
+                onChange={(e)=>setEditForm(prev=>({...prev, notes: e.target.value}))}
+              />
+            </div>
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
+            <button onClick={()=>setEditOpen(false)} className="px-3 py-1 border rounded text-xs">{t('Cancel','ரத்து செய்')}</button>
+            <button onClick={saveEdit} className="px-3 py-1 bg-blue-600 text-white rounded text-xs">{t('Save','சேமி')}</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Delete Modal */}
+      {deleteOpen && (
+        <Modal title={t('Delete Donation', 'நன்கொடையை நீக்கு')} onClose={() => setDeleteOpen(false)}>
+          <p className="text-sm text-gray-700 mb-4">{t('Are you sure you want to delete this entry? This action cannot be undone.', 'இந்த பதிவை நிச்சயமாக நீக்க விரும்புகிறீர்களா? இந்த செயலை திரும்பப்பெற முடியாது.')}</p>
+          <div className="flex justify-end gap-2">
+            <button onClick={()=>setDeleteOpen(false)} className="px-3 py-1 border rounded text-xs">{t('Cancel','ரத்து செய்')}</button>
+            <button onClick={confirmDelete} className="px-3 py-1 bg-red-600 text-white rounded text-xs">{t('Delete','நீக்கு')}</button>
+          </div>
+        </Modal>
       )}
     </div>
   );

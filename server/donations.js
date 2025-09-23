@@ -11,6 +11,7 @@ module.exports = function(deps = {}) {
       await db.schema.createTable('donations', table => {
         table.increments('id').primary();
         table.integer('temple_id').notNullable();
+        table.string('register_no');
         table.string('product_name').notNullable();
         table.text('description');
         table.decimal('price', 10, 2).notNullable();
@@ -24,18 +25,46 @@ module.exports = function(deps = {}) {
         table.timestamp('created_at').defaultTo(db.fn.now());
         table.timestamp('updated_at').defaultTo(db.fn.now());
       });
+    } else {
+      // Ensure register_no column exists for older databases
+      const hasRegister = await db.schema.hasColumn('donations', 'register_no');
+      if (!hasRegister) {
+        await db.schema.table('donations', (table) => {
+          table.string('register_no');
+        });
+      }
     }
   };
 
   // Initialize database
   initDb().catch(console.error);
 
-  // GET /api/donations - Get all donations for current temple
+  // GET /api/donations - Get all donations for current temple (with search)
   router.get('/', async (req, res) => {
     try {
-      const donations = await db('donations')
-        .where('temple_id', req.user.templeId)
-        .orderBy('created_at', 'desc');
+      const templeId = req.user.templeId;
+      const q = (req.query.q || '').toString().trim();
+      const from = (req.query.from || '').toString().trim();
+      const to = (req.query.to || '').toString().trim();
+
+      let query = db('donations').where('temple_id', templeId);
+
+      if (from) query = query.andWhere('donation_date', '>=', from);
+      if (to) query = query.andWhere('donation_date', '<=', to);
+
+      if (q) {
+        query = query.andWhere((builder) => {
+          builder
+            .where('donor_name', 'like', `%${q}%`)
+            .orWhere('product_name', 'like', `%${q}%`)
+            .orWhere('category', 'like', `%${q}%`)
+            .orWhere('donor_contact', 'like', `%${q}%`)
+            .orWhere('description', 'like', `%${q}%`)
+            .orWhere('register_no', 'like', `%${q}%`);
+        });
+      }
+
+      const donations = await query.orderBy('donation_date', 'desc').orderBy('id', 'desc');
       res.json({ success: true, data: donations });
     } catch (err) {
       console.error('GET /api/donations error:', err);
@@ -43,8 +72,8 @@ module.exports = function(deps = {}) {
     }
   });
 
-  // GET /api/donations/:id - Get a single donation
-  router.get('/:id', async (req, res) => {
+  // GET /api/donations/:id - Get a single donation (numeric id only)
+  router.get('/:id(\\d+)', async (req, res) => {
     try {
       const { id } = req.params;
       const donation = await db('donations')
@@ -66,27 +95,25 @@ module.exports = function(deps = {}) {
   // POST /api/donations - Create a new donation
   router.post('/', async (req, res) => {
     try {
-      // Ensure required fields have values
-      const productName = req.body.productName || req.body.registerNo || req.body.name || 'General Donation';
+      // Set default values if not provided
+      const productName = req.body.productName || req.body.registerNo || req.body.name || '';
       const price = parseFloat(req.body.price || req.body.amount || 0);
-      
-      if (!productName || price <= 0) {
-        return res.status(400).json({ 
-          error: 'Product name and valid price/amount are required' 
-        });
-      }
 
+      // Get current date in YYYY-MM-DD format
+      const currentDate = new Date().toISOString().split('T')[0];
+      
       const donationData = {
         temple_id: req.user.templeId,
         register_no: req.body.registerNo || null,
-        product_name: productName,
+        // prefer explicit product field from UI; fallback to productName, then name
+        product_name: req.body.product || req.body.productName || productName,
         description: req.body.description || req.body.reason || '',
         price: price,
         quantity: parseInt(req.body.quantity || req.body.unit || 1),
         category: req.body.category || 'General',
         donor_name: req.body.donorName || req.body.name || 'Anonymous',
         donor_contact: req.body.donorContact || req.body.phone || '',
-        donation_date: req.body.donationDate || req.body.date || new Date().toISOString().split('T')[0],
+        donation_date: req.body.donationDate || req.body.date || currentDate,
         status: req.body.status || 'available',
         notes: req.body.notes || '',
         transfer_to_account: req.body.transfer_to_account || req.body.transferTo || null
@@ -102,13 +129,13 @@ module.exports = function(deps = {}) {
     }
   });
 
-  // PUT /api/donations/:id - Update a donation
-  router.put('/:id', async (req, res) => {
+  // PUT /api/donations/:id - Update a donation (numeric id only)
+  router.put('/:id(\\d+)', async (req, res) => {
     try {
       const { id } = req.params;
       
       const updateData = {
-        product_name: req.body.productName,
+        product_name: req.body.product || req.body.productName,
         description: req.body.description,
         price: req.body.price,
         quantity: req.body.quantity,
@@ -179,8 +206,8 @@ module.exports = function(deps = {}) {
     }
   });
 
-  // DELETE /api/donations/:id - Delete a donation
-  router.delete('/:id', async (req, res) => {
+  // DELETE /api/donations/:id - Delete a donation (numeric id only)
+  router.delete('/:id(\\d+)', async (req, res) => {
     try {
       const { id } = req.params;
       

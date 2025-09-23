@@ -139,157 +139,30 @@ export const navigationTranslations = {
 
 export const sidebarItems: NavItem[] = [
   {
-    label: navigationTranslations.english.overview,
-    tamilLabel: navigationTranslations.tamil.overview,
-    to: '/dashboard',
-    icon: HomeIcon
-  },
-  {
-    label: navigationTranslations.english.members,
-    tamilLabel: navigationTranslations.tamil.members,
-    icon: UsersIcon,
+    label: navigationTranslations.english.annadhanam,
+    tamilLabel: navigationTranslations.tamil.annadhanam,
+    icon: HeartIcon,
     children: [
       { 
-        to: 'members/entry', 
-        label: navigationTranslations.english.memberEntry, 
-        tamilLabel: navigationTranslations.tamil.memberEntry, 
-        permissionId: 'member_entry',
+        to: 'annadhanam/list', 
+        label: navigationTranslations.english.annadhanamList, 
+        tamilLabel: navigationTranslations.tamil.annadhanamList, 
+        permissionId: 'annadhanam_registrations',
+        accessLevel: 'view'
+      },
+      { 
+        to: 'annadhanam/entry', 
+        label: navigationTranslations.english.annadhanamEntry, 
+        tamilLabel: navigationTranslations.tamil.annadhanamEntry, 
+        permissionId: 'annadhanam_registrations',
         accessLevel: 'edit'
       },
       { 
-        to: 'members', 
-        label: navigationTranslations.english.members, 
-        tamilLabel: navigationTranslations.tamil.members, 
-        permissionId: 'member_entry',
-        accessLevel: 'view'
-      },
-    ]
-  },
-  {
-    label: navigationTranslations.english.reports,
-    tamilLabel: navigationTranslations.tamil.reports,
-    icon: BarChartIcon,
-    children: [
-      { 
-        to: 'reports/daily', 
-        label: navigationTranslations.english.dailyReport, 
-        tamilLabel: navigationTranslations.tamil.dailyReport, 
-        permissionId: 'reports',
-        accessLevel: 'view'
-      },
-      { 
-        to: 'reports/monthly', 
-        label: navigationTranslations.english.monthlyReport, 
-        tamilLabel: navigationTranslations.tamil.monthlyReport, 
-        permissionId: 'reports',
-        accessLevel: 'view'
-      },
-      { 
-        to: 'reports/journal-log', 
-        label: navigationTranslations.english.journalLog, 
-        tamilLabel: navigationTranslations.tamil.journalLog, 
-        permissionId: 'reports',
-        accessLevel: 'view'
-      },
-      { 
-        to: 'reports/trial-balance', 
-        label: navigationTranslations.english.trialBalance, 
-        tamilLabel: navigationTranslations.tamil.trialBalance, 
-        permissionId: 'reports',
-        accessLevel: 'view'
-      },
-      { 
-        to: 'reports/balance-sheet', 
-        label: navigationTranslations.english.balanceSheet, 
-        tamilLabel: navigationTranslations.tamil.balanceSheet, 
-        permissionId: 'reports',
-        accessLevel: 'view'
-      },
-    ]
-  },
-  {
-    label: navigationTranslations.english.masterData,
-    tamilLabel: navigationTranslations.tamil.masterData,
-    to: 'master-data',
-    icon: LandmarkIcon,
-    permissionId: 'master_data',
-    accessLevel: 'edit'
-  },
-  {
-    label: navigationTranslations.english.ledger,
-    tamilLabel: navigationTranslations.tamil.ledger,
-    icon: CreditCardIcon,
-    children: [
-      { 
-        to: 'ledger/entry', 
-        label: navigationTranslations.english.newEntry, 
-        tamilLabel: navigationTranslations.tamil.newEntry, 
-        permissionId: 'ledger_management', 
-        accessLevel: 'edit' 
-      },
-      { 
-        to: 'ledger/list', 
-        label: navigationTranslations.english.viewEntries, 
-        tamilLabel: navigationTranslations.tamil.viewEntries, 
-        permissionId: 'ledger_management', 
-        accessLevel: 'view' 
-      },
-    ]
-  },
-  {
-    label: navigationTranslations.english.pooja,
-    tamilLabel: navigationTranslations.tamil.pooja,
-    icon: CalendarIcon,
-    children: [
-      { 
-        to: 'pooja/list', 
-        label: navigationTranslations.english.poojaList, 
-        tamilLabel: navigationTranslations.tamil.poojaList, 
-        permissionId: 'pooja_registrations',
-        accessLevel: 'view'
-      },
-      { 
-        to: 'pooja/entry', 
-        label: navigationTranslations.english.poojaEntry, 
-        tamilLabel: navigationTranslations.tamil.poojaEntry, 
-        permissionId: 'pooja_registrations',
-        accessLevel: 'edit'
-      },
-      { 
-        to: 'pooja/approval', 
-        label: navigationTranslations.english.poojaApproval, 
-        tamilLabel: navigationTranslations.tamil.poojaApproval, 
-        permissionId: 'pooja_approval',
-        accessLevel: 'view'
+        to: 'annadhanam/approval', 
+        label: navigationTranslations.english.annadhanamApproval, 
+        tamilLabel: navigationTranslations.tamil.annadhanamApproval, 
+        permissionId: 'annadhanam_approval' 
       }
-    ]
-  },
-  {
-    label: navigationTranslations.english.hallBooking,
-    tamilLabel: navigationTranslations.tamil.hallBooking,
-    icon: CalendarIcon,
-    children: [
-      { 
-        to: 'hall/list', 
-        label: navigationTranslations.english.hallBookings, 
-        tamilLabel: navigationTranslations.tamil.hallBookings, 
-        permissionId: 'hall_booking', 
-        accessLevel: 'view' 
-      },
-      { 
-        to: 'hall/entry', 
-        label: navigationTranslations.english.newBooking, 
-        tamilLabel: navigationTranslations.tamil.newBooking, 
-        permissionId: 'hall_booking', 
-        accessLevel: 'edit' 
-      },
-      { 
-        to: 'hall/approvals', 
-        label: navigationTranslations.english.hallApprovals, 
-        tamilLabel: navigationTranslations.tamil.hallApprovals, 
-        permissionId: 'hall_approval', 
-        accessLevel: 'view' 
-      },
     ]
   },
   {
@@ -355,30 +228,136 @@ export const sidebarItems: NavItem[] = [
     ]
   },
   {
-    label: navigationTranslations.english.annadhanam,
-    tamilLabel: navigationTranslations.tamil.annadhanam,
-    icon: HeartIcon,
+    label: navigationTranslations.english.hallBooking,
+    tamilLabel: navigationTranslations.tamil.hallBooking,
+    icon: CalendarIcon,
     children: [
       { 
-        to: 'annadhanam/list', 
-        label: navigationTranslations.english.annadhanamList, 
-        tamilLabel: navigationTranslations.tamil.annadhanamList, 
-        permissionId: 'annadhanam_registrations',
-        accessLevel: 'view'
+        to: 'hall/list', 
+        label: navigationTranslations.english.hallBookings, 
+        tamilLabel: navigationTranslations.tamil.hallBookings, 
+        permissionId: 'hall_booking', 
+        accessLevel: 'view' 
       },
       { 
-        to: 'annadhanam/entry', 
-        label: navigationTranslations.english.annadhanamEntry, 
-        tamilLabel: navigationTranslations.tamil.annadhanamEntry, 
-        permissionId: 'annadhanam_registrations',
+        to: 'hall/entry', 
+        label: navigationTranslations.english.newBooking, 
+        tamilLabel: navigationTranslations.tamil.newBooking, 
+        permissionId: 'hall_booking', 
+        accessLevel: 'edit' 
+      },
+      { 
+        to: 'hall/approvals', 
+        label: navigationTranslations.english.hallApprovals, 
+        tamilLabel: navigationTranslations.tamil.hallApprovals, 
+        permissionId: 'hall_approval', 
+        accessLevel: 'view' 
+      },
+    ]
+  },
+  {
+    label: navigationTranslations.english.ledger,
+    tamilLabel: navigationTranslations.tamil.ledger,
+    icon: CreditCardIcon,
+    children: [
+      { 
+        to: 'ledger/entry', 
+        label: navigationTranslations.english.newEntry, 
+        tamilLabel: navigationTranslations.tamil.newEntry, 
+        permissionId: 'ledger_management', 
+        accessLevel: 'edit' 
+      },
+      { 
+        to: 'ledger/list', 
+        label: navigationTranslations.english.viewEntries, 
+        tamilLabel: navigationTranslations.tamil.viewEntries, 
+        permissionId: 'ledger_management', 
+        accessLevel: 'view' 
+      },
+    ]
+  },
+  {
+    label: navigationTranslations.english.masterData,
+    tamilLabel: navigationTranslations.tamil.masterData,
+    to: 'master-data',
+    icon: LandmarkIcon,
+    permissionId: 'master_data',
+    accessLevel: 'edit'
+  },
+  {
+    label: navigationTranslations.english.members,
+    tamilLabel: navigationTranslations.tamil.members,
+    icon: UsersIcon,
+    children: [
+      { 
+        to: 'members/entry', 
+        label: navigationTranslations.english.memberEntry, 
+        tamilLabel: navigationTranslations.tamil.memberEntry, 
+        permissionId: 'member_entry',
         accessLevel: 'edit'
       },
       { 
-        to: 'annadhanam/approval', 
-        label: navigationTranslations.english.annadhanamApproval, 
-        tamilLabel: navigationTranslations.tamil.annadhanamApproval, 
-        permissionId: 'annadhanam_approval' 
+        to: 'members', 
+        label: navigationTranslations.english.members, 
+        tamilLabel: navigationTranslations.tamil.members, 
+        permissionId: 'member_entry',
+        accessLevel: 'view'
+      },
+    ]
+  },
+  {
+    label: navigationTranslations.english.overview,
+    tamilLabel: navigationTranslations.tamil.overview,
+    to: '/dashboard',
+    icon: HomeIcon
+  },
+  {
+    label: navigationTranslations.english.pooja,
+    tamilLabel: navigationTranslations.tamil.pooja,
+    icon: CalendarIcon,
+    children: [
+      { 
+        to: 'pooja/list', 
+        label: navigationTranslations.english.poojaList, 
+        tamilLabel: navigationTranslations.tamil.poojaList, 
+        permissionId: 'pooja_registrations',
+        accessLevel: 'view'
+      },
+      { 
+        to: 'pooja/entry', 
+        label: navigationTranslations.english.poojaEntry, 
+        tamilLabel: navigationTranslations.tamil.poojaEntry, 
+        permissionId: 'pooja_registrations',
+        accessLevel: 'edit'
+      },
+      { 
+        to: 'pooja/approval', 
+        label: navigationTranslations.english.poojaApproval, 
+        tamilLabel: navigationTranslations.tamil.poojaApproval, 
+        permissionId: 'pooja_approval',
+        accessLevel: 'view'
       }
+    ]
+  },
+  {
+    label: navigationTranslations.english.properties,
+    tamilLabel: navigationTranslations.tamil.properties,
+    icon: HomeIcon,
+    children: [
+      { 
+        to: 'properties', 
+        label: navigationTranslations.english.propertiesList, 
+        tamilLabel: navigationTranslations.tamil.propertiesList, 
+        permissionId: 'property_registrations',
+        accessLevel: 'view'
+      },
+      { 
+        to: 'properties/new', 
+        label: navigationTranslations.english.newProperty, 
+        tamilLabel: navigationTranslations.tamil.newProperty, 
+        permissionId: 'property_registrations',
+        accessLevel: 'edit'
+      },
     ]
   },
   {
@@ -399,6 +378,84 @@ export const sidebarItems: NavItem[] = [
         tamilLabel: navigationTranslations.tamil.receiptEntry, 
         permissionId: 'receipts', 
         accessLevel: 'edit' 
+      },
+    ]
+  },
+  {
+    label: navigationTranslations.english.reports,
+    tamilLabel: navigationTranslations.tamil.reports,
+    icon: BarChartIcon,
+    children: [
+      { 
+        to: 'reports/daily', 
+        label: navigationTranslations.english.dailyReport, 
+        tamilLabel: navigationTranslations.tamil.dailyReport, 
+        permissionId: 'reports',
+        accessLevel: 'view'
+      },
+      { 
+        to: 'reports/monthly', 
+        label: navigationTranslations.english.monthlyReport, 
+        tamilLabel: navigationTranslations.tamil.monthlyReport, 
+        permissionId: 'reports',
+        accessLevel: 'view'
+      },
+      { 
+        to: 'reports/journal-log', 
+        label: navigationTranslations.english.journalLog, 
+        tamilLabel: navigationTranslations.tamil.journalLog, 
+        permissionId: 'reports',
+        accessLevel: 'view'
+      },
+      { 
+        to: 'reports/trial-balance', 
+        label: navigationTranslations.english.trialBalance, 
+        tamilLabel: navigationTranslations.tamil.trialBalance, 
+        permissionId: 'reports',
+        accessLevel: 'view'
+      },
+      { 
+        to: 'reports/balance-sheet', 
+        label: navigationTranslations.english.balanceSheet, 
+        tamilLabel: navigationTranslations.tamil.balanceSheet, 
+        permissionId: 'reports',
+        accessLevel: 'view'
+      },
+    ]
+  },
+  {
+    label: navigationTranslations.english.sessionLogs,
+    tamilLabel: navigationTranslations.tamil.sessionLogs,
+    to: 'session-logs',
+    icon: HistoryIcon,
+    permissionId: 'view_session_logs',
+    accessLevel: 'view'
+  },
+  {
+    label: navigationTranslations.english.settings,
+    tamilLabel: navigationTranslations.tamil.settings,
+    icon: SettingsIcon,
+    children: [
+      { 
+        to: 'settings', 
+        label: navigationTranslations.english.generalSettings, 
+        tamilLabel: navigationTranslations.tamil.generalSettings, 
+        permissionId: 'setting',
+        accessLevel: 'edit'
+      },
+      { 
+        to: 'settings/pdf', 
+        label: navigationTranslations.english.pdfSettings, 
+        tamilLabel: navigationTranslations.tamil.pdfSettings, 
+        permissionId: 'pdf_settings',
+        accessLevel: 'edit'
+      },
+      { 
+        to: 'settings/my-preferences', 
+        label: navigationTranslations.english.myPreferences, 
+        tamilLabel: navigationTranslations.tamil.myPreferences, 
+        permissionId: 'setting',
+        accessLevel: 'view'
       },
     ]
   },
@@ -442,63 +499,6 @@ export const sidebarItems: NavItem[] = [
         tamilLabel: navigationTranslations.tamil.taxSettings, 
         permissionId: 'tax_registrations',
         accessLevel: 'edit'
-      },
-    ]
-  },
-  {
-    label: navigationTranslations.english.properties,
-    tamilLabel: navigationTranslations.tamil.properties,
-    icon: HomeIcon,
-    children: [
-      { 
-        to: 'properties', 
-        label: navigationTranslations.english.propertiesList, 
-        tamilLabel: navigationTranslations.tamil.propertiesList, 
-        permissionId: 'property_registrations',
-        accessLevel: 'view'
-      },
-      { 
-        to: 'properties/new', 
-        label: navigationTranslations.english.newProperty, 
-        tamilLabel: navigationTranslations.tamil.newProperty, 
-        permissionId: 'property_registrations',
-        accessLevel: 'edit'
-      },
-    ]
-  },
-  {
-    label: navigationTranslations.english.sessionLogs,
-    tamilLabel: navigationTranslations.tamil.sessionLogs,
-    to: 'session-logs',
-    icon: HistoryIcon,
-    permissionId: 'view_session_logs',
-    accessLevel: 'view'
-  },
-  {
-    label: navigationTranslations.english.settings,
-    tamilLabel: navigationTranslations.tamil.settings,
-    icon: SettingsIcon,
-    children: [
-      { 
-        to: 'settings', 
-        label: navigationTranslations.english.generalSettings, 
-        tamilLabel: navigationTranslations.tamil.generalSettings, 
-        permissionId: 'setting',
-        accessLevel: 'edit'
-      },
-      { 
-        to: 'settings/pdf', 
-        label: navigationTranslations.english.pdfSettings, 
-        tamilLabel: navigationTranslations.tamil.pdfSettings, 
-        permissionId: 'pdf_settings',
-        accessLevel: 'edit'
-      },
-      { 
-        to: 'settings/my-preferences', 
-        label: navigationTranslations.english.myPreferences, 
-        tamilLabel: navigationTranslations.tamil.myPreferences, 
-        permissionId: 'setting',
-        accessLevel: 'view'
       },
     ]
   },

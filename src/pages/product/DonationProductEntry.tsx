@@ -14,11 +14,9 @@ const initialState: DonationFormData = {
   address: '',
   village: '',
   phone: '',
-  amount: '',
   product: '',
   unit: '',
   reason: '',
-  transferTo: ''
 };
 
 export default function DonationProductEntry() {
@@ -27,9 +25,11 @@ export default function DonationProductEntry() {
   const [form, setForm] = useState<DonationFormData>(initialState);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | undefined>();
+  const [isError, setIsError] = useState<boolean>(false);
   const [products, setProducts] = useState<DonationProduct[]>([]);
-  const [accounts, setAccounts] = useState<Array<{ id?: number; value: string; label: string }>>([]);
   const [nextRegisterNo, setNextRegisterNo] = useState<string>('');
+  // This page is for new entries; keep flag for future edit mode integration
+  const isEdit = false;
 
   const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
@@ -38,11 +38,33 @@ export default function DonationProductEntry() {
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
+  // Wrapper to match requested API name/signature
+  const generateReceiptNo = async (_token: string) => {
+    return await fetchNextRegisterNo();
+  };
+
   const generateNextRegisterNo = () => {
     const currentYear = new Date().getFullYear();
     const startOfYear = new Date(currentYear, 0, 1);
     const daysSince = Math.floor((Date.now() - startOfYear.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     return `${currentYear}-${String(daysSince).padStart(4, '0')}`;
+  };
+
+
+
+  //remove msg
+  
+  // Centralized loader for next register number
+  const fetchNextRegisterNo = async () => {
+    try {
+      const resp = await axios.get<any>('http://localhost:4000/api/donations/next-register-no', {
+        headers: { Authorization: `Bearer ${getAuthToken()}` }
+      });
+      const nextNo = resp.data?.nextRegisterNo || generateNextRegisterNo();
+      return nextNo as string;
+    } catch {
+      return generateNextRegisterNo();
+    }
   };
 
   useEffect(() => {
@@ -55,52 +77,48 @@ export default function DonationProductEntry() {
         setProducts(data);
       } catch { setProducts([]); }
     };
-    const loadAccounts = async () => {
-      try {
-        const resp = await axios.get<any>('/api/ledger/accounts', {
-          headers: { Authorization: `Bearer ${getAuthToken()}` }
-        });
-        const data =
-          (resp?.data && Array.isArray(resp.data.data)) ? resp.data.data :
-          (Array.isArray(resp?.data) ? resp.data : []);
-        setAccounts((data || []).map((item: any, i: number) => {
-          if (typeof item === 'string') return { id: i+1, value: item, label: item };
-          return { id: item.id ?? i+1, value: item.value || item.label, label: item.label || item.value };
-        }));
-      } catch { setAccounts([]); }
-    };
     const loadRegisterNo = async () => {
-      try {
-        const resp = await axios.get<any>('/api/donations/next-register-no', {
-          headers: { Authorization: `Bearer ${getAuthToken()}` }
-        });
-        const nextNo = resp.data?.nextRegisterNo || generateNextRegisterNo();
-        setNextRegisterNo(nextNo);
-        setForm(prev => ({ ...prev, registerNo: nextNo }));
-      } catch {
-        const nextNo = generateNextRegisterNo();
-        setNextRegisterNo(nextNo);
-        setForm(prev => ({ ...prev, registerNo: nextNo }));
-      }
+      const nextNo = await fetchNextRegisterNo();
+      setNextRegisterNo(nextNo);
+      setForm(prev => ({ ...prev, registerNo: nextNo }));
     };
-    loadProducts(); loadAccounts(); loadRegisterNo();
+    loadProducts();
+    loadRegisterNo();
   }, []);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true); setMessage(undefined);
+    setSaving(true); setMessage(undefined); setIsError(false);
     try {
       await donationService.createDonation(token, form);
-      const nextNo = generateNextRegisterNo();
+      // fetch next receipt number from backend after successful save
+      const nextNo = await fetchNextRegisterNo();
       setNextRegisterNo(nextNo);
       setForm({ ...initialState, registerNo: nextNo });
       setMessage(t('Saved successfully','வெற்றிகரமாக சேமிக்கப்பட்டது'));
     } catch {
+      setIsError(true);
       setMessage(t('Save failed','சேமிப்பில் தோல்வி'));
     } finally {
       setSaving(false);
     }
   };
+
+  // Clear message after 2.5s and refresh receipt number for new entries
+  useEffect(() => {
+    if (message && !isError) {
+      const timer = setTimeout(() => {
+        setMessage(undefined);
+        // After success message disappears, generate a fresh receipt number for the next entry (only for new entries)
+        if (!isEdit) {
+          generateReceiptNo(token)
+            .then(receipt => setForm(prev => ({ ...prev, registerNo: receipt })))
+            .catch(() => { /* ignore, initialState already applied */ });
+        }
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [message, isError, isEdit, token]);
 
   return (
     <div className="max-w-xl mx-auto bg-white p-3 rounded shadow text-xs">
@@ -122,14 +140,6 @@ export default function DonationProductEntry() {
         
         <input name="village" value={form.village} onChange={onChange} placeholder={t('Village','ஊர்')} className="border px-2 py-1 rounded" />
         <input name="phone" value={form.phone} onChange={onChange} placeholder={t('Phone','கைபேசி')} className="border px-2 py-1 rounded" />
-        
-        <input name="amount" value={form.amount} onChange={onChange} placeholder={t('Amount','தொகை')} className="border px-2 py-1 rounded" />
-        <select name="transferTo" value={form.transferTo} onChange={e=>setForm(prev=>({...prev,transferTo:e.target.value}))} className="border px-2 py-1 rounded">
-          <option value="">{t('Select Account','கணக்கு')}</option>
-          {accounts.map(acc=>(
-            <option key={acc.id} value={acc.value}>{acc.label}</option>
-          ))}
-        </select>
 
         <select name="product" value={form.product} onChange={e=> {
           const val=e.target.value;
@@ -147,8 +157,9 @@ export default function DonationProductEntry() {
           <button disabled={saving} type="submit" className="bg-orange-600 text-white px-3 py-1 rounded">
             {saving ? t('Saving...','சேமிக்கிறது...'):t('Save','சேமி')}
           </button>
-          <button type="button" className="border px-3 py-1 rounded" onClick={()=>{
-            const nextNo=generateNextRegisterNo();
+          <button type="button" className="border px-3 py-1 rounded" onClick={async ()=>{
+            const nextNo = await fetchNextRegisterNo();
+            setNextRegisterNo(nextNo);
             setForm({ ...initialState, registerNo: nextNo });
           }}>
             {t('Clear','அழி')}

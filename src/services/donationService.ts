@@ -1,6 +1,7 @@
 export interface DonationItem {
   id: number;
   temple_id: number;
+  register_no?: string | null;
   product_name: string;
   description: string;
   price: number | null;
@@ -23,7 +24,7 @@ export interface DonationFormData {
   address: string;
   village: string;
   phone: string;
-  amount: string;
+  amount?: string;
   product: string;
   unit: string;
   reason: string;
@@ -85,6 +86,46 @@ class DonationService {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     return response.blob();
+  }
+
+  async updateDonation(
+    token: string | null,
+    id: number,
+    data: Partial<{
+      product: string;
+      productName: string;
+      description: string;
+      price: number;
+      quantity: number;
+      category: string;
+      donorName: string;
+      donorContact: string;
+      donationDate: string;
+      status: string;
+      notes: string;
+      transferTo: string;
+    }>
+  ): Promise<ApiResponse<DonationItem>> {
+    const response = await fetch(`${this.baseUrl}/${id}`, {
+      method: 'PUT',
+      headers: this.getHeaders(token),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  }
+
+  async deleteDonation(token: string | null, id: number): Promise<ApiResponse<{ success: true }>> {
+    const response = await fetch(`${this.baseUrl}/${id}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(token),
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
   }
 }
 
