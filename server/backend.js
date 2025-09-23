@@ -1743,6 +1743,17 @@ app.get('/api/reports/daily', authenticateToken, async (req, res) => {
       .andWhere('date', date)
       .sum({ sum: 'advance_amount' });
 
+    // Tax registrations: include amount paid collected on the given date
+    let taxRow = { sum: 0 };
+    try {
+      [taxRow] = await db('user_tax_registrations')
+        .where({ temple_id: templeId })
+        .andWhere('date', date)
+        .sum({ sum: 'amount_paid' });
+    } catch (e) {
+      taxRow = { sum: 0 };
+    }
+
     const toNum = (v) => {
       const n = Number(v?.sum ?? v ?? 0);
       return Number.isFinite(n) ? n : 0;
@@ -1753,7 +1764,9 @@ app.get('/api/reports/daily', authenticateToken, async (req, res) => {
       donations_total: toNum(donationsRow),
       pooja_total: toNum(poojaRow),
       hall_advance_total: toNum(hallAdvanceRow),
+      tax_total: toNum(taxRow),
     };
+
     const expenses = {
       receipts_expense_total: toNum(receiptsExpenseRow),
     };
@@ -1830,6 +1843,18 @@ app.get('/api/reports/monthly', authenticateToken, authorizePermission('reports'
       .andWhere('date', '<=', to)
       .sum({ sum: 'advance_amount' });
 
+    // Tax registrations: sum amount_paid within the month
+    let taxRow = { sum: 0 };
+    try {
+      [taxRow] = await db('user_tax_registrations')
+        .where({ temple_id: templeId })
+        .andWhere('date', '>=', from)
+        .andWhere('date', '<=', to)
+        .sum({ sum: 'amount_paid' });
+    } catch (e) {
+      taxRow = { sum: 0 };
+    }
+
     const toNum = (v) => {
       const n = Number(v?.sum ?? v ?? 0);
       return Number.isFinite(n) ? n : 0;
@@ -1840,6 +1865,7 @@ app.get('/api/reports/monthly', authenticateToken, authorizePermission('reports'
       donations_total: toNum(donationsRow),
       pooja_total: toNum(poojaRow),
       hall_advance_total: toNum(hallAdvanceRow),
+      tax_total: toNum(taxRow),
     };
     const expenses = {
       receipts_expense_total: toNum(receiptsExpenseRow),
