@@ -509,6 +509,16 @@ function App() {
                     }
                   />
                   <Route
+                    path="hall/edit/:id"
+                    element={
+                      <PermissionGuard requiredPermission="hall_booking" accessLevel="edit">
+                        <YearEndLockGuard>
+                          <HallEntryPage />
+                        </YearEndLockGuard>
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
                     path="hall/approvals"
                     element={
                       <PermissionGuard requiredPermission="hall_approval" accessLevel="view">

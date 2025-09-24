@@ -25,6 +25,36 @@ interface Receipt {
   updated_at?: string;
 }
 
+// API response interface
+interface ApiReceipt {
+  id: number;
+  register_no: string;
+  date: string;
+  type: 'receipt' | 'payment';
+  from_person?: string;
+  to_person?: string;
+  amount: string;
+  remarks?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Helper function to convert API response to frontend format
+const mapApiReceiptToFrontend = (apiReceipt: ApiReceipt): Receipt => {
+  return {
+    id: apiReceipt.id,
+    receipt_number: apiReceipt.register_no,
+    date: apiReceipt.date,
+    type: apiReceipt.type === 'payment' ? 'expense' : 'income',
+    donor: apiReceipt.from_person,
+    receiver: apiReceipt.to_person,
+    amount: parseFloat(apiReceipt.amount),
+    remarks: apiReceipt.remarks,
+    created_at: apiReceipt.created_at,
+    updated_at: apiReceipt.updated_at
+  };
+};
+
 interface ReceiptFormData {
   date: string;
   type: 'income' | 'expense';
@@ -201,11 +231,13 @@ export default function ReceiptListView() {
       const result = await res.json();
       if (!result.success) throw new Error(result.error || 'Failed to fetch receipts');
       
-      setData(result.data || []);
+      // Map API response to frontend format
+      const mappedData = (result.data || []).map(mapApiReceiptToFrontend);
+      setData(mappedData);
       setPagination((prev) => ({ 
         ...prev, 
-        total: result.data?.length || 0, 
-        totalPages: Math.ceil((result.data?.length || 0) / prev.pageSize) 
+        total: result.pagination?.total || mappedData.length || 0, 
+        totalPages: result.pagination?.totalPages || Math.ceil((result.pagination?.total || mappedData.length || 0) / prev.pageSize) 
       }));
     } catch (e) {
       console.error(e);
@@ -239,7 +271,11 @@ export default function ReceiptListView() {
       if (searchTerm) params.append('q', searchTerm);
       if (fromDate) params.append('from', fromDate);
       if (toDate) params.append('to', toDate);
-      if (typeFilter !== 'all') params.append('type', typeFilter);
+      if (typeFilter !== 'all') {
+        // Map frontend type to API type
+        const apiType = typeFilter === 'income' ? 'receipt' : typeFilter === 'expense' ? 'payment' : undefined;
+        if (apiType) params.append('type', apiType);
+      }
 
       const res = await fetch(`https://tmsapi.xesstechlink.com/api/receipts/export?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -273,12 +309,12 @@ export default function ReceiptListView() {
   const handleViewClick = (rec: Receipt) => {
     setViewEditReceipt(rec);
     setEditedReceipt({
-      date: rec.date?.slice(0, 10),
+      date: rec.date?.slice(0, 10) || '',
       type: rec.type,
-      donor: rec.donor,
-      receiver: rec.receiver,
+      donor: rec.donor || '',
+      receiver: rec.receiver || '',
       amount: rec.amount,
-      remarks: rec.remarks,
+      remarks: rec.remarks || '',
     });
     setEditMode(false);
     setIsViewEditOpen(true);
@@ -287,12 +323,12 @@ export default function ReceiptListView() {
   const handleEditClick = (rec: Receipt) => {
     setViewEditReceipt(rec);
     setEditedReceipt({
-      date: rec.date?.slice(0, 10),
+      date: rec.date?.slice(0, 10) || '',
       type: rec.type,
-      donor: rec.donor,
-      receiver: rec.receiver,
+      donor: rec.donor || '',
+      receiver: rec.receiver || '',
       amount: rec.amount,
-      remarks: rec.remarks,
+      remarks: rec.remarks || '',
     });
     setEditMode(true);
     setIsViewEditOpen(true);
@@ -302,13 +338,23 @@ export default function ReceiptListView() {
     if (!viewEditReceipt || !editedReceipt) return;
     
     try {
+      // Map frontend data back to API format for update
+      const apiReceiptData = {
+        date: editedReceipt.date,
+        type: editedReceipt.type === 'expense' ? 'payment' : 'receipt',
+        donor: editedReceipt.donor,
+        receiver: editedReceipt.receiver,
+        amount: editedReceipt.amount,
+        remarks: editedReceipt.remarks
+      };
+
       const res = await fetch(`https://tmsapi.xesstechlink.com/api/receipts/${viewEditReceipt.id}`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json', 
           Authorization: `Bearer ${token}` 
         },
-        body: JSON.stringify(editedReceipt),
+        body: JSON.stringify(apiReceiptData),
       });
       
       if (!res.ok) {
@@ -319,8 +365,10 @@ export default function ReceiptListView() {
       const result = await res.json();
       if (!result.success) throw new Error(result.error || 'Failed to update receipt');
       
+      // Map the updated receipt back to frontend format
+      const updatedReceipt = mapApiReceiptToFrontend(result.data);
       setData((prev) => prev.map((r) => 
-        r.id === viewEditReceipt.id ? { ...r, ...result.data } : r
+        r.id === viewEditReceipt.id ? { ...r, ...updatedReceipt } : r
       ));
       
       toast({ 
@@ -517,7 +565,7 @@ export default function ReceiptListView() {
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="inline-flex items-center">
-                              <IndianRupee className="h-4 w-4 mr-1" /> 
+                
                               {formatAmount(rec.amount)}
                             </div>
                           </TableCell>
@@ -666,8 +714,8 @@ export default function ReceiptListView() {
                 <Input 
                   id="amount" 
                   type="number" 
-                  value={editedReceipt.amount as any as string || ''} 
-                  onChange={(e) => setEditedReceipt({ ...editedReceipt, amount: Number(e.target.value) })} 
+                  value={editedReceipt.amount || ''} 
+                  onChange={(e) => setEditedReceipt({ ...editedReceipt, amount: Number(e.target.value) || 0 })} 
                   className="col-span-3" 
                   disabled={!editMode} 
                 />

@@ -7,6 +7,7 @@ import { Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import axios from 'axios';
 import { getAuthToken } from '@/lib/auth';
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 type Category = {
   id: number;
@@ -22,11 +23,14 @@ export function CategoryManager({
   setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
 }) {
   const { language } = useLanguage();
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [newCategory, setNewCategory] = useState<Omit<Category, 'id'>>({ value: '', label: '' });
+  
+  const templeId = user?.templeId;
   
   const t = (en: string, ta: string) => (language === 'tamil' ? ta : en);
   // If you want value to equal label, no slug required
@@ -34,6 +38,10 @@ export function CategoryManager({
 
   const handleEdit = async (category: Category) => {
     if (isLoading) return; // prevent duplicate rapid submissions
+    if (!templeId) {
+      console.error('Temple ID not available');
+      return;
+    }
     // Avoid no-op update
     const original = categories.find(c => c.id === category.id);
     if (original && original.label === category.label) {
@@ -48,7 +56,8 @@ export function CategoryManager({
         `/api/ledger/categories/${category.id}`,
         {
           value: payloadValue,
-          label: payloadLabel
+          label: payloadLabel,
+          templeId: templeId
         },
         {
           headers: { Authorization: `Bearer ${getAuthToken()}` }
@@ -68,9 +77,13 @@ export function CategoryManager({
 
   const handleDelete = async (id: number) => {
     if (isLoading) return; // prevent duplicate rapid deletions
+    if (!templeId) {
+      console.error('Temple ID not available');
+      return;
+    }
     try {
       setIsLoading(true);
-      await axios.delete(`/api/ledger/categories/${id}`, {
+      await axios.delete(`/api/ledger/categories/${id}?templeId=${templeId}`, {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });
       setCategories(categories.filter(c => c.id !== id));
@@ -83,6 +96,10 @@ export function CategoryManager({
 
   const handleAdd = async () => {
     if (isLoading) return; // prevent duplicate rapid adds
+    if (!templeId) {
+      console.error('Temple ID not available');
+      return;
+    }
     const nextLabel = newCategory.label.trim();
     const nextVal = (newCategory.value?.trim()) || asIs(nextLabel); // value = label
     if (!nextVal || !nextLabel) return;
@@ -95,8 +112,8 @@ export function CategoryManager({
     try {
       setIsLoading(true);
       const response = await axios.post<Category>(
-        'https://tmsapi.xesstechlink.com/api/ledger/categories',
-        { value: nextVal, label: nextLabel },
+        '/api/ledger/categories',
+        { value: nextVal, label: nextLabel, templeId: templeId },
         { headers: { Authorization: `Bearer ${getAuthToken()}` } }
       );
       setCategories([...categories, response.data]);

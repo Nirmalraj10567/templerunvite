@@ -322,5 +322,29 @@ module.exports = function(deps = {}) {
     }
   });
 
-  return router;
-};
+      // Get the latest receipt submitted by this mobile user
+      router.get('/latest-receipt', verifyMobileToken, attachUserMobile, async (req, res) => {
+        try {
+          const latest = await db('pooja')
+            .where('submitted_by_mobile', req.userMobile)
+            .select('id', 'receipt_number', 'submitted_at', 'status')
+            .orderBy([{ column: 'submitted_at', order: 'desc' }, { column: 'id', order: 'desc' }])
+            .first();
+
+          if (!latest) {
+            return res.json({
+              success: true,
+              message: 'No receipts found for this mobile user',
+              data: null
+            });
+          }
+
+          res.json({ success: true, data: latest });
+        } catch (err) {
+          console.error('GET /api/pooja-mobile/latest-receipt error:', err);
+          res.status(500).json({ success: false, error: 'Internal server error' });
+        }
+      });
+
+      return router;
+    };

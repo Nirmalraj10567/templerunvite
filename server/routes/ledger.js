@@ -61,6 +61,7 @@ router.post('/entries', authenticateToken, async (req, res) => {
       mobile: mobile || null,
       email: email || null,
       note: note || null,
+      temple_id: req.user?.templeId || 1,
       created_at: db.fn.now(),
       updated_at: db.fn.now()
     });
@@ -79,7 +80,7 @@ router.get('/entries', authenticateToken, async (req, res) => {
     const { startDate, endDate, type, under, name, page = 1, limit = 20 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
     
-    let query = db('ledger_entries');
+    let query = db('ledger_entries').where('temple_id', req.user?.templeId || 1);
     
     if (startDate) {
       query = query.where('date', '>=', startDate);
@@ -136,7 +137,10 @@ router.get('/entries', authenticateToken, async (req, res) => {
 router.get('/entries/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const entry = await db('ledger_entries').where('id', id).first();
+    const entry = await db('ledger_entries')
+      .where({ id })
+      .andWhere('temple_id', req.user?.templeId || 1)
+      .first();
     
     if (!entry) {
       return res.status(404).json({ error: 'Ledger entry not found' });
@@ -171,7 +175,8 @@ router.put('/entries/:id', authenticateToken, async (req, res) => {
     }
 
     const updated = await db('ledger_entries')
-      .where('id', id)
+      .where({ id })
+      .andWhere('temple_id', req.user?.templeId || 1)
       .update({
         date,
         name,
@@ -191,7 +196,10 @@ router.put('/entries/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Ledger entry not found' });
     }
 
-    const updatedEntry = await db('ledger_entries').where('id', id).first();
+    const updatedEntry = await db('ledger_entries')
+      .where({ id })
+      .andWhere('temple_id', req.user?.templeId || 1)
+      .first();
     res.json(updatedEntry);
   } catch (error) {
     console.error('Error updating ledger entry:', error);
@@ -204,7 +212,10 @@ router.delete('/entries/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     
-    const deleted = await db('ledger_entries').where('id', id).del();
+    const deleted = await db('ledger_entries')
+      .where({ id })
+      .andWhere('temple_id', req.user?.templeId || 1)
+      .del();
     
     if (deleted === 0) {
       return res.status(404).json({ error: 'Ledger entry not found' });
@@ -220,7 +231,7 @@ router.delete('/entries/:id', authenticateToken, async (req, res) => {
 // Get current balance
 router.get('/balance', authenticateToken, async (req, res) => {
   try {
-    const balance = await calculateCurrentBalance();
+    const balance = await calculateCurrentBalance(req.user?.templeId || 1);
     res.json({ balance });
   } catch (error) {
     console.error('Error calculating balance:', error);
@@ -279,15 +290,17 @@ router.get('/profit-and-loss', authenticateToken, async (req, res) => {
 // This endpoint is intentionally named /categories-used to avoid conflicts.
 router.get('/categories-used', authenticateToken, async (req, res) => {
   try {
+    const templeId = req.user.templeId || req.query.templeId || 1;
+    
     // Prefer temple-scoped categories derived from journal activity
     let accounts = [];
     try {
       const froms = await db('journal_entries')
         .distinct('from_account as name')
-        .where('temple_id', req.user.templeId);
+        .where('temple_id', templeId);
       const tos = await db('journal_entries')
         .distinct('to_account as name')
-        .where('temple_id', req.user.templeId);
+        .where('temple_id', templeId);
       const set = new Set();
       [...froms, ...tos].forEach(r => { if (r?.name) set.add(r.name); });
       accounts = Array.from(set);
@@ -302,6 +315,7 @@ router.get('/categories-used', authenticateToken, async (req, res) => {
         const rows = await db('ledger_entries')
           .distinct('under')
           .whereIn('name', accounts)
+          .where('temple_id', templeId)
           .whereNotNull('under')
           .andWhere('under', '!=', '')
           .orderBy('under');
@@ -311,10 +325,11 @@ router.get('/categories-used', authenticateToken, async (req, res) => {
       }
     }
 
-    // Fallback to global distinct-under if temple-scoped result is empty
+    // Fallback to temple-scoped distinct-under if temple-scoped result is empty
     if (!categories.length) {
       const result = await db('ledger_entries')
         .distinct('under')
+        .where('temple_id', templeId)
         .whereNotNull('under')
         .andWhere('under', '!=', '')
         .orderBy('under');
@@ -345,8 +360,9 @@ router.get('/names', authenticateToken, async (req, res) => {
 });
 
 // Helper function to calculate current balance
-async function calculateCurrentBalance() {
+async function calculateCurrentBalance(templeId) {
   const result = await db('ledger_entries')
+    .where('temple_id', templeId)
     .select(
       db.raw('COALESCE(SUM(CASE WHEN type = "credit" THEN amount ELSE 0 END), 0) as total_credits'),
       db.raw('COALESCE(SUM(CASE WHEN type = "debit" THEN amount ELSE 0 END), 0) as total_debits')
@@ -361,8 +377,9 @@ async function calculateCurrentBalance() {
 router.get('/cashflow/summary', authenticateToken, async (req, res) => {
   try {
     const { startDate, endDate, includeEntries, under } = req.query;
+    const templeId = req.user?.templeId || 1;
 
-    let base = db('ledger_entries');
+    let base = db('ledger_entries').where('temple_id', templeId);
     if (startDate) base = base.where('date', '>=', startDate);
     if (endDate) base = base.where('date', '<=', endDate);
     if (under) base = base.where('under', under);
@@ -437,6 +454,7 @@ router.get('/cashflow/statement', authenticateToken, async (req, res) => {
   try {
     const { under, startDate, endDate } = req.query;
     if (!under) return res.status(400).json({ error: "Parameter 'under' (category) is required" });
+    const templeId = req.user?.templeId || 1;
 
     // Opening balance logic:
     // If a startDate is provided, opening = net (credits - debits) strictly BEFORE startDate.
@@ -444,7 +462,10 @@ router.get('/cashflow/statement', authenticateToken, async (req, res) => {
     // reflects net within the requested period (typically up to endDate) only.
     let opening_balance = 0;
     if (startDate) {
-      let openBase = db('ledger_entries').where('under', under).andWhere('date', '<', startDate);
+      let openBase = db('ledger_entries')
+        .where('under', under)
+        .andWhere('temple_id', templeId)
+        .andWhere('date', '<', startDate);
       const opening = await openBase
         .select(
           db.raw("COALESCE(SUM(CASE WHEN type='credit' THEN amount ELSE 0 END), 0) as cr"),
@@ -455,7 +476,9 @@ router.get('/cashflow/statement', authenticateToken, async (req, res) => {
     }
 
     // Entries within the period
-    let periodBase = db('ledger_entries').where('under', under);
+    let periodBase = db('ledger_entries')
+      .where('under', under)
+      .andWhere('temple_id', templeId);
     if (startDate) periodBase = periodBase.andWhere('date', '>=', startDate);
     if (endDate) periodBase = periodBase.andWhere('date', '<=', endDate);
     const entries = await periodBase

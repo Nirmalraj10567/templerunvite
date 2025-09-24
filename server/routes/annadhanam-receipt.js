@@ -106,6 +106,37 @@ module.exports = function createAnnadhanamReceiptRouter({ db, verifyQueryToken }
         }
       } catch {}
 
+      // Derive donation info (type + details)
+      const inferDonation = (row) => {
+        const out = { type: 'food', foodText: '', people: Number(row.peoples || 0), productName: null, quantity: null, amount: null };
+        const dt = row.donation_type || null;
+        if (dt === 'product' || dt === 'money' || dt === 'food') out.type = dt;
+        // If structured columns exist, prefer them
+        if (!out.foodText && row.food) out.foodText = String(row.food);
+        if (row.product_name) { out.productName = String(row.product_name); out.type = 'product'; }
+        if (row.quantity != null) { out.quantity = Number(row.quantity); }
+        if (row.amount != null) { out.amount = Number(row.amount); out.type = 'money'; }
+        // If still ambiguous, parse from foodText
+        if (!dt && out.foodText) {
+          const ft = out.foodText.trim();
+          if (/^Product:/i.test(ft)) {
+            out.type = 'product';
+            const nameMatch = ft.match(/^Product:\s*([^|]+)/i);
+            if (nameMatch) out.productName = nameMatch[1].trim();
+            const qtyMatch = ft.match(/Qty:\s*(\d+)/i);
+            if (qtyMatch) out.quantity = Number(qtyMatch[1]);
+          } else if (/^Money:/i.test(ft)) {
+            out.type = 'money';
+            const amtMatch = ft.match(/Money:\s*([0-9]+(?:\.[0-9]+)?)/i);
+            if (amtMatch) out.amount = Number(amtMatch[1]);
+          } else {
+            out.type = 'food';
+          }
+        }
+        return out;
+      };
+      const donation = inferDonation(row);
+
       // Header section
       const headerHeight = 100;
       const headerY = marginTop + 4;
@@ -140,7 +171,25 @@ module.exports = function createAnnadhanamReceiptRouter({ db, verifyQueryToken }
       const titleW = doc.widthOfString(receiptTitle);
       const titleX = marginLeft + (contentWidth - titleW) / 2;
       drawBold(receiptTitle, titleX, receiptY + 16, 14);
-      const dateText = `${L.date} ${row.from_date || new Date().toLocaleDateString('en-GB')}`;
+      // Date formatting helper: show as d/m/yyyy
+      const toDateSafe = (val) => {
+        if (!val) return null;
+        const d = new Date(val);
+        if (!isNaN(d.getTime())) return d;
+        if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val)) {
+          const d2 = new Date(`${val}T00:00:00`);
+          if (!isNaN(d2.getTime())) return d2;
+        }
+        return null;
+      };
+      const formatDMY = (val) => {
+        const d = toDateSafe(val) || new Date();
+        const dd = d.getDate();
+        const mm = d.getMonth() + 1; // 1-based
+        const yyyy = d.getFullYear();
+        return `${dd}/${mm}/${yyyy}`;
+      };
+      const dateText = `${L.date} ${formatDMY(row.from_date)}`;
       doc.font(hasTamilBoldFont ? F_BOLD : F_REG).fontSize(12);
       const dateTextWidth = doc.widthOfString(dateText);
       drawReg(dateText, marginLeft + contentWidth - 15 - dateTextWidth, receiptY + 16, 12);
@@ -174,7 +223,7 @@ module.exports = function createAnnadhanamReceiptRouter({ db, verifyQueryToken }
       doc.font(F_BOLD).fontSize(12).text(yearValue, valueX, row1Y, { width: valueWidth, align: 'left' });
       doc.font(F_BOLD).fontSize(12).text(String(phoneValue).trim() || '-', valueX, row2Y, { width: valueWidth, align: 'left' });
 
-      // Left details block (donor and peoples/time)
+      // Left details block (donor and donation details)
       const donorTextWidth = infoBoxX - marginLeft - 30;
       let donorY = contentYStart + 8;
       const donorName = (row.name || '').toString().toUpperCase();
@@ -186,11 +235,23 @@ module.exports = function createAnnadhanamReceiptRouter({ db, verifyQueryToken }
       const prefixWidth = doc.widthOfString(prefixText);
       drawBold(`${donorName}`, marginLeft + 15 + prefixWidth, donorY, 12, { width: donorTextWidth - prefixWidth, align: 'left' });
       donorY = doc.y + 6;
-      drawBold(`அன்னதானம்: ரூ ${peoples} பேருக்கு`, marginLeft + 15, donorY, 12, { width: donorTextWidth, align: 'left' });
+      // Donation detail line
+      if (donation.type === 'money') {
+        const amtText = (donation.amount != null) ? `₹ ${donation.amount}` : (donation.foodText || '');
+        drawBold(`நன்கொடை: ${amtText}`, marginLeft + 15, donorY, 12, { width: donorTextWidth, align: 'left' });
+      } else if (donation.type === 'product') {
+        const pn = donation.productName || '';
+        const q = donation.quantity != null ? ` (Qty: ${donation.quantity})` : '';
+        drawBold(`பொருள்: ${pn}${q}`, marginLeft + 15, donorY, 12, { width: donorTextWidth, align: 'left' });
+      } else {
+        const ft = donation.foodText || '';
+        const pplText = peoples > 0 ? ` - மக்கள்: ${peoples}` : '';
+        drawBold(`அன்னதானம்: ${ft}${pplText}`, marginLeft + 15, donorY, 12, { width: donorTextWidth, align: 'left' });
+      }
       donorY = doc.y + 8;
       doc.font(F_REG).fontSize(12).text('அவர்களிடமிருந்து', marginLeft + 15, donorY, { width: donorTextWidth, align: 'left' });
 
-      // Footer box: show people count prominently
+      // Footer box: show key metric prominently based on type
       const rupeeBoxHeight = 50;
       const collectorTextHeight = 15;
       const totalFooterHeight = rupeeBoxHeight + collectorTextHeight + 10;
@@ -198,18 +259,25 @@ module.exports = function createAnnadhanamReceiptRouter({ db, verifyQueryToken }
       const rupeeBoxWidth = 160;
       const rupeeBoxX = marginLeft + 15;
       doc.lineWidth(1.5).rect(rupeeBoxX, footerStartY, rupeeBoxWidth, rupeeBoxHeight).stroke();
-      const peopleText = `ரூ ${peoples}`;
+      let boxText = '';
+      if (donation.type === 'money') {
+        boxText = `₹ ${donation.amount != null ? donation.amount : ''}`;
+      } else if (donation.type === 'product') {
+        boxText = donation.quantity != null ? `Qty ${donation.quantity}` : 'PRODUCT';
+      } else {
+        boxText = peoples > 0 ? `மக்கள் ${peoples}` : 'FOOD';
+      }
       let boxFontSize = 20;
       doc.font(F_BOLD).fontSize(boxFontSize);
-      let boxTextWidth = doc.widthOfString(peopleText);
+      let boxTextWidth = doc.widthOfString(boxText);
       const maxBoxWidth = rupeeBoxWidth - 30;
       while (boxTextWidth > maxBoxWidth && boxFontSize > 10) {
         boxFontSize -= 1;
         doc.font(F_BOLD).fontSize(boxFontSize);
-        boxTextWidth = doc.widthOfString(peopleText);
+        boxTextWidth = doc.widthOfString(boxText);
       }
       const boxTextHeight = doc.currentLineHeight();
-      doc.text(peopleText, rupeeBoxX + 15, footerStartY + (rupeeBoxHeight - boxTextHeight) / 2);
+      doc.text(boxText, rupeeBoxX + 15, footerStartY + (rupeeBoxHeight - boxTextHeight) / 2);
 
       // Collector label and optional watermark
       const collectorText = L.collector;

@@ -46,6 +46,7 @@ module.exports = function(deps = {}) {
                 .orWhere('mobile_number', 'like', `%${q}%`)
                 .orWhere('food', 'like', `%${q}%`);
             });
+
           }
           if (from) qb.andWhere('from_date', '>=', from);
           if (to) qb.andWhere('to_date', '<=', to);
@@ -58,6 +59,17 @@ module.exports = function(deps = {}) {
       res.json({ success: true, data: rows });
     } catch (err) {
       console.error('GET /api/annadhanam error:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Preview next receipt number (not reserved until POST)
+  router.get('/next-receipt', async (req, res) => {
+    try {
+      const next = await generateReceiptNumber(db, req.user.templeId);
+      res.json({ success: true, receipt_number: next });
+    } catch (err) {
+      console.error('GET /api/annadhanam/next-receipt error:', err);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
@@ -85,34 +97,71 @@ module.exports = function(deps = {}) {
   // Create annadhanam entry
   router.post('/', async (req, res) => {
     try {
-      const p = req.body || {};
-      
-      // Validate required fields
-      if (!p.name || !p.mobileNumber || !p.food || !p.peoples || !p.time || !p.fromDate || !p.toDate) {
-        return res.status(400).json({ 
-          error: 'Missing required fields: name, mobileNumber, food, peoples, time, fromDate, toDate' 
+      const body = req.body || {};
+
+      // Accept both snake_case and camelCase
+      const p = {
+        name: body.name,
+        mobileNumber: body.mobileNumber ?? body.mobile_number,
+        time: body.time,
+        fromDate: body.fromDate ?? body.from_date,
+        toDate: body.toDate ?? body.to_date,
+        remarks: body.remarks,
+        // Optional/legacy
+        peoples: body.peoples,
+        food: body.food,
+        // New structured fields
+        donationType: body.donationType ?? body.donation_type,
+        productName: body.productName ?? body.product_name,
+        quantity: body.quantity,
+        amount: body.amount,
+      };
+
+      // Basic validations
+      if (!p.name || !p.mobileNumber || !p.time || !p.fromDate || !p.toDate) {
+        return res.status(400).json({
+          error: 'Missing required fields: name, mobileNumber, time, fromDate, toDate'
         });
       }
 
-      // Validate date range
       if (new Date(p.fromDate) > new Date(p.toDate)) {
-        return res.status(400).json({ 
-          error: 'From date cannot be later than to date' 
-        });
+        return res.status(400).json({ error: 'From date cannot be later than to date' });
       }
 
-      // Validate mobile number format
       if (!/^[0-9]{10}$/.test(p.mobileNumber)) {
-        return res.status(400).json({ 
-          error: 'Mobile number must be 10 digits' 
-        });
+        return res.status(400).json({ error: 'Mobile number must be 10 digits' });
       }
 
-      // Validate peoples count
-      if (p.peoples < 1) {
-        return res.status(400).json({ 
-          error: 'Number of people must be at least 1' 
-        });
+      // Map donation type to stored fields (food string + peoples number)
+      let storedFood = p.food || '';
+      let storedPeoples = 1;
+
+      if (p.donationType === 'product') {
+        if (!p.productName || !p.quantity) {
+          return res.status(400).json({ error: 'productName and quantity are required for product donation' });
+        }
+        storedFood = `Product: ${String(p.productName).trim()} | Qty: ${String(p.quantity).trim()}`;
+        storedPeoples = 1;
+      } else if (p.donationType === 'money') {
+        if (!p.amount) {
+          return res.status(400).json({ error: 'amount is required for money donation' });
+        }
+        storedFood = `Money: ${String(p.amount).trim()}`;
+        storedPeoples = 1;
+      } else {
+        // Food (default/legacy)
+        if (!storedFood) {
+          return res.status(400).json({ error: 'food is required for food donation' });
+        }
+        if (p.peoples != null && p.peoples !== '') {
+          const n = parseInt(p.peoples, 10);
+          if (isNaN(n) || n < 1) {
+            return res.status(400).json({ error: 'Number of people must be at least 1' });
+          }
+          storedPeoples = n;
+        } else {
+          storedPeoples = 1;
+        }
       }
 
       const record = {
@@ -120,8 +169,8 @@ module.exports = function(deps = {}) {
         receipt_number: await generateReceiptNumber(db, req.user.templeId),
         name: p.name,
         mobile_number: p.mobileNumber,
-        food: p.food,
-        peoples: parseInt(p.peoples),
+        food: storedFood,
+        peoples: storedPeoples,
         time: p.time,
         from_date: p.fromDate,
         to_date: p.toDate,
@@ -131,8 +180,18 @@ module.exports = function(deps = {}) {
         updated_at: db.fn.now(),
       };
 
-      const inserted = await db('annadhanam').insert(record).returning('*');
-      res.json({ success: true, data: inserted[0] });
+      // For SQLite3 recent versions, returning('*') works; for MySQL it doesn't.
+      // Do an insert and then fetch the row using the inserted id for maximum compatibility.
+      const insertResult = await db('annadhanam').insert(record);
+      const insertedId = Array.isArray(insertResult) ? Number(insertResult[0]) : Number(insertResult);
+      let createdRow = null;
+      try {
+        createdRow = await db('annadhanam').where({ id: insertedId }).first();
+      } catch (e) {
+        // Fallback: return minimal payload if select fails
+        createdRow = { id: insertedId, ...record };
+      }
+      res.json({ success: true, data: createdRow });
     } catch (err) {
       console.error('POST /api/annadhanam error:', err);
       res.status(500).json({ error: 'Internal server error' });
@@ -143,42 +202,77 @@ module.exports = function(deps = {}) {
   router.put('/:id', async (req, res) => {
     try {
       const { id } = req.params;
-      const p = req.body || {};
-      
-      // Validate required fields
-      if (!p.name || !p.mobileNumber || !p.food || !p.peoples || !p.time || !p.fromDate || !p.toDate) {
-        return res.status(400).json({ 
-          error: 'Missing required fields: name, mobileNumber, food, peoples, time, fromDate, toDate' 
+      const body = req.body || {};
+
+      // Accept both snake_case and camelCase
+      const p = {
+        name: body.name,
+        mobileNumber: body.mobileNumber ?? body.mobile_number,
+        time: body.time,
+        fromDate: body.fromDate ?? body.from_date,
+        toDate: body.toDate ?? body.to_date,
+        remarks: body.remarks,
+        peoples: body.peoples,
+        food: body.food,
+        donationType: body.donationType ?? body.donation_type,
+        productName: body.productName ?? body.product_name,
+        quantity: body.quantity,
+        amount: body.amount,
+      };
+
+      // Basic validations
+      if (!p.name || !p.mobileNumber || !p.time || !p.fromDate || !p.toDate) {
+        return res.status(400).json({
+          error: 'Missing required fields: name, mobileNumber, time, fromDate, toDate'
         });
       }
 
-      // Validate date range
       if (new Date(p.fromDate) > new Date(p.toDate)) {
-        return res.status(400).json({ 
-          error: 'From date cannot be later than to date' 
-        });
+        return res.status(400).json({ error: 'From date cannot be later than to date' });
       }
 
-      // Validate mobile number format
       if (!/^[0-9]{10}$/.test(p.mobileNumber)) {
-        return res.status(400).json({ 
-          error: 'Mobile number must be 10 digits' 
-        });
+        return res.status(400).json({ error: 'Mobile number must be 10 digits' });
       }
 
-      // Validate peoples count
-      if (p.peoples < 1) {
-        return res.status(400).json({ 
-          error: 'Number of people must be at least 1' 
-        });
+      // Map donation type to stored fields (food string + peoples number)
+      let storedFood = p.food || '';
+      let storedPeoples = 1;
+
+      if (p.donationType === 'product') {
+        if (!p.productName || !p.quantity) {
+          return res.status(400).json({ error: 'productName and quantity are required for product donation' });
+        }
+        storedFood = `Product: ${String(p.productName).trim()} | Qty: ${String(p.quantity).trim()}`;
+        storedPeoples = 1;
+      } else if (p.donationType === 'money') {
+        if (!p.amount) {
+          return res.status(400).json({ error: 'amount is required for money donation' });
+        }
+        storedFood = `Money: ${String(p.amount).trim()}`;
+        storedPeoples = 1;
+      } else {
+        // Food (default/legacy)
+        if (!storedFood) {
+          return res.status(400).json({ error: 'food is required for food donation' });
+        }
+        if (p.peoples != null && p.peoples !== '') {
+          const n = parseInt(p.peoples, 10);
+          if (isNaN(n) || n < 1) {
+            return res.status(400).json({ error: 'Number of people must be at least 1' });
+          }
+          storedPeoples = n;
+        } else {
+          storedPeoples = 1;
+        }
       }
       
       const updateData = {
-        receipt_number: p.receiptNumber || null,
+        // Do NOT update receipt_number on PUT; keep original
         name: p.name,
         mobile_number: p.mobileNumber,
-        food: p.food,
-        peoples: parseInt(p.peoples),
+        food: storedFood,
+        peoples: storedPeoples,
         time: p.time,
         from_date: p.fromDate,
         to_date: p.toDate,

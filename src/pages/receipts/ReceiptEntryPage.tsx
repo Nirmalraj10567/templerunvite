@@ -287,7 +287,7 @@ export default function ReceiptEntryPage() {
         remarks: data.remarks || '',
       };
 
-      const url = id ? `/api/receipts/${id}` : '/api/receipts';
+      const url = id ? `https://tmsapi.xesstechlink.com/api/receipts/${id}` : 'https://tmsapi.xesstechlink.com/api/receipts';
       const method = id ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,

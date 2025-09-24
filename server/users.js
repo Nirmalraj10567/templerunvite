@@ -140,14 +140,26 @@ module.exports = function (deps = {}) {
         }
       }
 
-      // Create JWT token for member user
+      // Resolve templeId from registrations if available (fallback to 1)
+      let templeId = null;
+      try {
+        const hasTempleIdCol = await db.schema.hasColumn('user_registrations', 'temple_id');
+        if (hasTempleIdCol && user && Object.prototype.hasOwnProperty.call(user, 'temple_id')) {
+          const tId = Number(user.temple_id);
+          if (Number.isFinite(tId) && tId > 0) templeId = tId;
+        }
+      } catch {}
+      if (!templeId) templeId = 1;
+
+      // Create JWT token for member user (include templeId)
       const token = jwt.sign(
         {
           id: user.id,
           mobile: user.mobile_number,
           name: user.name,
           type: 'member',
-          referenceNumber: user.reference_number
+          referenceNumber: user.reference_number,
+          templeId: templeId
         },
         JWT_SECRET,
         { expiresIn: '365d' }
@@ -163,7 +175,8 @@ module.exports = function (deps = {}) {
           referenceNumber: user.reference_number,
           fatherName: user.father_name,
           alternativeName: user.alternative_name,
-          type: 'member'
+          type: 'member',
+          templeId: templeId
         }
       });
 

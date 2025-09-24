@@ -19,7 +19,9 @@ module.exports = function({ db }) {
         total_amount,
         balance_amount,
         remarks,
-        submitted_by_mobile
+        submitted_by_mobile,
+        temple_id,
+        templeId
       } = req.body;
 
       // Basic validations
@@ -27,9 +29,27 @@ module.exports = function({ db }) {
         return res.status(400).json({ success: false, error: 'Missing required fields' });
       }
 
+      // Resolve a valid templeId (accept from body if provided; validate against temples table)
+      let resolvedTempleId = Number(temple_id || templeId) || null;
+      try {
+        if (resolvedTempleId) {
+          const t = await db('temples').where({ id: resolvedTempleId }).first();
+          if (!t) resolvedTempleId = null;
+        }
+        if (!resolvedTempleId) {
+          // fallback: pick the first available temple id, else 1
+          let row = null;
+          try { row = await db('temples').min({ id: 'id' }).first(); } catch {}
+          resolvedTempleId = Number(row?.id) || 1;
+        }
+      } catch (e) {
+        // If temples table not accessible, fallback to 1
+        resolvedTempleId = 1;
+      }
+
       // Optional: Prevent double-booking for same time/date when already approved
       const conflicting = await db('marriage_hall_bookings')
-        .where('temple_id', 1)
+        .where('temple_id', resolvedTempleId)
         .where('status', 'approved')
         .andWhere({ date, time })
         .first();
@@ -38,7 +58,7 @@ module.exports = function({ db }) {
       }
 
       const [id] = await db('marriage_hall_bookings').insert({
-        temple_id: 1,
+        temple_id: resolvedTempleId,
         register_no: register_no || null,
         date,
         time,
@@ -153,6 +173,60 @@ module.exports = function({ db }) {
       res.json({ success: true, message: 'Request cancelled successfully' });
     } catch (err) {
       console.error('PUT /api/hall-mobile/cancel/:id error:', err);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  });
+
+  // Get latest and next register number for hall bookings
+  // Example response: { success: true, data: { year: '2025', last_register_no: '2025-0012', next_register_no: '2025-0013' } }
+  router.get('/latest-receipt', async (req, res) => {
+    try {
+      const templeId = Number(req.query.temple_id || req.query.templeId || 1);
+      const now = new Date();
+      const year = String(now.getFullYear());
+
+      // Try to find the highest register_no for the current year for this temple
+      const last = await db('marriage_hall_bookings')
+        .where('temple_id', templeId)
+        .whereNotNull('register_no')
+        .andWhere('register_no', 'like', `${year}-%`)
+        .orderBy('register_no', 'desc')
+        .first();
+
+      let seq = 0;
+      let lastRegisterNo = null;
+      if (last && last.register_no) {
+        lastRegisterNo = last.register_no;
+        const parts = String(last.register_no).split('-');
+        const n = Number(parts[1]);
+        if (Number.isFinite(n)) seq = n;
+      }
+
+      // Fallback if we couldn't parse seq from last register_no
+      if (!Number.isFinite(seq) || seq <= 0) {
+        const countRow = await db('marriage_hall_bookings')
+          .where('temple_id', templeId)
+          .andWhere('date', 'like', `${year}%`)
+          .count({ c: '*' })
+          .first();
+        const c = Number(countRow?.c || countRow?.count || 0);
+        seq = c;
+      }
+
+      const nextSeq = seq + 1;
+      const nextRegisterNo = `${year}-${String(nextSeq).padStart(4, '0')}`;
+
+      return res.json({
+        success: true,
+        data: {
+          year,
+          last_register_no: lastRegisterNo,
+          next_register_no: nextRegisterNo,
+          temple_id: templeId,
+        }
+      });
+    } catch (err) {
+      console.error('GET /api/hall-mobile/latest-receipt error:', err);
       res.status(500).json({ success: false, error: 'Internal server error' });
     }
   });

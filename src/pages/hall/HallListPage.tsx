@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import { PrintButton } from '@/components/ui/print-button';
+import { Modal } from '@/components/ui/modal';
+import { useNavigate } from 'react-router-dom';
 
 interface HallBooking {
   id: number;
@@ -23,14 +25,22 @@ interface HallBooking {
 export default function HallListPage() {
   const { token } = useAuth();
   const { language } = useLanguage();
+  const navigate = useNavigate();
   const [rows, setRows] = useState<HallBooking[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [q, setQ] = useState('');
   const [from, setFrom] = useState<string>('');
   const [to, setTo] = useState<string>('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const t = (en: string, ta: string) => (language === 'english' ? ta : en);
+
+  const handleEdit = (id: number) => {
+    navigate(`/dashboard/hall/edit/${id}`);
+  };
 
   type ColKey =
     | 'register_no'
@@ -187,7 +197,7 @@ export default function HallListPage() {
 
   return (
     <div className="max-w-7xl mx-auto bg-white p-3 rounded shadow text-xs">
-      <h1 className="text-base font-semibold mb-2">{t('Marriage Hall Bookings', 'திருமண மண்டப பதிவுகள்')}</h1>
+      <h1 className="text-base font-semibold mb-2">{t('Hall Bookings','மண்டப பதிவுகள்')}</h1>
 
       {/* Filters */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-2 mb-2">
@@ -238,9 +248,32 @@ export default function HallListPage() {
             {visibleCols.total_amount && (<div className="px-2 py-1 border-b text-right">{toNum(r.total_amount).toLocaleString()}</div>)}
             {visibleCols.balance_amount && (<div className="px-2 py-1 border-b text-right">{toNum(r.balance_amount).toLocaleString()}</div>)}
             {visibleCols.remarks && (<div className="px-2 py-1 border-b truncate">{r.remarks || ''}</div>)}
-            <div className="px-2 py-1 border-b text-right">
-              <PrintButton onClick={() => {}} title={t('Print', 'அச்சிடு')} />
-            </div>
+            <td className="border px-2 py-1 text-right">
+              <div className="flex gap-1 justify-end">
+                <PrintButton
+                  onClick={() => {
+                    const pdfUrl = `/api/hall-bookings/${r.id}/receipt.pdf`;
+                    // Simple approach: open in new tab
+                    window.open(pdfUrl, '_blank');
+                  }}
+                />
+                <button 
+                  onClick={() => handleEdit(r.id)}
+                  className="border px-2 py-1 rounded hover:bg-gray-100 text-xs"
+                >
+                  {t('Edit', 'திருத்து')}
+                </button>
+                <button 
+                  onClick={() => {
+                    setSelectedBookingId(r.id);
+                    setShowDeleteModal(true);
+                  }}
+                  className="border px-2 py-1 rounded hover:bg-red-100 text-red-600 text-xs"
+                >
+                  {t('Delete', 'நீக்கு')}
+                </button>
+              </div>
+            </td>
           </div>
         ))}
 
@@ -258,6 +291,62 @@ export default function HallListPage() {
           <span>{t('Balance', 'இருப்பு')}: {totals.balance.toLocaleString()}</span>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && selectedBookingId && (
+        <Modal 
+          title={t('Confirm Delete', 'நீக்குவதை உறுதிப்படுத்தவும்')} 
+          onClose={() => {
+            setShowDeleteModal(false);
+            setSelectedBookingId(null);
+          }}
+        >
+          <p className="mb-4">{t('Are you sure you want to delete this booking? This action cannot be undone.', 'இந்த பதிவை நீக்க விரும்புகிறீர்களா? இந்த நடவடிக்கையை மாற்ற முடியாது.')}</p>
+          <div className="flex justify-end gap-2">
+            <button 
+              onClick={() => {
+                setShowDeleteModal(false);
+                setSelectedBookingId(null);
+              }}
+              className="border px-3 py-1 rounded hover:bg-gray-100"
+              disabled={deleting}
+            >
+              {t('Cancel', 'ரத்து')}
+            </button>
+            <button 
+              onClick={async () => {
+                if (!selectedBookingId) return;
+                setDeleting(true);
+                try {
+                  const res = await fetch(`/api/hall-bookings/${selectedBookingId}`, {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${token}` },
+                  });
+
+                  if (!res.ok) {
+                    throw new Error('Failed to delete booking');
+                  }
+
+                  // Refresh the list
+                  fetchData();
+                  
+                  // Close modal
+                  setShowDeleteModal(false);
+                  setSelectedBookingId(null);
+                } catch (error: any) {
+                  setError(error.message || t('Delete failed', 'நீக்குவதில் தோல்வி'));
+                } finally {
+                  setDeleting(false);
+                }
+              }}
+              className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 disabled:opacity-50"
+              disabled={deleting}
+            >
+              {deleting ? t('Deleting...', 'நீக்குகிறது...') : t('Delete', 'நீக்கு')}
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

@@ -30,7 +30,7 @@ export type NavItem = {
 
 export const navigationTranslations = {
   tamil: {
-    overview: 'மேலோட்டம்',
+    overview: 'முகப்பு',
     members: 'உறுப்பினர்கள்',
     memberEntry: 'உறுப்பினர் பதிவு',
     reports: 'அறிக்கைகள்',
@@ -83,7 +83,7 @@ export const navigationTranslations = {
     myPreferences: 'எனது விருப்பங்கள்'
   },
   english: {
-    overview: 'Overview',
+    overview: 'Home',
     members: 'Members',
     memberEntry: 'Member Entry',
     reports: 'Reports',
@@ -138,6 +138,12 @@ export const navigationTranslations = {
 } as const;
 
 export const sidebarItems: NavItem[] = [
+  {
+    label: navigationTranslations.english.overview,
+    tamilLabel: navigationTranslations.tamil.overview,
+    to: '/dashboard',
+    icon: HomeIcon
+  },
   {
     label: navigationTranslations.english.annadhanam,
     tamilLabel: navigationTranslations.tamil.annadhanam,
@@ -305,12 +311,7 @@ export const sidebarItems: NavItem[] = [
       },
     ]
   },
-  {
-    label: navigationTranslations.english.overview,
-    tamilLabel: navigationTranslations.tamil.overview,
-    to: '/dashboard',
-    icon: HomeIcon
-  },
+  
   {
     label: navigationTranslations.english.pooja,
     tamilLabel: navigationTranslations.tamil.pooja,

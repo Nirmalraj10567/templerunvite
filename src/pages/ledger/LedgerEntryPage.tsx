@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils';
 import { CategoryManager } from '@/components/ledger/CategoryManager';
 import { Pencil, Trash2 } from 'lucide-react';
 import { getAuthToken } from '@/lib/auth';
+import { useAuth } from '@/contexts/AuthContext';
 
 type LedgerEntry = {
   date: string;
@@ -52,6 +53,7 @@ type Category = {
 
 export default function LedgerEntryPage() {
   const { language } = useLanguage();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [currentBalance, setCurrentBalance] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -62,6 +64,8 @@ export default function LedgerEntryPage() {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const categoryInputRef = useRef<HTMLButtonElement | null>(null);
+  
+  const templeId = user?.templeId;
   
   const { 
     register, 
@@ -121,7 +125,7 @@ export default function LedgerEntryPage() {
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
     setValue('date', today);
-    
+
     const fetchBalance = async () => {
       try {
         const balance = await ledgerService.getCurrentBalance();
@@ -135,11 +139,17 @@ export default function LedgerEntryPage() {
         });
       }
     };
-    
+
     const fetchCategories = async () => {
+      // Wait until templeId is available, effect will re-run when it changes
+      if (!templeId) {
+        return;
+      }
+
       setIsLoadingCategories(true);
       try {
-        const resp1 = await axios.get<any>('/api/ledger/categories', {
+        // Pass templeId as a query parameter
+        const resp1 = await axios.get<any>(`/api/ledger/categories?templeId=${templeId}`, {
           headers: { Authorization: `Bearer ${getAuthToken()}` }
         });
         const data1 = (resp1?.data && Array.isArray(resp1.data.data)) ? resp1.data.data : (Array.isArray(resp1?.data) ? resp1.data : []);
@@ -147,7 +157,8 @@ export default function LedgerEntryPage() {
         let combined: any[] = data1;
         if (!combined || combined.length === 0) {
           try {
-            const resp2 = await axios.get<any>('/api/ledger/categories-used', {
+            // Pass templeId as a query parameter
+            const resp2 = await axios.get<any>(`/api/ledger/categories-used?templeId=${templeId}`, {
               headers: { Authorization: `Bearer ${getAuthToken()}` }
             });
             const data2: any[] = (resp2?.data && Array.isArray(resp2.data.data)) ? resp2.data.data : (Array.isArray(resp2?.data) ? resp2.data : []);
@@ -187,10 +198,10 @@ export default function LedgerEntryPage() {
         setIsLoadingCategories(false);
       }
     };
-    
+
     fetchBalance();
     fetchCategories();
-  }, []);
+  }, [templeId]);
 
   // Submit to Ledger API so category (under) persists in ledger_entries
 
@@ -218,6 +229,8 @@ export default function LedgerEntryPage() {
         mobile: data.mobile || null,
         email: data.email || null,
         note: data.note || null,
+        // Explicit templeId for clarity (backend also derives from JWT)
+        templeId: templeId || undefined,
       } as const;
 
       await axios.post('/api/ledger/entries', payload, {
@@ -272,6 +285,15 @@ export default function LedgerEntryPage() {
 
   const handleCreateCategory = async (searchValue: string) => {
     if (isLoadingCategories) return;
+    if (!templeId) {
+      toast({
+        title: t('Error', 'பிழை'),
+        description: t('Temple ID not available', 'கோவில் ஐடி கிடைக்கவில்லை'),
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     const cleanVal = searchValue.trim().toLowerCase().replace(/\s+/g, '_');
     if (!cleanVal) return;
     
@@ -286,7 +308,8 @@ export default function LedgerEntryPage() {
       setIsLoadingCategories(true);
       const response = await axios.post<Category>('/api/ledger/categories/find-or-create', {
         value: cleanVal,
-        label: searchValue
+        label: searchValue,
+        templeId: templeId
       }, {
         headers: {
           Authorization: `Bearer ${getAuthToken()}`
@@ -331,8 +354,17 @@ export default function LedgerEntryPage() {
   };
 
   const handleDeleteCategory = async (id: number) => {
+    if (!templeId) {
+      toast({
+        title: t('Error', 'பிழை'),
+        description: t('Temple ID not available', 'கோவில் ஐடி கிடைக்கவில்லை'),
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     try {
-      await axios.delete(`/api/ledger/categories/${id}`, {
+      await axios.delete(`/api/ledger/categories/${id}?templeId=${templeId}`, {
         headers: {
           Authorization: `Bearer ${getAuthToken()}`
         }
@@ -501,8 +533,7 @@ export default function LedgerEntryPage() {
                             if (input?.value) handleCreateCategory(input.value);
                           }}
                         >
-                          <Plus className="mr-2 h-3 w-3" />
-                          {t('Create new', 'புதியது உருவாக்கு')}
+                        
                         </Button>
                       </CommandEmpty>
                       <CommandGroup className="max-h-32 overflow-y-auto">

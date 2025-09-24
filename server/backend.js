@@ -163,135 +163,135 @@ function authenticateToken(req, res, next) {
     req.user = user;
     next();
   });
-
-  // Journal API endpoints for JournalLogPage and services
-  // GET /api/journal/entries - list with optional date range, account filter, pagination
-  app.get('/api/journal/entries', authenticateToken, async (req, res) => {
-    try {
-      const templeId = req.user.templeId;
-      const startDate = (req.query.startDate || '').toString().trim();
-      const endDate = (req.query.endDate || '').toString().trim();
-      const account = (req.query.account || '').toString().trim();
-      const excludeZero = req.query.excludeZero === '1' || req.query.excludeZero === 'true';
-      const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-      const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 20));
-      const offset = (page - 1) * limit;
-
-      let q = db('journal_entries').where('temple_id', templeId);
-      if (startDate) q = q.andWhere('date', '>=', startDate);
-      if (endDate) q = q.andWhere('date', '<=', endDate);
-      if (account) {
-        q = q.andWhere(builder => {
-          builder
-            .where('from_account', 'like', `%${account}%`)
-            .orWhere('to_account', 'like', `%${account}%`);
-        });
-      }
-      if (excludeZero) {
-        q = q.andWhere('amount', '>', 0);
-      }
-
-      const totalRow = await q.clone().count({ c: '*' }).first();
-      const total = Number(totalRow?.c || totalRow?.count || 0);
-
-      const rows = await q
-        .clone()
-        .orderBy('date', 'desc')
-        .orderBy('id', 'desc')
-        .limit(limit)
-        .offset(offset)
-        .select('*');
-
-      res.json({ data: rows, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } });
-    } catch (err) {
-      console.error('Error fetching /api/journal/entries:', err);
-      res.status(500).json({ error: 'Failed to fetch journal entries' });
-    }
-  });
-
-  // GET /api/journal/accounts - distinct account names seen in journal
-  app.get('/api/journal/accounts', authenticateToken, async (req, res) => {
-    try {
-      const templeId = req.user.templeId;
-      const froms = await db('journal_entries').where('temple_id', templeId).distinct('from_account as name');
-      const tos = await db('journal_entries').where('temple_id', templeId).distinct('to_account as name');
-      const list = [...froms, ...tos]
-        .map(r => r.name)
-        .filter(Boolean);
-      const uniq = Array.from(new Set(list)).sort();
-      res.json({ data: uniq.map(n => ({ name: n })) });
-    } catch (err) {
-      console.error('Error fetching /api/journal/accounts:', err);
-      res.status(500).json({ error: 'Failed to fetch accounts' });
-    }
-  });
-
-  // GET /api/journal/balance - alias of ledger balance for compatibility
-  app.get('/api/journal/balance', authenticateToken, async (req, res) => {
-    try {
-      const account = (req.query.account ? String(req.query.account) : 'CASH A/C').trim();
-      const hasJournal = await db.schema.hasTable('journal_entries');
-      if (!hasJournal) return res.json({ balance: 0, account });
-      const inflowRow = await db('journal_entries').where({ temple_id: req.user.templeId, to_account: account }).sum({ s: 'amount' }).first();
-      const outflowRow = await db('journal_entries').where({ temple_id: req.user.templeId, from_account: account }).sum({ s: 'amount' }).first();
-      const inflow = Number(inflowRow?.s || inflowRow?.sum || 0);
-      const outflow = Number(outflowRow?.s || outflowRow?.sum || 0);
-      const balance = inflow - outflow;
-      res.json({ balance, account });
-    } catch (err) {
-      console.error('Error in /api/journal/balance:', err);
-      res.status(500).json({ error: 'Failed to compute balance' });
-    }
-  });
-
-  // POST /api/journal/sync-pooja - manually sync existing pooja entries to journal
-  app.post('/api/journal/sync-pooja', authenticateToken, async (req, res) => {
-    try {
-      const hasJournal = await db.schema.hasTable('journal_entries');
-      if (!hasJournal) {
-        return res.status(400).json({ error: 'journal_entries table does not exist' });
-      }
-
-      const poojas = await db('pooja')
-        .where('temple_id', req.user.templeId)
-        .whereNotNull('amount')
-        .where('amount', '>', 0);
-
-      let created = 0;
-      let skipped = 0;
-
-      for (const pooja of poojas) {
-        const existing = await db('journal_entries')
-          .where({ reference_type: 'pooja', reference_id: pooja.id, temple_id: pooja.temple_id })
-          .first();
-
-        if (!existing) {
-          await db('journal_entries').insert({
-            date: new Date().toISOString().slice(0,10),
-            from_account: 'POOJA A/C',
-            to_account: pooja.transfer_to_account || 'INCOME A/C',
-            amount: Number(pooja.amount),
-            entry_type: 'transfer',
-            remarks: pooja.remarks || null,
-            reference_type: 'pooja',
-            reference_id: pooja.id,
-            temple_id: pooja.temple_id,
-            created_by: pooja.created_by,
-            created_at: db.fn.now(),
-          });
-          created++;
-        } else {
-          skipped++;
-        }
-      }
-
-      res.json({ success: true, created, skipped, total: poojas.length });
-    } catch (err) {
-      console.error('Error syncing pooja to journal:', err);
-      res.status(500).json({ error: 'Failed to sync pooja entries' });
-    }
-  });
 }
+
+// Journal API endpoints for JournalLogPage and services
+// GET /api/journal/entries - list with optional date range, account filter, pagination
+app.get('/api/journal/entries', authenticateToken, async (req, res) => {
+  try {
+    const templeId = req.user.templeId;
+    const startDate = (req.query.startDate || '').toString().trim();
+    const endDate = (req.query.endDate || '').toString().trim();
+    const account = (req.query.account || '').toString().trim();
+    const excludeZero = req.query.excludeZero === '1' || req.query.excludeZero === 'true';
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const offset = (page - 1) * limit;
+
+    let q = db('journal_entries').where('temple_id', templeId);
+    if (startDate) q = q.andWhere('date', '>=', startDate);
+    if (endDate) q = q.andWhere('date', '<=', endDate);
+    if (account) {
+      q = q.andWhere(builder => {
+        builder
+          .where('from_account', 'like', `%${account}%`)
+          .orWhere('to_account', 'like', `%${account}%`);
+      });
+    }
+    if (excludeZero) {
+      q = q.andWhere('amount', '>', 0);
+    }
+
+    const totalRow = await q.clone().count({ c: '*' }).first();
+    const total = Number(totalRow?.c || totalRow?.count || 0);
+
+    const rows = await q
+      .clone()
+      .orderBy('date', 'desc')
+      .orderBy('id', 'desc')
+      .limit(limit)
+      .offset(offset)
+      .select('*');
+
+    res.json({ data: rows, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } });
+  } catch (err) {
+    console.error('Error fetching /api/journal/entries:', err);
+    res.status(500).json({ error: 'Failed to fetch journal entries' });
+  }
+});
+
+// GET /api/journal/accounts - distinct account names seen in journal
+app.get('/api/journal/accounts', authenticateToken, async (req, res) => {
+  try {
+    const templeId = req.user.templeId;
+    const froms = await db('journal_entries').where('temple_id', templeId).distinct('from_account as name');
+    const tos = await db('journal_entries').where('temple_id', templeId).distinct('to_account as name');
+    const list = [...froms, ...tos]
+      .map(r => r.name)
+      .filter(Boolean);
+    const uniq = Array.from(new Set(list)).sort();
+    res.json({ data: uniq.map(n => ({ name: n })) });
+  } catch (err) {
+    console.error('Error fetching /api/journal/accounts:', err);
+    res.status(500).json({ error: 'Failed to fetch accounts' });
+  }
+});
+
+// GET /api/journal/balance - alias of ledger balance for compatibility
+app.get('/api/journal/balance', authenticateToken, async (req, res) => {
+  try {
+    const account = (req.query.account ? String(req.query.account) : 'CASH A/C').trim();
+    const hasJournal = await db.schema.hasTable('journal_entries');
+    if (!hasJournal) return res.json({ balance: 0, account });
+    const inflowRow = await db('journal_entries').where({ temple_id: req.user.templeId, to_account: account }).sum({ s: 'amount' }).first();
+    const outflowRow = await db('journal_entries').where({ temple_id: req.user.templeId, from_account: account }).sum({ s: 'amount' }).first();
+    const inflow = Number(inflowRow?.s || inflowRow?.sum || 0);
+    const outflow = Number(outflowRow?.s || outflowRow?.sum || 0);
+    const balance = inflow - outflow;
+    res.json({ balance, account });
+  } catch (err) {
+    console.error('Error in /api/journal/balance:', err);
+    res.status(500).json({ error: 'Failed to compute balance' });
+  }
+});
+
+// POST /api/journal/sync-pooja - manually sync existing pooja entries to journal
+app.post('/api/journal/sync-pooja', authenticateToken, async (req, res) => {
+  try {
+    const hasJournal = await db.schema.hasTable('journal_entries');
+    if (!hasJournal) {
+      return res.status(400).json({ error: 'journal_entries table does not exist' });
+    }
+
+    const poojas = await db('pooja')
+      .where('temple_id', req.user.templeId)
+      .whereNotNull('amount')
+      .where('amount', '>', 0);
+
+    let created = 0;
+    let skipped = 0;
+
+    for (const pooja of poojas) {
+      const existing = await db('journal_entries')
+        .where({ reference_type: 'pooja', reference_id: pooja.id, temple_id: pooja.temple_id })
+        .first();
+
+      if (!existing) {
+        await db('journal_entries').insert({
+          date: new Date().toISOString().slice(0,10),
+          from_account: 'POOJA A/C',
+          to_account: pooja.transfer_to_account || 'INCOME A/C',
+          amount: Number(pooja.amount),
+          entry_type: 'transfer',
+          remarks: pooja.remarks || null,
+          reference_type: 'pooja',
+          reference_id: pooja.id,
+          temple_id: pooja.temple_id,
+          created_by: pooja.created_by,
+          created_at: db.fn.now(),
+        });
+        created++;
+      } else {
+        skipped++;
+      }
+    }
+
+    res.json({ success: true, created, skipped, total: poojas.length });
+  } catch (err) {
+    console.error('Error syncing pooja to journal:', err);
+    res.status(500).json({ error: 'Failed to sync pooja entries' });
+  }
+});
 
 // Middleware to authorize user roles
 const authorizeRole = (allowedRoles) => {
@@ -373,15 +373,31 @@ const authorizePermission = (permissionId, requiredLevel = 'view') => {
     }
 
     try {
+      // First, check explicit user permission
+      let userAccessLevel = null;
       const userPermissions = await db('user_permissions')
         .where({ user_id: req.user.id, permission_id: permissionId })
         .first();
+      if (userPermissions && userPermissions.access_level) {
+        userAccessLevel = userPermissions.access_level;
+      } else {
+        // Fallback: check role-based permission
+        try {
+          const rolePerm = await db('role_permissions')
+            .where({ role_id: req.user.role, permission_id: permissionId })
+            .first();
+          if (rolePerm && rolePerm.access_level) {
+            userAccessLevel = rolePerm.access_level;
+          }
+        } catch (e) {
+          // ignore and handle as no permission below
+        }
+      }
 
-      if (!userPermissions) {
+      if (!userAccessLevel) {
         return res.status(403).json({ error: 'Access denied. No permission.' });
       }
 
-      const userAccessLevel = userPermissions.access_level;
       if (userAccessLevel !== requiredLevel && userAccessLevel !== 'full') {
         return res.status(403).json({ error: 'Access denied. Insufficient permission level.' });
       }
@@ -443,6 +459,24 @@ app.use('/api/hall-approval', hallApprovalRouter);
     console.error('Failed to mount pooja-mobile router:', e);
   }
 })();
+// Mount donations-mobile routes (public; validation via mobile number and internal checks)
+(() => {
+  try {
+    const donationsMobileRouter = require('./donations-mobile')({ db });
+    app.use('/api/donations-mobile', donationsMobileRouter);
+  } catch (e) {
+    console.error('Failed to mount donations-mobile router:', e);
+  }
+})();
+// Mount annadhanam-mobile routes (public; validation via mobile number and internal checks)
+(() => {
+  try {
+    const annadhanamMobileRouter = require('./annadhanam-mobile')({ db });
+    app.use('/api/annadhanam-mobile', annadhanamMobileRouter);
+  } catch (e) {
+    console.error('Failed to mount annadhanam-mobile router:', e);
+  }
+})();
 // Native categories router under /api/ledger to ensure /api/ledger/categories works
 (() => {
   const express = require('express');
@@ -451,7 +485,11 @@ app.use('/api/hall-approval', hallApprovalRouter);
   // GET /api/ledger/categories
   r.get('/categories', authenticateToken, async (req, res) => {
     try {
-      const rows = await db('ledger_categories').select('*').orderBy('label', 'asc');
+      const templeId = req.user.templeId || req.query.templeId || 1;
+      const rows = await db('ledger_categories')
+        .where('temple_id', templeId)
+        .select('*')
+        .orderBy('label', 'asc');
       const data = rows.map((r) => ({ id: r.id, value: r.value || r.label, label: r.label || r.value }));
       res.json(data);
     } catch (err) {
@@ -463,13 +501,23 @@ app.use('/api/hall-approval', hallApprovalRouter);
   // POST /api/ledger/categories
   r.post('/categories', authenticateToken, async (req, res) => {
     try {
-      const { value, label } = req.body || {};
+      const { value, label, templeId } = req.body || {};
+      const userTempleId = req.user.templeId || templeId || 1;
+      
       if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
 
-      const exists = await db('ledger_categories').where({ value }).orWhere({ label }).first();
+      const exists = await db('ledger_categories')
+        .where({ value, temple_id: userTempleId })
+        .orWhere({ label, temple_id: userTempleId })
+        .first();
       if (exists) return res.status(400).json({ error: 'Category already exists' });
 
-      const [id] = await db('ledger_categories').insert({ value, label, created_at: db.fn.now() });
+      const [id] = await db('ledger_categories').insert({ 
+        value, 
+        label, 
+        temple_id: userTempleId,
+        created_at: db.fn.now() 
+      });
       res.status(201).json({ id, value, label });
     } catch (err) {
       console.error('Error creating category (/api/ledger-categories):', err);
@@ -480,13 +528,23 @@ app.use('/api/hall-approval', hallApprovalRouter);
   // POST /api/ledger/categories/find-or-create
   r.post('/categories/find-or-create', authenticateToken, async (req, res) => {
     try {
-      const { value, label } = req.body || {};
+      const { value, label, templeId } = req.body || {};
+      const userTempleId = req.user.templeId || templeId || 1;
+      
       if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
 
-      const existing = await db('ledger_categories').where({ value }).orWhere({ label }).first();
+      const existing = await db('ledger_categories')
+        .where({ value, temple_id: userTempleId })
+        .orWhere({ label, temple_id: userTempleId })
+        .first();
       if (existing) return res.json({ id: existing.id, value: existing.value, label: existing.label });
 
-      const [id] = await db('ledger_categories').insert({ value, label, created_at: db.fn.now() });
+      const [id] = await db('ledger_categories').insert({ 
+        value, 
+        label, 
+        temple_id: userTempleId,
+        created_at: db.fn.now() 
+      });
       res.status(201).json({ id, value, label });
     } catch (err) {
       console.error('Error find-or-create category (/api/ledger-categories):', err);
@@ -516,9 +574,23 @@ app.get('/api/ledger/balance', authenticateToken, async (req, res) => {
   r.put('/categories/:id', authenticateToken, async (req, res) => {
     try {
       const { id } = req.params;
-      const { value, label } = req.body || {};
+      const { value, label, templeId } = req.body || {};
+      const userTempleId = req.user.templeId || templeId || 1;
+      
       if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
-      await db('ledger_categories').where({ id: Number(id) }).update({ value, label });
+      
+      // Check if category belongs to the user's temple
+      const existing = await db('ledger_categories')
+        .where({ id: Number(id), temple_id: userTempleId })
+        .first();
+      
+      if (!existing) {
+        return res.status(404).json({ error: 'Category not found or access denied' });
+      }
+      
+      await db('ledger_categories')
+        .where({ id: Number(id), temple_id: userTempleId })
+        .update({ value, label });
       res.json({ id: Number(id), value, label });
     } catch (err) {
       console.error('Error updating /api/ledger/categories:', err);
@@ -530,7 +602,20 @@ app.get('/api/ledger/balance', authenticateToken, async (req, res) => {
   r.delete('/categories/:id', authenticateToken, async (req, res) => {
     try {
       const { id } = req.params;
-      await db('ledger_categories').where({ id: Number(id) }).del();
+      const templeId = req.user.templeId || req.query.templeId || 1;
+      
+      // Check if category belongs to the user's temple
+      const existing = await db('ledger_categories')
+        .where({ id: Number(id), temple_id: templeId })
+        .first();
+      
+      if (!existing) {
+        return res.status(404).json({ error: 'Category not found or access denied' });
+      }
+      
+      await db('ledger_categories')
+        .where({ id: Number(id), temple_id: templeId })
+        .del();
       res.json({ success: true });
     } catch (err) {
       console.error('Error deleting /api/ledger/categories:', err);
@@ -655,22 +740,49 @@ app.get('/api/superadmin/tenants/:id/health', authenticateToken, authorizeRole([
 // Public Mobile Events endpoint (simplified format, no JWT)
 app.get('/api/mobile/events', async (req, res) => {
   try {
+    const { from, to, templeId: qTempleId } = req.query;
     const today = new Date().toISOString().split('T')[0];
-    const events = await db('events')
-      .where('date', '>=', today)
-      .orderBy('date', 'asc')
-      .orderBy('time', 'asc')
-      .limit(50);
 
-    const eventIds = events.map(e => e.id);
+    // Resolve templeId: query param -> req.user.templeId -> first temple -> 1
+    let templeId = Number(qTempleId) || null;
+    try {
+      if (!templeId && req.user && Number(req.user.templeId)) {
+        templeId = Number(req.user.templeId);
+      }
+      if (templeId) {
+        const t = await db('temples').where({ id: templeId }).first();
+        if (!t) templeId = null;
+      }
+      if (!templeId) {
+        let row = null;
+        try { row = await db('temples').min({ id: 'id' }).first(); } catch {}
+        templeId = Number(row?.id) || 1;
+      }
+    } catch { templeId = 1; }
+
+    // Check for events.temple_id column
+    let hasTempleCol = false;
+    try { hasTempleCol = await db.schema.hasColumn('events', 'temple_id'); } catch {}
+
+    // Build query with optional filters
+    let query = db('events');
+    if (hasTempleCol) query = query.where('temple_id', templeId);
+    query = query.where('date', '>=', from || today);
+    if (to) query = query.andWhere('date', '<=', to);
+    query = query.orderBy('date', 'asc').orderBy('time', 'asc').limit(50);
+
+    const events = await query.select('*');
+
+    const eventIds = events.map(e => e.id).filter(Boolean);
     let images = [];
     try {
-      images = await db('event_images')
-        .whereIn('event_id', eventIds)
-        .groupBy('event_id')
-        .select('event_id', 'image_path');
+      if (eventIds.length) {
+        images = await db('event_images')
+          .whereIn('event_id', eventIds)
+          .groupBy('event_id')
+          .select('event_id', 'image_path');
+      }
     } catch (e) {
-      // If table or columns not available yet, ignore
       images = [];
     }
 
@@ -685,10 +797,11 @@ app.get('/api/mobile/events', async (req, res) => {
         location: event.location,
         image: img ? `${baseUrl}/public${img.image_path}` : null,
         description: event.description,
+        temple_id: hasTempleCol ? event.temple_id : templeId,
       };
     });
 
-    res.json(mobileEvents);
+    res.json({ success: true, data: mobileEvents, temple_id: templeId });
   } catch (error) {
     console.error('GET /api/mobile/events error:', error);
     res.status(500).json({ error: 'Failed to fetch events' });
@@ -1036,7 +1149,11 @@ const ledgerCategoriesCompat = (() => {
   // GET /api/ledger-categories -> list categories
   router.get('/', authenticateToken, async (req, res) => {
     try {
-      const rows = await db('ledger_categories').select('*').orderBy('label', 'asc');
+      const templeId = req.user.templeId || req.query.templeId || 1;
+      const rows = await db('ledger_categories')
+        .where('temple_id', templeId)
+        .select('*')
+        .orderBy('label', 'asc');
       const data = rows.map((r) => ({ id: r.id, value: r.value || r.label, label: r.label || r.value }));
       res.json(data);
     } catch (err) {
@@ -1048,13 +1165,23 @@ const ledgerCategoriesCompat = (() => {
   // POST /api/ledger-categories -> create category
   router.post('/', authenticateToken, async (req, res) => {
     try {
-      const { value, label } = req.body || {};
+      const { value, label, templeId } = req.body || {};
+      const userTempleId = req.user.templeId || templeId || 1;
+      
       if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
 
-      const exists = await db('ledger_categories').where({ value }).orWhere({ label }).first();
+      const exists = await db('ledger_categories')
+        .where({ value, temple_id: userTempleId })
+        .orWhere({ label, temple_id: userTempleId })
+        .first();
       if (exists) return res.status(400).json({ error: 'Category already exists' });
 
-      const [id] = await db('ledger_categories').insert({ value, label, created_at: db.fn.now() });
+      const [id] = await db('ledger_categories').insert({ 
+        value, 
+        label, 
+        temple_id: userTempleId,
+        created_at: db.fn.now() 
+      });
       res.status(201).json({ id, value, label });
     } catch (err) {
       console.error('Error creating category (/api/ledger-categories):', err);
@@ -1065,13 +1192,23 @@ const ledgerCategoriesCompat = (() => {
   // POST /api/ledger-categories/find-or-create
   router.post('/find-or-create', authenticateToken, async (req, res) => {
     try {
-      const { value, label } = req.body || {};
+      const { value, label, templeId } = req.body || {};
+      const userTempleId = req.user.templeId || templeId || 1;
+      
       if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
 
-      const existing = await db('ledger_categories').where({ value }).orWhere({ label }).first();
+      const existing = await db('ledger_categories')
+        .where({ value, temple_id: userTempleId })
+        .orWhere({ label, temple_id: userTempleId })
+        .first();
       if (existing) return res.json({ id: existing.id, value: existing.value, label: existing.label });
 
-      const [id] = await db('ledger_categories').insert({ value, label, created_at: db.fn.now() });
+      const [id] = await db('ledger_categories').insert({ 
+        value, 
+        label, 
+        temple_id: userTempleId,
+        created_at: db.fn.now() 
+      });
       res.status(201).json({ id, value, label });
     } catch (err) {
       console.error('Error find-or-create category (/api/ledger-categories):', err);
@@ -1083,8 +1220,20 @@ const ledgerCategoriesCompat = (() => {
   router.put('/:id', authenticateToken, async (req, res) => {
     try {
       const { id } = req.params;
-      const { value, label } = req.body || {};
+      const { value, label, templeId } = req.body || {};
+      const userTempleId = req.user.templeId || templeId || 1;
+      
       if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
+      
+      // Check if category belongs to the user's temple
+      const existing = await db('ledger_categories')
+        .where({ id: Number(id), temple_id: userTempleId })
+        .first();
+      
+      if (!existing) {
+        return res.status(404).json({ error: 'Category not found or access denied' });
+      }
+      
       // In this simplified model, just return the updated object
       res.json({ id: Number(id), value, label });
     } catch (err) {
@@ -1096,6 +1245,18 @@ const ledgerCategoriesCompat = (() => {
   // DELETE /api/ledger-categories/:id -> mock delete
   router.delete('/:id', authenticateToken, async (req, res) => {
     try {
+      const { id } = req.params;
+      const templeId = req.user.templeId || req.query.templeId || 1;
+      
+      // Check if category belongs to the user's temple
+      const existing = await db('ledger_categories')
+        .where({ id: Number(id), temple_id: templeId })
+        .first();
+      
+      if (!existing) {
+        return res.status(404).json({ error: 'Category not found or access denied' });
+      }
+      
       // No-op in this simplified model
       res.json({ success: true });
     } catch (err) {
@@ -2396,6 +2557,15 @@ async function migrate() {
     } catch (migrationErr) {
       console.log('Enhanced permissions migration skipped (file not found or already applied):', migrationErr.message);
     }
+    
+    // Run ledger categories temple_id migration
+    try {
+      const addTempleIdToLedgerCategories = require('./db/migrations/addTempleIdToLedgerCategories');
+      await addTempleIdToLedgerCategories(db);
+      console.log('Ledger categories temple_id migration completed.');
+    } catch (migrationErr) {
+      console.log('Ledger categories temple_id migration skipped or failed:', migrationErr.message);
+    }
 
     // Create marriage_registers table
     if (!(await db.schema.hasTable('marriage_registers'))) {
@@ -2540,29 +2710,62 @@ async function migrate() {
         table.increments('id').primary();
         table.string('value').notNullable();
         table.string('label').notNullable();
+        table.integer('temple_id').notNullable().defaultTo(1);
         table.timestamp('created_at').defaultTo(db.fn.now());
         table.timestamp('updated_at');
-        table.unique(['value']);
-        table.unique(['label']);
+        table.unique(['value', 'temple_id']);
+        table.unique(['label', 'temple_id']);
       });
       console.log('Created ledger_categories table.');
+    } else {
+      // Add temple_id column if it doesn't exist
+      try {
+        const cols = await db.raw("PRAGMA table_info(ledger_categories)");
+        const colNames = cols.map(c => c.name);
+        if (!colNames.includes('temple_id')) {
+          await db.raw('ALTER TABLE ledger_categories ADD COLUMN temple_id INTEGER NOT NULL DEFAULT 1');
+          console.log('Added temple_id column to ledger_categories table.');
+        }
+      } catch (e) {
+        console.log('Note: Could not alter ledger_categories for temple_id:', e.message);
+      }
     }
 
     // Seed ledger_categories from existing ledger_entries.under (idempotent)
     try {
-      const existingValues = new Set((await db('ledger_categories').select('value')).map(r => r.value));
-      const underRows = await db('ledger_entries')
-        .whereNotNull('under')
-        .distinct({ value: 'under' })
-        .orderBy('under', 'asc');
-      const toInsert = underRows
-        .map(r => ({ value: r.value, label: r.value }))
-        .filter(r => r.value && !existingValues.has(r.value));
-      if (toInsert.length > 0) {
-        await db('ledger_categories').insert(
-          toInsert.map(r => ({ ...r, created_at: db.fn.now() }))
+      // Get distinct temple_ids from ledger_entries
+      const templeRows = await db('ledger_entries')
+        .distinct('temple_id')
+        .whereNotNull('temple_id');
+      
+      for (const templeRow of templeRows) {
+        const templeId = templeRow.temple_id;
+        
+        // Get existing values for this temple
+        const existingValues = new Set(
+          (await db('ledger_categories')
+            .where('temple_id', templeId)
+            .select('value'))
+            .map(r => r.value)
         );
-        console.log(`Seeded ${toInsert.length} categories from ledger_entries.`);
+        
+        // Get distinct 'under' values for this temple
+        const underRows = await db('ledger_entries')
+          .where('temple_id', templeId)
+          .whereNotNull('under')
+          .distinct({ value: 'under' })
+          .orderBy('under', 'asc');
+          
+        const toInsert = underRows
+          .map(r => ({ value: r.value, label: r.value, temple_id: templeId }))
+          .filter(r => r.value && !existingValues.has(r.value));
+          
+        if (toInsert.length > 0) {
+          await db('ledger_categories').insert(
+            toInsert.map(r => ({ ...r, created_at: db.fn.now() }))
+          );
+          console.log(`Seeded ${toInsert.length} categories for temple ${templeId} from ledger_entries.`);
+        }
       }
     } catch (seedErr) {
       console.log('Seeding ledger_categories skipped or failed:', seedErr.message);

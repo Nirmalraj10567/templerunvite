@@ -54,6 +54,17 @@ interface FormState {
   hallId?: number | '';
   eventId?: number | '';
   bookingStatus?: string;
+  // Additional optional charges
+  cleaning?: string;
+  chair?: string;
+  eb?: string;
+  gas?: string;
+  ac?: string;
+  // Check-in / Check-out
+  checkInDate?: string;
+  checkInTime?: string;
+  checkOutDate?: string;
+  checkOutTime?: string;
 }
 
 const initialState: FormState = {
@@ -72,7 +83,16 @@ const initialState: FormState = {
   transferTo: 'INCOME A/C',
   hallId: '',
   eventId: '',
-  bookingStatus: 'completed'
+  bookingStatus: 'completed',
+  cleaning: '',
+  chair: '',
+  eb: '',
+  gas: '',
+  ac: '',
+  checkInDate: '',
+  checkInTime: '',
+  checkOutDate: '',
+  checkOutTime: ''
 };
 
 export default function HallEntryPage() {
@@ -93,6 +113,8 @@ export default function HallEntryPage() {
   const [lastCreatedId, setLastCreatedId] = useState<number | null>(null);
   const [showPrintPrompt, setShowPrintPrompt] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showAdditionalCharges, setShowAdditionalCharges] = useState(false);
+  const [showCheckInOut, setShowCheckInOut] = useState(false);
 
   const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
@@ -190,7 +212,16 @@ export default function HallEntryPage() {
             transferTo: booking.transferTo || 'INCOME A/C',
             hallId: booking.hallId || '',
             eventId: booking.eventId || '',
-            bookingStatus: booking.bookingStatus || 'pending'
+            bookingStatus: booking.bookingStatus || 'pending',
+            cleaning: booking.cleaning?.toString() || '',
+            chair: booking.chair?.toString() || '',
+            eb: booking.eb?.toString() || '',
+            gas: booking.gas?.toString() || '',
+            ac: booking.ac?.toString() || '',
+            checkInDate: booking.checkInDate || '',
+            checkInTime: booking.checkInTime || '',
+            checkOutDate: booking.checkOutDate || '',
+            checkOutTime: booking.checkOutTime || ''
           });
         } catch {
           setIsError(true);
@@ -294,7 +325,7 @@ export default function HallEntryPage() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(undefined);
-    if (!form.date || !form.time || !form.name || !form.mobile) {
+    if (!form.date || !form.name || !form.mobile) {
       setIsError(true);
       setMessage(t('Please fill all required fields', 'தேவையான அனைத்து புலங்களையும் நிரப்பவும்'));
       return;
@@ -430,8 +461,12 @@ export default function HallEntryPage() {
       <form onSubmit={onSubmit} className="grid grid-cols-2 gap-2">
         <input name="registerNo" readOnly value={form.registerNo} className="col-span-1 border px-2 py-1 rounded bg-gray-100" placeholder={t('Receipt No','ரசீது எண்')} />
         <input type="date" name="date" value={form.date} onChange={onChange} className="border px-2 py-1 rounded" required />
-        <input type="time" name="time" value={form.time} onChange={onChange} className="border px-2 py-1 rounded" required />
         <input name="name" value={form.name} onChange={onChange} placeholder={t('Name','பெயர்')} className="border px-2 py-1 rounded" required />
+        <div className="relative">
+          <input name="mobile" value={form.mobile} onChange={onChange} placeholder={t('Phone','தொலைபேசி')} maxLength={10} className="border px-2 py-1 rounded w-full" required />
+          <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-red-500">*</span>
+        </div>
+       
         <textarea name="address" rows={2} value={form.address} onChange={onChange} placeholder={t('Address','முகவரி')} className="col-span-2 border px-2 py-1 rounded" />
         <input name="village" value={form.village} onChange={onChange} placeholder={t('Village','கிராமம்')} className="border px-2 py-1 rounded" />
         <select name="hallId" value={form.hallId ?? ''} onChange={onChange} className="border px-2 py-1 rounded col-span-1">
@@ -447,7 +482,82 @@ export default function HallEntryPage() {
           )) : <option disabled>{t('No events available', 'நிகழ்வுகள் இல்லை')}</option>}
         </select>
         <input name="mobile" value={form.mobile} onChange={onChange} placeholder={t('Phone','தொலைபேசி')} maxLength={10} className="border px-2 py-1 rounded" required />
+       {/* Check-in / Check-out Toggle */}
+       <div className="col-span-2">
+          <button
+            type="button"
+            className="flex items-center justify-between w-full p-2 bg-gray-100 border rounded hover:bg-gray-200"
+            onClick={() => setShowCheckInOut(!showCheckInOut)}
+          >
+            <span className="font-medium text-xs">{t('Check-in / Check-out Details','செக்-இன் / செக்-அவுட் விவரங்கள்')}</span>
+            <span>{showCheckInOut ? '▲' : '▼'}</span>
+          </button>
+          
+          {/* Collapsible Check-in / Check-out Section */}
+          {showCheckInOut && (
+            <div className="grid grid-cols-2 gap-2 mt-1">
+              <div>
+                <label className="block text-xs mb-1">{t('Check-in Date','செக்-இன் தேதி')}</label>
+                <input type="date" name="checkInDate" value={form.checkInDate || ''} onChange={onChange} className="border px-2 py-1 rounded w-full" />
+              </div>
+              <div>
+                <label className="block text-xs mb-1">{t('Check-in Time','செக்-இன் நேரம்')}</label>
+                <input type="time" name="checkInTime" value={form.checkInTime || ''} onChange={onChange} className="border px-2 py-1 rounded w-full" />
+              </div>
+              <div>
+                <label className="block text-xs mb-1">{t('Check-out Date','செக்-அவுட் தேதி')}</label>
+                <input type="date" name="checkOutDate" value={form.checkOutDate || ''} onChange={onChange} className="border px-2 py-1 rounded w-full" />
+              </div>
+              <div>
+                <label className="block text-xs mb-1">{t('Check-out Time','செக்-அவுட் நேரம்')}</label>
+                <input type="time" name="checkOutTime" value={form.checkOutTime || ''} onChange={onChange} className="border px-2 py-1 rounded w-full" />
+              </div>
+            </div>
+          )}
+        </div>
+        {/* Additional Charges Toggle */}
+        <div className="col-span-2">
+          <button
+            type="button"
+            className="flex items-center justify-between w-full p-2 bg-gray-100 border rounded hover:bg-gray-200"
+            onClick={() => setShowAdditionalCharges(!showAdditionalCharges)}
+          >
+            <span className="font-medium text-xs">{t('Additional Charges','கூடுதல் கட்டணங்கள்')}</span>
+            <span>{showAdditionalCharges ? '▲' : '▼'}</span>
+          </button>
+          
+          {/* Collapsible Additional Charges Section */}
+          {showAdditionalCharges && (
+            <div className="grid grid-cols-2 gap-2 border rounded p-2 bg-gray-50 mt-1">
+              <div>
+                <label className="block text-xs mb-1">{t('Cleaning (₹)','துப்புரவு (₹)')}</label>
+                <input name="cleaning" value={form.cleaning || ''} onChange={onChange} className="border px-2 py-1 rounded w-full" type="number" min="0" step="0.01" />
+              </div>
+              <div>
+                <label className="block text-xs mb-1">{t('Chair (₹)','நாற்காலி (₹)')}</label>
+                <input name="chair" value={form.chair || ''} onChange={onChange} className="border px-2 py-1 rounded w-full" type="number" min="0" step="0.01" />
+              </div>
+              <div>
+                <label className="block text-xs mb-1">{t('EB (₹)','மின்சாரம் (₹)')}</label>
+                <input name="eb" value={form.eb || ''} onChange={onChange} className="border px-2 py-1 rounded w-full" type="number" min="0" step="0.01" />
+              </div>
+              <div>
+                <label className="block text-xs mb-1">{t('Gas (₹)','எரிவாயு (₹)')}</label>
+                <input name="gas" value={form.gas || ''} onChange={onChange} className="border px-2 py-1 rounded w-full" type="number" min="0" step="0.01" />
+              </div>
+              <div>
+                <label className="block text-xs mb-1">{t('AC (₹)','ஏசி (₹)')}</label>
+                <input name="ac" value={form.ac || ''} onChange={onChange} className="border px-2 py-1 rounded w-full" type="number" min="0" step="0.01" />
+              </div>
+              <div className="col-span-2 text-[11px] text-gray-700">
+                {t('Tip: These are optional. You can keep Total editable below.','குறிப்பு: இவை விருப்பமானவை. கீழே மொத்தத்தை மாற்றலாம்.')}
+              </div>
+            </div>
+          )}
+        </div>
         <input name="totalAmount" value={form.totalAmount} onChange={onChange} placeholder={t('Total','மொத்தம்')} className="border px-2 py-1 rounded" type="number" min="0" step="0.01" />
+        {/* Extras summary and quick apply */}
+        <ExtrasSummary form={form} setForm={setForm} t={t} />
         <input name="advanceAmount" value={form.advanceAmount} onChange={onChange} placeholder={t('Advance','முன்பணம்')} className="border px-2 py-1 rounded" type="number" min="0" step="0.01" />
         <input name="balanceAmount" readOnly value={form.balanceAmount} placeholder={t('Balance','இருப்பு')} className="border px-2 py-1 rounded bg-gray-50" />
 
@@ -497,6 +607,29 @@ export default function HallEntryPage() {
           </div>
         </Modal>
       )}
+    </div>
+  );
+}
+
+// Small helper component to show extras total and a quick action to set total
+function ExtrasSummary({ form, setForm, t }: { form: FormState; setForm: React.Dispatch<React.SetStateAction<FormState>>; t: (en: string, ta: string) => string }) {
+  const sum =
+    (parseFloat(form.cleaning || '0') || 0) +
+    (parseFloat(form.chair || '0') || 0) +
+    (parseFloat(form.eb || '0') || 0) +
+    (parseFloat(form.gas || '0') || 0) +
+    (parseFloat(form.ac || '0') || 0);
+
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <div className="px-2 py-1 rounded bg-gray-100 border">{t('Extras Total','கூடுதல் மொத்தம்')}: ₹{sum.toFixed(2)}</div>
+      <button
+        type="button"
+        className="border px-2 py-1 rounded hover:bg-gray-50"
+        onClick={() => setForm(prev => ({ ...prev, totalAmount: String(sum) }))}
+      >
+        {t('Set Total = Extras','மொத்தம் = கூடுதல்')}
+      </button>
     </div>
   );
 }

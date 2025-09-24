@@ -46,8 +46,29 @@ module.exports = function(deps = {}) {
       }
 
       const now = new Date();
-      const [id] = await db('annadhanam').insert({
-        temple_id: 1,
+
+      // Resolve a valid temple id
+      let templeId = Number(req.body?.temple_id) || null;
+      try {
+        if (templeId) {
+          const t = await db('temples').where({ id: templeId }).first();
+          if (!t) templeId = null;
+        }
+        if (!templeId) {
+          // Prefer the smallest/first id from temples table
+          let row = null;
+          try {
+            row = await db('temples').min({ id: 'id' }).first();
+          } catch {}
+          templeId = Number(row?.id) || 1;
+        }
+      } catch {
+        templeId = 1;
+      }
+
+      // Build payload based on available columns to avoid failures on older schemas
+      const cols = {
+        temple_id: templeId,
         receipt_number,
         name,
         mobile_number,
@@ -57,13 +78,31 @@ module.exports = function(deps = {}) {
         from_date,
         to_date,
         remarks,
-        status: 'pending',
-        submitted_by_mobile: submitted_by_mobile || mobile_number,
-        submitted_at: now,
-        created_by: null,
-        created_at: now,
-        updated_at: now
-      });
+      };
+
+      // Detect optional columns
+      let hasStatus = false;
+      let hasSubmittedBy = false;
+      let hasSubmittedAt = false;
+      let hasCreatedBy = false;
+      let hasCreatedAt = false;
+      let hasUpdatedAt = false;
+      try { hasStatus = await db.schema.hasColumn('annadhanam', 'status'); } catch {}
+      try { hasSubmittedBy = await db.schema.hasColumn('annadhanam', 'submitted_by_mobile'); } catch {}
+      try { hasSubmittedAt = await db.schema.hasColumn('annadhanam', 'submitted_at'); } catch {}
+      try { hasCreatedBy = await db.schema.hasColumn('annadhanam', 'created_by'); } catch {}
+      try { hasCreatedAt = await db.schema.hasColumn('annadhanam', 'created_at'); } catch {}
+      try { hasUpdatedAt = await db.schema.hasColumn('annadhanam', 'updated_at'); } catch {}
+
+      if (hasStatus) cols.status = 'pending';
+      if (hasSubmittedBy) cols.submitted_by_mobile = submitted_by_mobile || mobile_number;
+      if (hasSubmittedAt) cols.submitted_at = now;
+      if (hasCreatedBy) cols.created_by = null;
+      if (hasCreatedAt) cols.created_at = now;
+      if (hasUpdatedAt) cols.updated_at = now;
+
+      const insertResult = await db('annadhanam').insert(cols);
+      const id = Array.isArray(insertResult) ? insertResult[0] : insertResult;
 
       // Log submission
       try {
@@ -288,6 +327,51 @@ module.exports = function(deps = {}) {
       res.json({ success: true, data: latest });
     } catch (err) {
       console.error('GET /api/annadhanam-mobile/latest error:', err);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  });
+
+  // Public: Get next receipt number (no token required)
+  // Example: GET /api/annadhanam-mobile/next-receipt?templeId=1
+  router.get('/next-receipt', async (req, res) => {
+    try {
+      const year = new Date().getFullYear();
+      let templeId = Number(req.query.templeId) || null;
+      try {
+        if (templeId) {
+          const t = await db('temples').where({ id: templeId }).first();
+          if (!t) templeId = null;
+        }
+        if (!templeId) {
+          let row = null;
+          try {
+            row = await db('temples').min({ id: 'id' }).first();
+          } catch {}
+          templeId = Number(row?.id) || 1;
+        }
+      } catch {
+        templeId = 1;
+      }
+
+      const latest = await db('annadhanam')
+        .where('temple_id', templeId)
+        .where('receipt_number', 'like', `${year}-%`)
+        .orderBy('id', 'desc')
+        .first('receipt_number');
+
+      let nextNumber = 1;
+      if (latest && latest.receipt_number) {
+        const parts = String(latest.receipt_number).split('-');
+        if (parts.length === 2 && parts[0] === String(year)) {
+          const n = parseInt(parts[1], 10);
+          if (!isNaN(n)) nextNumber = n + 1;
+        }
+      }
+
+      const receipt_number = `${year}-${String(nextNumber).padStart(4, '0')}`;
+      res.json({ success: true, receipt_number, temple_id: templeId });
+    } catch (err) {
+      console.error('GET /api/annadhanam-mobile/next-receipt error:', err);
       res.status(500).json({ success: false, error: 'Internal server error' });
     }
   });

@@ -174,8 +174,11 @@ export const ledgerService = {
     return response.data;
   },
 
-  async getCategories(): Promise<string[]> {
-    const response = await api.get<any>(`/api/ledger/categories`);
+  async getCategories(templeId?: number): Promise<string[]> {
+    const url = templeId 
+      ? `/api/ledger/categories?templeId=${templeId}`
+      : `/api/ledger/categories`;
+    const response = await api.get<any>(url);
     const raw = response?.data;
     const list: CategoryApiItem[] = Array.isArray(raw?.data)
       ? raw.data

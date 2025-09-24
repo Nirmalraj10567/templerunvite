@@ -5,6 +5,40 @@ const PDFDocument = require('pdfkit');
 module.exports = function (deps = {}) {
   const { db } = deps;
 
+  // Ensure optional columns exist on marriage_hall_bookings table
+  // Adds: cleaning, chair, eb, gas, ac (numeric); check_in_date, check_in_time, check_out_date, check_out_time (string)
+  async function ensureHallExtrasColumns() {
+    try {
+      const hasTable = await db.schema.hasTable('marriage_hall_bookings');
+      if (!hasTable) return; // nothing to do
+
+      const ensureColumn = async (name, type) => {
+        const exists = await db.schema.hasColumn('marriage_hall_bookings', name);
+        if (!exists) {
+          await db.schema.alterTable('marriage_hall_bookings', (t) => {
+            if (type === 'number') t.decimal(name, 12, 2).nullable();
+            else t.string(name).nullable();
+          });
+        }
+      };
+
+      // Monetary optional charges
+      await ensureColumn('cleaning', 'number');
+      await ensureColumn('chair', 'number');
+      await ensureColumn('eb', 'number');
+      await ensureColumn('gas', 'number');
+      await ensureColumn('ac', 'number');
+
+      // Check-in / Check-out
+      await ensureColumn('check_in_date', 'string');
+      await ensureColumn('check_in_time', 'string');
+      await ensureColumn('check_out_date', 'string');
+      await ensureColumn('check_out_time', 'string');
+    } catch (e) {
+      console.warn('ensureHallExtrasColumns skipped due to error:', e.message);
+    }
+  }
+
   // List with optional search and date filter
   router.get('/', async (req, res) => {
     try {
@@ -177,6 +211,7 @@ module.exports = function (deps = {}) {
   // Create hall booking
   router.post('/', async (req, res) => {
     try {
+      await ensureHallExtrasColumns();
       const p = req.body || {};
       const record = {
         temple_id: req.user.templeId,
@@ -196,6 +231,17 @@ module.exports = function (deps = {}) {
         balance_amount: p.balanceAmount || null,
         remarks: p.remarks || null,
         transfer_to_account: p.transfer_to_account || p.transferTo || null,
+        // Optional extras
+        cleaning: p.cleaning || null,
+        chair: p.chair || null,
+        eb: p.eb || null,
+        gas: p.gas || null,
+        ac: p.ac || null,
+        // Check-in/out
+        check_in_date: p.checkInDate || null,
+        check_in_time: p.checkInTime || null,
+        check_out_date: p.checkOutDate || null,
+        check_out_time: p.checkOutTime || null,
         created_at: db.fn.now(),
         updated_at: db.fn.now(),
       };
@@ -282,6 +328,7 @@ module.exports = function (deps = {}) {
       }
 
       const p = req.body || {};
+      await ensureHallExtrasColumns();
 
       const updateData = {
         register_no: p.registerNo || null,
@@ -300,6 +347,17 @@ module.exports = function (deps = {}) {
         balance_amount: p.balanceAmount || null,
         remarks: p.remarks || null,
         transfer_to_account: p.transfer_to_account ?? p.transferTo,
+        // Optional extras
+        cleaning: p.cleaning || null,
+        chair: p.chair || null,
+        eb: p.eb || null,
+        gas: p.gas || null,
+        ac: p.ac || null,
+        // Check-in/out
+        check_in_date: p.checkInDate || null,
+        check_in_time: p.checkInTime || null,
+        check_out_date: p.checkOutDate || null,
+        check_out_time: p.checkOutTime || null,
         updated_at: db.fn.now(),
       };
 
@@ -451,6 +509,17 @@ module.exports = function (deps = {}) {
         remarks: row.remarks,
         transferTo: row.transfer_to_account,
         bookingStatus: row.status,
+        // Extras
+        cleaning: row.cleaning,
+        chair: row.chair,
+        eb: row.eb,
+        gas: row.gas,
+        ac: row.ac,
+        // Check-in/out
+        checkInDate: row.check_in_date,
+        checkInTime: row.check_in_time,
+        checkOutDate: row.check_out_date,
+        checkOutTime: row.check_out_time,
       };
       res.json({ success: true, data });
     } catch (err) {

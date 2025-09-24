@@ -66,8 +66,16 @@ interface AnnadhanamFormData {
   receiptNumber: string;
   name: string;
   mobileNumber: string;
-  food: string;
-  peoples: string;
+  // What kind of donation is being made
+  donationType: 'food' | 'product' | 'money';
+  // Food specific
+  food?: string;
+  peoples?: string;
+  // Product specific
+  productName?: string;
+  quantity?: string;
+  // Money specific
+  amount?: string;
   time: string;
   fromDate: string;
   toDate: string;
@@ -85,22 +93,37 @@ export default function AnnadhanamEntryPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastCreatedId, setLastCreatedId] = useState<number | null>(null);
   const [showPrintPrompt, setShowPrintPrompt] = useState(false);
-  const [receiptNumber, setReceiptNumber] = useState('');
+  // Receipt number will be filled from backend (on edit or after create)
   
   // Translation function (inline helper)
   const tr = (en: string, ta: string) => language === 'english' ? ta : en;
   
-  // Generate a temporary receipt number for display
+  // No client-side receipt generation; backend sets it on create and we display it
   useEffect(() => {
-    if (!id) {
-      const year = new Date().getFullYear();
-      setReceiptNumber(`${year}-${Math.floor(1000 + Math.random() * 9000).toString().padStart(4, '0')}`);
-    }
-  }, [id]);
+    const fetchNextReceipt = async () => {
+      if (id) return;
+      try {
+        const resp = await fetch('https://tmsapi.xesstechlink.com/api/annadhanam/next-receipt', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (!resp.ok) return;
+        const res = await resp.json();
+        if (res && (res.receipt_number || res.data?.receipt_number)) {
+          setValue('receiptNumber', res.receipt_number || res.data?.receipt_number, { shouldValidate: true });
+        }
+      } catch (e) {
+        // ignore preview errors; field can remain blank until submit
+      }
+    };
+    fetchNextReceipt();
+  }, [id, token, setValue]);
 
   // Keep toDate in sync when it's empty (single-day convenience)
   const fromDateWatch = watch('fromDate');
   const toDateWatch = watch('toDate');
+  const donationType = watch('donationType', 'food');
   useEffect(() => {
     if (fromDateWatch && !toDateWatch) {
       setValue('toDate', fromDateWatch, { shouldValidate: true });
@@ -129,11 +152,12 @@ export default function AnnadhanamEntryPage() {
           if (result.success) {
             const data = result.data;
             const formData: AnnadhanamFormData = {
-              receiptNumber: data.receipt_number || receiptNumber,
+              receiptNumber: data.receipt_number || '',
               name: data.name,
               mobileNumber: data.mobile_number,
+              donationType: 'food',
               food: data.food,
-              peoples: data.peoples.toString(),
+              peoples: data.peoples?.toString?.() ?? '1',
               time: data.time,
               fromDate: data.from_date,
               toDate: data.to_date,
@@ -171,28 +195,45 @@ export default function AnnadhanamEntryPage() {
       if (new Date(data.fromDate) > new Date(data.toDate)) {
         toast({
           title: tr('Error', 'பிழை'),
-          description: tr('From date cannot be later than to date', 'தொடங்கும் தேதி முடிவதற்கு முன்னதாக இருக்க முடியாது'),
+          description: tr('cannot be later than to date', 'தொடங்கும் தேதி முடிவதற்கு முன்னதாக இருக்க முடியாது'),
           variant: 'destructive'
         });
         return;
       }
 
+      // Map different donation types to existing backend fields
+      let mappedFood = '';
+      let mappedPeoples = 1;
+      if (data.donationType === 'food') {
+        mappedFood = data.food || '';
+        mappedPeoples = parseInt(data.peoples || '1');
+      } else if (data.donationType === 'product') {
+        const pn = data.productName?.trim() || '';
+        const qty = data.quantity?.trim() || '';
+        mappedFood = `Product: ${pn}${qty ? ` | Qty: ${qty}` : ''}`;
+        mappedPeoples = 1;
+      } else if (data.donationType === 'money') {
+        const amt = data.amount?.toString().trim() || '';
+        mappedFood = `Money: ${amt}`;
+        mappedPeoples = 1;
+      }
+
       const payload = {
-        receiptNumber: data.receiptNumber,
+        receipt_number: data.receiptNumber,
         name: data.name,
-        mobileNumber: data.mobileNumber,
-        food: data.food,
-        peoples: parseInt(data.peoples),
+        mobile_number: data.mobileNumber,
+        food: mappedFood,
+        peoples: mappedPeoples,
         time: data.time,
-        fromDate: data.fromDate,
-        toDate: data.toDate,
+        from_date: data.fromDate,
+        to_date: data.toDate,
         remarks: data.remarks || ''
       };
 
-      const url = id ? `/api/annadhanam/${id}` : '/api/annadhanam';
+      const url = id ? `https://tmsapi.xesstechlink.com/api/annadhanam/${id}` : 'https://tmsapi.xesstechlink.com/api/annadhanam';
       const method = id ? 'PUT' : 'POST';
 
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${id}`, {
+      const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -213,6 +254,10 @@ export default function AnnadhanamEntryPage() {
           title: id ? tr('Annadhanam updated successfully', 'அன்னதானம் வெற்றிகரமாக புதுப்பிக்கப்பட்டது') : tr('Annadhanam created successfully', 'அன்னதானம் வெற்றிகரமாக உருவாக்கப்பட்டது'),
           description: tr('Data saved successfully', 'தரவு வெற்றிகரமாக சேமிக்கப்பட்டது')
         });
+        // Ensure the form shows the backend-generated receipt number after create
+        if (!id && result?.data?.receipt_number) {
+          setValue('receiptNumber', result.data.receipt_number, { shouldValidate: true });
+        }
         const newId = id ? Number(id) : (result?.data?.id ?? null);
         if (typeof newId === 'number') {
           setLastCreatedId(newId);
@@ -222,11 +267,7 @@ export default function AnnadhanamEntryPage() {
         throw new Error(result.error || 'Failed to save annadhanam data');
       }
 
-      if (!id) {
-        // Reset form for new entry
-        reset();
-        setValue('receiptNumber', generateReceiptNo());
-      } else {
+      if (id) {
         navigate('/dashboard/annadhanam');
       }
     } catch (error) {
@@ -246,7 +287,6 @@ export default function AnnadhanamEntryPage() {
       navigate('/dashboard/annadhanam');
     } else {
       reset();
-      setValue('receiptNumber', generateReceiptNo());
     }
   };
 
@@ -260,6 +300,19 @@ export default function AnnadhanamEntryPage() {
         </CardHeader>
         <CardContent className="p-2">
           <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <Label className="block text-xs mb-1" htmlFor="receiptNumber">
+                {tr('Receipt Number', 'ரசீது எண்')}
+              </Label>
+              <Input
+                id="receiptNumber"
+                className="text-xs p-1 h-8"
+                readOnly
+                {...register('receiptNumber')}
+                placeholder={tr('Auto-generated by system', 'கணினியால் தானாக உருவாக்கப்பட்டது')}
+              />
+            </div>
+
             <div>
               <Label className="block text-xs mb-1" htmlFor="name">{tr('Name', 'பெயர்')} *</Label>
               <Input
@@ -303,7 +356,7 @@ export default function AnnadhanamEntryPage() {
             <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <Label className="block text-xs mb-1" htmlFor="fromDate">
-                  {tr('From Date', 'தொடக்க தேதி')} *
+                  {tr('Date', 'தேதி')} *
                 </Label>
                 <Input
                   id="fromDate"
@@ -314,45 +367,95 @@ export default function AnnadhanamEntryPage() {
               </div>
 
               <div>
-                <Label className="block text-xs mb-1" htmlFor="toDate">
-                  {tr('To Date', 'இறுதி தேதி')} *
+                <Label className="block text-xs mb-1" htmlFor="donationType">
+                  {tr('Donation Type', 'தானத்தின் வகை')} *
                 </Label>
-                <Input
-                  id="toDate"
-                  type="date"
-                  className="text-xs p-1 h-8"
-                  {...register('toDate', { required: true })}
-                />
+                <select
+                  id="donationType"
+                  className="text-xs p-1 h-8 w-full border rounded"
+                  {...register('donationType', { required: true })}
+                  defaultValue="food"
+                >
+                  <option value="food">{tr('Food', 'உணவு')}</option>
+                  <option value="product">{tr('Product', 'பொருள்')}</option>
+                  <option value="money">{tr('Money', 'பணம்')}</option>
+                </select>
               </div>
 
-              <div>
-                <Label className="block text-xs mb-1" htmlFor="food">
-                  {tr('Food Items', 'உணவு பொருட்கள்')} *
-                </Label>
-                <Textarea
-                  id="food"
-                  className="text-xs p-1 min-h-[60px]"
-                  {...register('food', { required: true })}
-                  placeholder={tr('Enter food items (e.g., Rice, Sambar, Curry)', 'உணவு பொருட்களை உள்ளிடவும் (எ.கா., அரிசி, சாம்பார், கறி)')}
-                />
-              </div>
+              {watch('donationType') === 'food' && (
+                <>
+                  <div>
+                    <Label className="block text-xs mb-1" htmlFor="food">
+                      {tr('Food Items', 'உணவு பொருட்கள்')} *
+                    </Label>
+                    <Textarea
+                      id="food"
+                      className="text-xs p-1 min-h-[60px]"
+                      {...register('food', { required: watch('donationType') === 'food' })}
+                      placeholder={tr('Enter food items (e.g., Rice, Sambar, Curry)', 'உணவு பொருட்களை உள்ளிடவும் (எ.கா., அரிசி, சாம்பார், கறி)')}
+                    />
+                  </div>
+                  <div>
+                    <Label className="block text-xs mb-1" htmlFor="peoples">
+                      {tr('Number of People', 'மக்கள் எண்ணிக்கை')}
+                    </Label>
+                    <Input
+                      id="peoples"
+                      type="number"
+                      className="text-xs p-1 h-8"
+                      {...register('peoples', {
+                        validate: (v) => !v || parseInt(v, 10) >= 1 || 'Number of people must be at least 1'
+                      })}
+                      placeholder={tr('Enter number of people (optional)', 'மக்கள் எண்ணிக்கையை உள்ளிடவும் (விருப்பம்)')}
+                    />
+                  </div>
+                </>
+              )}
 
-              <div>
-                <Label className="block text-xs mb-1" htmlFor="peoples">
-                  {tr('Number of People', 'மக்கள் எண்ணிக்கை')} *
-                </Label>
-                <Input
-                  id="peoples"
-                  type="number"
-                  min="1"
-                  className="text-xs p-1 h-8"
-                  {...register('peoples', { 
-                    required: true,
-                    min: { value: 1, message: 'Number of people must be at least 1' }
-                  })}
-                  placeholder={tr('Enter number of people', 'மக்கள் எண்ணிக்கையை உள்ளிடவும்')}
-                />
-              </div>
+              {watch('donationType') === 'product' && (
+                <>
+                  <div>
+                    <Label className="block text-xs mb-1" htmlFor="productName">
+                      {tr('Product Name', 'பொருளின் பெயர்')} *
+                    </Label>
+                    <Input
+                      id="productName"
+                      className="text-xs p-1 h-8"
+                      {...register('productName', { required: watch('donationType') === 'product' })}
+                      placeholder={tr('Enter product name', 'பொருளின் பெயரை உள்ளிடவும்')}
+                    />
+                  </div>
+                  <div>
+                    <Label className="block text-xs mb-1" htmlFor="quantity">
+                      {tr('Quantity', 'அளவு')} *
+                    </Label>
+                    <Input
+                      id="quantity"
+                      type="number"
+                      className="text-xs p-1 h-8"
+                      {...register('quantity', { required: watch('donationType') === 'product', min: { value: 1, message: 'Quantity must be at least 1' } })}
+                      placeholder={tr('Enter quantity', 'அளவை உள்ளிடவும்')}
+                    />
+                  </div>
+                </>
+              )}
+
+              {watch('donationType') === 'money' && (
+                <>
+                  <div>
+                    <Label className="block text-xs mb-1" htmlFor="amount">
+                      {tr('Amount', 'தொகை')} *
+                    </Label>
+                    <Input
+                      id="amount"
+                      type="number"
+                      className="text-xs p-1 h-8"
+                      {...register('amount', { required: watch('donationType') === 'money', min: { value: 1, message: 'Amount must be at least 1' } })}
+                      placeholder={tr('Enter amount', 'தொகையை உள்ளிடவும்')}
+                    />
+                  </div>
+                </>
+              )}
 
               <div>
                 <Label className="block text-xs mb-1" htmlFor="remarks">
@@ -410,7 +513,7 @@ export default function AnnadhanamEntryPage() {
                 const url = `https://tmsapi.xesstechlink.com/api/annadhanam/${lastCreatedId}/receipt.pdf${q}`;
                 window.open(url, '_blank');
                 setShowPrintPrompt(false);
-              }}
+              }} 
             >
               {tr('Yes, Print', 'ஆம், அச்சிடு')}
             </button>

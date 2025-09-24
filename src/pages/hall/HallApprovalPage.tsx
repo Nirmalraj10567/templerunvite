@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
-import { listHallRequests, approveHallRequest, rejectHallRequest } from '@/services/hallApprovalService';
+import { listHallRequests, approveHallRequest, rejectHallRequest, updateHallRequest } from '@/services/hallApprovalService';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -44,6 +44,11 @@ export default function HallApprovalPage() {
   const [approveNotes, setApproveNotes] = useState('');
   const [rejectReason, setRejectReason] = useState('');
   const [rejectNotes, setRejectNotes] = useState('');
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState<{ 
+    date?: string; time?: string; event?: string; name?: string; address?: string; village?: string; mobile?: string; 
+    totalAmount?: string; advanceAmount?: string; balanceAmount?: string; remarks?: string; 
+  }>({});
 
   const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
@@ -70,6 +75,27 @@ export default function HallApprovalPage() {
     setSelectedId(id);
     setApproveNotes('');
     setApproveOpen(true);
+  };
+
+  const onEdit = (id: number) => {
+    setSelectedId(id);
+    const row = items.find(r => r.id === id);
+    if (row) {
+      setEditForm({
+        date: row.date || '',
+        time: row.time || '',
+        event: row.event || '',
+        name: row.name || '',
+        address: row.address || '',
+        village: row.village || '',
+        mobile: row.mobile || '',
+        totalAmount: (row.total_amount ?? '') as string,
+        advanceAmount: (row.advance_amount ?? '') as string,
+        balanceAmount: (row.balance_amount ?? '') as string,
+        remarks: row.remarks || ''
+      });
+      setEditOpen(true);
+    }
   };
 
   const confirmApprove = async () => {
@@ -104,6 +130,38 @@ export default function HallApprovalPage() {
       toast({ title: t('Rejected', 'நிராகரிக்கப்பட்டது'), description: t('Hall request rejected.', 'மண்டப கோரிக்கை நிராகரிக்கப்பட்டது.') });
     } catch (e: any) {
       toast({ variant: 'destructive', title: t('Reject failed', 'நிராகரி தோல்வியடைந்தது'), description: e?.message || 'Reject failed' });
+    }
+  };
+
+  // Edit handlers
+  const onChangeEdit = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target as any;
+    setEditForm(prev => {
+      const next = { ...prev, [name]: value } as any;
+      if (name === 'totalAmount' || name === 'advanceAmount') {
+        const total = parseFloat(next.totalAmount || '0') || 0;
+        const adv = parseFloat(next.advanceAmount || '0') || 0;
+        const bal = Math.max(0, total - adv);
+        next.balanceAmount = bal.toString();
+      }
+      return next;
+    });
+  };
+
+  const confirmEdit = async () => {
+    if (!token || selectedId == null) return;
+    // Basic req fields
+    if (!editForm.date || !editForm.name || !editForm.mobile) {
+      toast({ variant: 'destructive', title: t('Missing fields', 'புலங்கள் இல்லை'), description: t('Please fill date, name and mobile.', 'தேதி, பெயர் மற்றும் மொபைல் நிரப்பவும்.') });
+      return;
+    }
+    try {
+      await updateHallRequest(selectedId, editForm as any, token);
+      setEditOpen(false);
+      await load();
+      toast({ title: t('Updated', 'புதுப்பிக்கப்பட்டது'), description: t('Request updated successfully.', 'கோரிக்கை வெற்றிகரமாக புதுப்பிக்கப்பட்டது.') });
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: t('Update failed', 'புதுப்பிப்பு தோல்வியடைந்தது'), description: e?.message || 'Update failed' });
     }
   };
 
@@ -154,18 +212,23 @@ export default function HallApprovalPage() {
                   <td className="p-2 border">{it.event || '-'}</td>
                   <td className="p-2 border capitalize">{it.status}</td>
                   <td className="p-2 border">
-                    {it.status === 'pending' ? (
-                      <div className="flex gap-2">
-                        <Button className="bg-green-600 text-white px-3 py-1" onClick={() => onApprove(it.id)}>
-                          {t('Approve', 'அனுமதி')}
-                        </Button>
-                        <Button className="bg-red-600 text-white px-3 py-1" onClick={() => onReject(it.id)}>
-                          {t('Reject', 'நிராகரி')}
-                        </Button>
-                      </div>
-                    ) : (
-                      <span className="text-gray-500">{t('No actions', 'செயல் இல்லை')}</span>
-                    )}
+                    <div className="flex flex-wrap gap-2">
+                      <Button className="px-3 py-1" variant="outline" onClick={() => onEdit(it.id)}>
+                        {t('Edit', 'திருத்து')}
+                      </Button>
+                      {it.status === 'pending' ? (
+                        <>
+                          <Button className="bg-green-600 text-white px-3 py-1" onClick={() => onApprove(it.id)}>
+                            {t('Approve', 'அனுமதி')}
+                          </Button>
+                          <Button className="bg-red-600 text-white px-3 py-1" onClick={() => onReject(it.id)}>
+                            {t('Reject', 'நிராகரி')}
+                          </Button>
+                        </>
+                      ) : (
+                        <span className="text-gray-500">{t('No actions', 'செயல் இல்லை')}</span>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -212,6 +275,65 @@ export default function HallApprovalPage() {
           <DialogFooter>
             <Button variant="secondary" onClick={() => setRejectOpen(false)}>{t('Cancel', 'ரத்து')}</Button>
             <Button variant="destructive" onClick={confirmReject}>{t('Reject', 'நிராகரி')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t('Edit Hall Request', 'மண்டப கோரிக்கை திருத்து')}</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <label className="col-span-1">
+              <div className="text-xs mb-1">{t('Date','தேதி')}</div>
+              <Input type="date" name="date" value={editForm.date || ''} onChange={onChangeEdit} />
+            </label>
+            <label className="col-span-1">
+              <div className="text-xs mb-1">{t('Time','நேரம்')}</div>
+              <Input type="time" name="time" value={editForm.time || ''} onChange={onChangeEdit} />
+            </label>
+            <label className="col-span-1">
+              <div className="text-xs mb-1">{t('Name','பெயர்')}</div>
+              <Input name="name" value={editForm.name || ''} onChange={onChangeEdit} />
+            </label>
+            <label className="col-span-1">
+              <div className="text-xs mb-1">{t('Mobile','தொலைபேசி')}</div>
+              <Input name="mobile" value={editForm.mobile || ''} onChange={onChangeEdit} maxLength={10} />
+            </label>
+            <label className="col-span-2">
+              <div className="text-xs mb-1">{t('Event','நிகழ்வு')}</div>
+              <Input name="event" value={editForm.event || ''} onChange={onChangeEdit} />
+            </label>
+            <label className="col-span-2">
+              <div className="text-xs mb-1">{t('Address','முகவரி')}</div>
+              <Textarea name="address" value={editForm.address || ''} onChange={onChangeEdit} rows={2} />
+            </label>
+            <label className="col-span-2">
+              <div className="text-xs mb-1">{t('Village','கிராமம்')}</div>
+              <Input name="village" value={editForm.village || ''} onChange={onChangeEdit} />
+            </label>
+            <label className="col-span-1">
+              <div className="text-xs mb-1">{t('Total Amount (₹)','மொத்தம் (₹)')}</div>
+              <Input type="number" step="0.01" min="0" name="totalAmount" value={editForm.totalAmount || ''} onChange={onChangeEdit} />
+            </label>
+            <label className="col-span-1">
+              <div className="text-xs mb-1">{t('Advance (₹)','முன்பணம் (₹)')}</div>
+              <Input type="number" step="0.01" min="0" name="advanceAmount" value={editForm.advanceAmount || ''} onChange={onChangeEdit} />
+            </label>
+            <label className="col-span-1">
+              <div className="text-xs mb-1">{t('Balance (₹)','இருப்பு (₹)')}</div>
+              <Input readOnly name="balanceAmount" value={editForm.balanceAmount || ''} />
+            </label>
+            <label className="col-span-2">
+              <div className="text-xs mb-1">{t('Remarks','குறிப்புகள்')}</div>
+              <Textarea name="remarks" value={editForm.remarks || ''} onChange={onChangeEdit} rows={2} />
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setEditOpen(false)}>{t('Cancel','ரத்து')}</Button>
+            <Button onClick={confirmEdit}>{t('Save Changes','மாற்றங்களை சேமிக்க')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

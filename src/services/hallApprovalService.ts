@@ -40,3 +40,34 @@ export async function rejectHallRequest(id: number, reason: string | undefined, 
   if (!res.ok) throw new Error(`Failed to reject: ${res.status}`);
   return res.json();
 }
+
+// Update editable fields of a hall request
+export async function updateHallRequest(
+  id: number,
+  payload: {
+    date?: string;
+    time?: string;
+    event?: string;
+    name?: string;
+    address?: string;
+    village?: string;
+    mobile?: string;
+    advanceAmount?: string;
+    totalAmount?: string;
+    balanceAmount?: string;
+    remarks?: string;
+  },
+  token: string
+) {
+  const res = await fetch(`https://tmsapi.xesstechlink.com/api/hall-bookings/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    let msg = `Failed to update: ${res.status}`;
+    try { const j = await res.json(); if (j?.error) msg = j.error; } catch {}
+    throw new Error(msg);
+  }
+  return res.json();
+}
