@@ -1,24 +1,45 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const router = express.Router();
 
 module.exports = function(deps = {}) {
   const { db } = deps;
+  const JWT_SECRET = process.env.JWT_SECRET || 'dev-insecure-secret-change-me';
 
   // Require mobile token like 'Bearer mobile_<userId>_<timestamp>'
   const verifyMobileToken = (req, res, next) => {
     try {
       const authHeader = req.headers['authorization'] || '';
       const token = authHeader.split(' ')[1] || '';
-      if (!token.startsWith('mobile_')) {
-        return res.status(401).json({ success: false, error: 'Invalid or missing mobile token' });
+      if (!token) {
+        return res.status(401).json({ success: false, error: 'Missing Authorization token' });
       }
-      const parts = token.split('_');
-      const userId = parseInt(parts[1], 10);
-      if (!Number.isFinite(userId)) {
-        return res.status(401).json({ success: false, error: 'Invalid mobile token format' });
+
+      // Support legacy/custom mobile_ token
+      if (token.startsWith('mobile_')) {
+        const parts = token.split('_');
+        const userId = parseInt(parts[1], 10);
+        if (!Number.isFinite(userId)) {
+          return res.status(401).json({ success: false, error: 'Invalid mobile token format' });
+        }
+        req.userId = userId;
+        return next();
       }
-      req.userId = userId;
-      next();
+
+      // Otherwise treat as JWT
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        if (!decoded || !Number.isFinite(Number(decoded.id))) {
+          return res.status(401).json({ success: false, error: 'Invalid JWT token' });
+        }
+        req.userId = Number(decoded.id);
+        if (decoded.templeId && Number.isFinite(Number(decoded.templeId))) {
+          req.templeId = Number(decoded.templeId);
+        }
+        return next();
+      } catch (err) {
+        return res.status(401).json({ success: false, error: 'Invalid or expired token' });
+      }
     } catch (e) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
@@ -319,6 +340,69 @@ module.exports = function(deps = {}) {
         success: false, 
         error: 'Internal server error' 
       });
+    }
+  });
+
+  // Get the latest receipt for a temple (by templeId from query or token)
+  router.get('/latest-receipt-by-temple', verifyMobileToken, async (req, res) => {
+    try {
+      const qTempleId = Number(req.query.templeId);
+      const templeId = Number.isFinite(qTempleId) ? qTempleId : (Number(req.templeId) || 1);
+
+      const latest = await db('pooja')
+        .where('temple_id', templeId)
+        .select('id', 'receipt_number', 'submitted_at', 'status')
+        .orderBy([{ column: 'submitted_at', order: 'desc' }, { column: 'id', order: 'desc' }])
+        .first();
+
+      if (!latest) {
+        return res.json({
+          success: true,
+          message: `No receipts found for temple ${templeId}`,
+          data: null,
+          temple_id: templeId
+        });
+      }
+
+      res.json({ success: true, data: latest, temple_id: templeId });
+    } catch (err) {
+      console.error('GET /api/pooja-mobile/latest-receipt-by-temple error:', err);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  });
+
+  // Get latest and suggested next receipt number for a temple
+  router.get('/next-receipt-by-temple', verifyMobileToken, async (req, res) => {
+    try {
+      const qTempleId = Number(req.query.templeId);
+      const templeId = Number.isFinite(qTempleId) ? qTempleId : (Number(req.templeId) || 1);
+
+      // Find the latest receipt by submitted_at then id
+      const latest = await db('pooja')
+        .where('temple_id', templeId)
+        .whereNotNull('receipt_number')
+        .andWhere('receipt_number', '!=', '')
+        .select('id', 'receipt_number', 'submitted_at')
+        .orderBy([{ column: 'submitted_at', order: 'desc' }, { column: 'id', order: 'desc' }])
+        .first();
+
+      const latestNumber = latest ? String(latest.receipt_number) : null;
+
+      // Suggest a next number only if the latest is a pure integer
+      let nextNumber = null;
+      if (latestNumber && /^\d+$/.test(latestNumber)) {
+        nextNumber = String(Number(latestNumber) + 1);
+      }
+
+      return res.json({
+        success: true,
+        temple_id: templeId,
+        latest_receipt_number: latestNumber,
+        next_receipt_number: nextNumber
+      });
+    } catch (err) {
+      console.error('GET /api/pooja-mobile/next-receipt-by-temple error:', err);
+      res.status(500).json({ success: false, error: 'Internal server error' });
     }
   });
 
