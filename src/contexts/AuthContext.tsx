@@ -113,7 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, isLoading: true, error: '' }));
     
     try {
-      const response = await fetch('http://localhost:4000/api/login', {
+      const response = await fetch('https://tmsapi.xesstechlink.com/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mobile: identifier, username: identifier, password }),
@@ -159,7 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, isLoading: true, error: '' }));
     
     try {
-      const response = await fetch('http://localhost:4000/api/register', {
+      const response = await fetch('https://tmsapi.xesstechlink.com/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

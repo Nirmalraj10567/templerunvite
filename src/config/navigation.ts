@@ -144,18 +144,18 @@ export const sidebarItems: NavItem[] = [
     icon: HeartIcon,
     children: [
       { 
-        to: 'annadhanam/list', 
-        label: navigationTranslations.english.annadhanamList, 
-        tamilLabel: navigationTranslations.tamil.annadhanamList, 
-        permissionId: 'annadhanam_registrations',
-        accessLevel: 'view'
-      },
-      { 
         to: 'annadhanam/entry', 
         label: navigationTranslations.english.annadhanamEntry, 
         tamilLabel: navigationTranslations.tamil.annadhanamEntry, 
         permissionId: 'annadhanam_registrations',
         accessLevel: 'edit'
+      },
+      { 
+        to: 'annadhanam/list', 
+        label: navigationTranslations.english.annadhanamList, 
+        tamilLabel: navigationTranslations.tamil.annadhanamList, 
+        permissionId: 'annadhanam_registrations',
+        accessLevel: 'view'
       },
       { 
         to: 'annadhanam/approval', 
@@ -206,18 +206,18 @@ export const sidebarItems: NavItem[] = [
     icon: CalendarIcon,
     children: [
       { 
-        to: 'events', 
-        label: navigationTranslations.english.eventList, 
-        tamilLabel: navigationTranslations.tamil.eventList, 
-        permissionId: 'view_events',
-        accessLevel: 'view'
-      },
-      { 
         to: 'events/new', 
         label: navigationTranslations.english.newEvent, 
         tamilLabel: navigationTranslations.tamil.newEvent, 
         permissionId: 'edit_events',
         accessLevel: 'edit'
+      },
+      { 
+        to: 'events', 
+        label: navigationTranslations.english.eventList, 
+        tamilLabel: navigationTranslations.tamil.eventList, 
+        permissionId: 'view_events',
+        accessLevel: 'view'
       },
       { 
         to: 'calendar/new-moon-days', 
@@ -233,18 +233,18 @@ export const sidebarItems: NavItem[] = [
     icon: CalendarIcon,
     children: [
       { 
-        to: 'hall/list', 
-        label: navigationTranslations.english.hallBookings, 
-        tamilLabel: navigationTranslations.tamil.hallBookings, 
-        permissionId: 'hall_booking', 
-        accessLevel: 'view' 
-      },
-      { 
         to: 'hall/entry', 
         label: navigationTranslations.english.newBooking, 
         tamilLabel: navigationTranslations.tamil.newBooking, 
         permissionId: 'hall_booking', 
         accessLevel: 'edit' 
+      },
+      { 
+        to: 'hall/list', 
+        label: navigationTranslations.english.hallBookings, 
+        tamilLabel: navigationTranslations.tamil.hallBookings, 
+        permissionId: 'hall_booking', 
+        accessLevel: 'view' 
       },
       { 
         to: 'hall/approvals', 
@@ -317,18 +317,18 @@ export const sidebarItems: NavItem[] = [
     icon: CalendarIcon,
     children: [
       { 
-        to: 'pooja/list', 
-        label: navigationTranslations.english.poojaList, 
-        tamilLabel: navigationTranslations.tamil.poojaList, 
-        permissionId: 'pooja_registrations',
-        accessLevel: 'view'
-      },
-      { 
         to: 'pooja/entry', 
         label: navigationTranslations.english.poojaEntry, 
         tamilLabel: navigationTranslations.tamil.poojaEntry, 
         permissionId: 'pooja_registrations',
         accessLevel: 'edit'
+      },
+      { 
+        to: 'pooja/list', 
+        label: navigationTranslations.english.poojaList, 
+        tamilLabel: navigationTranslations.tamil.poojaList, 
+        permissionId: 'pooja_registrations',
+        accessLevel: 'view'
       },
       { 
         to: 'pooja/approval', 
@@ -345,19 +345,20 @@ export const sidebarItems: NavItem[] = [
     icon: HomeIcon,
     children: [
       { 
-        to: 'properties', 
-        label: navigationTranslations.english.propertiesList, 
-        tamilLabel: navigationTranslations.tamil.propertiesList, 
-        permissionId: 'property_registrations',
-        accessLevel: 'view'
-      },
-      { 
         to: 'properties/new', 
         label: navigationTranslations.english.newProperty, 
         tamilLabel: navigationTranslations.tamil.newProperty, 
         permissionId: 'property_registrations',
         accessLevel: 'edit'
       },
+      { 
+        to: 'properties', 
+        label: navigationTranslations.english.propertiesList, 
+        tamilLabel: navigationTranslations.tamil.propertiesList, 
+        permissionId: 'property_registrations',
+        accessLevel: 'view'
+      },
+    
     ]
   },
   {
@@ -366,19 +367,20 @@ export const sidebarItems: NavItem[] = [
     icon: LandmarkIcon,
     children: [
       { 
-        to: 'receipt/list', 
-        label: navigationTranslations.english.receiptList, 
-        tamilLabel: navigationTranslations.tamil.receiptList, 
-        permissionId: 'receipts', 
-        accessLevel: 'view' 
-      },
-      { 
         to: 'receipt/entry', 
         label: navigationTranslations.english.receiptEntry, 
         tamilLabel: navigationTranslations.tamil.receiptEntry, 
         permissionId: 'receipts', 
         accessLevel: 'edit' 
       },
+      { 
+        to: 'receipt/list', 
+        label: navigationTranslations.english.receiptList, 
+        tamilLabel: navigationTranslations.tamil.receiptList, 
+        permissionId: 'receipts', 
+        accessLevel: 'view' 
+      },
+     
     ]
   },
   {

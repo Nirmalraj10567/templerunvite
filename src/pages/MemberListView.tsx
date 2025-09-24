@@ -236,7 +236,7 @@ export default function MemberListView({
       // preload existing permissions
       setPermLoading(true);
       const targetId = (member as any).userId ?? member.id;
-      const res = await fetch(`http://localhost:4000/api/admin/members/${targetId}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/admin/members/${targetId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -278,7 +278,7 @@ export default function MemberListView({
     setPermError(null);
     try {
       const body = { customPermissions: permItems.filter(r => r.id && r.access) };
-      const res = await fetch(`http://localhost:4000/api/admin/members/${permMember.userId ?? permMember.id}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/admin/members/${permMember.userId ?? permMember.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

@@ -114,7 +114,7 @@ export default function AnnadhanamEntryPage() {
       const fetchAnnadhanam = async () => {
         try {
           setIsLoading(true);
-          const response = await fetch(`http://localhost:4000/api/annadhanam/${id}`, {
+          const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${id}`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -192,7 +192,7 @@ export default function AnnadhanamEntryPage() {
       const url = id ? `/api/annadhanam/${id}` : '/api/annadhanam';
       const method = id ? 'PUT' : 'POST';
 
-      const response = await fetch(`http://localhost:4000/api/annadhanam/${id}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${id}`, {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -407,7 +407,7 @@ export default function AnnadhanamEntryPage() {
               className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 text-xs"
               onClick={() => {
                 const q = token ? `?token=${encodeURIComponent(token)}` : '';
-                const url = `http://localhost:4000/api/annadhanam/${lastCreatedId}/receipt.pdf${q}`;
+                const url = `https://tmsapi.xesstechlink.com/api/annadhanam/${lastCreatedId}/receipt.pdf${q}`;
                 window.open(url, '_blank');
                 setShowPrintPrompt(false);
               }}

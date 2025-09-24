@@ -32,7 +32,7 @@ export default function MonthlyReportPage() {
     setError(null);
     try {
       const params = new URLSearchParams({ year: String(y), month: String(m) });
-      const res = await fetch(`http://localhost:4000/api/reports/monthly?${params.toString()}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/reports/monthly?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('Failed to load report');
