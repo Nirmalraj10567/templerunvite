@@ -58,6 +58,31 @@ export default function MoneyDonationEntry() {
     details: any;
   }>>([]);
 
+  // Auto-hide success messages after 4 seconds (do not hide error messages)
+  const messageTimeoutRef = React.useRef<number | null>(null);
+  useEffect(() => {
+    if (!message) return;
+    if (!isError) {
+      if (messageTimeoutRef.current) window.clearTimeout(messageTimeoutRef.current);
+      messageTimeoutRef.current = window.setTimeout(() => setMessage(undefined), 4000);
+      return () => {
+        if (messageTimeoutRef.current) {
+          window.clearTimeout(messageTimeoutRef.current);
+          messageTimeoutRef.current = null;
+        }
+      };
+    }
+  }, [message, isError]);
+
+  useEffect(() => {
+    return () => {
+      if (messageTimeoutRef.current) {
+        window.clearTimeout(messageTimeoutRef.current);
+        messageTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   const t = (en: string, ta: string) => language === 'english' ? ta : en;
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -251,6 +276,32 @@ export default function MoneyDonationEntry() {
         // Trigger logs fetch for this updated record (same behavior as create)
         console.log('DEBUG: Update successful, setting lastCreatedId to fetch logs for id:', editId);
         setLastCreatedId(editId);
+
+        // Fetch donation logs and approval logs immediately so UI has updated logs
+        try {
+          const dResp = await moneyDonationService.getLogs(token, editId);
+          setDonationLogs(Array.isArray(dResp.data) ? dResp.data : []);
+        } catch (e) {
+          console.error('Failed to load donation logs after update:', e);
+        }
+        try {
+          if (token) {
+            const res = await fetch(`https://tmsapi.xesstechlink.com/api/donations-approval/request/${editId}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+              const data = await res.json();
+              setApprovalLogs(data?.data?.logs || []);
+            }
+          }
+        } catch (e) {
+          console.error('Failed to load approval logs after update:', e);
+        }
+
+        // After fetching logs, navigate back to the list page (short delay to allow user to see message)
+        setTimeout(() => {
+          navigate('/dashboard/donations/money-list');
+        }, 300);
       } else {
         // Create new donation
         console.log('DEBUG: Creating new donation');

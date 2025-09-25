@@ -131,27 +131,29 @@ export default function AnnadhanamEntryPage() {
     return '';
   };
   
+  // Function to fetch next receipt number
+  const fetchNextReceipt = async () => {
+    if (id) return;
+    try {
+      const resp = await fetch('https://tmsapi.xesstechlink.com/api/annadhanam/next-receipt', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!resp.ok) return;
+      const res = await resp.json();
+      if (res && (res.receipt_number || res.data?.receipt_number)) {
+        setValue('receiptNumber', res.receipt_number || res.data?.receipt_number, { shouldValidate: true });
+      }
+    } catch (e) {
+      // ignore preview errors; field can remain blank until submit
+    }
+  };
+
   // No client-side receipt generation; backend sets it on create and we display it
   useEffect(() => {
-    const fetchNextReceipt = async () => {
-      if (id) return;
-      try {
-        const resp = await fetch('https://tmsapi.xesstechlink.com/api/annadhanam/next-receipt', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        if (!resp.ok) return;
-        const res = await resp.json();
-        if (res && (res.receipt_number || res.data?.receipt_number)) {
-          setValue('receiptNumber', res.receipt_number || res.data?.receipt_number, { shouldValidate: true });
-        }
-      } catch (e) {
-        // ignore preview errors; field can remain blank until submit
-      }
-    };
     fetchNextReceipt();
-  }, [id, token, setValue]);
+  }, [id, token]);
 
   // Set today's date for fromDate and toDate on new entry
   useEffect(() => {
@@ -192,23 +194,55 @@ export default function AnnadhanamEntryPage() {
           
           if (result.success) {
             const data = result.data;
-            const formData: AnnadhanamFormData = {
+            // Determine donation type from stored `food` field
+            let donationType: AnnadhanamFormData['donationType'] = 'food';
+            let food = '';
+            let peoples = data.peoples?.toString?.() ?? '1';
+            let productName = '';
+            let quantity = '';
+            let amount = '';
+
+            const storedFood = (data.food || '').toString();
+            if (storedFood.startsWith('Product:')) {
+              donationType = 'product';
+              // Expected format: "Product: NAME | Qty: X" or "Product: NAME | X"
+              const rest = storedFood.replace(/^Product:\s*/i, '').trim();
+              const parts = rest.split('|').map((p: string) => p.trim());
+              productName = parts[0] || '';
+              const qtyPart = parts.slice(1).find((p: string) => /qty/i.test(p) || /^\d+$/.test(p));
+              if (qtyPart) {
+                quantity = qtyPart.replace(/qty\s*[:]?/i, '').trim();
+              }
+            } else if (storedFood.startsWith('Money:')) {
+              donationType = 'money';
+              amount = storedFood.replace(/^Money:\s*/i, '').trim();
+            } else {
+              donationType = 'food';
+              food = storedFood;
+            }
+
+            const formData: any = {
               receiptNumber: data.receipt_number || '',
               name: data.name,
               mobileNumber: data.mobile_number,
-              donationType: 'food',
-              food: data.food,
-              peoples: data.peoples?.toString?.() ?? '1',
+              donationType,
+              // include all possible fields so reset populates properly
+              food,
+              peoples,
+              productName,
+              quantity,
+              amount,
               time: normalizeTimeString(data.time),
               fromDate: normalizeDateString(data.from_date),
               toDate: normalizeDateString(data.to_date),
               remarks: data.remarks || ''
             };
-            reset(formData);
-          } else {
-            throw new Error(result.error || 'Failed to load data');
-          }
-        } catch (error) {
+            // Reset the form with populated fields
+            reset(formData as AnnadhanamFormData);
+           } else {
+             throw new Error(result.error || 'Failed to load data');
+           }
+         } catch (error) {
           console.error('Error fetching annadhanam data:', error);
           toast({
             title: tr('Error', 'பிழை'),
@@ -288,14 +322,32 @@ export default function AnnadhanamEntryPage() {
           title: id ? tr('Annadhanam updated successfully', 'அன்னதானம் வெற்றிகரமாக புதுப்பிக்கப்பட்டது') : tr('Annadhanam created successfully', 'அன்னதானம் வெற்றிகரமாக உருவாக்கப்பட்டது'),
           description: tr('Data saved successfully', 'தரவு வெற்றிகரமாக சேமிக்கப்பட்டது')
         });
-        // Ensure the form shows the backend-generated receipt number after create
-        if (!id && result?.data?.receipt_number) {
-          setValue('receiptNumber', result.data.receipt_number, { shouldValidate: true });
-        }
+
         const newId = id ? Number(id) : (result?.data?.id ?? null);
         if (typeof newId === 'number') {
           setLastCreatedId(newId);
           setShowPrintPrompt(true);
+          
+          if (!id) {
+            // Clear form for new entries after successful submission
+            reset({
+              receiptNumber: '',
+              name: '',
+              mobileNumber: '',
+              donationType: 'food',
+              food: '',
+              peoples: '',
+              productName: '',
+              quantity: '',
+              amount: '',
+              time: '',
+              fromDate: new Date().toISOString().slice(0, 10),
+              toDate: new Date().toISOString().slice(0, 10),
+              remarks: ''
+            });
+            // Fetch next receipt number
+            fetchNextReceipt();
+          }
         }
       } else {
         throw new Error(result.error || 'Failed to save annadhanam data');
@@ -363,11 +415,22 @@ export default function AnnadhanamEntryPage() {
               <Input
                 id="mobileNumber"
                 type="tel"
+                inputMode="numeric"
+                maxLength={10}
+                onInput={(e) => {
+                  const el = e.currentTarget as HTMLInputElement;
+                  const cleaned = el.value.replace(/\D/g, '').slice(0, 10);
+                  if (el.value !== cleaned) {
+                    el.value = cleaned;
+                  }
+                  // keep react-hook-form state in sync
+                  setValue('mobileNumber', cleaned, { shouldValidate: true, shouldDirty: true });
+                }}
                 className="text-xs p-1 h-8"
                 {...register('mobileNumber', { 
                   required: true,
                   pattern: {
-                    value: /^[0-9]{10}$/,
+                    value: /^[0-9]{10}$/, 
                     message: 'Please enter a valid 10-digit mobile number'
                   }
                 })}

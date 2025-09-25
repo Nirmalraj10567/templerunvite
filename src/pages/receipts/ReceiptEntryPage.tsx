@@ -105,6 +105,8 @@ export default function ReceiptEntryPage() {
   const { register, handleSubmit, reset, setValue, watch } = useForm<ReceiptFormData>();
   const [ledgerNames, setLedgerNames] = useState<string[]>([]);
   const [fromBalance, setFromBalance] = useState<number | null>(null);
+  const [selectedDonor, setSelectedDonor] = useState<string>('');
+  const [selectedReceiver, setSelectedReceiver] = useState<string>('');
   
   // Function to get today's date in YYYY-MM-DD format
   const getTodayDate = () => {
@@ -171,6 +173,7 @@ export default function ReceiptEntryPage() {
           if (!result.success) throw new Error(result.error || 'Failed to fetch receipt');
 
           const d = result.data;
+          const normalize = (s: any) => String(s ?? '').trim();
           const formData: ReceiptFormData = {
             // Backend column is register_no
             receiptNumber: d.register_no || d.receipt_number || '',
@@ -178,12 +181,29 @@ export default function ReceiptEntryPage() {
             // Backend stores 'receipt' for income and 'payment' for expense
             type: d.type === 'payment' ? 'expense' : 'income',
             // Backend columns are from_person/to_person
-            donor: d.from_person || d.donor || '',
-            receiver: d.to_person || d.receiver || '',
+            donor: normalize(d.from_person || d.donor || ''),
+            receiver: normalize(d.to_person || d.receiver || ''),
             amount: String(d.amount ?? ''),
             remarks: d.remarks || '',
           };
           reset(formData);
+
+          // Ensure the current donor/receiver appear in dropdown options
+          const curDonor = formData.donor || '';
+          const curReceiver = formData.receiver || '';
+          setSelectedDonor(curDonor);
+          setSelectedReceiver(curReceiver);
+          if (curDonor || curReceiver) {
+            setLedgerNames((prev) => {
+              const merged = new Set(prev);
+              if (curDonor) merged.add(curDonor);
+              if (curReceiver) merged.add(curReceiver);
+              return Array.from(merged);
+            });
+          }
+          // Force-select values again in case options list updates later
+          setValue('donor', curDonor as any);
+          setValue('receiver', curReceiver as any);
         } catch (e) {
           console.error(e);
           toast({
@@ -207,12 +227,37 @@ export default function ReceiptEntryPage() {
         } catch {
           names = await ledgerService.getNames();
         }
-        setLedgerNames(names);
+        // Normalize and merge fetched names with currently selected donor/receiver (if any)
+        const normalize = (s: any) => String(s ?? '').trim();
+        const merged = Array.from(new Set([
+          ...names.map((n) => normalize(n)),
+          ...(selectedDonor ? [normalize(selectedDonor)] : []),
+          ...(selectedReceiver ? [normalize(selectedReceiver)] : []),
+        ]));
+        setLedgerNames(merged);
+        // Ensure the form select reflects normalized values
+        if (selectedDonor) setValue('donor', normalize(selectedDonor) as any);
+        if (selectedReceiver) setValue('receiver', normalize(selectedReceiver) as any);
       } catch (e) {
         console.warn('Failed to load ledger names', e);
       }
     })();
   }, [id, reset, setValue, token, language]);
+
+  // When ledgerNames update, ensure current selected values are present and selected
+  useEffect(() => {
+    const normalize = (s: any) => String(s ?? '').trim();
+    const curDonor = normalize(selectedDonor);
+    const curReceiver = normalize(selectedReceiver);
+    if (curDonor && !ledgerNames.includes(curDonor)) {
+      setLedgerNames((prev) => Array.from(new Set([...prev, curDonor])));
+    }
+    if (curReceiver && !ledgerNames.includes(curReceiver)) {
+      setLedgerNames((prev) => Array.from(new Set([...prev, curReceiver])));
+    }
+    if (curDonor) setValue('donor', curDonor as any);
+    if (curReceiver) setValue('receiver', curReceiver as any);
+  }, [ledgerNames, selectedDonor, selectedReceiver, setValue]);
 
   const onSubmit = async (data: ReceiptFormData) => {
     try {
@@ -316,7 +361,7 @@ export default function ReceiptEntryPage() {
         setValue('type', 'income');
         setValue('date', getTodayDate()); // Set today's date after reset
       } else {
-        navigate('/dashboard/receipts');
+        navigate('/dashboard/receipt/list');
       }
     } catch (e) {
       console.error(e);
@@ -332,7 +377,7 @@ export default function ReceiptEntryPage() {
 
   const handleCancel = () => {
     if (id) {
-      navigate('/dashboard/receipts');
+      navigate('/dashboard/receipt/list');
     } else {
       reset();
       void fetchNextReceiptNumber();

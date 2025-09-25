@@ -36,60 +36,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
-// Translation object
-const t = {
-  tamil: {
-    title: 'அன்னதானம் பட்டியல்',
-    searchPlaceholder: 'தேடு...',
-    newEntry: 'புதிய பதிவு',
-    receiptNumber: 'ரசீது எண்',
-    name: 'பெயர்',
-    mobile: 'மொபைல்',
-    food: 'உணவு',
-    peoples: 'நபர்கள்',
-    time: 'நேரம்',
-    fromDate: 'தொடக்கம்',
-    toDate: 'முடிவு',
-    date: 'தேதி',
-    actions: 'செயல்கள்',
-    view: 'காண்க',
-    edit: 'திருத்து',
-    delete: 'நீக்கு',
-    cancel: 'ரத்து செய்',
-    confirmDelete: 'நீக்குவதை உறுதி செய்க',
-    deleteConfirmation: 'இந்த பதிவை நிச்சயமாக நீக்க வேண்டுமா?',
-    loading: 'ஏற்றுகிறது...',
-    noData: 'தரவு இல்லை',
-    error: 'பிழை ஏற்பட்டது',
-    success: 'வெற்றி'
-  },
-  english: {
-    title: 'Annadhanam List',
-    searchPlaceholder: 'Search...',
-    newEntry: 'New Entry',
-    receiptNumber: 'Receipt No',
-    name: 'Name',
-    mobile: 'Mobile',
-    food: 'Food',
-    peoples: 'People',
-    time: 'Time',
-    fromDate: 'From',
-    toDate: 'To',
-    date: 'Date',
-    actions: 'Actions',
-    view: 'View',
-    edit: 'Edit',
-    delete: 'Delete',
-    cancel: 'Cancel',
-    confirmDelete: 'Confirm Delete',
-    deleteConfirmation: 'Are you sure you want to delete this entry?',
-    loading: 'Loading...',
-    noData: 'No data available',
-    error: 'Error',
-    success: 'Success'
-  }
-};
-
 interface Annadhanam {
   id: number;
   receipt_number: string;
@@ -145,7 +91,7 @@ export default function AnnadhanamListView() {
     try {
       setLoading(true);
 
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam?page=${pagination.pageIndex + 1}&pageSize=${pagination.pageSize}&q=${encodeURIComponent(searchTerm)}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam?page=${pagination.pageIndex + 1}&per_page=${pagination.pageSize}&search=${encodeURIComponent(searchTerm)}&sort=receipt_number&order=desc`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -158,11 +104,18 @@ export default function AnnadhanamListView() {
       const result = await response.json();
       
       if (result.success) {
-        setData(result.data);
+        // Sort entries by receipt number in descending order
+        const sorted = (result.data || []).slice().sort((a, b) => {
+          const aNum = parseInt((a.receipt_number || '').replace(/\D/g, '') || '0');
+          const bNum = parseInt((b.receipt_number || '').replace(/\D/g, '') || '0');
+          return bNum - aNum;
+        });
+        setData(sorted);
+        // Use the pagination data from the API response
         setPagination((prev) => ({
           ...prev,
-          total: result.data.length,
-          totalPages: Math.ceil(result.data.length / prev.pageSize),
+          total: result.total || sorted.length,
+          totalPages: result.total_pages || Math.max(1, Math.ceil(sorted.length / prev.pageSize)),
         }));
       } else {
         throw new Error(result.error || 'Failed to fetch data');
@@ -343,7 +296,26 @@ export default function AnnadhanamListView() {
   };
 
 
+  const isLastReceipt = (receipt: Annadhanam) => {
+    if (!data.length) return false;
+    const sortedReceipts = [...data].sort((a, b) => {
+      const aNum = parseInt((a.receipt_number || '').replace(/\D/g, '') || '0');
+      const bNum = parseInt((b.receipt_number || '').replace(/\D/g, '') || '0');
+      return bNum - aNum;
+    });
+    return sortedReceipts[0].id === receipt.id;
+  };
+
   const handleDeleteClick = (id: number) => {
+    const receipt = data.find(r => r.id === id);
+    if (!receipt || !isLastReceipt(receipt)) {
+      toast({
+        title: t("Error", "பிழை"),
+        description: t("Only the last receipt can be deleted", "கடைசி ரசீதை மட்டுமே நீக்க முடியும்"),
+        variant: "destructive",
+      });
+      return;
+    }
     setDeleteId(id);
     setIsDeleteOpen(true);
   };
@@ -518,6 +490,8 @@ export default function AnnadhanamListView() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleDeleteClick(annadhanam.id)}
+                                disabled={!isLastReceipt(annadhanam)}
+                                title={!isLastReceipt(annadhanam) ? t("Only the last receipt can be deleted", "கடைசி ரசீதை மட்டுமே நீக்க முடியும்") : ""}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>

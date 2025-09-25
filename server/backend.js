@@ -67,6 +67,36 @@ app.get('/api/ledger/accounts', authenticateToken, async (req, res) => {
       used = [];
     }
 
+// Helper to write money donation logs (top-level to avoid ReferenceError from inner scopes)
+async function logMoneyDonationAction({ donationId, templeId, userId, action, details }) {
+  try {
+    const has = await db.schema.hasTable('money_donation_logs');
+    if (!has) {
+      await db.schema.createTable('money_donation_logs', (table) => {
+        table.increments('id').primary();
+        table.integer('temple_id').notNullable().index();
+        table.integer('donation_id').notNullable().index();
+        table.string('action').notNullable(); // create | update | delete
+        table.text('details'); // JSON string with full snapshot/diff
+        table.integer('created_by').nullable().index();
+        table.timestamp('created_at').defaultTo(db.fn.now());
+      });
+    }
+
+    const logData = {
+      donation_id: Number(donationId),
+      temple_id: Number(templeId),
+      created_by: userId ? Number(userId) : null,
+      action,
+      details: details ? JSON.stringify(details) : null,
+      created_at: db.fn.now(),
+    };
+    await db('money_donation_logs').insert(logData);
+  } catch (e) {
+    console.error('Failed to write money_donation_logs:', e.message);
+  }
+}
+
     let master = [];
     try {
       const cats = await db('ledger_categories').select('label');
@@ -416,6 +446,37 @@ const hallApprovalRouter = require('./hall-approval')({ db, authenticateToken, a
 app.use('/api/properties', propertiesRouter);
 app.use('/api/ledger', ledgerRouter);
 app.use('/api/hall-approval', hallApprovalRouter);
+
+// Helper to write receipt logs in a dedicated table: receipt_logs
+async function logReceiptAction({ receiptId, templeId, userId, action, details }) {
+  try {
+    const has = await db.schema.hasTable('receipt_logs');
+    if (!has) {
+      await db.schema.createTable('receipt_logs', (table) => {
+        table.increments('id').primary();
+        table.integer('temple_id').notNullable().index();
+        table.integer('receipt_id').notNullable().index();
+        table.string('action').notNullable(); // create | update | delete
+        table.text('details'); // JSON string with full snapshot/diff
+        table.integer('created_by').nullable().index();
+        table.timestamp('created_at').defaultTo(db.fn.now());
+      });
+    }
+
+    const payload = {
+      receipt_id: Number(receiptId),
+      temple_id: Number(templeId),
+      created_by: userId ? Number(userId) : null,
+      action,
+      details: details ? JSON.stringify(details) : null,
+      created_at: db.fn.now(),
+    };
+    await db('receipt_logs').insert(payload);
+  } catch (e) {
+    // Do not throw; logging must not break core flows
+    console.error('Failed to write receipt_logs:', e.message);
+  }
+}
 // Mount users router (auth and user management endpoints)
 (() => {
   try {
@@ -2002,6 +2063,16 @@ app.post('/api/receipts', authenticateToken, authorizePermission('receipts', 'ed
       console.error('Failed to mirror receipt into journal_entries:', e);
       // don't fail the main response
     }
+    // Log creation
+    try {
+      await logReceiptAction({
+        receiptId: row.id,
+        templeId: req.user.templeId,
+        userId: req.user.id,
+        action: 'create',
+        details: row || payload,
+      });
+    } catch (_) {}
     res.json({ success: true, data: row });
   } catch (err) {
     console.error('Error creating receipt:', err);
@@ -2027,6 +2098,7 @@ app.put('/api/receipts/:id', authenticateToken, authorizePermission('receipts', 
   try {
     const { id } = req.params;
     const b = req.body || {};
+    const beforeRow = await db('receipts').where({ id }).andWhere('temple_id', req.user.templeId).first();
     const update = {
       register_no: b.receiptNumber,
       date: b.date,
@@ -2042,6 +2114,15 @@ app.put('/api/receipts/:id', authenticateToken, authorizePermission('receipts', 
     const changed = await db('receipts').where({ id }).andWhere('temple_id', req.user.templeId).update(update);
     if (!changed) return res.status(404).json({ success: false, error: 'Receipt not found' });
     const row = await db('receipts').where({ id }).first();
+    try {
+      await logReceiptAction({
+        receiptId: row.id,
+        templeId: req.user.templeId,
+        userId: req.user.id,
+        action: 'update',
+        details: { before: beforeRow || null, after: row || null },
+      });
+    } catch (_) {}
     res.json({ success: true, data: row });
   } catch (err) {
     console.error('Error updating receipt:', err);
@@ -2105,6 +2186,7 @@ app.get('/api/receipts', authenticateToken, authorizePermission('receipts', 'vie
 app.delete('/api/receipts/:id', authenticateToken, authorizePermission('receipts', 'edit'), async (req, res) => {
   try {
     const { id } = req.params;
+    const existing = await db('receipts').where({ id }).andWhere('temple_id', req.user.templeId).first();
     // Delete receipt and any mirrored journal entries
     const del = await db('receipts').where({ id }).andWhere('temple_id', req.user.templeId).del();
     if (!del) return res.status(404).json({ error: 'Receipt not found' });
@@ -2118,10 +2200,85 @@ app.delete('/api/receipts/:id', authenticateToken, authorizePermission('receipts
     } catch (e) {
       console.warn('Failed to cleanup mirrored journal for receipt', id, e);
     }
+    try {
+      await logReceiptAction({
+        receiptId: Number(id),
+        templeId: req.user.templeId,
+        userId: req.user.id,
+        action: 'delete',
+        details: existing || { id: Number(id) },
+      });
+    } catch (_) {}
     res.json({ success: true });
   } catch (err) {
     console.error('Error deleting receipt:', err);
     res.status(500).json({ error: 'Failed to delete receipt' });
+  }
+});
+
+// Receipt logs: fetch logs for a specific receipt
+app.get('/api/receipts/:id/logs', authenticateToken, authorizePermission('receipts', 'view'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const templeId = req.user.templeId;
+    const has = await db.schema.hasTable('receipt_logs');
+    if (!has) return res.json({ success: true, data: [] });
+    const rows = await db('receipt_logs')
+      .where({ receipt_id: Number(id), temple_id: templeId })
+      .orderBy('created_at', 'desc')
+      .select('*');
+    const data = rows.map(r => ({
+      id: r.id,
+      temple_id: r.temple_id,
+      receipt_id: r.receipt_id,
+      action: r.action,
+      details: r.details ? (() => { try { return JSON.parse(r.details); } catch { return r.details; } })() : null,
+      created_by: r.created_by,
+      created_at: r.created_at,
+    }));
+    res.json({ success: true, data });
+  } catch (e) {
+    console.error('Error fetching /api/receipts/:id/logs:', e);
+    res.status(500).json({ error: 'Failed to fetch logs' });
+  }
+});
+
+// Receipt logs: paginated logs list for current temple
+app.get('/api/receipts/logs', authenticateToken, authorizePermission('receipts', 'view'), async (req, res) => {
+  try {
+    const templeId = req.user.templeId;
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const pageSize = Math.min(200, Math.max(1, parseInt(req.query.pageSize, 10) || 50));
+    const has = await db.schema.hasTable('receipt_logs');
+    if (!has) return res.json({ success: true, data: [], total: 0, page, pageSize });
+    const base = db('receipt_logs as l')
+      .leftJoin('receipts as r', 'r.id', 'l.receipt_id')
+      .where('l.temple_id', templeId);
+    const totalRow = await base.clone().count({ c: '*' }).first();
+    const total = Number(totalRow?.c || totalRow?.count || 0);
+    const rows = await base
+      .clone()
+      .orderBy('l.created_at', 'desc')
+      .limit(pageSize)
+      .offset((page - 1) * pageSize)
+      .select('l.*', 'r.register_no', 'r.date', 'r.amount', 'r.type');
+    const data = rows.map(r => ({
+      id: r.id,
+      temple_id: r.temple_id,
+      receipt_id: r.receipt_id,
+      action: r.action,
+      details: r.details ? (() => { try { return JSON.parse(r.details); } catch { return r.details; } })() : null,
+      created_by: r.created_by,
+      created_at: r.created_at,
+      register_no: r.register_no,
+      date: r.date,
+      amount: r.amount,
+      type: r.type,
+    }));
+    res.json({ success: true, data, total, page, pageSize });
+  } catch (e) {
+    console.error('Error fetching /api/receipts/logs:', e);
+    res.status(500).json({ error: 'Failed to fetch logs' });
   }
 });
 

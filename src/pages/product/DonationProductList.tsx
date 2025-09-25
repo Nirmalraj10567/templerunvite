@@ -5,7 +5,17 @@ import { donationService, DonationItem } from '@/services/donationService';
 import { PrintButton } from '@/components/ui/print-button';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
-import { FileDown } from 'lucide-react';
+import { FileDown, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import jsPDF from 'jspdf';
 
 interface DonationProductItem {
@@ -140,6 +150,10 @@ export default function DonationProductList() {
   const [deleteItemId, setDeleteItemId] = useState<number | null>(null);
 
   const openDelete = (item: DonationItem) => {
+    if (!isLastReceipt(item)) {
+      alert(t('Only the latest receipt can be deleted.', 'சமீபத்திய ரசீது மட்டுமே நீக்க இயலும்'));
+      return;
+    }
     setDeleteItemId(item.id);
     setDeleteOpen(true);
   };
@@ -246,6 +260,15 @@ export default function DonationProductList() {
       { qty: 0 }
     );
   }, [items]);
+
+  // --- Helpers: enforce deletion only for the last receipt by numeric receipt number (descending) ---
+  const receiptNum = (s: any) => parseInt(String(s || '').replace(/\D/g, '') || '0', 10);
+
+  const isLastReceipt = (item: DonationItem) => {
+    if (!items.length) return false;
+    const sorted = [...items].sort((a, b) => receiptNum((b as any).register_no) - receiptNum((a as any).register_no));
+    return sorted[0]?.id === item.id;
+  };
 
   // Load donations from the service
   const load = async () => {
@@ -499,13 +522,23 @@ export default function DonationProductList() {
                           >
                             {t('Edit', 'திருத்த')}
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => openDelete(r)}
-                            className="text-red-600 hover:underline"
-                          >
-                            {t('Delete', 'நீக்கு')}
-                          </button>
+                          {(() => {
+                            const canDelete = isLastReceipt(r);
+                            const title = canDelete
+                              ? undefined
+                              : t('Only the latest receipt can be deleted', 'சமீபத்திய ரசீது மட்டுமே நீக்க இயலும்');
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => openDelete(r)}
+                                className={`p-1 rounded ${canDelete ? 'text-red-600 hover:bg-red-50' : 'text-gray-400 cursor-not-allowed'}`}
+                                title={title}
+                                disabled={!canDelete}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            );
+                          })()}
                         </div>
                       </td>
                     )}
@@ -695,16 +728,23 @@ export default function DonationProductList() {
         </Modal>
       )}
 
-      {/* Delete Modal */}
-      {deleteOpen && (
-        <Modal title={t('Delete Donation', 'நன்கொடையை நீக்கு')} onClose={() => setDeleteOpen(false)}>
-          <p className="text-sm text-gray-700 mb-4">{t('Are you sure you want to delete this entry? This action cannot be undone.', 'இந்த பதிவை நிச்சயமாக நீக்க விரும்புகிறீர்களா? இந்த செயலை திரும்பப்பெற முடியாது.')}</p>
-          <div className="flex justify-end gap-2">
-            <button onClick={()=>setDeleteOpen(false)} className="px-3 py-1 border rounded text-xs">{t('Cancel','ரத்து செய்')}</button>
-            <button onClick={confirmDelete} className="px-3 py-1 bg-red-600 text-white rounded text-xs">{t('Delete','நீக்கு')}</button>
-          </div>
-        </Modal>
-      )}
+      {/* Delete Confirmation Modal (AlertDialog) */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('Are you sure?', 'நீங்கள் உறுதியாகவா?')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('This action cannot be undone. This will permanently delete the donation record.', 'இந்த செயலை திரும்பப் பெற முடியாது. இது நன்கொடை பதிவை நிரந்தரமாக நீக்கும்.')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('Cancel', 'ரத்து செய்')}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {t('Delete', 'நீக்கு')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -32,12 +32,12 @@ export function Header({ children }: HeaderProps) {
 
   return (
     <header className="bg-white/80 backdrop-blur-sm shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
         {children ? (
           <div className="py-4">{children}</div>
         ) : (
           <div className="flex justify-between items-center py-4">
-            <Link to="/" className="flex items-center space-x-3">
+            <Link to="/" className="flex items-center space-x-3 mr-4 sm:mr-6">
               <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
                 <span className="text-white text-xl font-bold">🕉️</span>
               </div>

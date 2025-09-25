@@ -158,6 +158,16 @@ function App() {
                     } 
                   />
                   <Route 
+                    path="receipt/entry/:id" 
+                    element={
+                      <PermissionGuard requiredPermission="receipts" accessLevel="edit">
+                        <YearEndLockGuard>
+                          <ReceiptEntryPage />
+                        </YearEndLockGuard>
+                      </PermissionGuard>
+                    } 
+                  />
+                  <Route 
                     path="receipt/list" 
                     element={
                       <PermissionGuard requiredPermission="receipts" accessLevel="view">

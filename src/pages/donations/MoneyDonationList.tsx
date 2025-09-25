@@ -13,6 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Trash2 } from 'lucide-react';
 
 export default function MoneyDonationList() {
   const { token } = useAuth();
@@ -26,10 +27,11 @@ export default function MoneyDonationList() {
 
   const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
-  type ColKey = '#' | 'date' | 'name' | 'phone' | 'amount' | 'reason' | 'actions';
+  type ColKey = '#' | 'receipt' | 'date' | 'name' | 'phone' | 'amount' | 'reason' | 'actions';
 
   const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' | 'center' }> = [
     { key: '#', label: '#' },
+    { key: 'receipt', label: t('Receipt No', 'ரசீது எண்') },
     { key: 'date', label: t('Date', 'தேதி') },
     { key: 'name', label: t('Name', 'பெயர்') },
     { key: 'phone', label: t('Phone', 'கைபேசி') },
@@ -41,6 +43,7 @@ export default function MoneyDonationList() {
   const STORAGE_KEY = 'money_donation_list_visible_columns_v1';
   const defaultVisible: Record<ColKey, boolean> = {
     '#': true,
+    receipt: true,
     date: true,
     name: true,
     phone: true,
@@ -78,6 +81,20 @@ export default function MoneyDonationList() {
     }, 0);
   }, [items]);
 
+  // Latest-only delete helpers: determine latest by numeric register_no if present, else by id
+  const receiptNum = (s: any) => parseInt(String(s || '').replace(/\D/g, '') || '0', 10);
+  const latestDonationId = useMemo(() => {
+    if (!items.length) return null as number | null;
+    const withReg = items.filter((it: any) => it && (it as any).register_no);
+    if (withReg.length) {
+      const sorted = [...withReg].sort((a: any, b: any) => receiptNum((b as any).register_no) - receiptNum((a as any).register_no));
+      return sorted[0]?.id ?? null;
+    }
+    // Fallback: highest id as latest
+    return items.slice().sort((a, b) => (b.id || 0) - (a.id || 0))[0]?.id ?? null;
+  }, [items]);
+  const isLatest = (row: MoneyDonationItem) => latestDonationId != null && row.id === latestDonationId;
+
   // Logs modal state
   const [logsFor, setLogsFor] = useState<number | null>(null);
   const [logsLoading, setLogsLoading] = useState(false);
@@ -105,10 +122,15 @@ export default function MoneyDonationList() {
     setLogs([]);
     setLogsLoading(true);
     try {
-      const response = await moneyDonationService.getLogs(token, donationId);
-      setLogs(Array.isArray(response.data) ? response.data : []);
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/money-donations/${donationId}/logs`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to fetch logs');
+      const result = await res.json();
+      setLogs(Array.isArray(result?.data) ? result.data : []);
     } catch (e) {
-      alert((e as Error).message);
+      console.error('Failed to load logs:', e);
+      setLogs([]);
     } finally {
       setLogsLoading(false);
     }
@@ -127,12 +149,22 @@ export default function MoneyDonationList() {
   const loadAllDonationLogs = async (pageNum: number) => {
     setAllLogsLoading(true);
     try {
-      const response = await moneyDonationService.getAllLogs(token, pageNum, allLogsPageSize);
-      setAllLogs(Array.isArray(response.data.data) ? response.data.data : []);
-      setAllLogsTotal(Number(response.data.total || 0));
-      setAllLogsPage(Number(response.data.page || pageNum));
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/money-donations/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to fetch logs');
+      const result = await res.json();
+      if (result.success) {
+        setAllLogs(Array.isArray(result.data) ? result.data : []);
+        setAllLogsTotal(Number(result.total || 0));
+        setAllLogsPage(pageNum);
+      } else {
+        throw new Error(result.error || 'Failed to load logs');
+      }
     } catch (e) {
-      alert((e as Error).message);
+      console.error('Failed to load all logs:', e);
+      setAllLogs([]);
+      setAllLogsTotal(0);
     } finally {
       setAllLogsLoading(false);
     }
@@ -159,6 +191,14 @@ export default function MoneyDonationList() {
       }
       if (from) data = data.filter((r) => r.date >= from);
       if (to) data = data.filter((r) => r.date <= to);
+      // Sort by receipt number descending if available; fallback to id desc
+      const getNum = (v: any) => parseInt(String((v || '').toString()).replace(/\D/g, '') || '0', 10);
+      data = data.slice().sort((a: any, b: any) => {
+        const nb = getNum((b as any).register_no);
+        const na = getNum((a as any).register_no);
+        if (nb !== na) return nb - na;
+        return (b.id || 0) - (a.id || 0);
+      });
       setItems(data);
     } catch (e) {
       console.error('Failed to load money donations', e);
@@ -190,8 +230,12 @@ export default function MoneyDonationList() {
   const [deleteRow, setDeleteRow] = useState<MoneyDonationItem | null>(null);
 
   const askDelete = (row: MoneyDonationItem) => {
-    setDeleteRow(row);
-    setDeleteOpen(true);
+    if (!isLatest(row)) {
+      alert(t('Only the latest receipt can be deleted', 'கடைசி ரசீதை மட்டுமே நீக்க முடியும்'));
+    } else {
+      setDeleteRow(row);
+      setDeleteOpen(true);
+    }
   };
 
   const confirmDelete = async () => {
@@ -356,6 +400,9 @@ export default function MoneyDonationList() {
                 items.map((r, idx) => (
                   <tr key={r.id} className="hover:bg-gray-50">
                     {visibleCols['#'] && <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">{idx + 1}</td>}
+                    {visibleCols['receipt'] && (
+                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">{(r as any).register_no || '-'}</td>
+                    )}
                     {visibleCols['date'] && <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">{r.date || '-'}</td>}
                     {visibleCols['name'] && <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">{r.name || '-'}</td>}
                     {visibleCols['phone'] && <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">{r.phone || '-'}</td>}
@@ -393,14 +440,21 @@ export default function MoneyDonationList() {
                           >
                             {t('Edit', 'திருத்து')}
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => askDelete(r)}
-                            className="px-2 py-1 border border-gray-300 rounded shadow-sm text-xs font-medium text-red-700 bg-white hover:bg-gray-50"
-                            title={t('Delete', 'நீக்கு')}
-                          >
-                            {t('Delete', 'நீக்கு')}
-                          </button>
+                          {(() => {
+                            const canDelete = isLatest(r);
+                            const title = canDelete ? t('Delete', 'நீக்கு') : t('Only the latest receipt can be deleted', 'கடைசி ரசீதை மட்டுமே நீக்க முடியும்');
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => canDelete ? askDelete(r) : undefined}
+                                className={`p-1 rounded ${canDelete ? 'text-red-600 hover:bg-red-50' : 'text-gray-400 cursor-not-allowed'}`}
+                                title={title}
+                                disabled={!canDelete}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            );
+                          })()}
                         </div>
                       </td>
                     )}

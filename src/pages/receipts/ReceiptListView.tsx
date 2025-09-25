@@ -41,14 +41,25 @@ interface ApiReceipt {
 
 // Helper function to convert API response to frontend format
 const mapApiReceiptToFrontend = (apiReceipt: ApiReceipt): Receipt => {
+  // Normalize donor/receiver regardless of API naming or type
+  const isExpense = apiReceipt.type === 'payment';
+  // Some APIs may populate either from_person or to_person depending on context;
+  // prefer explicit fields but fallback to the other one to avoid empty values.
+  const from = apiReceipt.from_person || '';
+  const to = apiReceipt.to_person || '';
+
+  // Frontend convention: donor = payer (from), receiver = beneficiary (to)
+  const donor = from || to || '';
+  const receiver = to || from || '';
+
   return {
     id: apiReceipt.id,
     receipt_number: apiReceipt.register_no,
     date: apiReceipt.date,
-    type: apiReceipt.type === 'payment' ? 'expense' : 'income',
-    donor: apiReceipt.from_person,
-    receiver: apiReceipt.to_person,
-    amount: parseFloat(apiReceipt.amount),
+    type: isExpense ? 'expense' : 'income',
+    donor,
+    receiver,
+    amount: parseFloat(String(apiReceipt.amount || '0')),
     remarks: apiReceipt.remarks,
     created_at: apiReceipt.created_at,
     updated_at: apiReceipt.updated_at
@@ -200,6 +211,16 @@ export default function ReceiptListView() {
   const [editMode, setEditMode] = useState(false);
   const [editedReceipt, setEditedReceipt] = useState<Partial<ReceiptFormData>>({});
 
+  // Logs modal state
+  const [logsOpen, setLogsOpen] = useState(false);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsTitle, setLogsTitle] = useState('');
+  const [logs, setLogs] = useState<any[]>([]);
+  const [isAllLogs, setIsAllLogs] = useState(false);
+  const [logsPage, setLogsPage] = useState(1);
+  const [logsTotal, setLogsTotal] = useState(0);
+  const logsPageSize = 50;
+
   // Permission checks
   const isSuperAdmin = user?.role === 'superadmin';
   const canEdit = isSuperAdmin || (user as any)?.permissions?.some((p: any) => 
@@ -306,6 +327,51 @@ export default function ReceiptListView() {
     window.print();
   };
 
+  const openReceiptLogs = async (id: number, receiptNo?: string) => {
+    try {
+      setIsAllLogs(false);
+      setLogsOpen(true);
+      setLogsLoading(true);
+      setLogsTitle(`${t('viewReceipt')} ${receiptNo ? `#${receiptNo}` : ''}`);
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/receipts/${id}/logs`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await res.json();
+      setLogs(Array.isArray(result?.data) ? result.data : []);
+      setLogsTotal(Array.isArray(result?.data) ? result.data.length : 0);
+      setLogsPage(1);
+    } catch (e) {
+      console.error(e);
+      setLogs([]);
+      setLogsTotal(0);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  const openAllLogs = async (page = 1) => {
+    try {
+      setIsAllLogs(true);
+      setLogsOpen(true);
+      setLogsLoading(true);
+      setLogsTitle(t('viewReceipt'));
+      const res = await fetch(`/api/receipts/logs?page=${page}&pageSize=${logsPageSize}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await res.json();
+      const arr = Array.isArray(result?.data) ? result.data : [];
+      setLogs(arr);
+      setLogsTotal(Number(result?.total || arr.length || 0));
+      setLogsPage(page);
+    } catch (e) {
+      console.error(e);
+      setLogs([]);
+      setLogsTotal(0);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
   const handleViewClick = (rec: Receipt) => {
     setViewEditReceipt(rec);
     setEditedReceipt({
@@ -321,17 +387,8 @@ export default function ReceiptListView() {
   };
 
   const handleEditClick = (rec: Receipt) => {
-    setViewEditReceipt(rec);
-    setEditedReceipt({
-      date: rec.date?.slice(0, 10) || '',
-      type: rec.type,
-      donor: rec.donor || '',
-      receiver: rec.receiver || '',
-      amount: rec.amount,
-      remarks: rec.remarks || '',
-    });
-    setEditMode(true);
-    setIsViewEditOpen(true);
+    // Navigate to dedicated entry page for editing
+    navigate(`/dashboard/receipt/entry/${rec.id}`);
   };
 
   const handleSaveEdit = async () => {
@@ -339,14 +396,16 @@ export default function ReceiptListView() {
     
     try {
       // Map frontend data back to API format for update
-      const apiReceiptData = {
+      const apiReceiptData: any = {
         date: editedReceipt.date,
         type: editedReceipt.type === 'expense' ? 'payment' : 'receipt',
-        donor: editedReceipt.donor,
-        receiver: editedReceipt.receiver,
         amount: editedReceipt.amount,
         remarks: editedReceipt.remarks
       };
+
+      // Use API field names: from_person / to_person
+      if (editedReceipt.donor != null) apiReceiptData.from_person = editedReceipt.donor;
+      if (editedReceipt.receiver != null) apiReceiptData.to_person = editedReceipt.receiver;
 
       const res = await fetch(`https://tmsapi.xesstechlink.com/api/receipts/${viewEditReceipt.id}`, {
         method: 'PUT',
@@ -449,7 +508,7 @@ export default function ReceiptListView() {
         {/* Header */}
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">{t('title')}</h1>
-          <Button onClick={() => navigate('/dashboard/receipts/new')} className="bg-orange-600 hover:bg-orange-700">
+          <Button onClick={() => navigate('/dashboard/receipts/entry')} className="bg-orange-600 hover:bg-orange-700">
             <Plus className="h-4 w-4 mr-2" />
             {t('addReceipt')}
           </Button>
@@ -503,6 +562,10 @@ export default function ReceiptListView() {
                 <div className="ml-auto flex gap-2">
                   <Button variant="outline" onClick={handlePrint}>
                     {t('print')}
+                  </Button>
+                  <Button variant="outline" onClick={() => openAllLogs(1)}>
+                    {/* Using existing translation key 'view' combined with 'all' */}
+                    {t('all')} {t('view')}
                   </Button>
                   <Button onClick={handleExportCSV}>
                     {t('exportCsv')}
@@ -578,15 +641,22 @@ export default function ReceiptListView() {
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
-                              {canEdit && (
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  onClick={() => handleEditClick(rec)}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                              )}
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleEditClick(rec)}
+                                title={t('edit')}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => openReceiptLogs(rec.id, rec.receipt_number)}
+                                title="Logs"
+                              >
+                                <Search className="h-4 w-4" />
+                              </Button>
                               {canDelete && (
                                 <Button 
                                   variant="ghost" 
