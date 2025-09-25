@@ -159,7 +159,7 @@ export default function PoojaListView() {
     return (t as any)[lang]?.[key] ?? key;
   };
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [data, setData] = useState<Pooja[]>([]);
   const [pagination, setPagination] = useState({
     pageIndex: 0,
@@ -169,14 +169,13 @@ export default function PoojaListView() {
   });
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [viewEditPooja, setViewEditPooja] = useState<Pooja | null>(null);
-  const [isViewEditOpen, setIsViewEditOpen] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const [editedPooja, setEditedPooja] = useState<Partial<PoojaFormData>>({});
+  const [viewPooja, setViewPooja] = useState<Pooja | null>(null);
+  const [isViewOpen, setIsViewOpen] = useState(false);
   const [categories, setCategories] = useState<Array<{ id: number; value: string; label: string }>>([]);
   
   // Quick search filter
   const [quickSearch, setQuickSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   
   // Column Keys
   type ColKey = 'receipt' | 'name' | 'mobile' | 'dateRange' | 'time' | 'actions';
@@ -251,19 +250,47 @@ export default function PoojaListView() {
 
   const isSuperAdmin = user?.role === "superadmin";
 
-  const canEdit = isSuperAdmin ||
+  // Check if user can edit/delete any pooja (admin/superadmin)
+  const canEditAny = isSuperAdmin ||
     (user as any)?.permissions?.some(
       (p: any) =>
         p.permission_id === "pooja_registrations" &&
         (p.access_level === "edit" || p.access_level === "full")
     );
 
-  const canDelete = isSuperAdmin ||
+  const canDeleteAny = isSuperAdmin ||
     (user as any)?.permissions?.some(
       (p: any) =>
         p.permission_id === "pooja_registrations" &&
         p.access_level === "full"
     );
+    
+  // Check if user can edit/delete a specific pooja (either has permission or is the creator)
+  const canEditPooja = (pooja: Pooja) => {
+    if (!pooja) return false;
+    // If user can edit any pooja, return true
+    if (canEditAny) return true;
+    // Otherwise, check if user is the creator
+    return pooja.created_by === user?.id;
+  };
+
+  const canDeletePooja = (pooja: Pooja) => {
+    if (!pooja) return false;
+    // If user can delete any pooja, return true
+    if (canDeleteAny) return true;
+    // Otherwise, check if user is the creator
+    return pooja.created_by === user?.id;
+  };
+
+  // Debug logging
+  console.log('Current user:', {
+    userId: user?.id,
+    isSuperAdmin,
+    canEditAny,
+    canDeleteAny,
+    userPermissions: (user as any)?.permissions,
+    userRole: user?.role
+  });
 
   const fetchPooja = async () => {
     try {
@@ -271,7 +298,7 @@ export default function PoojaListView() {
       const result = await poojaService.getPoojaList(
         pagination.pageIndex + 1,
         pagination.pageSize,
-        quickSearch
+        debouncedSearch
       );
       
       if (result.success) {
@@ -297,16 +324,24 @@ export default function PoojaListView() {
     }
   };
 
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(quickSearch);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [quickSearch]);
+
   useEffect(() => {
     fetchPooja();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.pageIndex, pagination.pageSize, quickSearch]);
+  }, [pagination.pageIndex, pagination.pageSize, debouncedSearch]);
 
   useEffect(() => {
     const load = async () => {
       try {
         if (!token) return;
-        const resp = await fetch('https://tmsapi.xesstechlink.com/api/ledger/categories', { headers: { Authorization: `Bearer ${token}` } });
+        const resp = await fetch('http://localhost:4000/api/ledger/categories', { headers: { Authorization: `Bearer ${token}` } });
         const body = await resp.json().catch(() => ({}));
         const raw = Array.isArray(body?.data) ? body.data : (Array.isArray(body) ? body : []);
         const mapped = (raw || []).map((item: any, idx: number) => {
@@ -322,80 +357,15 @@ export default function PoojaListView() {
   }, [token]);
 
   const handleViewClick = (pooja: Pooja) => {
-    setViewEditPooja(pooja);
-    setEditedPooja({
-      receiptNumber: pooja.receipt_number,
-      name: pooja.name,
-      mobileNumber: pooja.mobile_number,
-      time: pooja.time,
-      fromDate: pooja.from_date,
-      toDate: pooja.to_date,
-      remarks: pooja.remarks,
-      transferTo: (pooja as any).transfer_to_account || '',
-      amount: (pooja as any).amount != null ? String((pooja as any).amount) : '',
-    });
-    setEditMode(false);
-    setIsViewEditOpen(true);
+    setViewPooja(pooja);
+    setIsViewOpen(true);
   };
 
   const handleEditClick = (pooja: Pooja) => {
-    setViewEditPooja(pooja);
-    setEditedPooja({
-      receiptNumber: pooja.receipt_number,
-      name: pooja.name,
-      mobileNumber: pooja.mobile_number,
-      time: pooja.time,
-      fromDate: pooja.from_date,
-      toDate: pooja.to_date,
-      remarks: pooja.remarks,
-      transferTo: (pooja as any).transfer_to_account || '',
-      amount: (pooja as any).amount != null ? String((pooja as any).amount) : '',
-    });
-    setEditMode(true);
-    setIsViewEditOpen(true);
+    // Navigate to PoojaEntryPage for editing
+    navigate(`/dashboard/pooja/edit/${pooja.id}`);
   };
 
-  const handleSaveEdit = async () => {
-    if (!viewEditPooja || !editedPooja) return;
-
-    const updateData: PoojaFormData = {
-      receiptNumber: editedPooja.receiptNumber || viewEditPooja.receipt_number,
-      name: editedPooja.name || '',
-      mobileNumber: editedPooja.mobileNumber || '',
-      time: editedPooja.time || '',
-      fromDate: editedPooja.fromDate || '',
-      toDate: editedPooja.toDate || '',
-      remarks: editedPooja.remarks || '',
-      transferTo: editedPooja.transferTo || '',
-      amount: editedPooja.amount || ''
-    };
-
-    try {
-      await poojaService.updatePooja(viewEditPooja.id, updateData);
-
-      setData((prev) =>
-        prev.map((item) =>
-          item.id === viewEditPooja.id ? { ...item, ...editedPooja } : item
-        )
-      );
-
-      toast({
-        title: translate("success"),
-        description: translate("poojaUpdatedSuccessfully"),
-      });
-
-      setIsViewEditOpen(false);
-      setViewEditPooja(null);
-      setEditedPooja({});
-    } catch (error) {
-      console.error("Error updating pooja:", error);
-      toast({
-        title: translate("error"),
-        description: translate("failedToUpdatePooja"),
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleDeleteClick = (id: number) => {
     setDeleteId(id);
@@ -403,7 +373,22 @@ export default function PoojaListView() {
   };
 
   const confirmDelete = async () => {
-    if (!deleteId) return;
+    if (!deleteId || !user) return;
+    
+    // Find the pooja to be deleted
+    const poojaToDelete = data.find(item => item.id === deleteId);
+    
+    // Check if user has permission to delete this pooja
+    if (!poojaToDelete || !canDeletePooja(poojaToDelete)) {
+      toast({
+        title: translate("error"),
+        description: "You don't have permission to delete this pooja registration.",
+        variant: "destructive",
+      });
+      setIsDeleteOpen(false);
+      setDeleteId(null);
+      return;
+    }
 
     try {
       await poojaService.deletePooja(deleteId);
@@ -527,82 +512,91 @@ export default function PoojaListView() {
                   </td>
                 </tr>
               ) : filteredData.length > 0 ? (
-                filteredData.map((pooja) => (
-                  <tr key={pooja.id} className="hover:bg-gray-50">
-                    {visibleCols.receipt && (
-                      <td className="px-2 py-1 whitespace-nowrap text-xs font-medium text-gray-900">
-                        {pooja.receipt_number}
-                      </td>
-                    )}
-                    {visibleCols.name && (
-                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900 max-w-32 truncate">
-                        {pooja.name}
-                      </td>
-                    )}
-                    {visibleCols.mobile && (
-                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
-                        {pooja.mobile_number}
-                      </td>
-                    )}
-                    {visibleCols.dateRange && (
-                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
-                        <div className="flex items-center">
-                          <Calendar className="h-3 w-3 mr-1 text-gray-400" />
-                          <div>
-                            <div>{formatDate(pooja.from_date)}</div>
-                            {pooja.from_date !== pooja.to_date && (
-                              <div className="text-gray-400">
-                                - {formatDate(pooja.to_date)}
-                              </div>
-                            )}
+                filteredData.map((pooja) => {
+                  // Calculate permissions for current row
+                  const canEdit = canEditPooja(pooja);
+                  const canDelete = canDeletePooja(pooja);
+                  
+                  return (
+                    <tr key={pooja.id} className="hover:bg-gray-50">
+                      {visibleCols.receipt && (
+                        <td className="px-2 py-1 whitespace-nowrap text-xs font-medium text-gray-900">
+                          {pooja.receipt_number}
+                        </td>
+                      )}
+                      {visibleCols.name && (
+                        <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900 max-w-32 truncate">
+                          {pooja.name}
+                        </td>
+                      )}
+                      {visibleCols.mobile && (
+                        <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                          {pooja.mobile_number}
+                        </td>
+                      )}
+                      {visibleCols.dateRange && (
+                        <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                          <div className="flex items-center">
+                            <Calendar className="h-3 w-3 mr-1 text-gray-400" />
+                            <div>
+                              <div>{formatDate(pooja.from_date)}</div>
+                              {pooja.from_date !== pooja.to_date && (
+                                <div className="text-gray-400">
+                                  - {formatDate(pooja.to_date)}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                    )}
-                    {visibleCols.time && (
-                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
-                        <div className="flex items-center">
-                          <Clock className="h-3 w-3 mr-1 text-gray-400" />
-                          {formatTime(pooja.time)}
-                        </div>
-                      </td>
-                    )}
-                    {visibleCols.actions && (
-                      <td className="px-2 py-1 whitespace-nowrap text-xs text-center">
-                        <div className="flex justify-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleViewClick(pooja)}
-                            className="h-6 w-6 p-0"
-                          >
-                            <Eye className="h-3 w-3" />
-                          </Button>
-                          {canEdit && (
+                        </td>
+                      )}
+                      {visibleCols.time && (
+                        <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                          <div className="flex items-center">
+                            <Clock className="h-3 w-3 mr-1 text-gray-400" />
+                            {formatTime(pooja.time)}
+                          </div>
+                        </td>
+                      )}
+                      {visibleCols.actions && (
+                        <td className="px-2 py-1 whitespace-nowrap text-xs text-center">
+                          <div className="flex justify-center gap-1">
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleEditClick(pooja)}
+                              onClick={() => handleViewClick(pooja)}
                               className="h-6 w-6 p-0"
                             >
-                              <Edit className="h-3 w-3" />
+                              <Eye className="h-3 w-3" />
                             </Button>
-                          )}
-                          {canDelete && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteClick(pooja.id)}
-                              className="h-6 w-6 p-0 text-red-600"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))
+                            {/* Fixed: Use calculated permissions */}
+                            {canEdit && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditClick(pooja)}
+                                className="h-6 w-6 p-0"
+                                title={translate("edit")}
+                              >
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                            )}
+                            {canDelete && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteClick(pooja.id)}
+                                className="h-6 w-6 p-0 text-red-600"
+                                title={translate("delete")}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan={visibleColCount} className="px-2 py-8 text-center text-xs text-gray-500">
@@ -768,91 +762,62 @@ export default function PoojaListView() {
         </div>
       )}
 
-      {/* View/Edit Modal */}
-      <Dialog open={isViewEditOpen} onOpenChange={setIsViewEditOpen}>
+      {/* View Modal */}
+      <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
         <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base">
-              {editMode ? translate("edit") : translate("view")}
+              {translate("view")}
             </DialogTitle>
           </DialogHeader>
           <div className="grid gap-3 py-2">
             <div className="grid grid-cols-3 items-center gap-2">
               <Label className="text-xs">{translate("receiptNo")}</Label>
-              <Input
-                value={editedPooja.receiptNumber || ""}
-                onChange={(e) => setEditedPooja({ ...editedPooja, receiptNumber: e.target.value })}
-                className="col-span-2 text-xs h-7"
-                disabled={!editMode}
-              />
+              <div className="col-span-2 text-xs h-7 flex items-center">
+                {viewPooja?.receipt_number}
+              </div>
             </div>
             <div className="grid grid-cols-3 items-center gap-2">
               <Label className="text-xs">{translate("name")}</Label>
-              <Input
-                value={editedPooja.name || ""}
-                onChange={(e) => setEditedPooja({ ...editedPooja, name: e.target.value })}
-                className="col-span-2 text-xs h-7"
-                disabled={!editMode}
-              />
+              <div className="col-span-2 text-xs h-7 flex items-center">
+                {viewPooja?.name}
+              </div>
             </div>
             <div className="grid grid-cols-3 items-center gap-2">
               <Label className="text-xs">{translate("mobile")}</Label>
-              <Input
-                value={editedPooja.mobileNumber || ""}
-                onChange={(e) => setEditedPooja({ ...editedPooja, mobileNumber: e.target.value })}
-                className="col-span-2 text-xs h-7"
-                disabled={!editMode}
-              />
+              <div className="col-span-2 text-xs h-7 flex items-center">
+                {viewPooja?.mobile_number}
+              </div>
             </div>
             <div className="grid grid-cols-3 items-center gap-2">
               <Label className="text-xs">{translate("time")}</Label>
-              <Input
-                type="time"
-                value={editedPooja.time || ""}
-                onChange={(e) => setEditedPooja({ ...editedPooja, time: e.target.value })}
-                className="col-span-2 text-xs h-7"
-                disabled={!editMode}
-              />
+              <div className="col-span-2 text-xs h-7 flex items-center">
+                {viewPooja?.time}
+              </div>
             </div>
             <div className="grid grid-cols-3 items-center gap-2">
               <Label className="text-xs">{translate("fromDate")}</Label>
-              <Input
-                type="date"
-                value={editedPooja.fromDate || ""}
-                onChange={(e) => setEditedPooja({ ...editedPooja, fromDate: e.target.value })}
-                className="col-span-2 text-xs h-7"
-                disabled={!editMode}
-              />
+              <div className="col-span-2 text-xs h-7 flex items-center">
+                {viewPooja?.from_date}
+              </div>
             </div>
             <div className="grid grid-cols-3 items-center gap-2">
               <Label className="text-xs">{translate("toDate")}</Label>
-              <Input
-                type="date"
-                value={editedPooja.toDate || ""}
-                onChange={(e) => setEditedPooja({ ...editedPooja, toDate: e.target.value })}
-                className="col-span-2 text-xs h-7"
-                disabled={!editMode}
-              />
+              <div className="col-span-2 text-xs h-7 flex items-center">
+                {viewPooja?.to_date}
+              </div>
             </div>
             <div className="grid grid-cols-3 items-center gap-2">
               <Label className="text-xs">{translate("amount")}</Label>
-              <Input
-                type="number"
-                value={editedPooja.amount || ''}
-                onChange={(e) => setEditedPooja({ ...editedPooja, amount: e.target.value })}
-                className="col-span-2 text-xs h-7"
-                disabled={!editMode}
-              />
+              <div className="col-span-2 text-xs h-7 flex items-center">
+                {(viewPooja as any)?.amount || 'N/A'}
+              </div>
             </div>
             <div className="grid grid-cols-3 items-start gap-2">
               <Label className="text-xs">{translate("remarks")}</Label>
-              <Textarea
-                value={editedPooja.remarks || ""}
-                onChange={(e) => setEditedPooja({ ...editedPooja, remarks: e.target.value })}
-                className="col-span-2 text-xs"
-                disabled={!editMode}
-                rows={2}
-              />
+              <div className="col-span-2 text-xs">
+                {viewPooja?.remarks || 'N/A'}
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -860,17 +825,23 @@ export default function PoojaListView() {
               variant="outline"
               size="sm"
               onClick={() => {
-                setIsViewEditOpen(false);
-                setViewEditPooja(null);
-                setEditedPooja({});
+                setIsViewOpen(false);
+                setViewPooja(null);
               }}
               className="text-xs"
             >
-              {translate("cancel")}
+              {translate("close")}
             </Button>
-            {editMode && (
-              <Button size="sm" onClick={handleSaveEdit} className="text-xs">
-                {translate("saveChanges")}
+            {viewPooja && canEditPooja(viewPooja) && (
+              <Button 
+                size="sm" 
+                onClick={() => {
+                  setIsViewOpen(false);
+                  handleEditClick(viewPooja);
+                }} 
+                className="text-xs"
+              >
+                {translate("edit")}
               </Button>
             )}
           </DialogFooter>

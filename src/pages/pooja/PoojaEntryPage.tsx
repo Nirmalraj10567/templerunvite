@@ -49,7 +49,7 @@ export default function PoojaEntryPage() {
   const { id } = useParams<{ id: string }>();
   const { token } = useAuth();
   const { language } = useLanguage();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(!!id); // Only show loading if we have an ID (editing mode)
   const navigate = useNavigate();
   const { register, handleSubmit, reset, setValue, watch } = useForm<PoojaFormData>();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -102,7 +102,8 @@ export default function PoojaEntryPage() {
   const handleDateSelect = (date: string) => {
     setSelectedDate(date);
     setValue('fromDate', date);
-    setValue('toDate', date);
+    // Auto-sync toDate internally for API compatibility
+    setValue('toDate' as any, date);
     // Keep calendar open - don't set setShowCalendar(false)
   };
 
@@ -110,9 +111,13 @@ export default function PoojaEntryPage() {
     // Generate receipt number on component mount
     const generateAndSetReceiptNo = async () => {
       const receiptNo = await generateReceiptNo(token);
+      const today = new Date().toISOString().slice(0, 10);
       setValue('receiptNumber', receiptNo);
       // Default transfer account for new entries
       setValue('transferTo', 'INCOME A/C');
+      // Set default date to today for new entries
+      setValue('fromDate', today);
+      setSelectedDate(today);
     };
     
     if (!id) {
@@ -122,7 +127,6 @@ export default function PoojaEntryPage() {
     if (id) {
       const fetchPooja = async () => {
         try {
-          setIsLoading(true);
           const result = await poojaService.getPoojaById(parseInt(id));
           
           if (result.success) {
@@ -139,6 +143,7 @@ export default function PoojaEntryPage() {
               amount: data.amount != null ? String(data.amount) : ''
             };
             reset(formData);
+            setSelectedDate(data.from_date);
           } else {
             throw new Error(result.error || 'Failed to load data');
           }
@@ -180,25 +185,24 @@ export default function PoojaEntryPage() {
   }, [token]);
 
   if (isLoading) {
-    return <div className="p-8">Loading pooja data...</div>;
+    return (
+      <div className="max-w-7xl mx-auto bg-white p-6 rounded-lg shadow-lg">
+        <div className="flex items-center justify-center p-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading pooja details...</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const onSubmit = async (data: PoojaFormData) => {
     try {
       setIsSubmitting(true);
       
-      // Validate date range
-      if (new Date(data.fromDate) > new Date(data.toDate)) {
-        toast({
-          title: t('Invalid Date Range', 'தவறான தேதி வரம்பு'),
-          description: t('From date cannot be later than to date', 'தொடக்க தேதி முடிவு தேதியை விட பிற்பகுதியில் இருக்கக்கூடாது'),
-          variant: 'destructive'
-        });
-        return;
-      }
-
-      // Check for double-booking
-      const hasConflict = await checkDoubleBooking(data.fromDate, data.toDate, data.time, id ? parseInt(id) : undefined);
+      // Check for double-booking (single date)
+      const hasConflict = await checkDoubleBooking(data.fromDate, data.fromDate, data.time, id ? parseInt(id) : undefined);
       if (hasConflict) {
         toast({
           title: t('Booking Conflict', 'பதிவு மோதல்'),
@@ -214,7 +218,7 @@ export default function PoojaEntryPage() {
         mobileNumber: data.mobileNumber,
         time: data.time,
         fromDate: data.fromDate,
-        toDate: data.toDate,
+        toDate: data.toDate || data.fromDate,
         remarks: data.remarks || '',
         transferTo: data.transferTo || 'INCOME A/C',
         amount: data.amount || '',
@@ -362,7 +366,7 @@ export default function PoojaEntryPage() {
               {/* From Date */}
               <div className="space-y-2">
                 <Label htmlFor="fromDate">
-                  {t('From Date', 'தொடக்க தேதி')} *
+                  {t('Date', 'தொடக்க தேதி')} *
                 </Label>
                 <div className="flex gap-2">
                   <Input
@@ -383,17 +387,7 @@ export default function PoojaEntryPage() {
                 </div>
               </div>
 
-              {/* To Date */}
-              <div className="space-y-2">
-                <Label htmlFor="toDate">
-                  {t('To Date', 'முடிவு தேதி')} *
-                </Label>
-                <Input
-                  id="toDate"
-                  type="date"
-                  {...register('toDate', { required: true })}
-                />
-              </div>
+              {/* To Date removed: single-date layout */}
 
               {/* Amount */}
               <div className="space-y-2">

@@ -20,6 +20,7 @@ interface Pooja {
   remarks?: string;
   transfer_to_account?: string;
   amount?: number;
+  created_by?: number;
   created_at: string;
   updated_at: string;
 }

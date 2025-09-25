@@ -26,6 +26,7 @@ import {
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CategoryManager } from '@/components/ledger/CategoryManager';
+import { Modal } from '@/components/ui/modal';
 import { Pencil, Trash2 } from 'lucide-react';
 import { getAuthToken } from '@/lib/auth';
 import { useAuth } from '@/contexts/AuthContext';
@@ -64,6 +65,7 @@ export default function LedgerEntryPage() {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const categoryInputRef = useRef<HTMLButtonElement | null>(null);
+  const [showSavedModal, setShowSavedModal] = useState(false);
   
   const templeId = user?.templeId;
   
@@ -267,6 +269,9 @@ export default function LedgerEntryPage() {
         title: t('Success', 'வெற்றி'),
         description: t('Ledger entry saved successfully', 'பதிவேடு பதிவு வெற்றிகரமாக சேமிக்கப்பட்டது'),
       });
+
+      // Show success modal
+      setShowSavedModal(true);
     } catch (error) {
       console.error('Error saving ledger entry:', error);
       let errorMessage = t('Failed to save ledger entry', 'பதிவேடு பதிவை சேமிக்க முடியவில்லை');
@@ -414,6 +419,13 @@ export default function LedgerEntryPage() {
     console.log('Exporting to PDF...');
   };
 
+  // Helpers: Indian currency formatting and debit display without minus sign
+  const formatINR = (val: number) =>
+    new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val || 0);
+
+  const displayAmount = (val: number, type: 'credit' | 'debit') =>
+    type === 'debit' ? formatINR(Math.abs(val || 0)) : formatINR(val || 0);
+
   const calculatedBalance = useMemo(() => {
     const amount = Number(watch('amount')) || 0;
     const type = watch('type');
@@ -433,6 +445,7 @@ export default function LedgerEntryPage() {
   });
 
   return (
+    <>
     <div className="p-2 bg-gray-50">
       {/* Compact Header */}
       <div className="flex justify-between items-center mb-2">
@@ -441,7 +454,7 @@ export default function LedgerEntryPage() {
         </h1>
         <div className="flex items-center gap-3 text-xs">
           <div className="text-gray-500">
-            {t('Balance', 'இருப்பு')}: <span className="font-medium">₹{currentBalance?.toFixed(2) || '0.00'}</span>
+            {t('Balance', 'இருப்பு')}: <span className="font-medium">₹{formatINR(currentBalance)}</span>
           </div>
           <CategoryManager categories={categories} setCategories={setCategories} />
         </div>
@@ -609,7 +622,7 @@ export default function LedgerEntryPage() {
                 
                 {watch('amount') && (
                   <div className="text-xs text-gray-500">
-                    {t('New', 'புதிய')}: <span className={cn("font-medium", calculatedBalance >= 0 ? "text-green-600" : "text-red-600")}>₹{calculatedBalance.toFixed(2)}</span>
+                    {t('New', 'புதிய')}: <span className={cn("font-medium", calculatedBalance >= 0 ? "text-green-600" : "text-red-600")}>₹{displayAmount(calculatedBalance, watch('type'))}</span>
                   </div>
                 )}
               </div>
@@ -751,5 +764,22 @@ export default function LedgerEntryPage() {
         </CardContent>
       </Card>
     </div>
+    {showSavedModal && (
+      <Modal
+        title={t('Saved Successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது')}
+        onClose={() => setShowSavedModal(false)}
+      >
+        <p className="mb-3 text-sm">{t('Ledger entry has been saved successfully.', 'பதிவேடு பதிவு வெற்றிகரமாக சேமிக்கப்பட்டது.')}</p>
+        <div className="flex justify-end gap-2">
+          <button
+            className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 text-xs"
+            onClick={() => setShowSavedModal(false)}
+          >
+            {t('OK', 'சரி')}
+          </button>
+        </div>
+      </Modal>
+    )}
+    </>
   );
 }

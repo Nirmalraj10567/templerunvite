@@ -29,7 +29,7 @@ export default function ReceiptListPage() {
       const params = new URLSearchParams();
       if (from) params.append('from', from);
       if (to) params.append('to', to);
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/receipts?${params.toString()}`, {
+      const res = await fetch(`http://localhost:4000/api/receipts?${params.toString()}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();

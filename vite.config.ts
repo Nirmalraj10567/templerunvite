@@ -12,12 +12,12 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
     proxy: {
       '/api': {
-        target: 'https://tmsapi.xesstechlink.com',
+        target: 'http://localhost:4000',
         changeOrigin: true,
         secure: false,
       },
       '/master': {
-        target: 'https://tmsapi.xesstechlink.com/api',
+        target: 'http://localhost:4000/api',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/master/, '')

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import { moneyDonationService, MoneyDonationFormData } from '@/services/moneyDonationService';
@@ -25,6 +25,10 @@ export default function MoneyDonationEntry() {
   const { token } = useAuth();
   const { language } = useLanguage();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editIdParam = searchParams.get('editId');
+  const editId = editIdParam ? Number(editIdParam) : null;
+  const isEdit = typeof editId === 'number' && !isNaN(editId);
   const [form, setForm] = useState<MoneyDonationFormData>(createInitialState());
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string|undefined>();
@@ -78,7 +82,7 @@ export default function MoneyDonationEntry() {
     const loadLogs = async () => {
       try {
         if (!lastCreatedId || !token) return;
-        const res = await fetch(`https://tmsapi.xesstechlink.com/api/donations-approval/request/${lastCreatedId}`, {
+        const res = await fetch(`http://localhost:4000/api/donations-approval/request/${lastCreatedId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!res.ok) return;
@@ -133,6 +137,7 @@ export default function MoneyDonationEntry() {
 
   // Prefill register no on mount and when date changes
   useEffect(() => {
+    if (isEdit) return; // do not auto-generate when editing existing
     (async () => {
       const rn = await computeNextRegisterNo();
       if (rn) {
@@ -144,16 +149,39 @@ export default function MoneyDonationEntry() {
         });
       }
     })();
-  }, [computeNextRegisterNo]);
+  }, [computeNextRegisterNo, isEdit]);
 
   const regenerateRegisterNo = useCallback(async () => {
+    if (isEdit) return; // do not regenerate in edit mode
     const rn = await computeNextRegisterNo();
     if (rn) setForm(prev => ({ ...prev, registerNo: rn }));
-  }, [computeNextRegisterNo]);
+  }, [computeNextRegisterNo, isEdit]);
 
   const clearForm = () => {
+    if (isEdit) {
+      // In edit mode, reload the existing data instead of clearing to new
+      if (editId && token) {
+        moneyDonationService.getById(token, editId)
+          .then(resp => {
+            const d = resp.data;
+            setForm({
+              registerNo: d.register_no || '',
+              date: d.date || new Date().toISOString().slice(0,10),
+              name: d.name || '',
+              fatherName: d.father_name || '',
+              address: d.address || '',
+              village: d.village || '',
+              phone: d.phone || '',
+              amount: String(d.amount ?? ''),
+              reason: d.reason || '',
+              transferTo: 'INCOME A/C',
+            });
+          })
+          .catch(() => {});
+      }
+      return;
+    }
     setForm(createInitialState());
-    // Regenerate register number after clearing form
     computeNextRegisterNo().then(newRegisterNo => {
       if (newRegisterNo) {
         setForm(prev => ({ ...prev, registerNo: newRegisterNo }));
@@ -177,40 +205,73 @@ export default function MoneyDonationEntry() {
         setMessage(t('Enter a valid amount greater than 0', '0-ஐ விட அதிகமான செல்லுபடியான தொகையை உள்ளிடவும்'));
         return;
       }
-      // transferTo is defaulted to INCOME A/C
-      // Finalize register number right before submit to reduce collision risk
-      const freshRN = await computeNextRegisterNo();
-      const payload = { ...form, registerNo: freshRN || form.registerNo, fromAccount: 'DONATION A/C', transferTo: form.transferTo || 'INCOME A/C' } as any;
-      const resp = await moneyDonationService.create(token, payload);
-      const newId = resp?.data?.id;
-      const createdId = typeof newId === 'number' ? newId : null;
-      setLastCreatedId(createdId);
+      if (isEdit && editId) {
+        // Update existing donation
+        const updatePayload: any = { ...form };
+        await moneyDonationService.update(token, editId, updatePayload);
+        setIsError(false);
+        setMessage(t('Updated successfully', 'வெற்றிகரமாக புதுப்பிக்கப்பட்டது'));
+      } else {
+        // Create new donation
+        const freshRN = await computeNextRegisterNo();
+        const payload = { ...form, registerNo: freshRN || form.registerNo, fromAccount: 'DONATION A/C', transferTo: form.transferTo || 'INCOME A/C' } as any;
+        const resp = await moneyDonationService.create(token, payload);
+        const newId = resp?.data?.id;
+        const createdId = typeof newId === 'number' ? newId : null;
+        setLastCreatedId(createdId);
 
-      // Journal entry is now created by the backend in /api/money-donations to avoid duplicates
-      setForm(createInitialState());
-      // Regenerate register number after successful submission
-      const newRegisterNo = await computeNextRegisterNo();
-      if (newRegisterNo) {
-        setForm(prev => ({ ...prev, registerNo: newRegisterNo }));
-      }
-      setIsError(false);
-      setMessage(t('Saved successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது'));
-      if (createdId != null) {
-        setShowPrintPrompt(true);
+        // Journal entry is now created by the backend in /api/money-donations to avoid duplicates
+        setForm(createInitialState());
+        const newRegisterNo = await computeNextRegisterNo();
+        if (newRegisterNo) {
+          setForm(prev => ({ ...prev, registerNo: newRegisterNo }));
+        }
+        setIsError(false);
+        setMessage(t('Saved successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது'));
+        if (createdId != null) {
+          setShowPrintPrompt(true);
+        }
       }
     } catch (err) {
       console.error('Save failed:', err);
       setIsError(true);
-      setMessage(t('Save failed', 'சேமிப்பில் தோல்வி'));
+      setMessage(isEdit ? t('Update failed', 'புதுப்பிப்பில் தோல்வி') : t('Save failed', 'சேமிப்பில் தோல்வி'));
     } finally {
       setSaving(false);
     }
   };
 
+  // Load existing donation when in edit mode
+  useEffect(() => {
+    const loadExisting = async () => {
+      if (!isEdit || !editId || !token) return;
+      try {
+        const resp = await moneyDonationService.getById(token, editId);
+        const d = resp.data;
+        setForm({
+          registerNo: d.register_no || '',
+          date: d.date || new Date().toISOString().slice(0,10),
+          name: d.name || '',
+          fatherName: d.father_name || '',
+          address: d.address || '',
+          village: d.village || '',
+          phone: d.phone || '',
+          amount: String(d.amount ?? ''),
+          reason: d.reason || '',
+          transferTo: 'INCOME A/C',
+        });
+      } catch (e) {
+        setMessage(t('Failed to load record for edit', 'திருத்தத்திற்கான பதிவை ஏற்ற முடியவில்லை'));
+        setIsError(true);
+      }
+    };
+    loadExisting();
+  }, [isEdit, editId, token, language]);
+
   return (
     <div className="w-full max-w-4xl mx-auto bg-white p-4 rounded shadow text-sm">
       <h1 className="text-lg font-semibold mb-4 text-center">
-        {t('Money Donation Entry', 'பண நன்கொடைக் பதிவு')}
+        {isEdit ? t('Edit Money Donation', 'பண நன்கொடைக் திருத்து') : t('Money Donation Entry', 'பண நன்கொடைக் பதிவு')}
       </h1>
       {message && (
         <div className="mb-4">
@@ -288,7 +349,7 @@ export default function MoneyDonationEntry() {
         </div>
         <div className="md:col-span-3 flex gap-2 justify-center mt-2">
           <button disabled={saving} className="bg-green-600 text-white px-4 py-1 rounded hover:bg-green-700 text-xs" type="submit">
-            {saving ? t('Saving...', 'சேமிக்கிறது...') : t('Save', 'பதிவு')}
+            {saving ? (isEdit ? t('Updating...', 'புதுப்பிக்கிறது...') : t('Saving...', 'சேமிக்கிறது...')) : (isEdit ? t('Update', 'புதுப்பிக்க') : t('Save', 'பதிவு'))}
           </button>
           <button
             type="button"

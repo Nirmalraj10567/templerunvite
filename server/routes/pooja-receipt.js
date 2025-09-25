@@ -179,8 +179,6 @@ module.exports = function createPoojaReceiptRouter({ db, verifyQueryToken }) {
       let leftY = contentYStart + 8;
       const donorName = (row.name || '').toString().toUpperCase();
       const timeStr = (row.time || '-').toString();
-      const toDateStr = fmtDMY(row.to_date);
-      const periodStr = `${fromDateStr}${toDateStr ? ' - ' + toDateStr : ''}`;
       const amount = row.amount != null ? Number(row.amount).toFixed(2) : null;
 
       const prefixText = 'உயர்திரு/திருமதி ';
@@ -190,7 +188,7 @@ module.exports = function createPoojaReceiptRouter({ db, verifyQueryToken }) {
       leftY = doc.y + 6;
       drawBold(`நேரம்: ${timeStr}`, marginLeft + 15, leftY, 12, { width: leftWidth, align: 'left' });
       leftY = doc.y + 6;
-      drawBold(`காலம்: ${periodStr}`, marginLeft + 15, leftY, 12, { width: leftWidth, align: 'left' });
+      drawBold(`தேதி: ${fromDateStr}`, marginLeft + 15, leftY, 12, { width: leftWidth, align: 'left' });
 
       // Footer box: show amount if any
       const rupeeBoxHeight = 50;

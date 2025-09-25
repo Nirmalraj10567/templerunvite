@@ -251,7 +251,7 @@ export default function TaxUserListPage() {
       const paidN = editForm.amount_paid?.trim() ? Number(editForm.amount_paid) : undefined;
       if (typeof taxN === 'number' && Number.isFinite(taxN)) payload.tax_amount = taxN;
       if (typeof paidN === 'number' && Number.isFinite(paidN)) payload.amount_paid = paidN;
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations/${editing.id}`, {
+      const res = await fetch(`http://localhost:4000/api/tax-registrations/${editing.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -279,7 +279,7 @@ export default function TaxUserListPage() {
     const ok = window.confirm(t('Are you sure you want to delete this tax registration?', 'இந்த வரி பதிவை நிச்சயமாக நீக்க விரும்புகிறீர்களா?'));
     if (!ok) return;
     try {
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations/${row.id}`, {
+      const res = await fetch(`http://localhost:4000/api/tax-registrations/${row.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -298,7 +298,7 @@ export default function TaxUserListPage() {
     const year = new Date().getFullYear();
     (async () => {
       try {
-        const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-settings/year/${year}`, {
+        const res = await fetch(`http://localhost:4000/api/tax-settings/year/${year}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -319,7 +319,7 @@ export default function TaxUserListPage() {
     try {
       // Get current year's tax amount
       const currentYear = new Date().getFullYear();
-      const taxSettingsRes = await fetch(`https://tmsapi.xesstechlink.com/api/tax-settings/year/${currentYear}`, {
+      const taxSettingsRes = await fetch(`http://localhost:4000/api/tax-settings/year/${currentYear}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const taxSettings = await taxSettingsRes.json();
@@ -328,7 +328,7 @@ export default function TaxUserListPage() {
       // Always fetch all tax registrations matching search (no tab filter; we will filter client-side)
       const taxParams = new URLSearchParams({ page: '1', pageSize: '1000' });
       if (search) taxParams.set('search', search);
-      const taxRes = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations?${taxParams.toString()}`, {
+      const taxRes = await fetch(`http://localhost:4000/api/tax-registrations?${taxParams.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const taxData = await taxRes.json();
@@ -358,7 +358,7 @@ export default function TaxUserListPage() {
       // Fetch base registrations to include users without a tax registration yet
       const regParams = new URLSearchParams({ page: '1', pageSize: '1000' });
       if (search) regParams.set('search', search);
-      const regRes = await fetch(`https://tmsapi.xesstechlink.com/api/registrations?${regParams.toString()}`, {
+      const regRes = await fetch(`http://localhost:4000/api/registrations?${regParams.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const regData = await regRes.json();
@@ -502,7 +502,7 @@ export default function TaxUserListPage() {
 
   const handleDownloadPdf = async (id: number) => {
     try {
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations/${id}/pdf`, {
+      const res = await fetch(`http://localhost:4000/api/tax-registrations/${id}/pdf`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
@@ -525,7 +525,7 @@ export default function TaxUserListPage() {
       if (statusTab === 'paid') params.set('paid', '1');
 
       const res = await fetch(
-        `https://tmsapi.xesstechlink.com/api/tax-registrations/export/pdf?${params.toString()}`,
+        `http://localhost:4000/api/tax-registrations/export/pdf?${params.toString()}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }

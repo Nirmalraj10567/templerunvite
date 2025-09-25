@@ -136,33 +136,16 @@ export default function AnnadhanamListView() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [viewEditAnnadhanam, setViewEditAnnadhanam] = useState<Annadhanam | null>(null);
   const [isViewEditOpen, setIsViewEditOpen] = useState(false);
-  const [editMode, setEditMode] = useState(false);
   const [editedAnnadhanam, setEditedAnnadhanam] = useState<Partial<AnnadhanamFormData>>({});
 
-  const isSuperAdmin = user?.role === "superadmin";
-
-  const canEdit =
-    isSuperAdmin ||
-    (user as any)?.permissions?.some(
-      (p: any) =>
-        p.permission_id === "annadhanam_registrations" &&
-        (p.access_level === "edit" || p.access_level === "full")
-    );
-
-  const canDelete =
-    isSuperAdmin ||
-    (user as any)?.permissions?.some(
-      (p: any) =>
-        p.permission_id === "annadhanam_registrations" &&
-        p.access_level === "full"
-    );
+  // Permissions disabled for this view; always show actions
 
   // Fetch annadhanam entries from API
   const fetchAnnadhanam = async () => {
     try {
       setLoading(true);
 
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam?page=${pagination.pageIndex + 1}&pageSize=${pagination.pageSize}&q=${encodeURIComponent(searchTerm)}`, {
+      const response = await fetch(`http://localhost:4000/api/annadhanam?page=${pagination.pageIndex + 1}&pageSize=${pagination.pageSize}&q=${encodeURIComponent(searchTerm)}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -220,73 +203,15 @@ export default function AnnadhanamListView() {
       toDate: annadhanam.to_date,
       remarks: annadhanam.remarks,
     });
-    setEditMode(false);
     setIsViewEditOpen(true);
   };
 
   const handleEditClick = (annadhanam: Annadhanam) => {
-    setViewEditAnnadhanam(annadhanam);
-    setEditedAnnadhanam({
-      name: annadhanam.name,
-      mobileNumber: annadhanam.mobile_number,
-      food: annadhanam.food,
-      peoples: annadhanam.peoples,
-      time: annadhanam.time,
-      fromDate: annadhanam.from_date,
-      toDate: annadhanam.to_date,
-      remarks: annadhanam.remarks,
-    });
-    setEditMode(true);
-    setIsViewEditOpen(true);
+    // Redirect to the dedicated edit page which handles loading and updating
+    // the annadhanam entry using the provided id.
+    navigate(`/dashboard/annadhanam/edit/${annadhanam.id}`);
   };
 
-  const handleSaveEdit = async () => {
-    if (!viewEditAnnadhanam || !editedAnnadhanam) return;
-
-    try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${viewEditAnnadhanam.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(editedAnnadhanam)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update annadhanam');
-      }
-
-      const result = await response.json();
-
-      if (result.success) {
-        setData((prev) =>
-          prev.map((item) =>
-            item.id === viewEditAnnadhanam.id ? { ...item, ...result.data } : item
-          )
-        );
-
-        toast({
-          title: t("Success", "வெற்றி"),
-          description: t("Annadhanam updated successfully", "அன்னதானம் வெற்றிகரமாக புதுப்பிக்கப்பட்டது"),
-        });
-
-        setIsViewEditOpen(false);
-        setViewEditAnnadhanam(null);
-        setEditedAnnadhanam({});
-      } else {
-        throw new Error(result.error || 'Failed to update annadhanam');
-      }
-    } catch (error) {
-      console.error("Error updating annadhanam:", error);
-      toast({
-        title: t("Error", "பிழை"),
-        description: t("Failed to update annadhanam. Please try again.", "அன்னதானத்தை புதுப்பிக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்."),
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleDeleteClick = (id: number) => {
     setDeleteId(id);
@@ -297,7 +222,7 @@ export default function AnnadhanamListView() {
     if (!deleteId) return;
 
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${deleteId}`, {
+      const response = await fetch(`http://localhost:4000/api/annadhanam/${deleteId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -313,6 +238,13 @@ export default function AnnadhanamListView() {
 
       if (result.success) {
         setData((prev) => prev.filter((item) => item.id !== deleteId));
+        // Adjust pagination totals to reflect removal
+        setPagination((prev) => {
+          const newTotal = Math.max(0, prev.total - 1);
+          const newTotalPages = Math.max(1, Math.ceil(newTotal / prev.pageSize));
+          const newPageIndex = Math.min(prev.pageIndex, newTotalPages - 1);
+          return { ...prev, total: newTotal, totalPages: newTotalPages, pageIndex: newPageIndex };
+        });
 
         toast({
           title: t("Success", "வெற்றி"),
@@ -347,6 +279,14 @@ export default function AnnadhanamListView() {
       <div className="flex flex-col space-y-4">
         {/* Header */}
         <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between">
+          <div />
+          <Button
+            className="bg-orange-600 hover:bg-orange-700"
+            onClick={() => navigate('/dashboard/annadhanam/entry')}
+          >
+            <PlusCircle className="h-4 w-4 mr-2" />
+            {t("New Entry", "புதிய பதிவு")}
+          </Button>
         </div>
 
         {/* Table Card */}
@@ -433,24 +373,20 @@ export default function AnnadhanamListView() {
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
-                              {canEdit && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleEditClick(annadhanam)}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                              )}
-                              {canDelete && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDeleteClick(annadhanam.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditClick(annadhanam)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteClick(annadhanam.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -505,17 +441,15 @@ export default function AnnadhanamListView() {
           </CardContent>
         </Card>
 
-        {/* View/Edit Modal */}
+        {/* View Modal */}
         <Dialog open={isViewEditOpen} onOpenChange={setIsViewEditOpen}>
           <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
-                {editMode ? t("Edit Annadhanam", "அன்னதானத்தை திருத்து") : t("View Annadhanam", "அன்னதானத்தை பார்க்க")}
+                {t("View Annadhanam", "அன்னதானத்தை பார்க்க")}
               </DialogTitle>
               <DialogDescription>
-                {editMode
-                  ? t("Edit the annadhanam details below", "கீழே உள்ள அன்னதான விவரங்களை திருத்தவும்")
-                  : t("View the annadhanam details below", "கீழே உள்ள அன்னதான விவரங்களை பார்க்கவும்")}
+                {t("View the annadhanam details below", "கீழே உள்ள அன்னதான விவரங்களை பார்க்கவும்")}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -530,7 +464,7 @@ export default function AnnadhanamListView() {
                     setEditedAnnadhanam({ ...editedAnnadhanam, name: e.target.value })
                   }
                   className="col-span-3"
-                  disabled={!editMode}
+                  disabled
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
@@ -544,7 +478,7 @@ export default function AnnadhanamListView() {
                     setEditedAnnadhanam({ ...editedAnnadhanam, mobileNumber: e.target.value })
                   }
                   className="col-span-3"
-                  disabled={!editMode}
+                  disabled
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
@@ -558,7 +492,7 @@ export default function AnnadhanamListView() {
                     setEditedAnnadhanam({ ...editedAnnadhanam, food: e.target.value })
                   }
                   className="col-span-3"
-                  disabled={!editMode}
+                  disabled
                   rows={3}
                 />
               </div>
@@ -574,7 +508,7 @@ export default function AnnadhanamListView() {
                     setEditedAnnadhanam({ ...editedAnnadhanam, peoples: parseInt(e.target.value) })
                   }
                   className="col-span-3"
-                  disabled={!editMode}
+                  disabled
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
@@ -589,7 +523,7 @@ export default function AnnadhanamListView() {
                     setEditedAnnadhanam({ ...editedAnnadhanam, time: e.target.value })
                   }
                   className="col-span-3"
-                  disabled={!editMode}
+                  disabled
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
@@ -604,7 +538,7 @@ export default function AnnadhanamListView() {
                     setEditedAnnadhanam({ ...editedAnnadhanam, fromDate: e.target.value })
                   }
                   className="col-span-3"
-                  disabled={!editMode}
+                  disabled
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
@@ -619,7 +553,7 @@ export default function AnnadhanamListView() {
                     setEditedAnnadhanam({ ...editedAnnadhanam, toDate: e.target.value })
                   }
                   className="col-span-3"
-                  disabled={!editMode}
+                  disabled
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
@@ -633,7 +567,7 @@ export default function AnnadhanamListView() {
                     setEditedAnnadhanam({ ...editedAnnadhanam, remarks: e.target.value })
                   }
                   className="col-span-3"
-                  disabled={!editMode}
+                  disabled
                   rows={3}
                 />
               </div>
@@ -649,11 +583,13 @@ export default function AnnadhanamListView() {
               >
                 {t("Cancel", "ரத்து செய்")}
               </Button>
-              {editMode && (
-                <Button onClick={handleSaveEdit} className="bg-orange-600 hover:bg-orange-700">
-                  {t("Save Changes", "மாற்றங்களை சேமிக்க")}
-                </Button>
-              )}
+              <Button
+                className="bg-orange-600 hover:bg-orange-700"
+                onClick={() => navigate('/dashboard/annadhanam/entry')}
+              >
+                <PlusCircle className="h-4 w-4 mr-2" />
+                {t("New Entry", "புதிய பதிவு")}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

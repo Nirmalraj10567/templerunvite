@@ -142,7 +142,7 @@ export default function MembersPage() {
 
   const fetchMembers = async () => {
     try {
-      const response = await fetch('https://tmsapi.xesstechlink.com/api/members', {
+      const response = await fetch('http://localhost:4000/api/members', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -169,7 +169,7 @@ export default function MembersPage() {
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch('https://tmsapi.xesstechlink.com/api/members', {
+      const response = await fetch('http://localhost:4000/api/members', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -240,7 +240,7 @@ export default function MembersPage() {
     if (!editingMember) return;
 
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/users/${editingMember.id}`, {
+      const response = await fetch(`http://localhost:4000/api/users/${editingMember.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -273,7 +273,7 @@ export default function MembersPage() {
     if (!memberToDelete) return;
     
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/users/${memberToDelete}`, {
+      const response = await fetch(`http://localhost:4000/api/users/${memberToDelete}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -337,7 +337,7 @@ export default function MembersPage() {
                 m.id === id ? {...m, isBlocked: true} : m
               ));
               
-              const response = await fetch(`https://tmsapi.xesstechlink.com/api/admin/members/${userId}/block`, {
+              const response = await fetch(`http://localhost:4000/api/admin/members/${userId}/block`, {
                 method: 'PUT',
                 headers: {
                   'Content-Type': 'application/json',
@@ -372,7 +372,7 @@ export default function MembersPage() {
                 m.id === id ? {...m, isBlocked: false} : m
               ));
               
-              const response = await fetch(`https://tmsapi.xesstechlink.com/api/admin/members/${userId}/block`, {
+              const response = await fetch(`http://localhost:4000/api/admin/members/${userId}/block`, {
                 method: 'PUT',
                 headers: {
                   'Content-Type': 'application/json',
@@ -450,7 +450,7 @@ export default function MembersPage() {
                 onClick={async () => {
                   if (!resetPassword) return;
                   try {
-                    await fetch(`https://tmsapi.xesstechlink.com/api/admin/members/${resetMemberId}/reset-password`, {
+                    await fetch(`http://localhost:4000/api/admin/members/${resetMemberId}/reset-password`, {
                       method: 'POST',
                       headers: {
                         'Content-Type': 'application/json',

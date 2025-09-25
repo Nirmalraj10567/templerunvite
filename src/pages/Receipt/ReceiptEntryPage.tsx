@@ -41,7 +41,7 @@ export default function ReceiptEntryPage() {
     setSaving(true);
     setMessage(undefined);
     try {
-      const res = await fetch('https://tmsapi.xesstechlink.com/api/receipts', {
+      const res = await fetch('http://localhost:4000/api/receipts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(form)

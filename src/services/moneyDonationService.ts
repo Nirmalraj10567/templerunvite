@@ -34,12 +34,30 @@ export interface ApiResponse<T> {
 }
 
 class MoneyDonationService {
-  private baseUrl = 'https://tmsapi.xesstechlink.com/api/money-donations';
+  private baseUrl = 'http://localhost:4000/api/money-donations';
 
   private getHeaders(token: string | null): HeadersInit {
     const headers: HeadersInit = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
     return headers;
+  }
+
+  async getById(token: string | null, id: number): Promise<ApiResponse<MoneyDonationItem>> {
+    const response = await fetch(`${this.baseUrl}/${id}`, {
+      headers: this.getHeaders(token),
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  }
+
+  async update(token: string | null, id: number, data: Partial<MoneyDonationFormData>): Promise<ApiResponse<MoneyDonationItem>> {
+    const response = await fetch(`${this.baseUrl}/${id}`, {
+      method: 'PUT',
+      headers: this.getHeaders(token),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
   }
 
   async list(token: string | null): Promise<ApiResponse<MoneyDonationItem[]>> {
@@ -53,6 +71,15 @@ class MoneyDonationService {
       method: 'POST',
       headers: this.getHeaders(token),
       body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+  }
+
+  async delete(token: string | null, id: number): Promise<ApiResponse<{ id: number }>> {
+    const response = await fetch(`${this.baseUrl}/${id}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(token),
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();

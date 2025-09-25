@@ -1,11 +1,23 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import { moneyDonationService, MoneyDonationItem } from '@/services/moneyDonationService';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export default function MoneyDonationList() {
   const { token } = useAuth();
   const { language } = useLanguage();
+  const navigate = useNavigate();
   const [items, setItems] = useState<MoneyDonationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState('');
@@ -100,6 +112,35 @@ export default function MoneyDonationList() {
     if (e.key === 'Enter') {
       e.preventDefault();
       load();
+    }
+  };
+
+  const onEdit = (row: MoneyDonationItem) => {
+    // Navigate to entry page with query param; entry page may be enhanced to support editing later
+    navigate(`/dashboard/donations/money-entry?editId=${row.id}`);
+  };
+
+  // Delete confirmation modal state
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteRow, setDeleteRow] = useState<MoneyDonationItem | null>(null);
+
+  const askDelete = (row: MoneyDonationItem) => {
+    setDeleteRow(row);
+    setDeleteOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteRow) return;
+    try {
+      await moneyDonationService.delete(token, deleteRow.id);
+      setItems(prev => prev.filter(it => it.id !== deleteRow.id));
+    } catch (e) {
+      console.error('Failed to delete donation', e);
+      // Optional: use toast if available; fallback alert
+      alert(t('Delete failed', 'நீக்கம் தோல்வியுற்றது'));
+    } finally {
+      setDeleteOpen(false);
+      setDeleteRow(null);
     }
   };
 
@@ -252,17 +293,35 @@ export default function MoneyDonationList() {
                     {visibleCols['reason'] && <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">{r.reason || '-'}</td>}
                     {visibleCols['actions'] && (
                       <td className="px-2 py-2 whitespace-nowrap text-center text-xs font-medium align-middle">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const url = moneyDonationService.receiptUrl(r.id, token);
-                            window.open(url, '_blank');
-                          }}
-                          className="px-2 py-1 border border-gray-300 rounded shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50"
-                          title={t('Print Receipt', 'ரசீது அச்சிடுக')}
-                        >
-                          {t('Print', 'அச்சிடு')}
-                        </button>
+                        <div className="inline-flex gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const url = moneyDonationService.receiptUrl(r.id, token);
+                              window.open(url, '_blank');
+                            }}
+                            className="px-2 py-1 border border-gray-300 rounded shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50"
+                            title={t('Print Receipt', 'ரசீது அச்சிடுக')}
+                          >
+                            {t('Print', 'அச்சிடு')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onEdit(r)}
+                            className="px-2 py-1 border border-gray-300 rounded shadow-sm text-xs font-medium text-blue-700 bg-white hover:bg-gray-50"
+                            title={t('Edit', 'திருத்து')}
+                          >
+                            {t('Edit', 'திருத்து')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => askDelete(r)}
+                            className="px-2 py-1 border border-gray-300 rounded shadow-sm text-xs font-medium text-red-700 bg-white hover:bg-gray-50"
+                            title={t('Delete', 'நீக்கு')}
+                          >
+                            {t('Delete', 'நீக்கு')}
+                          </button>
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -350,6 +409,24 @@ export default function MoneyDonationList() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('Are you sure?', 'நீங்கள் உறுதியாகவா?')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('This action cannot be undone. This will permanently delete the donation record.', 'இந்த செயலை திரும்பப் பெற முடியாது. இது நன்கொடை பதிவை நிரந்தரமாக நீக்கும்.')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('Cancel', 'ரத்து செய்')}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {t('Delete', 'நீக்கு')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
