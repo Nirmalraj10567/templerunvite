@@ -64,12 +64,8 @@ export function Header({ children }: HeaderProps) {
               </div>
             ) : (
               <div className="flex items-center gap-3">
-                <Link
-                  to="/dashboard"
-                  className="hidden sm:inline-flex text-black hover:text-orange-600 transition-colors"
-                >
-                  {t.dashboard}
-                </Link>
+               
+              
                 <button 
                   onClick={toggleLanguage}
                   className="px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm min-w-[60px]"

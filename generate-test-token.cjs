@@ -7,7 +7,7 @@ const token = jwt.sign(
     role: 'admin',
     templeId: 1
   },
-  'your-super-secret-jwt-key-change-in-production',
+  'HHHHHHHHH',
   { expiresIn: '1h' }
 );
 

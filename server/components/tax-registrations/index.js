@@ -17,9 +17,105 @@ const storage = multer.diskStorage({
   }
 });
 
+// GET logs for a specific tax registration
+router.get('/:id/logs', authenticateToken, authorizePermission('tax_registrations', 'view'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const templeId = req.user.templeId;
+    // Ensure table exists (best-effort)
+    try {
+      const has = await db.schema.hasTable('user_tax_registration_logs');
+      if (!has) return res.json({ success: true, data: [] });
+    } catch {}
+    const rows = await db('user_tax_registration_logs')
+      .where({ tax_registration_id: Number(id), temple_id: templeId })
+      .orderBy('created_at', 'desc')
+      .select('*');
+    const data = rows.map((r) => ({
+      id: r.id,
+      action: r.action,
+      created_by: r.created_by,
+      created_at: r.created_at,
+      details: (() => { try { return r.details ? JSON.parse(r.details) : null; } catch { return r.details; } })(),
+    }));
+    res.json({ success: true, data });
+  } catch (e) {
+    console.error('Error fetching /api/tax-registrations/:id/logs:', e);
+    res.status(500).json({ error: 'Failed to fetch logs' });
+  }
+});
+
 const upload = multer({ 
   storage,
   limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+});
+
+// Simple logger for tax registration changes
+async function logTaxRegistrationAction({ taxRegistrationId, templeId, userId, action, details }) {
+  try {
+    await db('user_tax_registration_logs').insert({
+      tax_registration_id: Number(taxRegistrationId),
+      temple_id: Number(templeId),
+      created_by: userId ? Number(userId) : null,
+      action,
+      details: details ? JSON.stringify(details) : null,
+      created_at: db.fn.now(),
+    });
+  } catch (e) {
+    // Best-effort logging; do not block main flow
+    // eslint-disable-next-line no-console
+    console.warn('Failed to write user_tax_registration_logs:', e.message);
+  }
+}
+
+// GET all logs for current temple (optional pagination)
+router.get('/logs', authenticateToken, authorizePermission('tax_registrations', 'view'), async (req, res) => {
+  try {
+    const templeId = req.user.templeId;
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const pageSize = Math.min(200, Math.max(1, parseInt(req.query.pageSize, 10) || 50));
+
+    // Ensure table exists
+    try {
+      const has = await db.schema.hasTable('user_tax_registration_logs');
+      if (!has) return res.json({ success: true, data: [], total: 0, page, pageSize });
+    } catch {}
+
+    const base = db('user_tax_registration_logs as l')
+      .leftJoin('user_tax_registrations as r', 'r.id', 'l.tax_registration_id')
+      .where('l.temple_id', templeId);
+
+    const totalRow = await base.clone().count({ c: '*' }).first();
+    const total = Number(totalRow?.c || totalRow?.count || 0);
+
+    const rows = await base
+      .clone()
+      .orderBy('l.created_at', 'desc')
+      .orderBy('l.id', 'desc')
+      .limit(pageSize)
+      .offset((page - 1) * pageSize)
+      .select(
+        'l.*',
+        'r.name as registration_name',
+        'r.reference_number as registration_ref'
+      );
+
+    const data = rows.map((r) => ({
+      id: r.id,
+      tax_registration_id: r.tax_registration_id,
+      action: r.action,
+      created_by: r.created_by,
+      created_at: r.created_at,
+      registration_name: r.registration_name || null,
+      registration_ref: r.registration_ref || null,
+      details: (() => { try { return r.details ? JSON.parse(r.details) : null; } catch { return r.details; } })(),
+    }));
+
+    res.json({ success: true, data, total, page, pageSize });
+  } catch (e) {
+    console.error('Error fetching /api/tax-registrations/logs:', e);
+    res.status(500).json({ error: 'Failed to fetch logs' });
+  }
 });
 
 // POST endpoint for tax registrations
@@ -119,6 +215,23 @@ router.post('/', authenticateToken, authorizePermission('tax_registrations', 'ed
     };
 
     const [registrationId] = await db('user_tax_registrations').insert(insertPayload);
+
+    // Fetch full inserted row for logging (full data dump)
+    let insertedRow = null;
+    try {
+      insertedRow = await db('user_tax_registrations')
+        .where({ id: registrationId, temple_id: effectiveTempleId })
+        .first();
+    } catch {}
+
+    // Log creation with full row snapshot
+    await logTaxRegistrationAction({
+      taxRegistrationId: registrationId,
+      templeId: effectiveTempleId,
+      userId: req.user?.id,
+      action: 'create',
+      details: insertedRow || { ...insertPayload, id: registrationId },
+    });
 
     // Mirror to journal: INCOME A/C -> selected account (or CASH A/C)
     try {
@@ -302,6 +415,11 @@ router.put('/:id', authenticateToken, authorizePermission('tax_registrations', '
       updates.outstanding_amount = Math.max(0, tax - paid);
     }
 
+    // Fetch current row BEFORE applying updates for full-dump logging
+    const beforeRow = await db('user_tax_registrations')
+      .where({ id: Number(id), temple_id: templeId })
+      .first();
+
     updates.updated_at = db.fn.now();
 
     const count = await db('user_tax_registrations')
@@ -313,6 +431,15 @@ router.put('/:id', authenticateToken, authorizePermission('tax_registrations', '
     const row = await db('user_tax_registrations')
       .where({ id: Number(id), temple_id: templeId })
       .first();
+
+    // Log update with full before/after dumps
+    await logTaxRegistrationAction({
+      taxRegistrationId: id,
+      templeId,
+      userId: req.user?.id,
+      action: 'update',
+      details: { before: beforeRow || null, after: row || null },
+    });
 
     // Mirror to journal_entries
     try {
@@ -398,6 +525,15 @@ router.delete('/:id', authenticateToken, authorizePermission('tax_registrations'
     await db('user_tax_registrations')
       .where({ id: Number(id), temple_id: templeId })
       .del();
+
+    // Log deletion with full data dump of deleted row
+    await logTaxRegistrationAction({
+      taxRegistrationId: id,
+      templeId,
+      userId: req.user?.id,
+      action: 'delete',
+      details: existing || { id: Number(id) },
+    });
 
     res.json({ success: true });
   } catch (err) {

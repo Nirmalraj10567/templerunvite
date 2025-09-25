@@ -508,12 +508,21 @@ export const sidebarItems: NavItem[] = [
 ];
 
 export const getSidebarItems = (language: 'english' | 'tamil' = 'english') => {
-  return sidebarItems.map(item => ({
-    ...item,
-    label: language === 'tamil' ? item.tamilLabel : item.label,
-    children: item.children?.map(child => ({
-      ...child,
-      label: language === 'tamil' ? (child.tamilLabel || child.label) : child.label
-    }))
-  }));
+  return sidebarItems.map(item => {
+    const mappedChildren = Array.isArray(item.children)
+      ? item.children
+          .filter(Boolean)
+          .map(child => ({
+            ...child,
+            // Ensure label is always defined for consumers
+            label: language === 'tamil' ? ((child as any).tamilLabel || (child as any).label) : (child as any).label
+          }))
+      : undefined;
+
+    return {
+      ...item,
+      label: language === 'tamil' ? item.tamilLabel : item.label,
+      children: mappedChildren
+    };
+  });
 };

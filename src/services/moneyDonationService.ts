@@ -34,7 +34,7 @@ export interface ApiResponse<T> {
 }
 
 class MoneyDonationService {
-  private baseUrl = 'http://localhost:4000/api/money-donations';
+  private baseUrl = 'https://tmsapi.xesstechlink.com/api/money-donations';
 
   private getHeaders(token: string | null): HeadersInit {
     const headers: HeadersInit = { 'Content-Type': 'application/json' };
@@ -67,13 +67,38 @@ class MoneyDonationService {
   }
 
   async create(token: string | null, data: MoneyDonationFormData): Promise<ApiResponse<MoneyDonationItem>> {
-    const response = await fetch(this.baseUrl, {
-      method: 'POST',
-      headers: this.getHeaders(token),
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return response.json();
+    console.log('=== DEBUG: moneyDonationService.create called ===');
+    console.log('URL:', this.baseUrl);
+    console.log('Method: POST');
+    console.log('Headers:', this.getHeaders(token));
+    console.log('Data being sent:', data);
+    console.log('JSON stringified data:', JSON.stringify(data));
+    
+    try {
+      const response = await fetch(this.baseUrl, {
+        method: 'POST',
+        headers: this.getHeaders(token),
+        body: JSON.stringify(data),
+      });
+      
+      console.log('DEBUG: Response received');
+      console.log('DEBUG: Response status:', response.status);
+      console.log('DEBUG: Response ok:', response.ok);
+      console.log('DEBUG: Response headers:', Object.fromEntries(response.headers.entries()));
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log('DEBUG: Error response text:', errorText);
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+      }
+      
+      const result = await response.json();
+      console.log('DEBUG: Success response data:', result);
+      return result;
+    } catch (error) {
+      console.error('DEBUG: Fetch error:', error);
+      throw error;
+    }
   }
 
   async delete(token: string | null, id: number): Promise<ApiResponse<{ id: number }>> {
@@ -83,6 +108,81 @@ class MoneyDonationService {
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
+  }
+
+  // Get logs for a specific donation
+  async getLogs(token: string | null, donationId: number): Promise<ApiResponse<Array<{
+    id: number;
+    action: string;
+    created_at: string;
+    created_by: number | null;
+    details: any;
+  }>>> {
+    console.log('=== DEBUG: moneyDonationService.getLogs called ===');
+    console.log('URL:', `${this.baseUrl}/${donationId}/logs`);
+    console.log('Headers:', this.getHeaders(token));
+    
+    const response = await fetch(`${this.baseUrl}/${donationId}/logs`, {
+      headers: this.getHeaders(token),
+    });
+    
+    console.log('DEBUG: Logs response status:', response.status);
+    console.log('DEBUG: Logs response ok:', response.ok);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.log('DEBUG: Logs error response:', errorText);
+      throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+    }
+    
+    const result = await response.json();
+    console.log('DEBUG: Logs response data:', result);
+    return result;
+  }
+
+  // Get all logs for the temple
+  async getAllLogs(token: string | null, page: number = 1, pageSize: number = 50): Promise<ApiResponse<{
+    data: Array<{
+      id: number;
+      donation_id: number;
+      action: string;
+      created_at: string;
+      created_by: number | null;
+      donation_name: string | null;
+      register_no: string | null;
+      details: any;
+    }>;
+    total: number;
+    page: number;
+    pageSize: number;
+  }>> {
+    console.log('=== DEBUG: moneyDonationService.getAllLogs called ===');
+    console.log('Page:', page, 'PageSize:', pageSize);
+    
+    const params = new URLSearchParams({ 
+      page: String(page), 
+      pageSize: String(pageSize) 
+    });
+    const url = `${this.baseUrl}/logs?${params.toString()}`;
+    console.log('URL:', url);
+    console.log('Headers:', this.getHeaders(token));
+    
+    const response = await fetch(url, {
+      headers: this.getHeaders(token),
+    });
+    
+    console.log('DEBUG: All logs response status:', response.status);
+    console.log('DEBUG: All logs response ok:', response.ok);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.log('DEBUG: All logs error response:', errorText);
+      throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+    }
+    
+    const result = await response.json();
+    console.log('DEBUG: All logs response data:', result);
+    return result;
   }
 
   // Build receipt PDF URL for a donation id; token is passed via query for file download

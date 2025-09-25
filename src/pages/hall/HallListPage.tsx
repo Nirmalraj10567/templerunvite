@@ -130,7 +130,7 @@ export default function HallListPage() {
       if (q) params.set('q', q);
       if (from) params.set('from', from);
       if (to) params.set('to', to);
-      const url = '/api/hall-bookings' + (params.toString() ? `?${params.toString()}` : '');
+      const url = 'https://tmsapi.xesstechlink.com/api/hall-bookings' + (params.toString() ? `?${params.toString()}` : '');
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error('Failed');
       const data = await res.json();
@@ -158,7 +158,7 @@ export default function HallListPage() {
   const handleExportCSV = async () => {
     try {
       const qs = buildQueryString();
-      const url = '/api/hall-bookings/export' + (qs ? `?${qs}` : '');
+      const url = 'https://tmsapi.xesstechlink.com/api/hall-bookings/export' + (qs ? `?${qs}` : '');
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error('Failed to export CSV');
       const blob = await res.blob();
@@ -178,7 +178,7 @@ export default function HallListPage() {
   const handleExportPDF = async () => {
     try {
       const qs = buildQueryString();
-      const url = '/api/hall-bookings/export-pdf' + (qs ? `?${qs}` : '');
+      const url = 'https://tmsapi.xesstechlink.com/api/hall-bookings/export-pdf' + (qs ? `?${qs}` : '');
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error('Failed to export PDF');
       const blob = await res.blob();
@@ -318,7 +318,7 @@ export default function HallListPage() {
                 if (!selectedBookingId) return;
                 setDeleting(true);
                 try {
-                  const res = await fetch(`/api/hall-bookings/${selectedBookingId}`, {
+                  const res = await fetch(`https://tmsapi.xesstechlink.com/api/hall-bookings/${selectedBookingId}`, {
                     method: 'DELETE',
                     headers: { Authorization: `Bearer ${token}` },
                   });

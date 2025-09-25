@@ -201,21 +201,8 @@ router.put('/api/ledger/categories/:id', authenticateToken, async (req, res) => 
   }
 });
 
-// Delete a category
-router.delete('/api/ledger/categories/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    // In a real implementation, you would check if the category is in use
-    // before deleting it
-    
-    // For now, we'll just return success
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error deleting category:', error);
-    res.status(500).json({ error: 'Failed to delete category' });
-  }
-});
+// Delete a category - handled by backend.js router
+// This route is implemented in server/backend.js with proper database deletion
 
 // Helper function to calculate current balance
 async function calculateCurrentBalance() {

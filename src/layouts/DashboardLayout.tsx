@@ -41,6 +41,86 @@ export default function DashboardLayout() {
   const mainContentRef = React.useRef<HTMLDivElement>(null);
   const mainScrollRef = React.useRef<HTMLDivElement>(null);
 
+  // Sidebar items and permissions
+  const sidebarItems = useMemo(() => getSidebarItems(lang), [lang]);
+
+  const allowedSidebarItems = useMemo(() => {
+    const hiddenKeys = new Set((settings?.hidden_menu_keys || []).map((s) => String(s)));
+
+    const levelRank = (lvl?: string) => {
+      if (lvl === 'full') return 3;
+      if (lvl === 'edit') return 2;
+      if (lvl === 'view') return 1;
+      return 0;
+    };
+
+    const hasPerm = (permissionId?: string, requiredLevel?: string) => {
+      if (!permissionId) return true;
+      if (isSuperAdmin) return true;
+      const need = levelRank(requiredLevel || 'view');
+      const found = userPermissions?.find((p) => p.permission_id === permissionId);
+      if (!found) return false;
+      return levelRank(found.access_level) >= need;
+    };
+
+    const isHidden = (sectionLabel?: string, itemLabel?: string, to?: string) => {
+      const candidates = [sectionLabel, itemLabel, to, [sectionLabel, itemLabel].filter(Boolean).join('/')].filter(Boolean) as string[];
+      return candidates.some((c) => hiddenKeys.has(c));
+    };
+
+    const result: any[] = [];
+    for (const item of sidebarItems) {
+      // If this is a direct link item (no children)
+      if ((item as any).to) {
+        const direct = item as any;
+        const allowed = hasPerm(direct.permissionId as any, (direct as any).accessLevel as any);
+        if (!allowed) continue;
+        if (isHidden(undefined, direct.label, direct.to)) continue;
+        result.push(direct);
+        continue;
+      }
+
+      // Group with children
+      if ((item as any).children) {
+        const group = { ...item } as any;
+        const children = (Array.isArray(group.children) ? group.children : [])
+          .filter(Boolean)
+          .filter((child: any) => hasPerm(child?.permissionId, child?.accessLevel))
+          .filter((child: any) => !isHidden(group.label, child?.label, child?.to));
+        if (children.length === 0) {
+          // Hide empty groups, or group explicitly hidden by label
+          if (isHidden(group.label, undefined, undefined)) continue;
+          else continue;
+        }
+        // If group itself hidden by label, skip the group entirely
+        if (isHidden(group.label, undefined, undefined)) continue;
+        group.children = children;
+        result.push(group);
+      }
+    }
+    return result;
+  }, [settings?.hidden_menu_keys, isSuperAdmin, userPermissions, sidebarItems]);
+
+  // If the current route matches any child of a sidebar group, keep the sidebar pinned open on desktop
+  // Helper to normalize relative menu paths (like 'donation-product/entry') to absolute app paths
+  // so that they can be compared reliably against location.pathname (e.g. '/dashboard/donation-product/entry').
+  const normalizePath = (to?: string) => {
+    const t = String(to || '');
+    if (!t) return '';
+    return t.startsWith('/') ? t : `/dashboard/${t}`;
+  };
+  const shouldPinOpen = useMemo(() => {
+    const path = location.pathname;
+    return (allowedSidebarItems as any[]).some(it => Array.isArray(it?.children) && it.children.some((c: any) => {
+      const to = String(c?.to || '');
+      if (!to) return false;
+      const abs = normalizePath(to);
+      return path === abs || (abs !== '/' && (path.startsWith(abs + '/') || path.startsWith(abs)));
+    }));
+  }, [location.pathname, allowedSidebarItems]);
+
+  // Removed auto pin-open behavior so the sidebar can collapse when cursor moves out
+
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 768) {
@@ -56,6 +136,8 @@ export default function DashboardLayout() {
       const expandedWidth = 256;
       const collapsedWidth = 80;
       const buffer = 40; // hysteresis to avoid flicker
+
+      // Removed pin-open early return so the sidebar can auto-collapse on mouse move out
 
       // Do not auto-collapse while the user is interacting with the sidebar itself
       if (!isSidebarCollapsed && isHoveringSidebar) return;
@@ -90,7 +172,7 @@ export default function DashboardLayout() {
       window.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('pointerdown', handleClickOutside);
     };
-  }, [isSidebarCollapsed, isMobileMenuOpen, isHoveringSidebar]);
+  }, [isSidebarCollapsed, isMobileMenuOpen, isHoveringSidebar, shouldPinOpen]);
 
   // Ensure main content scroll resets to top on route change
   useEffect(() => {
@@ -143,63 +225,7 @@ export default function DashboardLayout() {
     }
   }, [settings?.sidebar_collapsed_default]);
 
-  const sidebarItems = useMemo(() => getSidebarItems(lang), [lang]);
-
-  const allowedSidebarItems = useMemo(() => {
-    const hiddenKeys = new Set((settings?.hidden_menu_keys || []).map((s) => String(s)));
-
-    const levelRank = (lvl?: string) => {
-      if (lvl === 'full') return 3;
-      if (lvl === 'edit') return 2;
-      if (lvl === 'view') return 1;
-      return 0;
-    };
-
-    const hasPerm = (permissionId?: string, requiredLevel?: string) => {
-      if (!permissionId) return true;
-      if (isSuperAdmin) return true;
-      const need = levelRank(requiredLevel || 'view');
-      const found = userPermissions?.find((p) => p.permission_id === permissionId);
-      if (!found) return false;
-      return levelRank(found.access_level) >= need;
-    };
-
-    const isHidden = (sectionLabel?: string, itemLabel?: string, to?: string) => {
-      const candidates = [sectionLabel, itemLabel, to, [sectionLabel, itemLabel].filter(Boolean).join('/')].filter(Boolean) as string[];
-      return candidates.some((c) => hiddenKeys.has(c));
-    };
-
-    const result: any[] = [];
-    for (const item of sidebarItems) {
-      // If this is a direct link item (no children)
-      if ((item as any).to) {
-        const direct = item as any;
-        const allowed = hasPerm(direct.permissionId as any, (direct as any).accessLevel as any);
-        if (!allowed) continue;
-        if (isHidden(undefined, direct.label, direct.to)) continue;
-        result.push(direct);
-        continue;
-      }
-
-      // Group with children
-      if ((item as any).children) {
-        const group = { ...item } as any;
-        const children = (group.children || [])
-          .filter((child: any) => hasPerm(child.permissionId, child.accessLevel))
-          .filter((child: any) => !isHidden(group.label, child.label, child.to));
-        if (children.length === 0) {
-          // Hide empty groups, or group explicitly hidden by label
-          if (isHidden(group.label, undefined, undefined)) continue;
-          else continue;
-        }
-        // If group itself hidden by label, skip the group entirely
-        if (isHidden(group.label, undefined, undefined)) continue;
-        group.children = children;
-        result.push(group);
-      }
-    }
-    return result;
-  }, [settings?.hidden_menu_keys, isSuperAdmin, userPermissions, sidebarItems]);
+  // If the current route matches any child of a sidebar group, keep the sidebar pinned open on desktop
 
   // Determine current route's permission and whether user is view-only
   const { isViewOnlyForRoute, currentPermissionId, currentRequiredLevel, userLevelForPermission } = useMemo(() => {
@@ -215,10 +241,11 @@ export default function DashboardLayout() {
     // Flatten all items (including children) from navigation with permission metadata
     const flat: Array<{ to: string; permissionId?: string; accessLevel?: 'view'|'edit'|'full' }> = [];
     for (const item of sidebarItems as any[]) {
-      if (item.to) flat.push({ to: item.to, permissionId: item.permissionId, accessLevel: item.accessLevel });
-      if (item.children) {
-        for (const c of item.children) {
-          flat.push({ to: c.to, permissionId: c.permissionId, accessLevel: c.accessLevel });
+      if (item.to) flat.push({ to: normalizePath(item.to), permissionId: item.permissionId, accessLevel: item.accessLevel });
+      if (Array.isArray(item.children)) {
+        for (const c of item.children.filter(Boolean)) {
+          if (!c) continue;
+          flat.push({ to: normalizePath((c as any).to), permissionId: (c as any).permissionId, accessLevel: (c as any).accessLevel });
         }
       }
     }
@@ -288,7 +315,7 @@ export default function DashboardLayout() {
 
   useEffect(() => {
     let mounted = true;
-    fetch('http://localhost:4000/api/system/year-end-status', { headers: { Authorization: `Bearer ${token}` } })
+    fetch('https://tmsapi.xesstechlink.com/api/system/year-end-status', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(d => {
         if (!mounted) return;
@@ -352,7 +379,33 @@ export default function DashboardLayout() {
   }, [isSearchOpen, selectedIndex, navigate, filteredResults]);
 
   const Sidebar = ({ isMobile = false }) => {
-    const [expandedItems, setExpandedItems] = useState<string[]>([]);
+    // Compute which groups should be expanded based on current route
+    const getActiveGroupLabels = () => {
+      const path = location.pathname;
+      const out: string[] = [];
+      for (const it of allowedSidebarItems as any[]) {
+        if (it.children && Array.isArray(it.children)) {
+          const matched = it.children.some((c: any) => {
+            const to = String(c?.to || '');
+            if (!to) return false;
+            const abs = normalizePath(to);
+            return path === abs || (abs !== '/' && (path.startsWith(abs + '/') || path.startsWith(abs)));
+          });
+          if (matched) out.push(it.label);
+        }
+      }
+      return out;
+    };
+
+    // Start with any groups that match the current route
+    const [expandedItems, setExpandedItems] = useState<string[]>(() => getActiveGroupLabels());
+
+    // When the route or sidebar items change, ensure matching groups are opened (merge with existing expanded)
+    useEffect(() => {
+      const active = getActiveGroupLabels();
+      if (active.length === 0) return;
+      setExpandedItems(prev => Array.from(new Set([...prev, ...active])));
+    }, [location.pathname, allowedSidebarItems, isSidebarCollapsed]);
 
     const toggleItemExpansion = (label: string) => {
       setExpandedItems(prev => 
@@ -406,7 +459,21 @@ export default function DashboardLayout() {
             if (item.children) {
               const isExpanded = expandedItems.includes(item.label);
               return (
-                <div key={item.label} className="space-y-2">
+                <div 
+                  key={item.label} 
+                  className="space-y-2"
+                  onMouseEnter={() => {
+                    if (!isSidebarCollapsed) {
+                      setExpandedItems(prev => prev.includes(item.label) ? prev : [...prev, item.label]);
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    if (!isSidebarCollapsed) {
+                      // Always collapse on mouse leave per requirement
+                      setExpandedItems(prev => prev.filter(lbl => lbl !== item.label));
+                    }
+                  }}
+                >
                   <div 
                     onClick={() => toggleItemExpansion(item.label)}
                     className={`

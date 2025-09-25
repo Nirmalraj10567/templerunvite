@@ -8,6 +8,7 @@ import axios from 'axios';
 import { getAuthToken } from '@/lib/auth';
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from '@/components/ui/use-toast';
 
 type Category = {
   id: number;
@@ -53,7 +54,7 @@ export function CategoryManager({
       const payloadLabel = category.label.trim();
       const payloadValue = asIs(payloadLabel); // value = label
       const response = await axios.put<Category>(
-        `/api/ledger/categories/${category.id}`,
+        `https://tmsapi.xesstechlink.com/api/ledger/categories/${category.id}`,
         {
           value: payloadValue,
           label: payloadLabel,
@@ -68,8 +69,17 @@ export function CategoryManager({
         c.id === category.id ? { ...c, value: payloadValue, label: payloadLabel } : c
       ));
       setEditingCategory(null);
+      toast({
+        title: t('Success', 'வெற்றி'),
+        description: t('Category updated successfully', 'வகை வெற்றிகரமாக புதுப்பிக்கப்பட்டது'),
+      });
     } catch (error) {
       console.error('Error updating category:', error);
+      toast({
+        title: t('Error', 'பிழை'),
+        description: t('Failed to update category', 'வகையை புதுப்பிக்க முடியவில்லை'),
+        variant: 'destructive',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -78,17 +88,30 @@ export function CategoryManager({
   const handleDelete = async (id: number) => {
     if (isLoading) return; // prevent duplicate rapid deletions
     if (!templeId) {
-      console.error('Temple ID not available');
+      toast({
+        title: t('Error', 'பிழை'),
+        description: t('Temple ID not available', 'கோவில் ஐடி கிடைக்கவில்லை'),
+        variant: 'destructive',
+      });
       return;
     }
     try {
       setIsLoading(true);
-      await axios.delete(`/api/ledger/categories/${id}?templeId=${templeId}`, {
+      await axios.delete(`https://tmsapi.xesstechlink.com/api/ledger/categories/${id}?templeId=${templeId}`, {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });
       setCategories(categories.filter(c => c.id !== id));
+      toast({
+        title: t('Success', 'வெற்றி'),
+        description: t('Category deleted successfully', 'வகை வெற்றிகரமாக நீக்கப்பட்டது'),
+      });
     } catch (error) {
       console.error('Error deleting category:', error);
+      toast({
+        title: t('Error', 'பிழை'),
+        description: t('Failed to delete category', 'வகையை நீக்க முடியவில்லை'),
+        variant: 'destructive',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -112,15 +135,24 @@ export function CategoryManager({
     try {
       setIsLoading(true);
       const response = await axios.post<Category>(
-        '/api/ledger/categories',
+        'https://tmsapi.xesstechlink.com/api/ledger/categories',
         { value: nextVal, label: nextLabel, templeId: templeId },
         { headers: { Authorization: `Bearer ${getAuthToken()}` } }
       );
       setCategories([...categories, response.data]);
       setNewCategory({ value: '', label: '' });
       setIsAdding(false);
+      toast({
+        title: t('Success', 'வெற்றி'),
+        description: t('Category added successfully', 'வகை வெற்றிகரமாக சேர்க்கப்பட்டது'),
+      });
     } catch (error) {
       console.error('Error adding category:', error);
+      toast({
+        title: t('Error', 'பிழை'),
+        description: t('Failed to add category', 'வகையை சேர்க்க முடியவில்லை'),
+        variant: 'destructive',
+      });
     } finally {
       setIsLoading(false);
     }

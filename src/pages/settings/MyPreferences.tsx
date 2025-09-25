@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../lib/language';
 import { UsersIcon, BarChartIcon, CreditCardIcon, CalendarIcon } from '../../components/icons';
 import { sidebarItems, NavItem } from '../../config/navigation';
+import { Modal } from '../../components/Modal';
 
 const MyPreferences: React.FC = () => {
   const { settings, updateSettings } = useSettings();
@@ -52,6 +53,7 @@ const MyPreferences: React.FC = () => {
   const [collapsed, setCollapsed] = useState(!!settings.sidebar_collapsed_default);
   const [hiddenMenuRaw, setHiddenMenuRaw] = useState((settings.hidden_menu_keys || []).join(', '));
   const [selectedActions, setSelectedActions] = useState<string[]>(Array.isArray(settings.quick_actions) ? settings.quick_actions : []);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
     setLandingRoute(settings.landing_route || '/dashboard');
@@ -74,6 +76,7 @@ const MyPreferences: React.FC = () => {
       hidden_menu_keys: hiddenMenuKeys,
       quick_actions: selectedActions,
     });
+    setShowSuccess(true);
   };
 
   const levelRank = (lvl?: string) => (lvl === 'full' ? 3 : lvl === 'edit' ? 2 : lvl === 'view' ? 1 : 0);
@@ -114,6 +117,21 @@ const MyPreferences: React.FC = () => {
 
   return (
     <div className="w-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+      {/* Success Modal */}
+      <Modal open={showSuccess} onClose={() => setShowSuccess(false)}>
+        <div className="p-6 text-center">
+          <div className="text-4xl mb-2">✅</div>
+          <h2 className="text-xl font-bold mb-2">Preferences Saved!</h2>
+          <p className="mb-4">Your preferences have been updated successfully.</p>
+          <button
+            className="px-6 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+            onClick={() => setShowSuccess(false)}
+          >
+            OK
+          </button>
+        </div>
+      </Modal>
+
       <div className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-6">
         {/* Header Section */}
         <div className="mb-6">

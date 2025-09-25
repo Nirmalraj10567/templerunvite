@@ -477,10 +477,57 @@ app.use('/api/hall-approval', hallApprovalRouter);
     console.error('Failed to mount annadhanam-mobile router:', e);
   }
 })();
+// Mount tax-mobile routes (public; validation via mobile and templeId in query)
+(() => {
+  try {
+    const taxMobileRouter = require('./tax-mobile')({ db });
+    app.use('/api/tax-mobile', taxMobileRouter);
+  } catch (e) {
+    console.error('Failed to mount tax-mobile router:', e);
+  }
+})();
 // Native categories router under /api/ledger to ensure /api/ledger/categories works
 (() => {
   const express = require('express');
   const r = express.Router();
+
+  // Helper to write money donation logs
+  async function logMoneyDonationAction({ donationId, templeId, userId, action, details }) {
+    try {
+      const has = await db.schema.hasTable('money_donation_logs');
+      if (!has) {
+        console.warn('money_donation_logs table does not exist, creating it...');
+        // Create the table if it doesn't exist
+        await db.schema.createTable('money_donation_logs', (table) => {
+          table.increments('id').primary();
+          table.integer('temple_id').notNullable().index();
+          table.integer('donation_id').notNullable().index();
+          table.string('action').notNullable(); // create | update | delete
+          table.text('details'); // JSON string with full snapshot/diff
+          table.integer('created_by').nullable().index();
+          table.timestamp('created_at').defaultTo(db.fn.now());
+        });
+        console.log('Created money_donation_logs table');
+      }
+      
+      const logData = {
+        donation_id: Number(donationId),
+        temple_id: Number(templeId),
+        created_by: userId ? Number(userId) : null,
+        action,
+        details: details ? JSON.stringify(details) : null,
+        created_at: db.fn.now(),
+      };
+      
+      console.log('Inserting money donation log:', logData);
+      await db('money_donation_logs').insert(logData);
+      console.log('Successfully inserted money donation log');
+    } catch (e) {
+      console.error('Failed to write money_donation_logs:', e.message);
+      console.error('Error details:', e);
+      throw e; // Re-throw to let caller handle
+    }
+  }
 
   // GET /api/ledger/categories
   r.get('/categories', authenticateToken, async (req, res) => {
@@ -968,6 +1015,21 @@ app.get('/api/mobile/events', async (req, res) => {
       const [id] = await db('money_donations').insert(payload);
       const row = await db('money_donations').where({ id }).first();
 
+      // Log creation with full snapshot
+      try {
+        await logMoneyDonationAction({
+          donationId: id,
+          templeId: req.user.templeId,
+          userId: req.user.id,
+          action: 'create',
+          details: row || { ...payload, id },
+        });
+        console.log('Successfully logged money donation creation for ID:', id);
+      } catch (logError) {
+        console.error('Failed to log money donation creation:', logError);
+        // Don't fail the request if logging fails, but log the error
+      }
+
       // Also record a journal entry: DONATION A/C -> INCOME A/C (or selected)
       try {
         const fromAccount = b.fromAccount || 'DONATION A/C';
@@ -1019,6 +1081,9 @@ app.get('/api/mobile/events', async (req, res) => {
     try {
       const { id } = req.params;
       const b = req.body || {};
+      const templeId = req.user.templeId;
+      // BEFORE snapshot
+      const beforeRow = await db('money_donations').where({ id }).andWhere('temple_id', templeId).first();
       const update = {
         register_no: b.registerNo,
         date: b.date,
@@ -1034,9 +1099,24 @@ app.get('/api/mobile/events', async (req, res) => {
       };
       // remove undefined keys
       Object.keys(update).forEach(k => update[k] === undefined && delete update[k]);
-      const changed = await db('money_donations').where({ id }).andWhere('temple_id', req.user.templeId).update(update);
+      const changed = await db('money_donations').where({ id }).andWhere('temple_id', templeId).update(update);
       if (!changed) return res.status(404).json({ error: 'Not found' });
       const row = await db('money_donations').where({ id }).first();
+
+      // Log update with before/after
+      try {
+        await logMoneyDonationAction({
+          donationId: id,
+          templeId,
+          userId: req.user.id,
+          action: 'update',
+          details: { before: beforeRow || null, after: row || null },
+        });
+        console.log('Successfully logged money donation update for ID:', id);
+      } catch (logError) {
+        console.error('Failed to log money donation update:', logError);
+        // Don't fail the request if logging fails, but log the error
+      }
       res.json({ success: true, data: row });
     } catch (err) {
       console.error('Error updating /api/money-donations/:id:', err);
@@ -1048,8 +1128,24 @@ app.get('/api/mobile/events', async (req, res) => {
   r.delete('/:id', authenticateToken, authorizePermission('edit_donations', 'edit'), async (req, res) => {
     try {
       const { id } = req.params;
-      const del = await db('money_donations').where({ id }).andWhere('temple_id', req.user.templeId).del();
+      const templeId = req.user.templeId;
+      const existing = await db('money_donations').where({ id }).andWhere('temple_id', templeId).first();
+      const del = await db('money_donations').where({ id }).andWhere('temple_id', templeId).del();
       if (!del) return res.status(404).json({ error: 'Not found' });
+      // Log deletion with snapshot
+      try {
+        await logMoneyDonationAction({
+          donationId: id,
+          templeId,
+          userId: req.user.id,
+          action: 'delete',
+          details: existing || { id: Number(id) },
+        });
+        console.log('Successfully logged money donation deletion for ID:', id);
+      } catch (logError) {
+        console.error('Failed to log money donation deletion:', logError);
+        // Don't fail the request if logging fails, but log the error
+      }
       res.json({ success: true });
     } catch (err) {
       console.error('Error deleting /api/money-donations/:id:', err);
@@ -1057,8 +1153,170 @@ app.get('/api/mobile/events', async (req, res) => {
     }
   });
 
+  // Logs: per donation
+  r.get('/:id/logs', authenticateToken, authorizePermission('view_donations', 'view'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const templeId = req.user.templeId;
+      const has = await db.schema.hasTable('money_donation_logs');
+      if (!has) return res.json({ success: true, data: [] });
+      const rows = await db('money_donation_logs')
+        .where({ donation_id: Number(id), temple_id: templeId })
+        .orderBy('created_at', 'desc')
+        .select('*');
+      const data = rows.map(r => ({
+        id: r.id,
+        action: r.action,
+        created_at: r.created_at,
+        created_by: r.created_by,
+        details: (() => { try { return r.details ? JSON.parse(r.details) : null; } catch { return r.details; } })(),
+      }));
+      res.json({ success: true, data });
+    } catch (e) {
+      console.error('Error fetching /api/money-donations/:id/logs:', e);
+      res.status(500).json({ error: 'Failed to fetch logs' });
+    }
+  });
+
+  // Logs: all logs for current temple
+  r.get('/logs', authenticateToken, authorizePermission('view_donations', 'view'), async (req, res) => {
+    try {
+      const templeId = req.user.templeId;
+      const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+      const pageSize = Math.min(200, Math.max(1, parseInt(req.query.pageSize, 10) || 50));
+      const has = await db.schema.hasTable('money_donation_logs');
+      if (!has) return res.json({ success: true, data: [], total: 0, page, pageSize });
+      const base = db('money_donation_logs as l')
+        .leftJoin('money_donations as d', 'd.id', 'l.donation_id')
+        .where('l.temple_id', templeId);
+      const totalRow = await base.clone().count({ c: '*' }).first();
+      const total = Number(totalRow?.c || totalRow?.count || 0);
+      const rows = await base.clone()
+        .orderBy('l.created_at', 'desc')
+        .orderBy('l.id', 'desc')
+        .limit(pageSize)
+        .offset((page - 1) * pageSize)
+        .select('l.*', 'd.name as donation_name', 'd.register_no as register_no');
+      const data = rows.map(r => ({
+        id: r.id,
+        donation_id: r.donation_id,
+        action: r.action,
+        created_at: r.created_at,
+        created_by: r.created_by,
+        donation_name: r.donation_name || null,
+        register_no: r.register_no || null,
+        details: (() => { try { return r.details ? JSON.parse(r.details) : null; } catch { return r.details; } })(),
+      }));
+      res.json({ success: true, data, total, page, pageSize });
+    } catch (e) {
+      console.error('Error fetching /api/money-donations/logs:', e);
+      res.status(500).json({ error: 'Failed to fetch logs' });
+    }
+  });
+
   app.use('/api/money-donations', r);
 })();
+
+// Main logs (unified feed) - aggregates multiple module logs for current temple
+app.get('/api/main-logs', authenticateToken, async (req, res) => {
+  try {
+    const templeId = req.user.templeId;
+    const typeFilter = (req.query.type || '').toString().trim(); // 'tax' | 'donation' | ''
+    const actionFilter = (req.query.action || '').toString().trim(); // 'create'|'update'|'delete'|''
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const pageSize = Math.min(200, Math.max(1, parseInt(req.query.pageSize, 10) || 50));
+
+    const wantTax = !typeFilter || typeFilter === 'tax' || typeFilter === 'tax_registration';
+    const wantDonation = !typeFilter || typeFilter === 'donation' || typeFilter === 'money_donation';
+
+    // Fetch tax logs
+    let taxRows = [];
+    if (wantTax) {
+      try {
+        const has = await db.schema.hasTable('user_tax_registration_logs');
+        if (has) {
+          let q = db('user_tax_registration_logs as l')
+            .leftJoin('user_tax_registrations as r', 'r.id', 'l.tax_registration_id')
+            .where('l.temple_id', templeId)
+            .select(
+              'l.id', 'l.tax_registration_id', 'l.action', 'l.details', 'l.created_by', 'l.created_at',
+              'r.name as context_name', 'r.reference_number as context_ref'
+            );
+          if (actionFilter) q = q.andWhere('l.action', actionFilter);
+          taxRows = await q.orderBy('l.created_at', 'desc').orderBy('l.id', 'desc').limit(pageSize * 5);
+        }
+      } catch {}
+    }
+
+    // Fetch donation logs
+    let donationRows = [];
+    if (wantDonation) {
+      try {
+        const has = await db.schema.hasTable('money_donation_logs');
+        if (has) {
+          let q = db('money_donation_logs as l')
+            .leftJoin('money_donations as d', 'd.id', 'l.donation_id')
+            .where('l.temple_id', templeId)
+            .select(
+              'l.id', 'l.donation_id', 'l.action', 'l.details', 'l.created_by', 'l.created_at',
+              'd.name as context_name', 'd.register_no as context_ref'
+            );
+          if (actionFilter) q = q.andWhere('l.action', actionFilter);
+          donationRows = await q.orderBy('l.created_at', 'desc').orderBy('l.id', 'desc').limit(pageSize * 5);
+        }
+      } catch {}
+    }
+
+    // Normalize and merge
+    const norm = [];
+    if (wantTax) {
+      for (const r of taxRows) {
+        norm.push({
+          type: 'tax_registration',
+          id: `tax-${r.id}`,
+          reference_id: r.tax_registration_id,
+          action: r.action,
+          created_at: r.created_at,
+          created_by: r.created_by,
+          context_name: r.context_name || null,
+          context_ref: r.context_ref || null,
+          details: (() => { try { return r.details ? JSON.parse(r.details) : null; } catch { return r.details; } })(),
+        });
+      }
+    }
+    if (wantDonation) {
+      for (const r of donationRows) {
+        norm.push({
+          type: 'money_donation',
+          id: `don-${r.id}`,
+          reference_id: r.donation_id,
+          action: r.action,
+          created_at: r.created_at,
+          created_by: r.created_by,
+          context_name: r.context_name || null,
+          context_ref: r.context_ref || null,
+          details: (() => { try { return r.details ? JSON.parse(r.details) : null; } catch { return r.details; } })(),
+        });
+      }
+    }
+
+    // Sort and paginate in-memory (sufficient for moderate volumes)
+    norm.sort((a, b) => {
+      const at = new Date(a.created_at || 0).getTime();
+      const bt = new Date(b.created_at || 0).getTime();
+      if (bt !== at) return bt - at;
+      return String(b.id).localeCompare(String(a.id));
+    });
+    const total = norm.length;
+    const start = (page - 1) * pageSize;
+    const data = norm.slice(start, start + pageSize);
+
+    res.json({ success: true, data, total, page, pageSize });
+  } catch (e) {
+    console.error('Error in /api/main-logs:', e);
+    res.status(500).json({ error: 'Failed to fetch main logs' });
+  }
+});
 
 // Middleware to verify JWT from query parameter for file downloads (e.g., PDFs opened via window.open)
 function verifyQueryToken(req, res, next) {
@@ -1088,7 +1346,7 @@ try {
 // Mount PDF settings API
 try {
   const pdfSettingsRouter = require('./routes/pdf-settings')({ db, authenticateToken, authorizePermission });
-  app.use(pdfSettingsRouter);
+  app.use('/api/pdf-settings', pdfSettingsRouter);
 } catch (e) {
   console.error('Failed to mount PDF settings router:', e);
 }
@@ -3509,6 +3767,45 @@ app.post('/api/members',
         
         // Create login if requested
         if (createLogin) {
+          // Ensure required permissions exist in the database
+          const requiredPermissions = [
+            { id: 'dashboard', name: 'Dashboard', description: 'Access to dashboard' },
+            { id: 'member_entry', name: 'Member Entry', description: 'Add and manage members' },
+            { id: 'master_data', name: 'Master Data', description: 'Manage master data' },
+            { id: 'ledger_management', name: 'Ledger Management', description: 'Manage ledger entries' },
+            { id: 'reports', name: 'Reports', description: 'View reports' },
+            { id: 'balance_sheet', name: 'Balance Sheet', description: 'View balance sheet' },
+            { id: 'setting', name: 'Settings', description: 'Manage settings' },
+            { id: 'pdf_settings', name: 'PDF Settings', description: 'Manage PDF settings' },
+            { id: 'user_registrations', name: 'User Registrations', description: 'Manage user registrations' },
+            { id: 'tax_registrations', name: 'Tax Registrations', description: 'Manage tax registrations' },
+            { id: 'property_registrations', name: 'Property Registrations', description: 'Manage property registrations' },
+            { id: 'view_donations', name: 'View Donations', description: 'View donation records' },
+            { id: 'edit_donations', name: 'Edit Donations', description: 'Edit donation records' },
+            { id: 'donation_approval', name: 'Donation Approval', description: 'Approve donations' },
+            { id: 'view_events', name: 'View Events', description: 'View events' },
+            { id: 'edit_events', name: 'Edit Events', description: 'Edit events' },
+            { id: 'pooja_registrations', name: 'Pooja Registrations', description: 'Manage pooja registrations' },
+            { id: 'pooja_mobile_submit', name: 'Pooja Mobile Submit', description: 'Submit pooja from mobile' },
+            { id: 'pooja_approval', name: 'Pooja Approval', description: 'Approve pooja requests' },
+            { id: 'annadhanam_registrations', name: 'Annadhanam Registrations', description: 'Manage annadhanam registrations' },
+            { id: 'annadhanam_approval', name: 'Annadhanam Approval', description: 'Approve annadhanam requests' },
+            { id: 'hall_booking', name: 'Hall Booking', description: 'Book halls' },
+            { id: 'hall_approval', name: 'Hall Approval', description: 'Approve hall bookings' },
+            { id: 'marriage_register', name: 'Marriage Register', description: 'Manage marriage registrations' },
+            { id: 'session_management', name: 'Session Management', description: 'Manage user sessions' },
+            { id: 'activity_logs', name: 'Activity Logs', description: 'View activity logs' },
+            { id: 'view_session_logs', name: 'View Session Logs', description: 'View session logs' }
+          ];
+          
+          // Insert permissions if they don't exist
+          for (const perm of requiredPermissions) {
+            await trx('permissions')
+              .insert(perm)
+              .onConflict('id')
+              .ignore();
+          }
+          
           const hashedPassword = await bcrypt.hash(password, 10);
           const [createdUser] = await trx('users')
             .insert({
@@ -3532,7 +3829,45 @@ app.post('/api/members',
               access_level: 'full'
             }));
             await trx('user_permissions').insert(superPerms);
-          } else if (customPermissions && Array.isArray(customPermissions)) {
+          } else {
+            // For regular members, assign default permissions if they exist
+            const defaultPermissionIds = [
+              'dashboard', 'member_entry', 'master_data', 'ledger_management', 
+              'reports', 'balance_sheet', 'setting', 'pdf_settings', 
+              'user_registrations', 'tax_registrations', 'property_registrations',
+              'view_donations', 'edit_donations', 'donation_approval',
+              'view_events', 'edit_events', 'pooja_registrations', 
+              'pooja_mobile_submit', 'pooja_approval', 'annadhanam_registrations',
+              'annadhanam_approval', 'hall_booking', 'hall_approval',
+              'marriage_register', 'session_management', 'activity_logs',
+              'view_session_logs'
+            ];
+            
+            // Check which permissions actually exist in the database
+            const existingPermissions = await trx('permissions')
+              .select('id')
+              .whereIn('id', defaultPermissionIds);
+            
+            const existingPermissionIds = existingPermissions.map(p => p.id);
+            
+            // Only insert permissions that actually exist
+            if (existingPermissionIds.length > 0) {
+              const defaultPerms = existingPermissionIds.map(pid => ({
+                user_id: createdUser.id,
+                permission_id: pid,
+                access_level: 'view',
+                created_at: trx.fn.now(),
+                updated_at: trx.fn.now()
+              }));
+              
+              await trx('user_permissions')
+                .insert(defaultPerms)
+                .onConflict(['user_id', 'permission_id'])
+                .merge(['access_level', 'updated_at']);
+            }
+          }
+          
+          if (customPermissions && Array.isArray(customPermissions)) {
             // De-duplicate by permission_id and upsert to avoid UNIQUE constraint errors
             const uniqueMap = new Map();
             for (const perm of customPermissions) {

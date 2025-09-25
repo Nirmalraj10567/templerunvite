@@ -49,6 +49,14 @@ export default function MoneyDonationEntry() {
     performed_by_name?: string; // from backend join
   }
   const [approvalLogs, setApprovalLogs] = useState<ApprovalLog[]>([]);
+  // Money donation logs state (backend logs)
+  const [donationLogs, setDonationLogs] = useState<Array<{
+    id: number;
+    action: string;
+    created_at: string;
+    created_by: number | null;
+    details: any;
+  }>>([]);
 
   const t = (en: string, ta: string) => language === 'english' ? ta : en;
 
@@ -82,7 +90,7 @@ export default function MoneyDonationEntry() {
     const loadLogs = async () => {
       try {
         if (!lastCreatedId || !token) return;
-        const res = await fetch(`http://localhost:4000/api/donations-approval/request/${lastCreatedId}`, {
+        const res = await fetch(`https://tmsapi.xesstechlink.com/api/donations-approval/request/${lastCreatedId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!res.ok) return;
@@ -93,6 +101,21 @@ export default function MoneyDonationEntry() {
       }
     };
     loadLogs();
+  }, [lastCreatedId, token]);
+
+  // Load backend money donation change logs for the newly created donation
+  useEffect(() => {
+    const loadDonationLogs = async () => {
+      try {
+        if (!lastCreatedId || !token) return;
+        const response = await moneyDonationService.getLogs(token, lastCreatedId);
+        setDonationLogs(Array.isArray(response.data) ? response.data : []);
+      } catch (e) {
+        console.error('Failed to load donation logs:', e);
+        setDonationLogs([]);
+      }
+    };
+    loadDonationLogs();
   }, [lastCreatedId, token]);
 
   // Compute next register number by year using existing records (reusable)
@@ -191,31 +214,62 @@ export default function MoneyDonationEntry() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('=== DEBUG: onSubmit called ===');
+    console.log('Form data:', form);
+    console.log('Token exists:', !!token);
+    console.log('Token value:', token ? token.substring(0, 20) + '...' : 'null');
+    console.log('isEdit:', isEdit);
+    console.log('editId:', editId);
     setSaving(true);
     setMessage(undefined);
 
     try {
+      console.log('DEBUG: Form validation starting...');
+      console.log('DEBUG: form.date:', form.date);
+      console.log('DEBUG: form.amount:', form.amount);
+      console.log('DEBUG: form.name:', form.name);
+      
       if (!form.date) {
+        console.log('DEBUG: Date validation failed - no date');
         setIsError(true);
         setMessage(t('Please select a date', 'தேதியைத் தேர்ந்தெடுக்கவும்'));
         return;
       }
       if (!form.amount || isNaN(Number(form.amount)) || Number(form.amount) <= 0) {
+        console.log('DEBUG: Amount validation failed - amount:', form.amount, 'parsed:', Number(form.amount));
         setIsError(true);
         setMessage(t('Enter a valid amount greater than 0', '0-ஐ விட அதிகமான செல்லுபடியான தொகையை உள்ளிடவும்'));
         return;
       }
+      console.log('DEBUG: Form validation passed!');
       if (isEdit && editId) {
         // Update existing donation
         const updatePayload: any = { ...form };
         await moneyDonationService.update(token, editId, updatePayload);
         setIsError(false);
         setMessage(t('Updated successfully', 'வெற்றிகரமாக புதுப்பிக்கப்பட்டது'));
+        // Trigger logs fetch for this updated record (same behavior as create)
+        console.log('DEBUG: Update successful, setting lastCreatedId to fetch logs for id:', editId);
+        setLastCreatedId(editId);
       } else {
         // Create new donation
+        console.log('DEBUG: Creating new donation');
         const freshRN = await computeNextRegisterNo();
         const payload = { ...form, registerNo: freshRN || form.registerNo, fromAccount: 'DONATION A/C', transferTo: form.transferTo || 'INCOME A/C' } as any;
-        const resp = await moneyDonationService.create(token, payload);
+        console.log('DEBUG: Payload to send:', payload);
+        console.log('DEBUG: About to call moneyDonationService.create');
+        console.log('DEBUG: Token exists:', !!token);
+        console.log('DEBUG: Token length:', token ? token.length : 0);
+        console.log('DEBUG: Service method exists:', typeof moneyDonationService.create);
+        
+        let resp;
+        try {
+          resp = await moneyDonationService.create(token, payload);
+          console.log('DEBUG: Response received:', resp);
+        } catch (apiError) {
+          console.error('DEBUG: API call failed:', apiError);
+          throw apiError;
+        }
         const newId = resp?.data?.id;
         const createdId = typeof newId === 'number' ? newId : null;
         setLastCreatedId(createdId);
@@ -281,6 +335,38 @@ export default function MoneyDonationEntry() {
           </Alert>
         </div>
       )}
+      {/* Show logs for the newly created donation, if any */}
+      {lastCreatedId != null && donationLogs.length > 0 && (
+        <div className="mb-4 border rounded p-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold">{t('Change Logs', 'மாற்றுப் பதிவுகள்')} #{lastCreatedId}</h2>
+          </div>
+          <div className="max-h-72 overflow-y-auto mt-2">
+            <table className="min-w-full text-xs">
+              <thead className="bg-gray-50 sticky top-0">
+                <tr>
+                  <th className="text-left px-2 py-1">{t('Time', 'நேரம்')}</th>
+                  <th className="text-left px-2 py-1">{t('Action', 'செயல்')}</th>
+                  <th className="text-left px-2 py-1">{t('User', 'பயனர்')}</th>
+                  <th className="text-left px-2 py-1">{t('Details', 'விவரங்கள்')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {donationLogs.map((lg) => (
+                  <tr key={lg.id} className="border-t align-top">
+                    <td className="px-2 py-1 whitespace-nowrap">{lg.created_at ? new Date(lg.created_at).toLocaleString(language === 'tamil' ? 'ta-IN' : 'en-IN') : '-'}</td>
+                    <td className="px-2 py-1">{lg.action}</td>
+                    <td className="px-2 py-1">{lg.created_by ?? '-'}</td>
+                    <td className="px-2 py-1">
+                      <pre className="whitespace-pre-wrap break-words text-[10px] bg-gray-50 p-2 rounded border">{JSON.stringify(lg.details, null, 2)}</pre>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
       <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div>
           <label className="block text-xs mb-1">{t('Register No', 'பதிவு எண்')}</label>
@@ -320,7 +406,7 @@ export default function MoneyDonationEntry() {
           <input className="w-full border p-1 rounded text-xs" name="address" value={form.address} onChange={onChange} />
         </div>
         <div>
-          <label className="block text-xs mb-1">{t('Amount', 'வருமானம்')}*</label>
+          <label className="block text-xs mb-1">{t('Amount', 'தொகை')}*</label>
           <input className="w-full border p-1 rounded text-xs" name="amount" value={form.amount} onChange={onChange} placeholder={t('Enter amount', 'தொகை')} />
         </div>
         
@@ -346,7 +432,12 @@ export default function MoneyDonationEntry() {
           <input className="w-full border p-1 rounded text-xs" name="reason" value={form.reason} onChange={onChange} />
         </div>
         <div className="md:col-span-3 flex gap-2 justify-center mt-2">
-          <button disabled={saving} className="bg-green-600 text-white px-4 py-1 rounded hover:bg-green-700 text-xs" type="submit">
+          <button 
+            disabled={saving} 
+            className="bg-green-600 text-white px-4 py-1 rounded hover:bg-green-700 text-xs" 
+            type="submit"
+            onClick={() => console.log('DEBUG: Submit button clicked!')}
+          >
             {saving ? (isEdit ? t('Updating...', 'புதுப்பிக்கிறது...') : t('Saving...', 'சேமிக்கிறது...')) : (isEdit ? t('Update', 'புதுப்பிக்க') : t('Save', 'பதிவு'))}
           </button>
           <button

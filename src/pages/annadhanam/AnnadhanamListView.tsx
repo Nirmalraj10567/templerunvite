@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, PlusCircle, Loader2, Eye, Edit, Trash2, Calendar, Users, Clock } from "lucide-react";
+import { Search, PlusCircle, Loader2, Eye, Edit, Trash2, Calendar, Users, Clock, FileDown, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -145,7 +145,7 @@ export default function AnnadhanamListView() {
     try {
       setLoading(true);
 
-      const response = await fetch(`http://localhost:4000/api/annadhanam?page=${pagination.pageIndex + 1}&pageSize=${pagination.pageSize}&q=${encodeURIComponent(searchTerm)}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam?page=${pagination.pageIndex + 1}&pageSize=${pagination.pageSize}&q=${encodeURIComponent(searchTerm)}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -177,6 +177,136 @@ export default function AnnadhanamListView() {
       setData([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ------- Export helpers -------
+  const csvEscape = (value: any) => {
+    if (value === null || value === undefined) return "";
+    const str = String(value).replace(/"/g, '""');
+    if (/[",\n]/.test(str)) {
+      return `"${str}"`;
+    }
+    return str;
+  };
+
+  const exportToCSV = () => {
+    try {
+      const headers = [
+        t("Receipt No", "ரசீது எண்"),
+        t("Name", "பெயர்"),
+        t("Mobile", "மொபைல்"),
+        t("Food Items", "உணவு பொருட்கள்"),
+        t("People", "மக்கள்"),
+        t("From Date", "தொடக்க தேதி"),
+        t("To Date", "முடிவு தேதி"),
+        t("Time", "நேரம்"),
+      ];
+
+      const rows = data.map((r) => [
+        r.receipt_number,
+        r.name,
+        r.mobile_number,
+        r.food,
+        r.peoples,
+        formatDate(r.from_date),
+        formatDate(r.to_date),
+        formatTime(r.time),
+      ]);
+
+      const csv = [headers.join(","), ...rows.map((row) => row.map(csvEscape).join(","))].join("\n");
+      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g, "-");
+      link.href = url;
+      link.download = `annadhanam-export-${stamp}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("CSV export failed", err);
+      toast({
+        title: t("Error", "பிழை"),
+        description: t("Failed to export CSV.", "CSV ஏற்றுமதி தோல்வியடைந்தது."),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const exportToPDF = () => {
+    try {
+      const title = t("Annadhanam List", "அன்னதானம் பட்டியல்");
+      const headCells = [
+        t("Receipt No", "ரசீது எண்"),
+        t("Name", "பெயர்"),
+        t("Mobile", "மொபைல்"),
+        t("Food Items", "உணவு பொருட்கள்"),
+        t("People", "மக்கள்"),
+        t("From Date", "தொடக்க தேதி"),
+        t("To Date", "முடிவு தேதி"),
+        t("Time", "நேரம்"),
+      ];
+
+      const rowsHtml = data
+        .map(
+          (r) => `
+          <tr>
+            <td>${r.receipt_number || ""}</td>
+            <td>${r.name || ""}</td>
+            <td>${r.mobile_number || ""}</td>
+            <td>${(r.food || "").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>
+            <td style="text-align:center;">${r.peoples ?? ""}</td>
+            <td>${formatDate(r.from_date) || ""}</td>
+            <td>${formatDate(r.to_date) || ""}</td>
+            <td>${formatTime(r.time) || ""}</td>
+          </tr>`
+        )
+        .join("");
+
+      const style = `
+        <style>
+          body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Ubuntu, Cantarell, Helvetica Neue, Arial, "Noto Sans Tamil", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; padding: 24px; }
+          h1 { font-size: 20px; margin: 0 0 12px 0; }
+          .meta { font-size: 12px; color: #555; margin-bottom: 12px; }
+          table { width: 100%; border-collapse: collapse; font-size: 12px; }
+          th, td { border: 1px solid #ccc; padding: 6px 8px; vertical-align: top; }
+          th { background: #f5f5f5; text-align: left; }
+          @media print { .no-print { display: none; } }
+        </style>
+      `;
+
+      const now = new Date();
+      const meta = `${t("Generated", "உருவாக்கப்பட்டது")}: ${now.toLocaleString()} | ${t("Items", "உருப்படிகள்")}: ${data.length}`;
+      const html = `<!doctype html><html><head><meta charset="utf-8"/>${style}</head><body>
+        <div class="no-print" style="text-align:right; margin-bottom:8px;">
+          <button onclick="window.print()" style="padding:6px 10px;">${t("Print / Save as PDF", "அச்சிடு / PDF சேமி")}</button>
+        </div>
+        <h1>${title}</h1>
+        <div class="meta">${meta}</div>
+        <table>
+          <thead>
+            <tr>${headCells.map((h) => `<th>${h}</th>`).join("")}</tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      </body></html>`;
+
+      const win = window.open("", "_blank");
+      if (!win) throw new Error("Popup blocked");
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+    } catch (err) {
+      console.error("PDF export failed", err);
+      toast({
+        title: t("Error", "பிழை"),
+        description: t("Failed to export PDF.", "PDF ஏற்றுமதி தோல்வியடைந்தது."),
+        variant: "destructive",
+      });
     }
   };
 
@@ -222,7 +352,7 @@ export default function AnnadhanamListView() {
     if (!deleteId) return;
 
     try {
-      const response = await fetch(`http://localhost:4000/api/annadhanam/${deleteId}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${deleteId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -280,20 +410,14 @@ export default function AnnadhanamListView() {
         {/* Header */}
         <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between">
           <div />
-          <Button
-            className="bg-orange-600 hover:bg-orange-700"
-            onClick={() => navigate('/dashboard/annadhanam/entry')}
-          >
-            <PlusCircle className="h-4 w-4 mr-2" />
-            {t("New Entry", "புதிய பதிவு")}
-          </Button>
+
         </div>
 
         {/* Table Card */}
         <Card>
           <CardContent className="pt-6">
-            {/* Search */}
-            <div className="mb-4">
+            {/* Search + Export Toolbar */}
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="relative max-w-md">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -304,6 +428,16 @@ export default function AnnadhanamListView() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyDown={handleSearch}
                 />
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={exportToCSV} disabled={loading || data.length === 0}>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  {t("Export CSV", "CSV ஏற்றுமதி")}
+                </Button>
+                <Button variant="outline" onClick={exportToPDF} disabled={loading || data.length === 0}>
+                  <FileDown className="h-4 w-4 mr-2" />
+                  {t("Export PDF", "PDF ஏற்றுமதி")}
+                </Button>
               </div>
             </div>
 

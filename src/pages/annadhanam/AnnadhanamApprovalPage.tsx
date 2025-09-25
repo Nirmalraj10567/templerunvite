@@ -243,7 +243,7 @@ export default function AnnadhanamApprovalPage() {
   // Fetch helpers
   const fetchRequestDetails = async (requestId: number) => {
     try {
-      const response = await fetch(`http://localhost:4000/api/annadhanam-approval/request/${requestId}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam-approval/request/${requestId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -280,7 +280,7 @@ export default function AnnadhanamApprovalPage() {
     try {
       setLoading(true);
       const response = await fetch(
-        `http://localhost:4000/api/annadhanam-approval/pending?search=${searchTerm}`,
+        `https://tmsapi.xesstechlink.com/api/annadhanam-approval/pending?search=${searchTerm}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -309,7 +309,7 @@ export default function AnnadhanamApprovalPage() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/annadhanam-approval/stats', {
+      const response = await fetch('https://tmsapi.xesstechlink.com/api/annadhanam-approval/stats', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -331,7 +331,7 @@ export default function AnnadhanamApprovalPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
-      const response = await fetch(`http://localhost:4000/api/annadhanam/${deleteTarget.id}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${deleteTarget.id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -380,7 +380,7 @@ export default function AnnadhanamApprovalPage() {
   const handleApprove = async (requestId: number) => {
     try {
       const response = await fetch(
-        `http://localhost:4000/api/annadhanam-approval/approve/${requestId}`,
+        `https://tmsapi.xesstechlink.com/api/annadhanam-approval/approve/${requestId}`,
         {
           method: 'PUT',
           headers: {
@@ -427,7 +427,7 @@ export default function AnnadhanamApprovalPage() {
   const handleReject = async (requestId: number) => {
     try {
       const response = await fetch(
-        `http://localhost:4000/api/annadhanam-approval/reject/${requestId}`,
+        `https://tmsapi.xesstechlink.com/api/annadhanam-approval/reject/${requestId}`,
         {
           method: 'PUT',
           headers: {
@@ -475,7 +475,7 @@ export default function AnnadhanamApprovalPage() {
 
   const handleBulkAction = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/annadhanam-approval/bulk-action', {
+      const response = await fetch('https://tmsapi.xesstechlink.com/api/annadhanam-approval/bulk-action', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -520,7 +520,7 @@ export default function AnnadhanamApprovalPage() {
 
   const handleSaveStats = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/annadhanam-approval/update-stats', {
+      const response = await fetch('https://tmsapi.xesstechlink.com/api/annadhanam-approval/update-stats', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -651,10 +651,10 @@ export default function AnnadhanamApprovalPage() {
   };
 
   return (
-    <div className="p-6 bg-white rounded-lg shadow" onContextMenu={onContextMenu}>
+    <div className="p-3 bg-white rounded-lg shadow" onContextMenu={onContextMenu}>
       {/* Header */}
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold text-gray-800">{t('Annadhanam Approval Panel', 'அன்னதானம் அனுமதி பேனல்')}</h1>
+      <div className="flex justify-between items-center mb-3">
+        <h1 className="text-lg font-semibold text-gray-800">{t('Annadhanam Approval Panel', 'அன்னதானம் அனுமதி பேனல்')}</h1>
       </div>
 
       {/* Stats Cards */}
@@ -728,14 +728,14 @@ export default function AnnadhanamApprovalPage() {
       )}
 
       {/* Filters */}
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-3 items-center">
+      <Card className="mb-3">
+        <CardContent className="p-3">
+          <div className="flex flex-col md:flex-row gap-2 items-center">
             {/* Search */}
             <div className="relative flex-1 w-full">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <svg
-                  className="h-5 w-5 text-gray-400"
+                  className="h-4 w-4 text-gray-400"
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 20 20"
                   fill="currentColor"
@@ -752,26 +752,26 @@ export default function AnnadhanamApprovalPage() {
                 placeholder={t('Search by name, mobile, or receipt...', 'பெயர், மொபைல் அல்லது ரசீது மூலம் தேடுக')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-9 h-8 text-sm"
               />
             </div>
 
             {/* Actions */}
             <div className="flex flex-wrap gap-2 w-full md:w-auto">
-              <Button onClick={fetchRequests}>{t('Search', 'தேடு')}</Button>
-              <Button variant="outline" onClick={() => setSearchTerm('')}>
+              <Button size="sm" className="h-8 text-xs" onClick={fetchRequests}>{t('Search', 'தேடு')}</Button>
+              <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => setSearchTerm('')}>
                 {t('Clear', 'அழி')}
               </Button>
-              <Button variant="outline" onClick={() => { fetchRequests(); fetchStats(); }} disabled={loading}>
-                <RefreshCcw className="h-4 w-4 mr-1" />
+              <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => { fetchRequests(); fetchStats(); }} disabled={loading}>
+                <RefreshCcw className="h-3 w-3 mr-1" />
                 {t('Refresh', 'புதுப்பிக்க')}
               </Button>
-              <Button variant="outline" onClick={handleExportCSV}>
-                <FileDown className="h-4 w-4 mr-1" />
+              <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handleExportCSV}>
+                <FileDown className="h-3 w-3 mr-1" />
                 {t('Export CSV', 'CSV ஏற்றுமதி')}
               </Button>
-              <Button variant="outline" onClick={handleExportPDF}>
-                <FileDown className="h-4 w-4 mr-1" />
+              <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handleExportPDF}>
+                <FileDown className="h-3 w-3 mr-1" />
                 {t('Export PDF', 'PDF ஏற்றுமதி')}
               </Button>
             </div>
@@ -782,7 +782,7 @@ export default function AnnadhanamApprovalPage() {
       {/* Table */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>
                 {allColumns.map(
@@ -790,7 +790,7 @@ export default function AnnadhanamApprovalPage() {
                     visibleCols[col.key] && (
                       <th
                         key={col.key}
-                        className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${
+                        className={`px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider ${
                           col.align === 'right'
                             ? 'text-right'
                             : col.align === 'center'
@@ -807,13 +807,13 @@ export default function AnnadhanamApprovalPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan={visibleColCount} className="px-6 py-4 text-center text-sm text-gray-500">
+                  <td colSpan={visibleColCount} className="px-3 py-2 text-center text-sm text-gray-500">
                     {t('Loading...', 'ஏற்றுகிறது...')}
                   </td>
                 </tr>
               ) : requests.length === 0 ? (
                 <tr>
-                  <td colSpan={visibleColCount} className="px-6 py-4 text-center text-sm text-gray-500">
+                  <td colSpan={visibleColCount} className="px-3 py-2 text-center text-sm text-gray-500">
                     {t('No pending requests', 'நிலுவையில் உள்ள கோரிக்கைகள் இல்லை')}
                   </td>
                 </tr>
@@ -821,7 +821,7 @@ export default function AnnadhanamApprovalPage() {
                 requests.map((request) => (
                   <tr key={request.id} className="hover:bg-gray-50">
                     {visibleCols.select && (
-                      <TableCell className="px-6 py-4 whitespace-nowrap text-center">
+                      <TableCell className="px-3 py-2 whitespace-nowrap text-center">
                         <input
                           type="checkbox"
                           checked={selectedRequests.includes(request.id)}
@@ -836,49 +836,49 @@ export default function AnnadhanamApprovalPage() {
                       </TableCell>
                     )}
                     {visibleCols.receipt_number && (
-                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <TableCell className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
                         {request.receipt_number}
                       </TableCell>
                     )}
                     {visibleCols.name && (
-                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <TableCell className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
                         {request.name}
                       </TableCell>
                     )}
                     {visibleCols.mobile_number && (
-                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <TableCell className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
                         {request.mobile_number}
                       </TableCell>
                     )}
                     {visibleCols.date_range && (
-                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <TableCell className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
                         {formatDate(request.from_date)} - {formatDate(request.to_date)}
                       </TableCell>
                     )}
                     {visibleCols.time && (
-                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <TableCell className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
                         {request.time}
                       </TableCell>
                     )}
                     {visibleCols.submitted_at && (
-                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <TableCell className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
                         {formatDateTime(request.submitted_at)}
                       </TableCell>
                     )}
                     {visibleCols.status && (
-                      <TableCell className="px-6 py-4 whitespace-nowrap text-center">
+                      <TableCell className="px-3 py-2 whitespace-nowrap text-center">
                         {getStatusBadge(request.status)}
                       </TableCell>
                     )}
                     {visibleCols.actions && (
-                      <TableCell className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                        <div className="flex justify-center gap-2">
+                      <TableCell className="px-3 py-2 whitespace-nowrap text-center text-sm font-medium">
+                        <div className="flex justify-center gap-1.5">
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => handlePrintRequest(request)}
                           >
-                            <Printer className="h-4 w-4 mr-1" />
+                            <Printer className="h-3 w-3 mr-1" />
                             {t('Print', 'அச்சிட')}
                           </Button>
                           <Button
@@ -890,7 +890,7 @@ export default function AnnadhanamApprovalPage() {
                               fetchRequestDetails(request.id);
                             }}
                           >
-                            <Eye className="h-4 w-4" />
+                            <Eye className="h-3 w-3" />
                           </Button>
                           <Button
                             variant="ghost"
@@ -898,22 +898,9 @@ export default function AnnadhanamApprovalPage() {
                             onClick={() => navigate(`/dashboard/annadhanam/edit/${request.id}`)}
                             title={t('Edit', 'திருத்து')}
                           >
-                            <Edit className="h-4 w-4" />
+                            <Edit className="h-3 w-3" />
                           </Button>
-                          {/* Approve moved inside View dialog footer */}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedRequest(request);
-                              setRejectConfirmed(false);
-                              setIsRejectDialogOpen(true);
-                            }}
-                            className={`hover:bg-red-50 text-red-600`}
-                            title={t('Reject', 'நிராகரி')}
-                          >
-                            <XCircle className="h-4 w-4" />
-                          </Button>
+                          {/* Approve moved inside View dialog footer; per-row Reject button removed */}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -922,7 +909,7 @@ export default function AnnadhanamApprovalPage() {
                             title={t('Delete', 'நீக்கு')}
                           >
                             {/* Reuse XCircle for delete icon or add Trash icon if available */}
-                            <XCircle className="h-4 w-4" />
+                            <XCircle className="h-3 w-3" />
                           </Button>
                         </div>
                       </TableCell>
@@ -935,13 +922,13 @@ export default function AnnadhanamApprovalPage() {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 flex items-center justify-between border-t border-gray-200">
-          <div className="text-sm text-gray-700">
+        <div className="px-3 py-2 flex items-center justify-between border-t border-gray-200">
+          <div className="text-xs text-gray-700">
             {t('Showing', 'காட்டப்படுகிறது')}{' '}
             <span className="font-medium">{requests.length}</span> {t('of', 'மொத்தம்')}{' '}
             <span className="font-medium">{stats?.total_requests || 0}</span> {t('results', 'முடிவுகள்')}
           </div>
-          <div className="flex flex-wrap gap-2 text-sm text-gray-700">
+          <div className="flex flex-wrap gap-2 text-xs text-gray-700">
             <span>
               {t('Total', 'மொத்தம்')}: <span className="font-medium">{stats?.total_requests || 0}</span>
             </span>
@@ -1263,7 +1250,7 @@ export default function AnnadhanamApprovalPage() {
               onClick={async () => {
                 if (!selectedRequest) return;
                 try {
-                  const response = await fetch(`http://localhost:4000/api/annadhanam/${selectedRequest.id}`, {
+                  const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${selectedRequest.id}`, {
                     method: 'PUT',
                     headers: {
                       'Authorization': `Bearer ${token}`,

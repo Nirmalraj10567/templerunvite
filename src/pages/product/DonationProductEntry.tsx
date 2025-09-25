@@ -6,9 +6,10 @@ import axios from 'axios';
 import { getAuthToken } from '@/lib/auth';
 import { DonationProductManager, DonationProduct } from '@/components/product/DonationProductManager';
 
+const today = new Date().toISOString().slice(0, 10);
 const initialState: DonationFormData = {
   registerNo: '',
-  date: '',
+  date: today,
   name: '',
   fatherName: '',
   address: '',
@@ -57,7 +58,7 @@ export default function DonationProductEntry() {
   // Centralized loader for next register number
   const fetchNextRegisterNo = async () => {
     try {
-      const resp = await axios.get<any>('http://localhost:4000/api/donations/next-register-no', {
+      const resp = await axios.get<any>('https://tmsapi.xesstechlink.com/api/donations/next-register-no', {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });
       const nextNo = resp.data?.nextRegisterNo || generateNextRegisterNo();
@@ -70,11 +71,13 @@ export default function DonationProductEntry() {
   useEffect(() => {
     const loadProducts = async () => {
       try {
-        const resp = await axios.get<{ data: DonationProduct[] }>('/api/donation-products', {
+        const resp = await axios.get<{ data: DonationProduct[] }>('https://tmsapi.xesstechlink.com/api/donation-products', {
           headers: { Authorization: `Bearer ${getAuthToken()}` }
         });
         const data = Array.isArray(resp.data) ? resp.data : resp.data.data || [];
-        setProducts(data);
+        // Filter out any null/undefined products and ensure they have required properties
+        const validProducts = data.filter(p => p && p.id && p.label);
+        setProducts(validProducts);
       } catch { setProducts([]); }
     };
     const loadRegisterNo = async () => {
@@ -143,11 +146,11 @@ export default function DonationProductEntry() {
 
         <select name="product" value={form.product} onChange={e=> {
           const val=e.target.value;
-          const sel=products.find(p=>p.value===val||p.label===val);
+          const sel=products.find(p=>p && (p.value===val||p.label===val));
           setForm(prev=>({...prev, product:val, unit:sel?.unit||''}));
         }} className="border px-2 py-1 rounded">
           <option value="">{t('Select Product','பொருள் தேர்வு')}</option>
-          {products.map(p=><option key={p.id} value={p.value||p.label}>{p.label}</option>)}
+          {products.filter(p => p && p.id && p.label).map(p=><option key={p.id} value={p.value||p.label}>{p.label}</option>)}
         </select>
         <input name="unit" value={form.unit} onChange={onChange} placeholder={t('Unit','அளவு')} className="border px-2 py-1 rounded" />
 

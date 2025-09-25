@@ -151,7 +151,7 @@ export default function LedgerEntryPage() {
       setIsLoadingCategories(true);
       try {
         // Pass templeId as a query parameter
-        const resp1 = await axios.get<any>(`/api/ledger/categories?templeId=${templeId}`, {
+        const resp1 = await axios.get<any>(`https://tmsapi.xesstechlink.com/api/ledger/categories?templeId=${templeId}`, {
           headers: { Authorization: `Bearer ${getAuthToken()}` }
         });
         const data1 = (resp1?.data && Array.isArray(resp1.data.data)) ? resp1.data.data : (Array.isArray(resp1?.data) ? resp1.data : []);
@@ -160,7 +160,7 @@ export default function LedgerEntryPage() {
         if (!combined || combined.length === 0) {
           try {
             // Pass templeId as a query parameter
-            const resp2 = await axios.get<any>(`/api/ledger/categories-used?templeId=${templeId}`, {
+            const resp2 = await axios.get<any>(`https://tmsapi.xesstechlink.com/api/ledger/categories-used?templeId=${templeId}`, {
               headers: { Authorization: `Bearer ${getAuthToken()}` }
             });
             const data2: any[] = (resp2?.data && Array.isArray(resp2.data.data)) ? resp2.data.data : (Array.isArray(resp2?.data) ? resp2.data : []);
@@ -235,7 +235,7 @@ export default function LedgerEntryPage() {
         templeId: templeId || undefined,
       } as const;
 
-      await axios.post('/api/ledger/entries', payload, {
+      await axios.post('https://tmsapi.xesstechlink.com/api/ledger/entries', payload, {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });
 
@@ -311,7 +311,7 @@ export default function LedgerEntryPage() {
     }
     try {
       setIsLoadingCategories(true);
-      const response = await axios.post<Category>('/api/ledger/categories/find-or-create', {
+      const response = await axios.post<Category>('https://tmsapi.xesstechlink.com/api/ledger/categories/find-or-create', {
         value: cleanVal,
         label: searchValue,
         templeId: templeId
@@ -321,8 +321,16 @@ export default function LedgerEntryPage() {
         }
       });
       
-      setCategories(prev => [...prev, response.data]);
-      setValue('under', response.data.value || cleanVal);
+      const created = (response?.data && (response.data as any).data)
+        ? (response.data as any).data
+        : response.data;
+      const normalized: Category = {
+        id: created?.id ?? Date.now(),
+        value: created?.value ?? cleanVal,
+        label: created?.label ?? searchValue
+      };
+      setCategories(prev => [...prev.filter(Boolean), normalized]);
+      setValue('under', normalized.value || cleanVal);
       
       toast({
         title: t('Success', 'வெற்றி'),
@@ -369,7 +377,7 @@ export default function LedgerEntryPage() {
     }
     
     try {
-      await axios.delete(`/api/ledger/categories/${id}?templeId=${templeId}`, {
+      await axios.delete(`https://tmsapi.xesstechlink.com/api/ledger/categories/${id}?templeId=${templeId}`, {
         headers: {
           Authorization: `Bearer ${getAuthToken()}`
         }
@@ -550,21 +558,21 @@ export default function LedgerEntryPage() {
                         </Button>
                       </CommandEmpty>
                       <CommandGroup className="max-h-32 overflow-y-auto">
-                        {categories.map((category) => (
+                        {categories.filter(Boolean).map((category) => (
                           <CommandItem
-                            value={category.value}
-                            key={category.value}
-                            onSelect={() => setValue('under', category.value)}
+                            value={category?.value ?? ''}
+                            key={category?.value ?? String(category?.id ?? Math.random())}
+                            onSelect={() => setValue('under', category?.value ?? '')}
                             className="flex items-center justify-between text-xs"
                           >
                             <div className="flex items-center">
                               <Check
                                 className={cn(
                                   "mr-2 h-3 w-3",
-                                  watch('under') === category.value ? "opacity-100" : "opacity-0"
+                                  watch('under') === (category?.value ?? '') ? "opacity-100" : "opacity-0"
                                 )}
                               />
-                              <span className="truncate">{category.label}</span>
+                              <span className="truncate">{category?.label ?? category?.value ?? ''}</span>
                             </div>
                           </CommandItem>
                         ))}

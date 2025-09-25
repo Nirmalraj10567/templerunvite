@@ -222,7 +222,7 @@ export default function ReceiptListView() {
       if (toDate) params.append('to', toDate);
       if (typeFilter !== 'all') params.append('type', typeFilter);
 
-      const res = await fetch(`http://localhost:4000/api/receipts?${params.toString()}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/receipts?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       
@@ -277,7 +277,7 @@ export default function ReceiptListView() {
         if (apiType) params.append('type', apiType);
       }
 
-      const res = await fetch(`http://localhost:4000/api/receipts/export?${params.toString()}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/receipts/export?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       
@@ -348,7 +348,7 @@ export default function ReceiptListView() {
         remarks: editedReceipt.remarks
       };
 
-      const res = await fetch(`http://localhost:4000/api/receipts/${viewEditReceipt.id}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/receipts/${viewEditReceipt.id}`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json', 
@@ -397,7 +397,7 @@ export default function ReceiptListView() {
     if (!deleteId) return;
     
     try {
-      const res = await fetch(`http://localhost:4000/api/receipts/${deleteId}`, { 
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/receipts/${deleteId}`, { 
         method: 'DELETE', 
         headers: { Authorization: `Bearer ${token}` } 
       });

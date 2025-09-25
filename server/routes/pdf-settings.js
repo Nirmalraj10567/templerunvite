@@ -6,6 +6,56 @@ const fs = require('fs');
 module.exports = function createPdfSettingsRouter({ db, authenticateToken, authorizePermission }) {
   const router = express.Router();
 
+  // Ensure pdf_settings table has all required columns
+  async function ensurePdfSettingsTable() {
+    try {
+      const has = await db.schema.hasTable('pdf_settings');
+      if (!has) {
+        await db.schema.createTable('pdf_settings', (table) => {
+          table.increments('id').primary();
+          table.integer('temple_id').notNullable();
+          table.string('title_main', 255);
+          table.string('title_sub', 255);
+          table.string('title_line2', 512);
+          table.string('subheader', 255);
+          table.string('logo_url', 512);
+          table.timestamp('created_at').defaultTo(db.fn.now());
+          table.timestamp('updated_at').defaultTo(db.fn.now());
+          table.unique(['temple_id']);
+        });
+        console.log('Created pdf_settings table');
+      }
+
+      // Add missing columns if they don't exist
+      const requiredColumns = [
+        'tax_subheader', 'annadhanam_subheader', 'hall_subheader', 'pooja_subheader',
+        'watermark_text', 'tax_receipt_label', 'tax_date_label', 'tax_year_label',
+        'tax_cell_label', 'tax_collector_label', 'annadhanam_receipt_label',
+        'annadhanam_date_label', 'annadhanam_year_label', 'annadhanam_cell_label',
+        'annadhanam_collector_label', 'hall_receipt_label', 'hall_date_label',
+        'hall_year_label', 'hall_cell_label', 'hall_collector_label',
+        'pooja_receipt_label', 'pooja_date_label', 'pooja_year_label',
+        'pooja_cell_label', 'pooja_collector_label'
+      ];
+
+      for (const column of requiredColumns) {
+        const hasColumn = await db.schema.hasColumn('pdf_settings', column).catch(() => false);
+        if (!hasColumn) {
+          try {
+            await db.schema.table('pdf_settings', (table) => {
+              table.string(column, 255);
+            });
+            console.log(`Added column ${column} to pdf_settings table`);
+          } catch (e) {
+            console.log(`Note: Could not add ${column} to pdf_settings:`, e.message);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Error ensuring pdf_settings table:', e);
+    }
+  }
+
   // Ensure upload dir exists
   const uploadDir = path.join(__dirname, '..', '..', 'public', 'uploads', 'settings');
   fs.mkdirSync(uploadDir, { recursive: true });
@@ -21,9 +71,15 @@ module.exports = function createPdfSettingsRouter({ db, authenticateToken, autho
   });
   const upload = multer({ storage });
 
+  // Test route to verify router is working
+  router.get('/test', (req, res) => {
+    res.json({ success: true, message: 'PDF Settings router is working' });
+  });
+
   // Get settings for current user's temple
-  router.get('/api/pdf-settings', authenticateToken, authorizePermission('pdf_settings', 'view'), async (req, res) => {
+  router.get('/', authenticateToken, authorizePermission('pdf_settings', 'view'), async (req, res) => {
     try {
+      await ensurePdfSettingsTable();
       const templeId = req.user.templeId;
       const row = await db('pdf_settings').where({ temple_id: templeId }).first();
       res.json({ success: true, data: row || {} });
@@ -34,8 +90,10 @@ module.exports = function createPdfSettingsRouter({ db, authenticateToken, autho
   });
 
   // Update titles/subheader, optional external logo_url, watermark and module-specific labels
-  router.put('/api/pdf-settings', authenticateToken, authorizePermission('pdf_settings', 'edit'), async (req, res) => {
+  router.put('/', authenticateToken, authorizePermission('pdf_settings', 'edit'), async (req, res) => {
     try {
+      console.log('PDF Settings PUT request received:', req.body);
+      await ensurePdfSettingsTable();
       const templeId = req.user.templeId;
       const {
         title_main,
@@ -117,8 +175,9 @@ module.exports = function createPdfSettingsRouter({ db, authenticateToken, autho
   });
 
   // Upload a logo image and store its relative URL
-  router.post('/api/pdf-settings/logo', authenticateToken, authorizePermission('pdf_settings', 'edit'), upload.single('logo'), async (req, res) => {
+  router.post('/logo', authenticateToken, authorizePermission('pdf_settings', 'edit'), upload.single('logo'), async (req, res) => {
     try {
+      await ensurePdfSettingsTable();
       const templeId = req.user.templeId;
       const file = req.file;
       if (!file) return res.status(400).json({ error: 'No file uploaded' });

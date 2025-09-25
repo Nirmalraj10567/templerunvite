@@ -11,7 +11,7 @@ export default function SuperadminLogsPage() {
 
   useEffect(() => {
     if (isSuperAdmin) {
-      fetch('http://localhost:4000/api/superadmin-logs', {
+      fetch('https://tmsapi.xesstechlink.com/api/superadmin-logs', {
         headers: { Authorization: `Bearer ${token}` }
       })
         .then(res => res.json())

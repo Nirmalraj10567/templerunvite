@@ -29,7 +29,7 @@ export default function MemberEntryPage() {
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:4000/api/members', {
+      const response = await fetch('https://tmsapi.xesstechlink.com/api/members', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -53,22 +53,28 @@ export default function MemberEntryPage() {
       if (!response.ok) {
         // Handle specific error cases
         if (response.status === 400 || response.status === 409) {
-          let errorMessage = responseData.message || 'Failed to add member';
+          let errorMessage = responseData.message || responseData.details || 'Failed to add member';
           
           // Handle duplicate email error
-          if (errorMessage.includes('users_email_unique') || errorMessage.includes('email already exists')) {
+          if (errorMessage.includes('users_email_unique') || 
+              errorMessage.includes('email already exists') ||
+              errorMessage.includes('Duplicate entry') && errorMessage.includes('users_email_unique')) {
             errorMessage = language === 'tamil' 
               ? 'இந்த மின்னஞ்சல் ஏற்கனவே பயன்பாட்டில் உள்ளது' 
               : 'This email is already in use';
           } 
           // Handle duplicate mobile error
-          else if (errorMessage.includes('users_mobile_unique') || errorMessage.includes('mobile already exists')) {
+          else if (errorMessage.includes('users_mobile_unique') || 
+                   errorMessage.includes('mobile already exists') ||
+                   (errorMessage.includes('Duplicate entry') && errorMessage.includes('users_mobile_unique'))) {
             errorMessage = language === 'tamil'
               ? 'இந்த மொபைல் எண் ஏற்கனவே பயன்பாட்டில் உள்ளது'
               : 'This mobile number is already in use';
           }
           // Handle duplicate username error
-          else if (errorMessage.includes('users_username_unique') || errorMessage.includes('username already exists')) {
+          else if (errorMessage.includes('users_username_unique') || 
+                   errorMessage.includes('username already exists') ||
+                   (errorMessage.includes('Duplicate entry') && errorMessage.includes('users_username_unique'))) {
             errorMessage = language === 'tamil'
               ? 'இந்த பயனர் பெயர் ஏற்கனவே பயன்பாட்டில் உள்ளது'
               : 'This username is already taken';
@@ -115,7 +121,7 @@ export default function MemberEntryPage() {
     if (!editingMember) return;
 
     try {
-      const response = await fetch(`http://localhost:4000/api/users/${editingMember.id}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/users/${editingMember.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -147,7 +153,7 @@ export default function MemberEntryPage() {
         newMember={newMember}
         setNewMember={setNewMember}
         editingMember={editingMember as Member}
-        language={language}
+        _language={language}
         user={user}
         handleAddMember={handleAddMember}
         handleUpdateMember={handleUpdateMember}

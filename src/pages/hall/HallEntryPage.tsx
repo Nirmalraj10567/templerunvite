@@ -9,7 +9,7 @@ import { getAuthToken } from '@/lib/auth';
 
 const generateReceiptNo = async (token: string) => {
   try {
-    const response = await fetch('http://localhost:4000/api/hall-bookings/generate-receipt-number', {
+    const response = await fetch('https://tmsapi.xesstechlink.com/api/hall-bookings/generate-receipt-number', {
       headers: { Authorization: `Bearer ${token}` }
     });
     if (!response.ok) {
@@ -193,7 +193,7 @@ export default function HallEntryPage() {
       (async () => {
         setLoading(true);
         try {
-          const response = await fetch(`http://localhost:4000/api/hall-bookings/${idNum}`, { headers: { Authorization: `Bearer ${token}` } });
+          const response = await fetch(`https://tmsapi.xesstechlink.com/api/hall-bookings/${idNum}`, { headers: { Authorization: `Bearer ${token}` } });
           const data = await response.json();
           const booking = data.data || data;
           setForm({
@@ -237,13 +237,13 @@ export default function HallEntryPage() {
   useEffect(() => {
     (async () => {
       try {
-        const accountsResp = await axios.get('http://localhost:4000/api/ledger/accounts', { headers: { Authorization: `Bearer ${getAuthToken()}` } });
+        const accountsResp = await axios.get('https://tmsapi.xesstechlink.com/api/ledger/accounts', { headers: { Authorization: `Bearer ${getAuthToken()}` } });
         const accs = accountsResp?.data?.data || accountsResp?.data || [];
         setAccounts(accs.map((a: any, i: number) => ({ id: a.id ?? i + 1, value: a.value || a.label, label: a.label || a.value })));
         if (user?.templeId) {
           const [hallsResp, eventsResp] = await Promise.all([
-            axios.get(`http://localhost:4000/api/master/halls/${user.templeId}`, { headers: { Authorization: `Bearer ${getAuthToken()}` } }),
-            axios.get(`http://localhost:4000/api/master/hall-events/${user.templeId}`, { headers: { Authorization: `Bearer ${getAuthToken()}` } }),
+            axios.get(`https://tmsapi.xesstechlink.com/api/master/halls/${user.templeId}`, { headers: { Authorization: `Bearer ${getAuthToken()}` } }),
+            axios.get(`https://tmsapi.xesstechlink.com/api/master/hall-events/${user.templeId}`, { headers: { Authorization: `Bearer ${getAuthToken()}` } }),
           ]);
           setHalls((hallsResp?.data as unknown as Array<{ id: number; name: string; base_price?: number | null }>) || []);
           setHallEvents((eventsResp?.data as unknown as Array<{ id: number; name: string }> ) || []);
@@ -333,7 +333,7 @@ export default function HallEntryPage() {
     setSaving(true);
     try {
       // Validate id for edit
-      let endpoint = 'http://localhost:4000/api/hall-bookings';
+      let endpoint = 'https://tmsapi.xesstechlink.com/api/hall-bookings';
       if (isEdit) {
         const idNum = Number(id);
         if (Number.isNaN(idNum)) {
@@ -342,7 +342,7 @@ export default function HallEntryPage() {
           setSaving(false);
           return;
         }
-        endpoint = `http://localhost:4000/api/hall-bookings/${idNum}`;
+        endpoint = `https://tmsapi.xesstechlink.com/api/hall-bookings/${idNum}`;
       }
 
       const payload = {
@@ -395,7 +395,7 @@ export default function HallEntryPage() {
         return;
       }
 
-      const res = await fetch(`http://localhost:4000/api/hall-bookings/${idNum}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/hall-bookings/${idNum}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -438,7 +438,7 @@ export default function HallEntryPage() {
                 const idNum = Number(id);
                 if (!Number.isNaN(idNum)) {
                   const q = token ? `?token=${encodeURIComponent(token)}` : '';
-                  const pdfUrl = `http://localhost:4000/api/hall-bookings/${idNum}/receipt.pdf${q}`;
+                  const pdfUrl = `https://tmsapi.xesstechlink.com/api/hall-bookings/${idNum}/receipt.pdf${q}`;
                   printPDF(pdfUrl);
                 }
               }}
@@ -589,7 +589,7 @@ export default function HallEntryPage() {
             <button className="border px-3 py-1 rounded hover:bg-gray-50" onClick={()=>setShowPrintPrompt(false)}>{t('Skip','தவிர்')}</button>
             <button className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700" onClick={()=>{
               const q = token?`?token=${encodeURIComponent(token)}`:'';
-              const pdfUrl = `http://localhost:4000/api/hall-bookings/${lastCreatedId}/receipt.pdf${q}`;
+              const pdfUrl = `https://tmsapi.xesstechlink.com/api/hall-bookings/${lastCreatedId}/receipt.pdf${q}`;
               printPDF(pdfUrl);
               setShowPrintPrompt(false);
             }}>{t('Print Now','இப்போது அச்சிடு')}</button>

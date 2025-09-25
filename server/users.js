@@ -488,7 +488,14 @@ module.exports = function (deps = {}) {
         console.warn('Permission seed skipped:', e.message);
       }
 
-      for (const pid of ALL_PERMISSION_IDS) {
+      // Only insert permissions that actually exist in the permissions table
+      const existingPermissions = await db('permissions')
+        .select('id')
+        .whereIn('id', ALL_PERMISSION_IDS);
+      
+      const existingPermissionIds = existingPermissions.map(p => p.id);
+      
+      for (const pid of existingPermissionIds) {
         const existing = await db('user_permissions')
           .where({ user_id: createdUser.id, permission_id: pid })
           .first();
@@ -509,12 +516,30 @@ module.exports = function (deps = {}) {
 
       // If custom permissions are provided, save them (overrides are allowed)
       if (customPermissions && Array.isArray(customPermissions) && customPermissions.length) {
-        const permissionRecords = customPermissions.map(perm => ({
-          user_id: createdUser.id,
-          permission_id: perm.id,
-          access_level: perm.access
-        }));
-        await db('user_permissions').insert(permissionRecords);
+        // Check which custom permissions actually exist in the database
+        const customPermissionIds = customPermissions.map(perm => perm.id).filter(Boolean);
+        const existingCustomPermissions = await db('permissions')
+          .select('id')
+          .whereIn('id', customPermissionIds);
+        
+        const existingCustomPermissionIds = existingCustomPermissions.map(p => p.id);
+        
+        if (existingCustomPermissionIds.length > 0) {
+          const permissionRecords = customPermissions
+            .filter(perm => existingCustomPermissionIds.includes(perm.id))
+            .map(perm => ({
+              user_id: createdUser.id,
+              permission_id: perm.id,
+              access_level: perm.access || 'view',
+              created_at: db.fn.now(),
+              updated_at: db.fn.now()
+            }));
+          
+          await db('user_permissions')
+            .insert(permissionRecords)
+            .onConflict(['user_id', 'permission_id'])
+            .merge(['access_level', 'updated_at']);
+        }
       }
 
       return res.json({
