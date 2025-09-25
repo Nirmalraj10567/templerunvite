@@ -97,6 +97,18 @@ export default function PoojaEntryPage() {
     }
   };
 
+  // Keep calendar in sync when user types or picks a date in the input
+  const watchedFromDate = watch('fromDate');
+  useEffect(() => {
+    if (!watchedFromDate) return;
+    const v = toDateInputValue(watchedFromDate);
+    if (v && v !== selectedDate) {
+      setSelectedDate(v);
+    }
+    // Keep toDate aligned for API compatibility
+    if (v) setValue('toDate' as any, v);
+  }, [watchedFromDate, selectedDate, setValue]);
+
   // Open PDF helper
   const openReceiptPdf = (poojaId: number) => {
     try {
@@ -369,6 +381,24 @@ export default function PoojaEntryPage() {
                 <Input
                   id="mobileNumber"
                   type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
+                  onInput={(e) => {
+                    const target = e.target as HTMLInputElement;
+                    // keep only digits and cap at 10
+                    const digits = (target.value || '').replace(/\D+/g, '').slice(0, 10);
+                    if (target.value !== digits) target.value = digits;
+                  }}
+                  onKeyDown={(e) => {
+                    // Block non-digit typing except control keys
+                    const allowed = [
+                      'Backspace','Delete','Tab','ArrowLeft','ArrowRight','Home','End'
+                    ];
+                    if (allowed.includes(e.key)) return;
+                    if (!/^[0-9]$/.test(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
                   {...register('mobileNumber', { 
                     required: true,
                     pattern: {
