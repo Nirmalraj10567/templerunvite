@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,27 @@ import { useLanguage } from '@/lib/language';
 import PoojaCalendar from '@/components/PoojaCalendar';
 import { poojaService, PoojaFormData } from '@/services/poojaService';
 import axios from 'axios';
+
+// Ensure date values are compatible with <input type="date"> (expects YYYY-MM-DD)
+const toDateInputValue = (value: any): string => {
+  try {
+    if (!value) return '';
+    const s = String(value);
+    // If it already looks like YYYY-MM-DD, use it as-is
+    const m = s.match(/^\d{4}-\d{2}-\d{2}/);
+    if (m) return m[0];
+    // Otherwise try to parse and convert to local YYYY-MM-DD
+    const dt = new Date(s);
+    if (!isNaN(dt.getTime())) {
+      const off = dt.getTimezoneOffset();
+      const local = new Date(dt.getTime() - off * 60000);
+      return local.toISOString().slice(0, 10);
+    }
+    return '';
+  } catch {
+    return '';
+  }
+};
 
 const generateReceiptNo = async (token?: string) => {
   try {
@@ -58,6 +79,9 @@ export default function PoojaEntryPage() {
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [showCalendar, setShowCalendar] = useState(true); // Default to showing calendar
   const [accounts, setAccounts] = useState<Array<{ id?: number; value: string; label: string }>>([]);
+  // Guards to avoid duplicate effects in Strict Mode
+  const newInitRef = useRef(false);
+  const editLoadedRef = useRef(false);
 
   const t = (en: string, ta: string) => language === 'english' ? ta : en;
 
@@ -117,14 +141,17 @@ export default function PoojaEntryPage() {
       setValue('transferTo', 'INCOME A/C');
       // Set default date to today for new entries
       setValue('fromDate', today);
+      setValue('toDate' as any, today);
       setSelectedDate(today);
     };
     
-    if (!id) {
+    if (!id && !newInitRef.current) {
+      newInitRef.current = true;
       generateAndSetReceiptNo();
     }
     
-    if (id) {
+    if (id && !editLoadedRef.current) {
+      editLoadedRef.current = true;
       const fetchPooja = async () => {
         try {
           const result = await poojaService.getPoojaById(parseInt(id));
@@ -136,14 +163,14 @@ export default function PoojaEntryPage() {
               name: data.name,
               mobileNumber: data.mobile_number,
               time: data.time,
-              fromDate: data.from_date,
-              toDate: data.to_date,
+              fromDate: toDateInputValue(data.from_date),
+              toDate: toDateInputValue(data.to_date || data.from_date),
               remarks: data.remarks || '',
               transferTo: data.transfer_to_account || '',
               amount: data.amount != null ? String(data.amount) : ''
             };
             reset(formData);
-            setSelectedDate(data.from_date);
+            setSelectedDate(toDateInputValue(data.from_date));
           } else {
             throw new Error(result.error || 'Failed to load data');
           }
@@ -161,7 +188,9 @@ export default function PoojaEntryPage() {
       
       fetchPooja();
     }
-  }, [id, reset, setValue, token, t]);
+  // Note: do not include `t` (translate function) in deps; it's not stable across renders and causes refetch loops
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, reset, setValue, token]);
 
   useEffect(() => {
     // Load ledger accounts for Transfer To select

@@ -291,11 +291,9 @@ export default function MoneyDonationEntry() {
               value={form.registerNo}
               readOnly
             />
-            <button type="button" onClick={regenerateRegisterNo} className="px-2 py-1 rounded border bg-white hover:bg-gray-50 text-xs whitespace-nowrap">
-              {t('Regenerate', 'மீண்டும்')}
-            </button>
+        
           </div>
-          <p className="text-xs text-gray-500 mt-1">{t('Auto-generated per FY', 'தானாக உருவாக்கப்படும்')}</p>
+     
         </div>
         <div>
           <label className="block text-xs mb-1">{t('Date', 'தேதி')}</label>

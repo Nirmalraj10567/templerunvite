@@ -98,6 +98,39 @@ export default function AnnadhanamEntryPage() {
   // Translation function (inline helper)
   const tr = (en: string, ta: string) => language === 'english' ? ta : en;
   
+  // Helpers to normalize API values into <input type="date"> / <input type="time"> formats
+  const normalizeDateString = (s?: string) => {
+    if (!s) return '';
+    // Accept 'YYYY-MM-DD' or ISO strings 'YYYY-MM-DDTHH:mm:ssZ'
+    return s.slice(0, 10);
+  };
+
+  const normalizeTimeString = (s?: string) => {
+    if (!s) return '';
+    // If already HH:MM or HH:MM:SS -> return HH:MM
+    const hm = s.match(/^\d{2}:\d{2}(:\d{2})?$/);
+    if (hm) return s.slice(0, 5);
+    // Handle 12-hour formats like '12:00 PM' or '1:05 am'
+    const ampm = s.match(/^(\d{1,2}):(\d{2})\s*([AaPp][Mm])$/);
+    if (ampm) {
+      let h = parseInt(ampm[1], 10);
+      const m = ampm[2];
+      const ap = ampm[3].toUpperCase();
+      if (ap === 'PM' && h !== 12) h += 12;
+      if (ap === 'AM' && h === 12) h = 0;
+      const hh = String(h).padStart(2, '0');
+      return `${hh}:${m}`;
+    }
+    // Fallback: try to Date-parse and extract HH:MM
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      return `${hh}:${mm}`;
+    }
+    return '';
+  };
+  
   // No client-side receipt generation; backend sets it on create and we display it
   useEffect(() => {
     const fetchNextReceipt = async () => {
@@ -166,9 +199,9 @@ export default function AnnadhanamEntryPage() {
               donationType: 'food',
               food: data.food,
               peoples: data.peoples?.toString?.() ?? '1',
-              time: data.time,
-              fromDate: data.from_date,
-              toDate: data.to_date,
+              time: normalizeTimeString(data.time),
+              fromDate: normalizeDateString(data.from_date),
+              toDate: normalizeDateString(data.to_date),
               remarks: data.remarks || ''
             };
             reset(formData);
@@ -199,15 +232,8 @@ export default function AnnadhanamEntryPage() {
     try {
       setIsSubmitting(true);
       
-      // Validate date range
-      if (new Date(data.fromDate) > new Date(data.toDate)) {
-        toast({
-          title: tr('Error', 'பிழை'),
-          description: tr('cannot be later than to date', 'தொடங்கும் தேதி முடிவதற்கு முன்னதாக இருக்க முடியாது'),
-          variant: 'destructive'
-        });
-        return;
-      }
+      // Single date usage: use fromDate as both from_date and to_date
+      const singleDate = data.fromDate;
 
       // Map different donation types to existing backend fields
       let mappedFood = '';
@@ -233,8 +259,8 @@ export default function AnnadhanamEntryPage() {
         food: mappedFood,
         peoples: mappedPeoples,
         time: data.time,
-        from_date: data.fromDate,
-        to_date: data.toDate,
+        from_date: singleDate,
+        to_date: singleDate,
         remarks: data.remarks || ''
       };
 

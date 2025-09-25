@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/lib/language';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle, XCircle, Eye, Clock, FileText, FileDown, Printer, Edit } from 'lucide-react';
+import { CheckCircle, XCircle, Eye, Clock, FileText, FileDown, Printer, Edit, RefreshCcw } from 'lucide-react';
 
 // Translation object
 const t = {
@@ -121,6 +122,7 @@ export default function AnnadhanamApprovalPage() {
   
   const { token } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const [requests, setRequests] = useState<AnnadhanamRequest[]>([]);
   const [loading, setLoading] = useState(false);
@@ -129,6 +131,8 @@ export default function AnnadhanamApprovalPage() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [approveConfirmed, setApproveConfirmed] = useState(false);
+  const [rejectConfirmed, setRejectConfirmed] = useState(false);
   const [adminNotes, setAdminNotes] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
   const [stats, setStats] = useState<ApprovalStats | null>(null);
@@ -140,6 +144,18 @@ export default function AnnadhanamApprovalPage() {
   const [pendingCount, setPendingCount] = useState(stats?.status_counts.pending || 0);
   const [approvedCount, setApprovedCount] = useState(stats?.status_counts.approved || 0);
   const [rejectedCount, setRejectedCount] = useState(stats?.status_counts.rejected || 0);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<AnnadhanamRequest | null>(null);
+  // Inline Edit
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    mobile_number: '',
+    time: '',
+    from_date: '',
+    to_date: '',
+    remarks: '' as string | undefined,
+  });
 
   // Context Menu
   const [menuOpen, setMenuOpen] = useState(false);
@@ -237,6 +253,18 @@ export default function AnnadhanamApprovalPage() {
       const result = await response.json();
       if (result.success) {
         setSelectedRequest(result.data);
+        // If edit dialog is open, sync edit form as well
+        if (isEditDialogOpen) {
+          const r = result.data as AnnadhanamRequest;
+          setEditForm({
+            name: r.name || '',
+            mobile_number: r.mobile_number || '',
+            time: r.time || '',
+            from_date: r.from_date || '',
+            to_date: r.to_date || '',
+            remarks: r.remarks || '',
+          });
+        }
       }
     } catch (error) {
       console.error('Error fetching request details:', error);
@@ -299,6 +327,42 @@ export default function AnnadhanamApprovalPage() {
     }
   };
 
+  // Delete an annadhanam request
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      const response = await fetch(`http://localhost:4000/api/annadhanam/${deleteTarget.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) throw new Error('Failed to delete');
+      const result = await response.json().catch(() => ({ success: true }));
+      if (result.success !== false) {
+        toast({
+          title: t('Success', 'வெற்றி'),
+          description: t('Request deleted successfully', 'கோரிக்கை வெற்றிகரமாக நீக்கப்பட்டது'),
+        });
+        setIsDeleteDialogOpen(false);
+        setDeleteTarget(null);
+        setSelectedRequests((prev) => prev.filter((id) => id !== (deleteTarget?.id ?? -1)));
+        fetchRequests();
+        fetchStats();
+      } else {
+        throw new Error('Delete failed');
+      }
+    } catch (error) {
+      console.error('Error deleting request:', error);
+      toast({
+        title: t('Error', 'பிழை'),
+        description: t('Failed to delete request', 'கோரிக்கையை நீக்க முடியவில்லை'),
+        variant: 'destructive',
+      });
+    }
+  };
+
   useEffect(() => {
     fetchRequests();
     fetchStats();
@@ -340,6 +404,7 @@ export default function AnnadhanamApprovalPage() {
           description: t('Request approved successfully', 'கோரிக்கை வெற்றிகரமாக அனுமதிக்கப்பட்டது'),
         });
         setIsApproveDialogOpen(false);
+        setApproveConfirmed(false);
         setAdminNotes('');
         fetchRequests();
         fetchStats();
@@ -370,7 +435,7 @@ export default function AnnadhanamApprovalPage() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ 
-            rejection_reason, 
+            rejection_reason: rejectionReason, 
             admin_notes: adminNotes,
             log_action: 'reject',
             log_notes: `Rejected with reason: ${rejectionReason}. Admin notes: ${adminNotes}`
@@ -388,6 +453,7 @@ export default function AnnadhanamApprovalPage() {
         });
         setIsRejectDialogOpen(false);
         setRejectionReason('');
+        setRejectConfirmed(false);
         setAdminNotes('');
         fetchRequests();
         fetchStats();
@@ -696,6 +762,10 @@ export default function AnnadhanamApprovalPage() {
               <Button variant="outline" onClick={() => setSearchTerm('')}>
                 {t('Clear', 'அழி')}
               </Button>
+              <Button variant="outline" onClick={() => { fetchRequests(); fetchStats(); }} disabled={loading}>
+                <RefreshCcw className="h-4 w-4 mr-1" />
+                {t('Refresh', 'புதுப்பிக்க')}
+              </Button>
               <Button variant="outline" onClick={handleExportCSV}>
                 <FileDown className="h-4 w-4 mr-1" />
                 {t('Export CSV', 'CSV ஏற்றுமதி')}
@@ -825,23 +895,33 @@ export default function AnnadhanamApprovalPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => {
-                              setSelectedRequest(request);
-                              setIsApproveDialogOpen(true);
-                            }}
-                            className="text-green-600 hover:bg-green-50"
+                            onClick={() => navigate(`/dashboard/annadhanam/edit/${request.id}`)}
+                            title={t('Edit', 'திருத்து')}
                           >
-                            <CheckCircle className="h-4 w-4" />
+                            <Edit className="h-4 w-4" />
                           </Button>
+                          {/* Approve moved inside View dialog footer */}
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => {
                               setSelectedRequest(request);
+                              setRejectConfirmed(false);
                               setIsRejectDialogOpen(true);
                             }}
-                            className="text-red-600 hover:bg-red-50"
+                            className={`hover:bg-red-50 text-red-600`}
+                            title={t('Reject', 'நிராகரி')}
                           >
+                            <XCircle className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => { setDeleteTarget(request); setIsDeleteDialogOpen(true); }}
+                            className="text-red-600 hover:bg-red-50"
+                            title={t('Delete', 'நீக்கு')}
+                          >
+                            {/* Reuse XCircle for delete icon or add Trash icon if available */}
                             <XCircle className="h-4 w-4" />
                           </Button>
                         </div>
@@ -1075,8 +1155,177 @@ export default function AnnadhanamApprovalPage() {
                   </div>
                 </div>
               )}
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsViewDialogOpen(false)}
+                >
+                  {t('Close', 'மூடு')}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsViewDialogOpen(false);
+                    setApproveConfirmed(false);
+                    setIsApproveDialogOpen(true);
+                  }}
+                  disabled={selectedRequest.status !== 'pending'}
+                  title={selectedRequest.status !== 'pending' ? t('Only pending requests can be approved', 'நிலுவையில் உள்ள கோரிக்கைகள் மட்டுமே அனுமதிக்கப்படும்') : t('Approve', 'அனுமதி')}
+                  className="text-green-700 border-green-600 hover:bg-green-50"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  {t('Approve', 'அனுமதி')}
+                </Button>
+                <Button
+                  onClick={() => {
+                    setIsViewDialogOpen(false);
+                    setRejectConfirmed(false);
+                    setIsRejectDialogOpen(true);
+                  }}
+                  disabled={selectedRequest.status !== 'pending'}
+                  title={selectedRequest.status !== 'pending' ? t('Only pending requests can be rejected', 'நிலுவையில் உள்ள கோரிக்கைகள் மட்டுமே நிராகரிக்கப்படும்') : t('Reject', 'நிராகரி')}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  <XCircle className="w-4 h-4 mr-2" />
+                  {t('Reject', 'நிராகரி')}
+                </Button>
+              </DialogFooter>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Inline Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t('Edit Request', 'கோரிக்கையை திருத்து')}</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="edit_name">{t('Name', 'பெயர்')}</Label>
+              <Input
+                id="edit_name"
+                value={editForm.name}
+                onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_mobile">{t('Mobile Number', 'மொபைல் எண்')}</Label>
+              <Input
+                id="edit_mobile"
+                value={editForm.mobile_number}
+                onChange={(e) => setEditForm((f) => ({ ...f, mobile_number: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_from">{t('From Date', 'தொடக்க தேதி')}</Label>
+              <Input
+                id="edit_from"
+                type="date"
+                value={editForm.from_date}
+                onChange={(e) => setEditForm((f) => ({ ...f, from_date: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_to">{t('To Date', 'முடிவு தேதி')}</Label>
+              <Input
+                id="edit_to"
+                type="date"
+                value={editForm.to_date}
+                onChange={(e) => setEditForm((f) => ({ ...f, to_date: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_time">{t('Time', 'நேரம்')}</Label>
+              <Input
+                id="edit_time"
+                type="time"
+                value={editForm.time}
+                onChange={(e) => setEditForm((f) => ({ ...f, time: e.target.value }))}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Label htmlFor="edit_remarks">{t('Remarks', 'கருத்துகள்')}</Label>
+              <Textarea
+                id="edit_remarks"
+                value={editForm.remarks || ''}
+                onChange={(e) => setEditForm((f) => ({ ...f, remarks: e.target.value }))}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              {t('Cancel', 'ரத்து செய்')}
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!selectedRequest) return;
+                try {
+                  const response = await fetch(`http://localhost:4000/api/annadhanam/${selectedRequest.id}`, {
+                    method: 'PUT',
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      name: editForm.name,
+                      mobile_number: editForm.mobile_number,
+                      time: editForm.time,
+                      from_date: editForm.from_date,
+                      to_date: editForm.to_date,
+                      remarks: editForm.remarks,
+                    }),
+                  });
+                  if (!response.ok) throw new Error('Failed to update');
+                  const result = await response.json();
+                  if (result.success !== false) {
+                    toast({
+                      title: t('Success', 'வெற்றி'),
+                      description: t('Request updated successfully', 'கோரிக்கை வெற்றிகரமாக புதுப்பிக்கப்பட்டது'),
+                    });
+                    setIsEditDialogOpen(false);
+                    // Refresh data
+                    fetchRequests();
+                    fetchStats();
+                    fetchRequestDetails(selectedRequest.id);
+                  } else {
+                    throw new Error(result.error || 'Failed to update');
+                  }
+                } catch (error) {
+                  console.error('Error updating request:', error);
+                  toast({
+                    title: t('Error', 'பிழை'),
+                    description: t('Failed to update request', 'கோரிக்கையை புதுப்பிக்க முடியவில்லை'),
+                    variant: 'destructive',
+                  });
+                }
+              }}
+            >
+              {t('Save Changes', 'மாற்றங்களைச் சேமிக்கவும்')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('Delete Request', 'கோரிக்கையை நீக்கு')}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {t('Are you sure you want to delete this request?', 'இந்த கோரிக்கையை நிச்சயமாக நீக்க விரும்புகிறீர்களா?')}
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+              {t('Cancel', 'ரத்து செய்')}
+            </Button>
+            <Button className="bg-red-600 hover:bg-red-700" onClick={handleDelete}>
+              {t('Yes, Delete', 'ஆம், நீக்கு')}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -1087,6 +1336,11 @@ export default function AnnadhanamApprovalPage() {
             <DialogTitle>{t('Approve Request', 'கோரிக்கையை அனுமதிக்கவும்')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {selectedRequest && selectedRequest.status !== 'pending' && (
+              <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">
+                {t('Only pending requests can be approved.', 'நிலுவையில் உள்ள கோரிக்கைகள் மட்டுமே அனுமதிக்கப்படலாம்.')}
+              </div>
+            )}
             <div>
               <Label htmlFor="adminNotes">{t('Admin Notes (Optional)', 'நிர்வாக குறிப்புகள் (விருப்பமானது)')}</Label>
               <Textarea
@@ -1096,6 +1350,17 @@ export default function AnnadhanamApprovalPage() {
                 placeholder={t('Add any notes about this approval...', 'இந்த அனுமதி பற்றி குறிப்புகளைச் சேர்க்கவும்...')}
               />
             </div>
+            <div className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                id="approveConfirm"
+                type="checkbox"
+                checked={approveConfirmed}
+                onChange={(e) => setApproveConfirmed(e.target.checked)}
+              />
+              <Label htmlFor="approveConfirm" className="cursor-pointer">
+                {t('I confirm to approve this request', 'இந்த கோரிக்கையை அனுமதிப்பதை நான் உறுதிப்படுத்துகிறேன்')}
+              </Label>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsApproveDialogOpen(false)}>
@@ -1104,6 +1369,7 @@ export default function AnnadhanamApprovalPage() {
             <Button
               onClick={() => selectedRequest && handleApprove(selectedRequest.id)}
               className="bg-green-600 hover:bg-green-700"
+              disabled={!approveConfirmed || (selectedRequest ? selectedRequest.status !== 'pending' : true)}
             >
               <CheckCircle className="w-4 h-4 mr-2" />
               {t('Approve', 'அனுமதி')}
@@ -1119,6 +1385,11 @@ export default function AnnadhanamApprovalPage() {
             <DialogTitle>{t('Reject Request', 'கோரிக்கையை நிராகரிக்கவும்')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {selectedRequest && selectedRequest.status !== 'pending' && (
+              <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">
+                {t('Only pending requests can be rejected.', 'நிலுவையில் உள்ள கோரிக்கைகள் மட்டுமே நிராகரிக்கப்படலாம்.')}
+              </div>
+            )}
             <div>
               <Label htmlFor="rejectionReason">{t('Rejection Reason', 'நிராகரிப்பு காரணம்')} *</Label>
               <Textarea
@@ -1138,6 +1409,17 @@ export default function AnnadhanamApprovalPage() {
                 placeholder={t('Add any additional notes...', 'கூடுதல் குறிப்புகளைச் சேர்க்கவும்...')}
               />
             </div>
+            <div className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                id="rejectConfirm"
+                type="checkbox"
+                checked={rejectConfirmed}
+                onChange={(e) => setRejectConfirmed(e.target.checked)}
+              />
+              <Label htmlFor="rejectConfirm" className="cursor-pointer">
+                {t('I confirm to reject this request', 'இந்த கோரிக்கையை நிராகரிப்பதை நான் உறுதிப்படுத்துகிறேன்')}
+              </Label>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsRejectDialogOpen(false)}>
@@ -1146,7 +1428,7 @@ export default function AnnadhanamApprovalPage() {
             <Button
               onClick={() => selectedRequest && handleReject(selectedRequest.id)}
               className="bg-red-600 hover:bg-red-700"
-              disabled={!rejectionReason.trim()}
+              disabled={!rejectionReason.trim() || !rejectConfirmed || (selectedRequest ? selectedRequest.status !== 'pending' : true)}
             >
               <XCircle className="w-4 h-4 mr-2" />
               {t('Reject', 'நிராகரி')}
