@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Modal } from '@/components/ui/modal';
 import { useLanguage } from '@/lib/language';
 import axios from 'axios';
+import { CardHeader, CardTitle } from '@/components/ui/card';
 
 interface Heir {
   id: string;
@@ -72,8 +73,12 @@ export default function TaxUserEntryPage() {
   const [showPrintPrompt, setShowPrintPrompt] = useState<boolean>(false);
   const [nameResults, setNameResults] = useState<any[]>([]);
   const [showNameResults, setShowNameResults] = useState<boolean>(false);
+  const [mobileResults, setMobileResults] = useState<any[]>([]);
+  const [showMobileResults, setShowMobileResults] = useState<boolean>(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const mobileInputRef = useRef<HTMLInputElement>(null);
   const suppressNameLookupRef = useRef<number>(0);
+  const suppressMobileLookupRef = useRef<number>(0);
   // Focus target for fast entry after selection
   const amountPaidRef = useRef<HTMLInputElement>(null);
   // Existing photo from autofill (when no new upload)
@@ -362,28 +367,38 @@ export default function TaxUserEntryPage() {
   // Mobile number lookup function
   const lookupUserByMobile = async (mobileNumber: string) => {
     const cleanMobile = mobileNumber.replace(/\D/g, '');
-    if (cleanMobile.length !== 10) return;
+    console.log('Looking up mobile:', cleanMobile); // Debug log
+
+    if (cleanMobile.length < 3) {
+      setMobileResults([]);
+      setShowMobileResults(false);
+      return;
+    }
+
+    // Suppress lookup shortly after a selection to avoid reopening dropdown
+    if (suppressMobileLookupRef.current && Date.now() < suppressMobileLookupRef.current) {
+      console.log('Lookup suppressed'); // Debug log
+      return;
+    }
 
     setLookingUp(true);
     setErr(null);
 
     try {
+      console.log('Fetching results for mobile:', cleanMobile); // Debug log
       // Search in user_registrations table for existing user data using the search parameter
-      const response = await fetch(`http://localhost:4000/api/registrations?search=${cleanMobile}&pageSize=1`, {
+      const response = await fetch(`http://localhost:4000/api/registrations?search=${cleanMobile}&pageSize=10`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
       if (response.ok) {
         const data = await response.json();
-        if (data.success && data.data && data.data.length > 0) {
-          const userData = data.data[0]; // Get the first matching record
-          // Auto-fill form with existing user data
-          fillFormFromRegistration(userData);
-          setMsg(`✅ Found: ${userData.name} - Registration ID ${userData.id} / கண்டுபிடிக்கப்பட்டது: ${userData.name} - பதிவு ID ${userData.id}`);
-          setTimeout(() => setMsg(null), 5000);
-        } else {
-          // No existing registration found - show info message
-          setMsg(`No existing registration found for this mobile / இந்த கைபேசி எண்ணுக்கு பதிவு இல்லை`);
+        console.log('Mobile search results:', data); // Debug log
+        const rows = (data?.data && Array.isArray(data.data)) ? data.data : [];
+        setMobileResults(rows);
+        setShowMobileResults(true); // Always show dropdown if we got this far
+        if (rows.length === 0) {
+          setMsg(L('No matches found', 'பொருந்தும் பதிவுகள் இல்லை'));
           setTimeout(() => setMsg(null), 3000);
         }
       }
@@ -453,23 +468,47 @@ export default function TaxUserEntryPage() {
 
   // Handle mobile number change with lookup and cumulative calculation
   const handleMobileChange = (value: string) => {
+    console.log('Mobile value changed:', value); // Debug log
     const formatted = formatMobileNumber(value);
     setForm(prev => ({ ...prev, mobileNumber: formatted }));
     if (errors.mobileNumber) setErrors(prev => ({ ...prev, mobileNumber: '' }));
 
-    // Trigger lookup when mobile number is complete (10 digits) with debounce
+    // Trigger lookup after 3 digits with debounce
     const cleanMobile = value.replace(/\D/g, '');
-    if (cleanMobile.length === 10 && user?.templeId && token) {
-      // Add a small delay to avoid rapid API calls
-      setTimeout(() => {
-        // Check if mobile number is still the same (user hasn't changed it)
-        if (form.mobileNumber === formatted) {
-          lookupUserByMobile(formatted);
-          // Also fetch cumulative tax calculation
-          fetchCumulativeTax(formatted, form.year);
-        }
-      }, 500);
+    console.log('Clean mobile:', cleanMobile, 'length:', cleanMobile.length); // Debug log
+
+    if (cleanMobile.length >= 3 && user?.templeId && token) {
+      console.log('Will trigger lookup'); // Debug log
+      lookupUserByMobile(formatted);
+    } else {
+      console.log('Clearing results'); // Debug log
+      setMobileResults([]);
+      setShowMobileResults(false);
     }
+  };
+
+  // Handle selection from mobile suggestions
+  const handleSelectMobile = (userData: any) => {
+    fillFormFromRegistration(userData);
+    const mobile = userData?.mobile_number ? formatMobileNumber(userData.mobile_number) : '';
+    if (mobile && user?.templeId && token) {
+      fetchCumulativeTax(mobile, form.year);
+    }
+    setMsg(`✅ Selected: ${userData.name} - Registration ID ${userData.id}`);
+    setTimeout(() => setMsg(null), 4000);
+    setShowMobileResults(false);
+    setMobileResults([]);
+    // Briefly suppress auto-lookup to prevent dropdown from reopening
+    suppressMobileLookupRef.current = Date.now() + 800;
+    // Blur mobile input to close any native suggestions and move on
+    if (mobileInputRef.current) mobileInputRef.current.blur();
+    // Move focus to Amount to be paid for quick collection entry
+    setTimeout(() => {
+      if (amountPaidRef.current) {
+        amountPaidRef.current.focus();
+        amountPaidRef.current.select();
+      }
+    }, 0);
   };
 
   // Fetch cumulative tax calculation for mobile number
@@ -876,9 +915,11 @@ export default function TaxUserEntryPage() {
         {/* Language Toggle + Header */}
         <div className="flex items-center justify-between mb-3">
           <div className="text-center flex-1">
-            <h1 className="text-lg font-bold text-gray-900">
+          <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white py-6 px-6 rounded-t-lg">
+          <CardTitle className="text-2xl font-bold text-center">
               {L('Tax Registration', 'வரி பதிவு')}
-            </h1>
+         </CardTitle>
+</CardHeader>
           </div>
      
         </div>
@@ -958,7 +999,58 @@ export default function TaxUserEntryPage() {
                     {autoLocked ? L('Locked', 'பூட்டப்பட்டது') : L('Unlock', 'திற')}
                   </button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-1.5">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">
+                      {L('Mobile Number', 'கைபேசி எண்')} *
+                      {lookingUp && <span className="ml-2 text-blue-600 text-xs">🔍 {L('Looking up...', 'தேடுகிறது...')}</span>}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="tel"
+                        ref={mobileInputRef}
+                        className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.mobileNumber ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                          }`}
+                        value={form.mobileNumber}
+                        onChange={e => handleMobileChange(e.target.value)}
+                        placeholder={L('Enter mobile number to search', 'கைபேசி எண்ணைத் தட்டச்சு செய்து தேடு')}
+                        maxLength={12}
+                        autoComplete="off"
+                      />
+                      {/* Debug info */}
+                      {lookingUp && <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-blue-600">🔍</div>}
+                      
+                      {/* Suggestions dropdown */}
+                      {showMobileResults && (
+                        <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg max-h-56 overflow-auto">
+                          {mobileResults.length > 0 ? (
+                            mobileResults.map((row: any) => (
+                              <button
+                                key={row.id}
+                                type="button"
+                                onClick={() => handleSelectMobile(row)}
+                                className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b last:border-b-0 transition-colors"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="font-medium">{row.name}</span>
+                                  <span className="text-xs text-gray-500">#{row.id}</span>
+                                </div>
+                                <div className="text-xs text-gray-600 mt-0.5">
+                                  {(row.mobile_number ? `📱 ${formatMobileNumber(row.mobile_number)} · ` : '')}
+                                  {(row.village ? `${row.village}` : '')}
+                                </div>
+                              </button>
+                            ))
+                          ) : (
+                            <div className="px-3 py-2 text-sm text-gray-500">
+                              {L('No matches found', 'பொருந்தும் பதிவுகள் இல்லை')}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {errors.mobileNumber && <p className="text-red-500 text-xs mt-1">{errors.mobileNumber}</p>}
+                  </div>
                   <div className="relative">
                     <label className="block text-xs font-medium text-gray-900 mb-1">
                       {L('Name', 'பெயர்')} *
@@ -996,6 +1088,24 @@ export default function TaxUserEntryPage() {
                       </div>
                     )}
                     {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">
+                      {L('Last Name', 'கடைசி பெயர்')}
+                    </label>
+                    <input
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      value={form.alternativeName}
+                      onChange={e => set('alternativeName', e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Wife\'s Name', 'மனைவி பெயர்')}</label>
+                    <input
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      value={form.wifeName}
+                      onChange={e => set('wifeName', e.target.value)}
+                    />
                   </div>
                   {/* Begin locked fields */}
                   <fieldset disabled={autoLocked} className="contents">
@@ -1057,25 +1167,6 @@ export default function TaxUserEntryPage() {
                   </div>
                   </fieldset>
                   {/* End locked fields */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">
-                      {L('Mobile', 'கைபேசி')}
-                      {lookingUp && <span className="ml-2 text-blue-600 text-xs">🔍 {L('Looking up...', 'தேடுகிறது...')}</span>}
-                    </label>
-                    <div>
-                      <input
-                        type="tel"
-                        className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.mobileNumber ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                          }`}
-                        value={form.mobileNumber}
-                        onChange={e => handleMobileChange(e.target.value)}
-                        placeholder={L('Enter 10-digit mobile', '10 இலக்க கைபேசி எண்')}
-                        maxLength={12}
-                      />
-                    </div>
-                    {errors.mobileNumber && <p className="text-red-500 text-xs mt-1">{errors.mobileNumber}</p>}
-                
-                  </div>
                 </div>
               </div>
               

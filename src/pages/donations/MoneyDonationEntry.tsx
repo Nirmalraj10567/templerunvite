@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
@@ -36,6 +36,7 @@ export default function MoneyDonationEntry() {
   const [accounts, setAccounts] = useState<Array<{ id?: number; value: string; label: string }>>([]);
   const [lastCreatedId, setLastCreatedId] = useState<number | null>(null);
   const [showPrintPrompt, setShowPrintPrompt] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   // Approval logs state
   interface ApprovalLog {
@@ -97,6 +98,27 @@ export default function MoneyDonationEntry() {
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
+  // Handle Enter key navigation
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      
+      if (!formRef.current) return;
+      
+      const focusableElements = formRef.current.querySelectorAll(
+        'input:not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled]):not([readonly]), button:not([disabled])'
+      );
+      
+      const currentElement = document.activeElement;
+      const currentIndex = Array.from(focusableElements).indexOf(currentElement as Element);
+      
+      if (currentIndex !== -1 && currentIndex < focusableElements.length - 1) {
+        const nextElement = focusableElements[currentIndex + 1] as HTMLElement;
+        nextElement.focus();
+      }
+    }
+  };
+
   useEffect(() => {
     const loadAccounts = async () => {
       try {
@@ -134,7 +156,6 @@ export default function MoneyDonationEntry() {
     };
     loadLogs();
   }, [lastCreatedId, token]);
-
 
   // Compute next register number by year using existing records (reusable)
   const computeNextRegisterNo = useCallback(async (): Promise<string | null> => {
@@ -233,7 +254,7 @@ export default function MoneyDonationEntry() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log('=== DEBUG: onSubmit called ===');
-    console.log('Form data:', form);
+    console.log('Form ', form);
     console.log('Token exists:', !!token);
     console.log('Token value:', token ? token.substring(0, 20) + '...' : 'null');
     console.log('isEdit:', isEdit);
@@ -367,156 +388,240 @@ export default function MoneyDonationEntry() {
     loadExisting();
   }, [isEdit, editId, token, language]);
 
+  // Consistent field styling with orange color scheme
+  const fieldStyles = "text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200";
+  const labelStyles = "block text-sm font-medium mb-1.5 text-gray-700";
+
   return (
-    <div className="w-full max-w-4xl mx-auto bg-white p-4 rounded shadow text-sm">
-      <h1 className="text-lg font-semibold mb-4 text-center">
-        {isEdit ? t('Edit Money Donation', 'பண நன்கொடைக் திருத்து') : t('Money Donation Entry', 'பண நன்கொடைக் பதிவு')}
-      </h1>
-      {message && (
-        <div className="mb-4">
-          <Alert variant={isError ? 'destructive' : 'default'}>
-            <AlertTitle>{isError ? t('Error', 'பிழை') : t('Success', 'வெற்றி')}</AlertTitle>
-            <AlertDescription>{message}</AlertDescription>
-          </Alert>
-        </div>
-      )}
-      <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div>
-          <label className="block text-xs mb-1">{t('Register No', 'பதிவு எண்')}</label>
-          <div className="flex gap-1">
-            <input
-              className="flex-1 border p-1 rounded bg-gray-50 text-xs"
-              name="registerNo"
-              value={form.registerNo}
-              readOnly
-            />
-        
+    <div className="min-h-screen bg-gray-50 py-6 px-4">
+      <div className="max-w-6xl mx-auto">
+        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+          <div className="bg-gradient-to-r from-orange-500 to-orange-600 py-6 px-6">
+            <h1 className="text-2xl font-bold text-center text-white">
+              {isEdit ? t('Edit Money Donation', 'பண நன்கொடைக் திருத்து') : t('Money Donation Entry', 'பண நன்கொடைக் பதிவு')}
+            </h1>
           </div>
-     
-        </div>
-        <div>
-          <label className="block text-xs mb-1">{t('Date', 'தேதி')}</label>
-          <input type="date" className="w-full border p-1 rounded text-xs" name="date" value={form.date} onChange={onChange} />
-        </div>
-        <div>
-          <label className="block text-xs mb-1">{t('Name', 'பெயர்')}</label>
-          <input className="w-full border p-1 rounded text-xs" name="name" value={form.name} onChange={onChange} />
-        </div>
-        <div>
-          <label className="block text-xs mb-1">{t('Father Name', 'தந்தை பெயர்')}</label>
-          <input className="w-full border p-1 rounded text-xs" name="fatherName" value={form.fatherName} onChange={onChange} />
-        </div>
-        <div>
-          <label className="block text-xs mb-1">{t('Village', 'ஊர்')}</label>
-          <input className="w-full border p-1 rounded text-xs" name="village" value={form.village} onChange={onChange} />
-        </div>
-        <div>
-          <label className="block text-xs mb-1">{t('Phone', 'கைபேசி எண்')}</label>
-          <input className="w-full border p-1 rounded text-xs" name="phone" value={form.phone} onChange={onChange} />
-        </div>
-        <div className="md:col-span-3">
-          <label className="block text-xs mb-1">{t('Address', 'முகவரி')}</label>
-          <input className="w-full border p-1 rounded text-xs" name="address" value={form.address} onChange={onChange} />
-        </div>
-        <div>
-          <label className="block text-xs mb-1">{t('Amount', 'தொகை')}*</label>
-          <input className="w-full border p-1 rounded text-xs" name="amount" value={form.amount} onChange={onChange} placeholder={t('Enter amount', 'தொகை')} />
+          
+          <div className="p-6">
+            {message && (
+              <div className="mb-6">
+                <Alert variant={isError ? 'destructive' : 'default'}>
+                  <AlertTitle>{isError ? t('Error', 'பிழை') : t('Success', 'வெற்றி')}</AlertTitle>
+                  <AlertDescription>{message}</AlertDescription>
+                </Alert>
+              </div>
+            )}
+            
+            <form 
+              ref={formRef} 
+              onSubmit={onSubmit} 
+              onKeyDown={handleKeyDown}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
+              {/* Register No */}
+              <div>
+                <label className={labelStyles}>{t('Register No', 'பதிவு எண்')}</label>
+                <input
+                  className={`${fieldStyles} bg-gray-100`}
+                  name="registerNo"
+                  value={form.registerNo}
+                  readOnly
+                />
+              </div>
+              
+              {/* Date */}
+              <div>
+                <label className={labelStyles}>{t('Date', 'தேதி')} <span className="text-red-500">*</span></label>
+                <input 
+                  type="date" 
+                  className={fieldStyles}
+                  name="date" 
+                  value={form.date} 
+                  onChange={onChange} 
+                />
+              </div>
+              
+              {/* Name */}
+              <div>
+                <label className={labelStyles}>{t('Name', 'பெயர்')} <span className="text-red-500">*</span></label>
+                <input 
+                  className={fieldStyles}
+                  name="name" 
+                  value={form.name} 
+                  onChange={onChange} 
+                  placeholder={t('Enter name', 'பெயரை உள்ளிடவும்')}
+                />
+              </div>
+                
+              {/* Phone */}
+              <div>
+                <label className={labelStyles}>{t('Phone', 'கைபேசி எண்')}</label>
+                <input 
+                  className={fieldStyles}
+                  name="phone" 
+                  value={form.phone} 
+                  onChange={onChange} 
+                  placeholder={t('Enter phone', 'கைபேசி எண்ணை உள்ளிடவும்')}
+                  inputMode="numeric"
+                  maxLength={10}
+                  onInput={(e) => {
+                    const el = e.currentTarget as HTMLInputElement;
+                    const cleaned = el.value.replace(/\D/g, '').slice(0, 10);
+                    if (el.value !== cleaned) {
+                      el.value = cleaned;
+                    }
+                    setForm(prev => ({ ...prev, phone: cleaned }));
+                  }}
+                />
+              </div>
+              {/* Father Name */}
+              <div>
+                <label className={labelStyles}>{t('Father Name', 'தந்தை பெயர்')}</label>
+                <input 
+                  className={fieldStyles}
+                  name="fatherName" 
+                  value={form.fatherName} 
+                  onChange={onChange} 
+                  placeholder={t('Enter father name', 'தந்தை பெயரை உள்ளிடவும்')}
+                />
+              </div>
+              
+              {/* Village */}
+              <div>
+                <label className={labelStyles}>{t('Village', 'ஊர்')}</label>
+                <input 
+                  className={fieldStyles}
+                  name="village" 
+                  value={form.village} 
+                  onChange={onChange} 
+                  placeholder={t('Enter village', 'ஊரை உள்ளிடவும்')}
+                />
+              </div>
+            
+              
+              {/* Address - Full width */}
+              <div className="md:col-span-2 lg:col-span-3">
+                <label className={labelStyles}>{t('Address', 'முகவரி')}</label>
+                <input 
+                  className={fieldStyles}
+                  name="address" 
+                  value={form.address} 
+                  onChange={onChange} 
+                  placeholder={t('Enter address', 'முகவரியை உள்ளிடவும்')}
+                />
+              </div>
+              
+              {/* Amount */}
+              <div>
+                <label className={labelStyles}>{t('Amount', 'தொகை')} <span className="text-red-500">*</span></label>
+                <input 
+                  className={fieldStyles}
+                  name="amount" 
+                  value={form.amount} 
+                  onChange={onChange} 
+                  placeholder={t('Enter amount', 'தொகையை உள்ளிடவும்')}
+                  type="number"
+                  min="1"
+                />
+              </div>
+              
+              {/* Reason - Full width */}
+              <div className="md:col-span-2 lg:col-span-2">
+                <label className={labelStyles}>{t('Reason', 'காரணம்')}</label>
+                <input 
+                  className={fieldStyles}
+                  name="reason" 
+                  value={form.reason} 
+                  onChange={onChange} 
+                  placeholder={t('Enter reason', 'காரணத்தை உள்ளிடவும்')}
+                />
+              </div>
+              
+              {/* Action Buttons - Full width */}
+              <div className="md:col-span-3 flex flex-wrap gap-3 justify-center pt-4 border-t border-gray-200">
+                <button 
+                  disabled={saving} 
+                  className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-md text-base transition-all duration-200"
+                  type="submit"
+                >
+                  {saving ? (isEdit ? t('Updating...', 'புதுப்பிக்கிறது...') : t('Saving...', 'சேமிக்கிறது...')) : (isEdit ? t('Update', 'புதுப்பிக்க') : t('Save', 'சேமிக்க'))}
+                </button>
+                
+                <button
+                  type="button"
+                  className="px-6 py-2.5 border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium rounded-md text-base transition-all duration-200"
+                  onClick={() => {
+                    const d = form.date || new Date().toISOString().slice(0,10);
+                    navigate(`/dashboard/reports/daily?date=${d}`);
+                  }}
+                >
+                  {t('Daily Report', 'தினசரி அறிக்கை')}
+                </button>
+                
+                <button 
+                  type="button" 
+                  className="px-6 py-2.5 border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium rounded-md text-base transition-all duration-200"
+                  onClick={clearForm}
+                >
+                  {t('Clear', 'வெளியே')}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
         
-        {/* Transfer To hidden (defaults to INCOME A/C) */}
-        {false && (
-        <div>
-          <label className="block text-xs mb-1">{t('Transfer To', 'எங்கு')}</label>
-          <select
-            className="w-full border p-1 rounded text-xs"
-            name="transferTo"
-            value={form.transferTo || ''}
-            onChange={(e) => setForm(prev => ({ ...prev, transferTo: e.target.value }))}
+        {showPrintPrompt && lastCreatedId != null && (
+          <Modal
+            title={t('Print Receipt', 'ரசீதை அச்சிடவா?')}
+            onClose={() => setShowPrintPrompt(false)}
           >
-            <option value="">{t('Select account', 'கணக்கைத் தேர்ந்தெடுக்கவும்')}</option>
-            {accounts.map(acc => (
-              <option key={acc.id ?? acc.value} value={acc.value}>{acc.label}</option>
-            ))}
-          </select>
-        </div>
+            <div className="p-6">
+              <p className="mb-6 text-base text-gray-700">
+                {t('Do you want to open the PDF receipt for printing?', 'PDF ரசீதை அச்சிட திறக்க விரும்புகிறீர்களா?')}
+              </p>
+              <div className="flex justify-end gap-3">
+                <button 
+                  className="px-4 py-2 rounded-md border text-sm hover:bg-gray-50" 
+                  onClick={() => setShowPrintPrompt(false)}
+                >
+                  {t('No', 'இல்லை')}
+                </button>
+                <button
+                  className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
+                  onClick={() => {
+                    const url = moneyDonationService.receiptUrl(lastCreatedId!, token);
+                    const iframe = document.createElement('iframe');
+                    iframe.style.position = 'fixed';
+                    iframe.style.right = '0';
+                    iframe.style.bottom = '0';
+                    iframe.style.width = '0';
+                    iframe.style.height = '0';
+                    iframe.style.border = '0';
+                    iframe.src = url;
+                    iframe.onload = () => {
+                      try {
+                        iframe.contentWindow?.focus();
+                        iframe.contentWindow?.print();
+                      } catch (e) {
+                        // Fallback to opening in new tab if print cannot be triggered (cross-origin PDFs etc.)
+                        window.open(url, '_blank');
+                      } finally {
+                        setTimeout(() => {
+                          try { document.body.removeChild(iframe); } catch {}
+                        }, 1000);
+                      }
+                    };
+                    document.body.appendChild(iframe);
+                    setShowPrintPrompt(false);
+                  }} 
+                >
+                  {t('Yes, Print', 'ஆம், அச்சிடு')}
+                </button>
+              </div>
+            </div>
+          </Modal>
         )}
-        <div className="md:col-span-3">
-          <label className="block text-xs mb-1">{t('Reason', 'காரணம்')}</label>
-          <input className="w-full border p-1 rounded text-xs" name="reason" value={form.reason} onChange={onChange} />
-        </div>
-        <div className="md:col-span-3 flex gap-2 justify-center mt-2">
-          <button 
-            disabled={saving} 
-            className="bg-green-600 text-white px-4 py-1 rounded hover:bg-green-700 text-xs" 
-            type="submit"
-            onClick={() => console.log('DEBUG: Submit button clicked!')}
-          >
-            {saving ? (isEdit ? t('Updating...', 'புதுப்பிக்கிறது...') : t('Saving...', 'சேமிக்கிறது...')) : (isEdit ? t('Update', 'புதுப்பிக்க') : t('Save', 'பதிவு'))}
-          </button>
-          <button
-            type="button"
-            className="border px-4 py-1 rounded text-xs"
-            onClick={() => {
-              const d = form.date || new Date().toISOString().slice(0,10);
-              navigate(`/dashboard/reports/daily?date=${d}`);
-            }}
-          >
-            {t('Daily Report', 'தினசரி அறிக்கை')}
-          </button>
-          <button type="button" className="border px-4 py-1 rounded text-xs" onClick={clearForm}>
-            {t('Clear', 'வெளியே')}
-          </button>
-        </div>
-      </form>
-      {showPrintPrompt && lastCreatedId != null && (
-        <Modal
-          title={t('Print Receipt', 'ரசீதை அச்சிடவா?')}
-          onClose={() => setShowPrintPrompt(false)}
-        >
-          <p className="mb-4 text-sm">
-            {t('Do you want to open the PDF receipt for printing?', 'PDF ரசீதை அச்சிட திறக்க விரும்புகிறீர்களா?')}
-          </p>
-          <div className="flex justify-end gap-2">
-            <button
-              className="px-4 py-2 rounded border"
-              onClick={() => setShowPrintPrompt(false)}
-            >
-              {t('No', 'இல்லை')}
-            </button>
-            <button
-              className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
-              onClick={() => {
-                const url = moneyDonationService.receiptUrl(lastCreatedId!, token);
-                const iframe = document.createElement('iframe');
-                iframe.style.position = 'fixed';
-                iframe.style.right = '0';
-                iframe.style.bottom = '0';
-                iframe.style.width = '0';
-                iframe.style.height = '0';
-                iframe.style.border = '0';
-                iframe.src = url;
-                iframe.onload = () => {
-                  try {
-                    iframe.contentWindow?.focus();
-                    iframe.contentWindow?.print();
-                  } catch (e) {
-                    // Fallback to opening in new tab if print cannot be triggered (cross-origin PDFs etc.)
-                    window.open(url, '_blank');
-                  } finally {
-                    setTimeout(() => {
-                      try { document.body.removeChild(iframe); } catch {}
-                    }, 1000);
-                  }
-                };
-                document.body.appendChild(iframe);
-                setShowPrintPrompt(false);
-              }}
-            >
-              {t('Yes, Print', 'ஆம், அச்சிடு')}
-            </button>
-          </div>
-        </Modal>
-      )}
+      </div>
     </div>
   );
 }

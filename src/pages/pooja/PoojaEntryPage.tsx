@@ -82,8 +82,30 @@ export default function PoojaEntryPage() {
   // Guards to avoid duplicate effects in Strict Mode
   const newInitRef = useRef(false);
   const editLoadedRef = useRef(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const t = (en: string, ta: string) => language === 'english' ? ta : en;
+
+  // Handle Enter key navigation
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      
+      if (!formRef.current) return;
+      
+      const focusableElements = formRef.current.querySelectorAll(
+        'input:not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled]):not([readonly]), button:not([disabled])'
+      );
+      
+      const currentElement = document.activeElement;
+      const currentIndex = Array.from(focusableElements).indexOf(currentElement as Element);
+      
+      if (currentIndex !== -1 && currentIndex < focusableElements.length - 1) {
+        const nextElement = focusableElements[currentIndex + 1] as HTMLElement;
+        nextElement.focus();
+      }
+    }
+  };
 
   // Check for double-booking using service
   const checkDoubleBooking = async (fromDate: string, toDate: string, time: string, excludeId?: number) => {
@@ -227,12 +249,23 @@ export default function PoojaEntryPage() {
 
   if (isLoading) {
     return (
-      <div className="max-w-7xl mx-auto bg-white p-6 rounded-lg shadow-lg">
-        <div className="flex items-center justify-center p-8">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading pooja details...</p>
-          </div>
+      <div className="min-h-screen bg-gray-50 py-6 px-4">
+        <div className="max-w-7xl mx-auto">
+          <Card className="shadow-lg border-0 bg-white rounded-lg overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 py-6 px-6">
+              <CardTitle className="text-2xl font-bold text-center text-white">
+                {t('Pooja Entry', 'பூஜை பதிவு')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-center p-8">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600 text-base">Loading pooja details...</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
@@ -335,257 +368,275 @@ export default function PoojaEntryPage() {
     }
   };
 
+  // Consistent field styling
+  const fieldStyles = "text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200";
+  const labelStyles = "block text-sm font-medium mb-1.5 text-gray-700";
+  const textareaStyles = "text-base py-2.5 px-3 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200 min-h-[100px]";
+
   return (
-    <div className="max-w-7xl mx-auto bg-white p-6 rounded-lg shadow-lg">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Form Section */}
-        <Card className="w-full">
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold text-center">
+    <div className="min-h-screen bg-gray-50 py-6 px-4">
+      <div className="max-w-7xl mx-auto">
+        <Card className="shadow-lg border-0 bg-white rounded-lg overflow-hidden">
+          <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 py-6 px-6">
+            <CardTitle className="text-2xl font-bold text-center text-white">
               {t('Pooja Entry', 'பூஜை பதிவு')}
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Receipt Number */}
-                <div className="space-y-2">
-                  <Label htmlFor="receiptNumber">
-                    {t('Receipt Number', 'ரசீது எண்')} *
-                  </Label>
-                  <Input
-                    id="receiptNumber"
-                    {...register('receiptNumber', { required: true })}
-                    readOnly
-                    className="bg-gray-100"
-                  />
-                </div>
+          
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Form Section */}
+              <div className="space-y-6">
+                <form 
+                  ref={formRef} 
+                  onSubmit={handleSubmit(onSubmit)} 
+                  onKeyDown={handleKeyDown}
+                  className="space-y-6"
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Receipt Number */}
+                    <div>
+                      <Label className={labelStyles}>
+                        {t('Receipt Number', 'ரசீது எண்')} <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="receiptNumber"
+                        className={`${fieldStyles} bg-gray-100`}
+                        {...register('receiptNumber', { required: true })}
+                        readOnly
+                      />
+                    </div>
 
-                {/* Name */}
-                <div className="space-y-2">
-                  <Label htmlFor="name">
-                    {t('Name', 'பெயர்')} *
-                  </Label>
-                  <Input
-                    id="name"
-                    {...register('name', { required: true })}
-                    placeholder={t('Enter full name', 'முழு பெயரை உள்ளிடவும்')}
-                  />
-                </div>
+                    {/* Name */}
+                    <div>
+                      <Label className={labelStyles}>
+                        {t('Name', 'பெயர்')} <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="name"
+                        className={fieldStyles}
+                        {...register('name', { required: true })}
+                        placeholder={t('Enter full name', 'முழு பெயரை உள்ளிடவும்')}
+                      />
+                    </div>
 
-                {/* Mobile Number */}
-                <div className="space-y-2">
-                  <Label htmlFor="mobileNumber">
-                    {t('Mobile Number', 'மொபைல் எண்')} *
-                  </Label>
-                  <Input
-                    id="mobileNumber"
-                    type="tel"
-                    inputMode="numeric"
-                    maxLength={10}
-                    onInput={(e) => {
-                      const target = e.target as HTMLInputElement;
-                      // keep only digits and cap at 10
-                      const digits = (target.value || '').replace(/\D+/g, '').slice(0, 10);
-                      if (target.value !== digits) target.value = digits;
-                    }}
-                    onKeyDown={(e) => {
-                      // Block non-digit typing except control keys
-                      const allowed = [
-                        'Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End'
-                      ];
-                      if (allowed.includes(e.key)) return;
-                      if (!/^[0-9]$/.test(e.key)) {
-                        e.preventDefault();
-                      }
-                    }}
-                    {...register('mobileNumber', {
-                      required: true,
-                      pattern: {
-                        value: /^[0-9]{10}$/,
-                        message: 'Please enter a valid 10-digit mobile number'
-                      }
-                    })}
-                    placeholder={t('Enter 10-digit mobile number', '10 இலக்க மொபைல் எண்ணை உள்ளிடவும்')}
-                  />
-                </div>
+                    {/* Mobile Number */}
+                    <div>
+                      <Label className={labelStyles}>
+                        {t('Mobile Number', 'மொபைல் எண்')} <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="mobileNumber"
+                        type="tel"
+                        inputMode="numeric"
+                        maxLength={10}
+                        onInput={(e) => {
+                          const target = e.target as HTMLInputElement;
+                          // keep only digits and cap at 10
+                          const digits = (target.value || '').replace(/\D+/g, '').slice(0, 10);
+                          if (target.value !== digits) target.value = digits;
+                          setValue('mobileNumber', digits, { shouldValidate: true, shouldDirty: true });
+                        }}
+                        onKeyDown={(e) => {
+                          // Block non-digit typing except control keys
+                          const allowed = [
+                            'Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End'
+                          ];
+                          if (allowed.includes(e.key)) return;
+                          if (!/^[0-9]$/.test(e.key)) {
+                            e.preventDefault();
+                          }
+                        }}
+                        className={fieldStyles}
+                        {...register('mobileNumber', {
+                          required: true,
+                          pattern: {
+                            value: /^[0-9]{10}$/,
+                            message: t('Please enter a valid 10-digit mobile number', 'செல்லுபடியாகும் 10 இலக்க மொபைல் எண்ணை உள்ளிடவும்')
+                          }
+                        })}
+                        placeholder={t('Enter 10-digit mobile number', '10 இலக்க மொபைல் எண்ணை உள்ளிடவும்')}
+                      />
+                    </div>
 
-                {/* Time */}
-                <div className="space-y-2">
-                  <Label htmlFor="time">
-                    {t('Time', 'நேரம்')} *
-                  </Label>
-                  <Input
-                    id="time"
-                    type="time"
-                    {...register('time', { required: true })}
-                  />
-                </div>
+                    {/* Time */}
+                    <div>
+                      <Label className={labelStyles}>
+                        {t('Time', 'நேரம்')} <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="time"
+                        type="time"
+                        className={fieldStyles}
+                        {...register('time', { required: true })}
+                      />
+                    </div>
 
-                {/* From Date */}
-                <div className="space-y-2">
-                  <Label htmlFor="fromDate">
-                    {t('Date', 'தொடக்க தேதி')} *
-                  </Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="fromDate"
-                      type="date"
-                      {...register('fromDate', { required: true })}
-                      className="flex-1"
-                    />
+                    {/* From Date */}
+                    <div>
+                      <Label className={labelStyles}>
+                        {t('Date', 'தொடக்க தேதி')} <span className="text-red-500">*</span>
+                      </Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="fromDate"
+                          type="date"
+                          className={fieldStyles}
+                          {...register('fromDate', { required: true })}
+                          onChange={(e) => {
+                            setValue('fromDate', e.target.value, { shouldValidate: true });
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowCalendar(!showCalendar)}
+                          className="px-3 py-2.5 text-sm border-gray-300 hover:bg-gray-50 rounded-md"
+                          title={showCalendar ? t('Hide Calendar', 'காலெண்டரை மறை') : t('Show Calendar', 'காலெண்டரை காட்டு')}
+                        >
+                          {showCalendar ? '📅' : '📅'}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Amount */}
+                    <div>
+                      <Label className={labelStyles}>
+                        {t('Amount', 'தொகை')}
+                      </Label>
+                      <Input
+                        id="amount"
+                        type="number"
+                        step="0.01"
+                        className={fieldStyles}
+                        placeholder={t('Enter amount', 'தொகையை உள்ளிடவும்')}
+                        {...register('amount')}
+                      />
+                    </div>
+
+                    {/* Remarks */}
+                    <div className="md:col-span-2">
+                      <Label className={labelStyles}>
+                        {t('Remarks', 'குறிப்புகள்')}
+                      </Label>
+                      <Textarea
+                        id="remarks"
+                        className={textareaStyles}
+                        {...register('remarks')}
+                        placeholder={t('Enter any additional remarks', 'கூடுதல் குறிப்புகளை உள்ளிடவும்')}
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-wrap gap-3 justify-end pt-6 border-t border-gray-200">
                     <Button
                       type="button"
                       variant="outline"
-                      size="sm"
-                      onClick={() => setShowCalendar(!showCalendar)}
-                      title={showCalendar ? t('Hide Calendar', 'காலெண்டரை மறை') : t('Show Calendar', 'காலெண்டரை காட்டு')}
+                      className="px-5 py-2.5 text-base border-gray-300 hover:bg-gray-50 rounded-md"
+                      onClick={handleCancel}
+                      disabled={isSubmitting}
                     >
-                      {showCalendar ? '📅' : '📅'}
+                      {t('Cancel', 'ரத்து செய்')}
+                    </Button>
+                    
+                    {id && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="px-5 py-2.5 text-base border-gray-300 hover:bg-gray-50 rounded-md"
+                        onClick={handlePrintReceipt}
+                      >
+                        {t('Print Receipt', 'ரசீதை அச்சிட')}
+                      </Button>
+                    )}
+                    
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="px-5 py-2.5 text-base border-gray-300 hover:bg-gray-50 rounded-md"
+                      onClick={() => {
+                        const d = watch('fromDate') || selectedDate || new Date().toISOString().slice(0, 10);
+                        navigate(`/dashboard/reports/daily?date=${d}`);
+                      }}
+                    >
+                      {t('Go to Daily Report', 'தினசரி அறிக்கைக்கு செல்ல')}
+                    </Button>
+                    
+                    <Button
+                      type="submit"
+                      className="px-5 py-2.5 text-base bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-md"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting
+                        ? t('Saving...', 'சேமிக்கிறது...')
+                        : id
+                          ? t('Update Pooja', 'பூஜையை புதுப்பிக்க')
+                          : t('Save Pooja', 'பூஜையை சேமிக்க')
+                      }
                     </Button>
                   </div>
-                </div>
+                </form>
+              </div>
 
-                {/* To Date removed: single-date layout */}
-
-                {/* Amount */}
-                <div className="space-y-2">
-                  <Label htmlFor="amount">
-                    {t('Amount', 'தொகை')}
-                  </Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    step="0.01"
-                    placeholder={t('Enter amount', 'தொகையை உள்ளிடவும்')}
-                    {...register('amount')}
-                  />
-                </div>
-
-                {false && (
-                  <div className="space-y-2">
-                    <Label htmlFor="transferTo">
-                      {t('Transfer To Account', 'எந்த கணக்கிற்கு மாற்றுவது')}
-                    </Label>
-                    <select
-                      id="transferTo"
-                      className="w-full border p-2 rounded"
-                      {...register('transferTo')}
-                      defaultValue="INCOME A/C"
-                    >
-                      <option value="">{t('Select', 'தேர்ந்தெடு')}</option>
-                      {accounts.map(acc => (
-                        <option key={acc.id ?? acc.value} value={acc.value}>{acc.label}</option>
-                      ))}
-                    </select>
+              {/* Calendar Section */}
+              <div className="space-y-6">
+                {showCalendar && (
+                  <div className="bg-white rounded-lg border border-gray-200 p-4">
+                    <PoojaCalendar
+                      onDateSelect={handleDateSelect}
+                      selectedDate={selectedDate}
+                      className="w-full"
+                      showBookingTimes={true}
+                    />
                   </div>
                 )}
 
-                {/* Remarks */}
-                <div className="space-y-2">
-                  <Label htmlFor="remarks">
-                    {t('Remarks', 'குறிப்புகள்')}
-                  </Label>
-                  <Textarea
-                    id="remarks"
-                    {...register('remarks')}
-                    placeholder={t('Enter any additional remarks', 'கூடுதல் குறிப்புகளை உள்ளிடவும்')}
-                    rows={3}
-                  />
-                </div>
-
+                {/* Booking Info */}
+                <Card className="border-0 shadow-none">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg font-medium text-gray-800">
+                      {t('Booking Information', 'பதிவு தகவல்')}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-sm text-gray-600 space-y-2">
+                      <p>• {t('Red dates indicate existing bookings', 'சிவப்பு தேதிகள் ஏற்கனவே பதிவு செய்யப்பட்டவற்றை காட்டுகின்றன')}</p>
+                      <p>• {t('Click on a date to select it and see existing booking times', 'தேதியை கிளிக் செய்து தேர்ந்தெடுத்து, ஏற்கனவே உள்ள பதிவு நேரங்களை பார்க்கவும்')}</p>
+                      <p>• {t('Calendar stays open to help you choose the best time', 'காலெண்டர் திறந்தே இருக்கும், சிறந்த நேரத்தை தேர்ந்தெடுக்க உதவும்')}</p>
+                      <p>• {t('The system will prevent double-booking automatically', 'கணினி தானாக இரட்டை பதிவை தடுக்கும்')}</p>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
-
-              {/* Action Buttons */}
-              <div className="flex justify-end space-x-4 pt-6 border-t">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleCancel}
-                  disabled={isSubmitting}
-                >
-                  {t('Cancel', 'ரத்து செய்')}
-                </Button>
-                {id && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handlePrintReceipt}
-                  >
-                    {t('Print Receipt', 'ரசீதை அச்சிட')}
-                  </Button>
-                )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    const d = watch('fromDate') || selectedDate || new Date().toISOString().slice(0, 10);
-                    navigate(`/dashboard/reports/daily?date=${d}`);
-                  }}
-                >
-                  {t('Go to Daily Report', 'தினசரி அறிக்கைக்கு செல்ல')}
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="bg-orange-600 hover:bg-orange-700"
-                >
-                  {isSubmitting
-                    ? t('Saving...', 'சேமிக்கிறது...')
-                    : id
-                      ? t('Update Pooja', 'பூஜையை புதுப்பிக்க')
-                      : t('Save Pooja', 'பூஜையை சேமிக்க')
-                  }
-                </Button>
-              </div>
-            </form>
+            </div>
           </CardContent>
         </Card>
-
-        {/* Calendar Section */}
-        <div className="space-y-4">
-          {showCalendar && (
-            <PoojaCalendar
-              onDateSelect={handleDateSelect}
-              selectedDate={selectedDate}
-              className="w-full"
-              showBookingTimes={true}
-            />
-          )}
-
-          {/* Booking Info */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">
-                {t('Booking Information', 'பதிவு தகவல்')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-sm text-muted-foreground space-y-2">
-                <p>• {t('Red dates indicate existing bookings', 'சிவப்பு தேதிகள் ஏற்கனவே பதிவு செய்யப்பட்டவற்றை காட்டுகின்றன')}</p>
-                <p>• {t('Click on a date to select it and see existing booking times', 'தேதியை கிளிக் செய்து தேர்ந்தெடுத்து, ஏற்கனவே உள்ள பதிவு நேரங்களை பார்க்கவும்')}</p>
-                <p>• {t('Calendar stays open to help you choose the best time', 'காலெண்டர் திறந்தே இருக்கும், சிறந்த நேரத்தை தேர்ந்தெடுக்க உதவும்')}</p>
-                <p>• {t('The system will prevent double-booking automatically', 'கணினி தானாக இரட்டை பதிவை தடுக்கும்')}</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
       </div>
 
       {/* Print confirmation modal */}
       <Dialog open={showPrintConfirm} onOpenChange={setShowPrintConfirm}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{t('Print Receipt', 'ரசீதை அச்சிட')}</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-xl font-semibold">
+              {t('Print Receipt', 'ரசீதை அச்சிட')}
+            </DialogTitle>
+            <DialogDescription className="text-base text-gray-600">
               {t('Do you want to open the receipt PDF in a new tab?', 'ரசீது PDF-ஐ புதிய தாளில் திறக்க உங்களுக்குத் தோன்றுகிறதா?')}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPrintConfirm(false)}>
+          <DialogFooter className="flex gap-3">
+            <Button 
+              variant="outline" 
+              className="px-4 py-2 text-sm border-gray-300 hover:bg-gray-50 rounded-md"
+              onClick={() => setShowPrintConfirm(false)}
+            >
               {t('No', 'இல்லை')}
             </Button>
             <Button
+              className="px-4 py-2 text-sm bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-md"
               onClick={() => {
                 if (lastSavedId) {
                   openReceiptPdf(lastSavedId);

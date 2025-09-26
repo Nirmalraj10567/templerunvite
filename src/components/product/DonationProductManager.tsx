@@ -13,15 +13,25 @@ export type DonationProduct = {
   value: string; // will mirror label
   label: string; // product name
   unit?: string;
+  templeId: number;
 };
 
 export function DonationProductManager({
   products,
   setProducts,
+  templeId,
 }: {
   products: DonationProduct[];
   setProducts: React.Dispatch<React.SetStateAction<DonationProduct[]>>;
+  templeId: number;
 }) {
+  if (!templeId) {
+    console.error('Temple ID is required for DonationProductManager');
+    return null;
+  }
+
+  // Ensure products is always an array
+  const safeProducts = Array.isArray(products) ? products : [];
   const { language } = useLanguage();
   // Follow the same helper style used in pages: if language is 'english', show Tamil label (app-wide convention)
   const t = (en: string, ta: string) => (language === 'english' ? ta : en);
@@ -36,12 +46,12 @@ export function DonationProductManager({
     const label = draft.label.trim();
     const unit = (draft.unit || '').trim();
     if (!label) return;
-    if (products.some(p => p.label.toLowerCase() === label.toLowerCase())) return;
+    if (safeProducts.some(p => p && p.label && p.label.toLowerCase() === label.toLowerCase())) return;
     try {
       setIsLoading(true);
       const resp = await axios.post<DonationProduct>(
-        '/api/donation-products',
-        { value: label, label, unit },
+        `/api/donation-products/${templeId}`,
+        { value: label, label, unit, templeId },
         { headers: { Authorization: `Bearer ${getAuthToken()}` } }
       );
       setProducts(prev => [...prev, resp.data]);
@@ -62,8 +72,8 @@ export function DonationProductManager({
     try {
       setIsLoading(true);
       const resp = await axios.put<DonationProduct>(
-        `/api/donation-products/${item.id}`,
-        { value: label, label, unit },
+        `/api/donation-products/${templeId}/${item.id}`,
+        { value: label, label, unit, templeId },
         { headers: { Authorization: `Bearer ${getAuthToken()}` } }
       );
       setProducts(prev => prev.map(p => (p.id === item.id ? resp.data : p)));
@@ -79,7 +89,7 @@ export function DonationProductManager({
     if (isLoading) return;
     try {
       setIsLoading(true);
-      await axios.delete(`/api/donation-products/${id}`, {
+      await axios.delete(`/api/donation-products/${templeId}/${id}`, {
         headers: { Authorization: `Bearer ${getAuthToken()}` },
       });
       setProducts(prev => prev.filter(p => p.id !== id));
@@ -110,14 +120,14 @@ export function DonationProductManager({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {products.length === 0 ? (
+              {!safeProducts || safeProducts.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={3} className="text-center py-4 text-muted-foreground">
                     {t('No products found. Add a new one below.', 'பொருட்கள் எதுவும் இல்லை. கீழே புதியதைச் சேர்க்கவும்.')}
                   </TableCell>
                 </TableRow>
               ) : (
-                products.map(p => (
+                safeProducts.filter(p => p && p.id && p.label).map(p => (
                   <TableRow key={p.id}>
                     <TableCell>
                       {editing?.id === p.id ? (

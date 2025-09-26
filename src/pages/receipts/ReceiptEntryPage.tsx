@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,29 +6,62 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import { ledgerService } from '@/services/ledgerService';
 import { journalService } from '@/services/journalService';
 
-// Receipt number will be generated on the server in YYYY-XXXX format
-
 interface ReceiptFormData {
   receiptNumber: string;
   date: string;
   type: 'income' | 'expense';
-  donor?: string; // தந்தவர்
-  receiver?: string; // பெற்றவர்
+  donor?: string;
+  receiver?: string;
   amount: string;
   remarks?: string;
 }
+
+// Custom hook for Enter key navigation
+const useEnterKeyNavigation = () => {
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      
+      if (!formRef.current) return;
+      
+      const focusableElements = formRef.current.querySelectorAll(
+        'input:not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled]):not([readonly]), button:not([disabled])'
+      );
+      
+      const currentElement = document.activeElement;
+      const currentIndex = Array.from(focusableElements).indexOf(currentElement as Element);
+      
+      if (currentIndex !== -1 && currentIndex < focusableElements.length - 1) {
+        const nextElement = focusableElements[currentIndex + 1] as HTMLElement;
+        nextElement.focus();
+      }
+    }
+  };
+
+  return { formRef, handleKeyDown };
+};
 
 export default function ReceiptEntryPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { language } = useLanguage();
   const { token } = useAuth();
+  const { formRef, handleKeyDown } = useEnterKeyNavigation();
+
+  // Consistent field styling
+  const fieldStyles = "text-lg py-3 px-4 h-12 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200";
+  const labelStyles = "block text-base font-medium mb-2 text-gray-700";
+  const selectStyles = "text-lg py-3 px-4 h-12 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200 bg-white appearance-none pr-10";
+  const textareaStyles = "text-lg py-3 px-4 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200 resize-none";
 
   // Unified translation object
   const translations = {
@@ -60,7 +93,12 @@ export default function ReceiptEntryPage() {
       selectFromCategory: 'செலவிற்கு வரவு (From) வகையைத் தேர்ந்தெடுக்கவும்',
       zeroBalance: 'தேர்ந்தெடுத்த கணக்கில் இருப்பு இல்லை',
       exceedsBalance: 'செலவு தொகை கிடைக்கும் இருப்பை விட அதிகமாக உள்ளது',
-      remarksLabel: 'குறிப்பு'
+      remarksLabel: 'குறிப்பு',
+      receiptDetails: 'ரசீது விவரங்கள்',
+      clear: 'அழி',
+      success: 'வெற்றி',
+      error: 'பிழை',
+      toNavigate: 'நகர்வதற்கு'
     },
     tamil: {
       title: id ? 'Edit Receipt' : 'New Receipt',
@@ -90,7 +128,12 @@ export default function ReceiptEntryPage() {
       selectFromCategory: 'Please select a From category for expense',
       zeroBalance: 'Selected account has zero balance',
       exceedsBalance: 'Expense amount exceeds available balance',
-      remarksLabel: 'Remarks'
+      remarksLabel: 'Remarks',
+      receiptDetails: 'Receipt Details',
+      clear: 'Clear',
+      success: 'Success',
+      error: 'Error',
+      toNavigate: 'to navigate'
     }
   };
 
@@ -102,11 +145,15 @@ export default function ReceiptEntryPage() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [message, setMessage] = useState<string | undefined>();
+  const [isError, setIsError] = useState(false);
   const { register, handleSubmit, reset, setValue, watch } = useForm<ReceiptFormData>();
   const [ledgerNames, setLedgerNames] = useState<string[]>([]);
   const [fromBalance, setFromBalance] = useState<number | null>(null);
   const [selectedDonor, setSelectedDonor] = useState<string>('');
   const [selectedReceiver, setSelectedReceiver] = useState<string>('');
+
+  const isEdit = Boolean(id);
   
   // Function to get today's date in YYYY-MM-DD format
   const getTodayDate = () => {
@@ -129,6 +176,16 @@ export default function ReceiptEntryPage() {
   const isDonorMissingForExpense = isExpense && (!donorValue || donorValue.trim() === '');
   const isSaveDisabledByBalance = exceedsBalance || isZeroBalance;
 
+  // Auto-dismiss success messages
+  useEffect(() => {
+    if (message && !isError) {
+      const timer = setTimeout(() => {
+        setMessage(undefined);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [message, isError]);
+
   // Reusable helper to fetch the next receipt number from backend
   const fetchNextReceiptNumber = useCallback(async () => {
     try {
@@ -142,14 +199,12 @@ export default function ReceiptEntryPage() {
         if (nextNo) setValue('receiptNumber', String(nextNo));
       }
     } catch (e) {
-      // Silently ignore; backend will still assign on save
       console.warn('Failed to fetch next receipt number');
     }
   }, [id, token, setValue]);
 
   useEffect(() => {
     if (!id) {
-      // Set default values for new receipt
       setValue('receiptNumber', '');
       setValue('type', 'income');
       setValue('date', getTodayDate());
@@ -157,7 +212,6 @@ export default function ReceiptEntryPage() {
   }, [id, setValue]);
 
   useEffect(() => {
-    // For new receipt, fetch next number from backend (DB-derived)
     fetchNextReceiptNumber();
     setValue('type', 'income');
 
@@ -175,12 +229,9 @@ export default function ReceiptEntryPage() {
           const d = result.data;
           const normalize = (s: any) => String(s ?? '').trim();
           const formData: ReceiptFormData = {
-            // Backend column is register_no
             receiptNumber: d.register_no || d.receipt_number || '',
             date: d.date?.slice(0, 10) || '',
-            // Backend stores 'receipt' for income and 'payment' for expense
             type: d.type === 'payment' ? 'expense' : 'income',
-            // Backend columns are from_person/to_person
             donor: normalize(d.from_person || d.donor || ''),
             receiver: normalize(d.to_person || d.receiver || ''),
             amount: String(d.amount ?? ''),
@@ -188,7 +239,6 @@ export default function ReceiptEntryPage() {
           };
           reset(formData);
 
-          // Ensure the current donor/receiver appear in dropdown options
           const curDonor = formData.donor || '';
           const curReceiver = formData.receiver || '';
           setSelectedDonor(curDonor);
@@ -201,16 +251,12 @@ export default function ReceiptEntryPage() {
               return Array.from(merged);
             });
           }
-          // Force-select values again in case options list updates later
           setValue('donor', curDonor as any);
           setValue('receiver', curReceiver as any);
         } catch (e) {
           console.error(e);
-          toast({
-            title: t('saveError'),
-            description: t('saveError'),
-            variant: 'destructive',
-          });
+          setIsError(true);
+          setMessage(t('saveError'));
         } finally {
           setIsLoading(false);
         }
@@ -218,7 +264,7 @@ export default function ReceiptEntryPage() {
       fetchReceipt();
     }
 
-    // Load distinct account names (journal accounts preferred)
+    // Load distinct account names
     (async () => {
       try {
         let names: string[] = [];
@@ -227,7 +273,6 @@ export default function ReceiptEntryPage() {
         } catch {
           names = await ledgerService.getNames();
         }
-        // Normalize and merge fetched names with currently selected donor/receiver (if any)
         const normalize = (s: any) => String(s ?? '').trim();
         const merged = Array.from(new Set([
           ...names.map((n) => normalize(n)),
@@ -235,7 +280,6 @@ export default function ReceiptEntryPage() {
           ...(selectedReceiver ? [normalize(selectedReceiver)] : []),
         ]));
         setLedgerNames(merged);
-        // Ensure the form select reflects normalized values
         if (selectedDonor) setValue('donor', normalize(selectedDonor) as any);
         if (selectedReceiver) setValue('receiver', normalize(selectedReceiver) as any);
       } catch (e) {
@@ -259,23 +303,28 @@ export default function ReceiptEntryPage() {
     if (curReceiver) setValue('receiver', curReceiver as any);
   }, [ledgerNames, selectedDonor, selectedReceiver, setValue]);
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg">{t('loading')}</div>
+      </div>
+    );
+  }
+
   const onSubmit = async (data: ReceiptFormData) => {
     try {
       setIsSubmitting(true);
+      setMessage(undefined);
+      setIsError(false);
+
       if (!data.date) {
-        toast({ 
-          title: t('saveError'), 
-          description: t('requiredField'), 
-          variant: 'destructive' 
-        });
+        setIsError(true);
+        setMessage(t('requiredField'));
         return;
       }
       if (!data.amount || Number(data.amount) <= 0) {
-        toast({ 
-          title: t('saveError'), 
-          description: t('invalidAmount'), 
-          variant: 'destructive' 
-        });
+        setIsError(true);
+        setMessage(t('invalidAmount'));
         return;
       }
 
@@ -283,41 +332,28 @@ export default function ReceiptEntryPage() {
       if (data.type === 'expense') {
         const amt = Number(data.amount);
         if (!data.donor) {
-          toast({ 
-            title: t('saveError'), 
-            description: t('requiredField'), 
-            variant: 'destructive' 
-          });
+          setIsError(true);
+          setMessage(t('requiredField'));
           return;
         }
-        // Always fetch latest balance for donor (from journal)
         try {
           const latestBal = await journalService.getBalance(data.donor);
           if (!Number.isNaN(latestBal)) setFromBalance(latestBal);
           if (!Number.isNaN(latestBal)) {
             if (latestBal === 0) {
-              toast({ 
-                title: t('saveError'), 
-                description: t('zeroBalance'), 
-                variant: 'destructive' 
-              });
+              setIsError(true);
+              setMessage(t('zeroBalance'));
               return;
             }
             if (amt > latestBal) {
-              toast({ 
-                title: t('saveError'), 
-                description: t('exceedsBalance'), 
-                variant: 'destructive' 
-              });
+              setIsError(true);
+              setMessage(t('exceedsBalance'));
               return;
             }
           }
         } catch (err) {
-          toast({ 
-            title: t('saveError'), 
-            description: t('saveError'), 
-            variant: 'destructive' 
-          });
+          setIsError(true);
+          setMessage(t('saveError'));
           return;
         }
       }
@@ -351,22 +387,26 @@ export default function ReceiptEntryPage() {
       const result = await res.json();
       if (!result.success) throw new Error(result.error || t('saveError'));
 
-      // Note: Journal entry will be created by backend mirror logic. Avoid creating here to prevent duplicates.
-
+      setIsError(false);
+      setMessage(t('saveSuccess'));
       toast({ title: t('saveSuccess') });
 
       if (!id) {
         reset();
         await fetchNextReceiptNumber();
         setValue('type', 'income');
-        setValue('date', getTodayDate()); // Set today's date after reset
+        setValue('date', getTodayDate());
       } else {
-        navigate('/dashboard/receipt/list');
+        setTimeout(() => {
+          navigate('/dashboard/receipt/list');
+        }, 1500);
       }
     } catch (e) {
       console.error(e);
+      setIsError(true);
+      setMessage(t('saveError'));
       toast({ 
-        title: t('saveError'), 
+        title: t('error'), 
         description: t('saveError'), 
         variant: 'destructive' 
       });
@@ -385,14 +425,29 @@ export default function ReceiptEntryPage() {
     }
   };
 
+  const handleClear = () => {
+    reset({
+      receiptNumber: '',
+      date: getTodayDate(),
+      type: 'income',
+      donor: '',
+      receiver: '',
+      amount: '',
+      remarks: ''
+    });
+    void fetchNextReceiptNumber();
+    setMessage(undefined);
+    setIsError(false);
+    setFromBalance(null);
+  };
+
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    // If switching to expense, warn if amount already exceeds balance
     const amountInput = document.getElementById('amount') as HTMLInputElement | null;
     const v = amountInput?.value || '';
     const amt = Number(v);
     if (e?.target?.value === 'expense' && fromBalance !== null && amt > 0 && amt > fromBalance) {
       toast({ 
-        title: t('saveError'), 
+        title: t('error'), 
         description: t('exceedsBalance'), 
         variant: 'destructive' 
       });
@@ -405,7 +460,7 @@ export default function ReceiptEntryPage() {
     const type = typeSelect?.value || 'income';
     if (type === 'expense' && fromBalance !== null && amt > fromBalance) {
       toast({ 
-        title: t('saveError'), 
+        title: t('error'), 
         description: t('exceedsBalance'), 
         variant: 'destructive' 
       });
@@ -423,180 +478,274 @@ export default function ReceiptEntryPage() {
         setFromBalance(bal);
         if (bal === 0) {
           toast({
-            title: t('saveError'),
+            title: t('error'),
             description: t('zeroBalance'),
             variant: 'destructive',
           });
         }
       }
     } catch (err) {
-      // Silently ignore but reset balance view
       setFromBalance(null);
     }
   };
 
   const handleGoToDailyReport = () => {
-    // Read selected date field from the form inputs via DOM or fallback to today
     const input = document.getElementById('date') as HTMLInputElement | null;
     const d = input?.value || new Date().toISOString().slice(0, 10);
     navigate(`/dashboard/reports/daily?date=${d}`);
   };
 
-  if (isLoading) return <div className="p-8">{t('loading')}</div>;
-
   return (
-    <div className="max-w-3xl mx-auto bg-white p-4 rounded-md shadow text-sm">
-      <Card className="w-full">
-        <CardHeader className="py-2">
-          <CardTitle className="text-xl font-semibold text-center">
-            {t('title')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-3">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label htmlFor="receiptNumber">{t('receiptNumber')}</Label>
-                <Input 
-                  id="receiptNumber" 
-                  readOnly 
-                  className="bg-gray-100 h-8 px-2 text-sm" 
-                  placeholder={t('receiptNumber')} 
-                  {...register('receiptNumber')} 
-                />
-              </div>
-              
-              <div className="space-y-1">
-                <Label htmlFor="date">{t('date')}</Label>
-                <Input 
-                  id="date" 
-                  type="date" 
-                  className="h-8 px-2 text-sm" 
-                  {...register('date', { required: t('requiredField') })} 
-                />
-              </div>
-              
-              <div className="space-y-1">
-                <Label htmlFor="type">{t('type')}</Label>
-                <select 
-                  id="type" 
-                  className="border rounded h-8 px-2 text-sm w-full" 
-                  {...register('type', { 
-                    required: t('requiredField'), 
-                    onChange: handleTypeChange 
-                  })}
-                >
-                  <option value="income">{t('income')}</option>
-                  <option value="expense">{t('expense')}</option>
-                </select>
-              </div>
-              
-              <div className="space-y-1">
-                <Label htmlFor="amount">{t('amount')}</Label>
-                <Input 
-                  id="amount" 
-                  type="number" 
-                  step="0.01" 
-                  min="0" 
-                  className="h-8 px-2 text-sm" 
-                  placeholder={t('amount')} 
-                  {...register('amount', { 
-                    required: t('requiredField'), 
-                    onBlur: handleAmountBlur 
-                  })} 
-                />
-              </div>
-              
-              <div className="space-y-1">
-                <Label htmlFor="donor">{t('donor')}</Label>
-                <select
-                  id="donor"
-                  className="border rounded h-8 px-2 w-full text-sm"
-                  {...register('donor', { onChange: handleDonorChange })}
-                >
-                  <option value="">{t('selectName')}</option>
-                  {ledgerNames.map((n) => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
-                </select>
-                {fromBalance !== null && (
-                  <p className="text-xs text-gray-600">
-                    {t('balance')}: {fromBalance}
-                  </p>
-                )}
-              </div>
-              
-              <div className="space-y-1">
-                <Label htmlFor="receiver">{t('receiver')}</Label>
-                <select
-                  id="receiver"
-                  className="border rounded h-8 px-2 w-full text-sm"
-                  {...register('receiver')}
-                >
-                  <option value="">{t('selectName')}</option>
-                  {ledgerNames.map((n) => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            
-            <div className="space-y-1">
-              <Label htmlFor="remarks">{t('remarksLabel')}</Label>
-              <Textarea 
-                id="remarks" 
-                rows={2} 
-                className="text-sm" 
-                placeholder={t('additionalRemarks')} 
-                {...register('remarks')} 
-              />
-            </div>
-            
-            <div className="flex justify-end space-x-3 pt-4 border-t">
-              <Button 
-                type="button" 
-                variant="outline" 
-                className="h-8 px-3 text-sm" 
-                onClick={handleCancel} 
-                disabled={isSubmitting}
-              >
-                {t('cancel')}
-              </Button>
-              
-              <Button
-                type="button"
-                variant="outline"
-                className="h-8 px-3 text-sm"
-                onClick={handleGoToDailyReport}
-              >
-                {t('goToDailyReport')}
-              </Button>
-              
-              <Button 
-                type="submit" 
-                disabled={isSubmitting || isSaveDisabledByBalance || isDonorMissingForExpense} 
-                className="bg-orange-600 hover:bg-orange-700 disabled:opacity-60 disabled:cursor-not-allowed h-8 px-4 text-sm"
-              >
-                {isSubmitting 
-                  ? t('saving')
-                  : id 
-                    ? t('updateReceipt')
-                    : t('saveReceipt')}
-              </Button>
-              
-              {(isSaveDisabledByBalance || isDonorMissingForExpense) && (
-                <div className="text-sm text-red-600 flex items-center">
-                  {isDonorMissingForExpense
-                    ? t('selectFromCategory')
-                    : (isZeroBalance
-                        ? t('zeroBalance')
-                        : t('exceedsBalance'))}
+    <div className="min-h-screen py-6 px-4 w-full">
+      <div className="max-w-5xl mx-auto space-y-6">
+        <Card className="shadow-lg border-0 bg-white rounded-lg">
+          <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white py-6 px-6 rounded-t-lg">
+            <CardTitle className="text-2xl font-bold">
+              {t('title')}
+            </CardTitle>
+          </CardHeader>
+          
+          <CardContent className="p-6">
+            {/* Message Display */}
+            {message && (
+              <Alert variant={isError ? 'destructive' : 'default'} className="mb-6">
+                <AlertTitle>{isError ? t('error') : t('success')}</AlertTitle>
+                <AlertDescription>{message}</AlertDescription>
+              </Alert>
+            )}
+
+            <form ref={formRef} onSubmit={handleSubmit(onSubmit)} onKeyDown={handleKeyDown} className="space-y-8">
+              {/* Receipt Details Section */}
+              <div className="space-y-6">
+                <h3 className="text-xl font-semibold text-gray-800 border-b border-gray-200 pb-2">
+                  {t('receiptDetails')}
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* Receipt Number */}
+                  <div>
+                    <Label className={labelStyles} htmlFor="receiptNumber">
+                      {t('receiptNumber')}
+                    </Label>
+                    <Input
+                      id="receiptNumber"
+                      readOnly
+                      className={`${fieldStyles} bg-gray-100`}
+                      placeholder={t('receiptNumber')}
+                      {...register('receiptNumber')}
+                    />
+                  </div>
+
+                  {/* Date */}
+                  <div>
+                    <Label className={labelStyles} htmlFor="date">
+                      {t('date')} <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="date"
+                      type="date"
+                      className={fieldStyles}
+                      {...register('date', { required: t('requiredField') })}
+                    />
+                  </div>
+
+                  {/* Type */}
+                  <div>
+                    <Label className={labelStyles} htmlFor="type">
+                      {t('type')} <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="relative">
+                      <select
+                        id="type"
+                        className={selectStyles}
+                        {...register('type', { 
+                          required: t('requiredField'), 
+                          onChange: handleTypeChange 
+                        })}
+                      >
+                        <option value="income">{t('income')}</option>
+                        <option value="expense">{t('expense')}</option>
+                      </select>
+                      <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Amount */}
+                  <div>
+                    <Label className={labelStyles} htmlFor="amount">
+                      {t('amount')} (₹) <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="amount"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className={fieldStyles}
+                      placeholder={t('amount')}
+                      {...register('amount', { 
+                        required: t('requiredField'), 
+                        onBlur: handleAmountBlur 
+                      })}
+                    />
+                  </div>
+
+                  {/* Donor */}
+                  <div>
+                    <Label className={labelStyles} htmlFor="donor">
+                      {t('donor')}
+                    </Label>
+                    <div className="relative">
+                      <select
+                        id="donor"
+                        className={selectStyles}
+                        {...register('donor', { onChange: handleDonorChange })}
+                      >
+                        <option value="">{t('selectName')}</option>
+                        {ledgerNames.map((n) => (
+                          <option key={n} value={n}>{n}</option>
+                        ))}
+                      </select>
+                      <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+                    {fromBalance !== null && (
+                      <p className="mt-1 text-sm text-blue-600 flex items-center">
+                        <span className="mr-1">💰</span>
+                        {t('balance')}: ₹{fromBalance.toFixed(2)}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Receiver */}
+                  <div>
+                    <Label className={labelStyles} htmlFor="receiver">
+                      {t('receiver')}
+                    </Label>
+                    <div className="relative">
+                      <select
+                        id="receiver"
+                        className={selectStyles}
+                        {...register('receiver')}
+                      >
+                        <option value="">{t('selectName')}</option>
+                        {ledgerNames.map((n) => (
+                          <option key={n} value={n}>{n}</option>
+                        ))}
+                      </select>
+                      <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Remarks - Full width */}
+                  <div className="md:col-span-2 lg:col-span-3">
+                    <Label className={labelStyles} htmlFor="remarks">
+                      {t('remarksLabel')}
+                    </Label>
+                    <Textarea
+                      id="remarks"
+                      rows={3}
+                      className={textareaStyles}
+                      placeholder={t('additionalRemarks')}
+                      {...register('remarks')}
+                    />
+                  </div>
                 </div>
+              </div>
+
+              {/* Validation Messages */}
+              {(isSaveDisabledByBalance || isDonorMissingForExpense) && (
+                <Alert variant="destructive" className="mb-6">
+                  <AlertTitle>{t('error')}</AlertTitle>
+                  <AlertDescription>
+                    {isDonorMissingForExpense
+                      ? t('selectFromCategory')
+                      : (isZeroBalance
+                          ? t('zeroBalance')
+                          : t('exceedsBalance'))}
+                  </AlertDescription>
+                </Alert>
               )}
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap gap-4 justify-between items-center pt-6 border-t border-gray-200">
+                <div className="flex gap-3">
+                  {/* Keyboard shortcut hint */}
+                  <div className="text-sm text-gray-500 hidden md:flex items-center">
+                    <kbd className="px-2 py-1 text-xs bg-gray-100 border border-gray-300 rounded">Enter</kbd>
+                    <span className="ml-2">{t('toNavigate')}</span>
+                  </div>
+                </div>
+                
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="default"
+                    className="px-6 py-2 text-sm border hover:bg-gray-50 rounded-md"
+                    onClick={handleCancel}
+                    disabled={isSubmitting}
+                  >
+                    {t('cancel')}
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="default"
+                    className="px-6 py-2 text-sm border hover:bg-gray-50 rounded-md"
+                    onClick={handleGoToDailyReport}
+                    disabled={isSubmitting}
+                  >
+                    {t('goToDailyReport')}
+                  </Button>
+                  
+                  {!isEdit && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="default"
+                      className="px-6 py-2 text-sm border hover:bg-gray-50 rounded-md"
+                      onClick={handleClear}
+                      disabled={isSubmitting}
+                    >
+                      {t('clear')}
+                    </Button>
+                  )}
+                  
+                  <Button
+                    type="submit"
+                    size="default"
+                    className="px-8 py-2 text-sm bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-md min-w-[140px]"
+                    disabled={isSubmitting || isSaveDisabledByBalance || isDonorMissingForExpense}
+                  >
+                    {isSubmitting ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        {t('saving')}
+                      </div>
+                    ) : (
+                      isEdit ? t('updateReceipt') : t('saveReceipt')
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+ 
+      </div>
     </div>
   );
 }

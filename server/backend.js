@@ -1040,7 +1040,7 @@ app.get('/api/mobile/events', async (req, res) => {
     }
   });
 
-  app.use('/api/donation-products', r);
+  // app.use('/api/donation-products', r); // Replaced with temple-specific routes
 })();
 
 // Money donations router under /api/money-donations
@@ -3830,6 +3830,10 @@ app.use('/api/journal', authenticateToken, authorizeRole(['admin','superadmin'])
 // Mount donations router
 const donationsRouter = require('./donations')({ db });
 app.use('/api/donations', authenticateToken, donationsRouter);
+
+// Mount donation products router (temple-specific)
+const donationProductsRouter = require('./routes/donationProducts')({ db });
+app.use('/api/donation-products', donationProductsRouter);
 
 // Mount annadhanam router
 const annadhanamRouter = require('./annadhanam')({ db });

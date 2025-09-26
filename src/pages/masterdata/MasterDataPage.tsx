@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 
@@ -26,6 +26,7 @@ const MasterDataPage = () => {
   const [newItemName, setNewItemName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const modalInputRef = useRef<HTMLInputElement>(null);
 
  
   // Language translations
@@ -126,6 +127,14 @@ const MasterDataPage = () => {
       return () => clearTimeout(timer);
     }
   }, [successMessage]);
+
+
+  // Focus input when modal opens
+  useEffect(() => {
+    if ((showAddModal || editingItem) && modalInputRef.current) {
+      modalInputRef.current.focus();
+    }
+  }, [showAddModal, editingItem]);
 
 
   const loadData = async () => {
@@ -258,136 +267,198 @@ const MasterDataPage = () => {
   };
 
 
+  // Handle Enter key in modal
+  const handleModalKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (editingItem) {
+        handleEdit();
+      } else {
+        handleAdd();
+      }
+    } else if (e.key === 'Escape') {
+      closeModals();
+    }
+  };
+
+
   // Extra safety: don't render page if unauthenticated (route is protected, but prevents flicker/HMR logs)
   if (!user || !token) {
     return null;
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Tab navigation */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key as any)}
-              className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeTab === tab.key
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-      </div>
+  // Consistent styling classes
+  const fieldStyles = "text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200";
+  const buttonStyles = "px-4 py-2 text-sm font-medium rounded-md transition-all duration-200";
+  const primaryButton = "bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white";
+  const outlineButton = "border border-gray-300 hover:bg-gray-50 text-gray-700";
 
-      {/* Content */}
-      <div className="bg-white rounded-lg shadow-sm border">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium text-gray-900">
-              {tabs.find(t => t.key === activeTab)?.label}
-            </h2>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-            >
-              {t?.addNew || 'Add New'} {tabs.find(t => t.key === activeTab)?.label}
-            </button>
+  return (
+    <div className="min-h-screen bg-gray-50 py-6 px-4">
+      <div className="max-w-7xl mx-auto">
+        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-orange-500 to-orange-600 py-6 px-6">
+            <h1 className="text-2xl font-bold text-center text-white">
+              {t.title}
+            </h1>
+            <p className="text-center text-orange-100 mt-2 text-sm">
+              {t.subtitle}
+            </p>
+          </div>
+
+          {/* Success Message */}
+          {successMessage && (
+            <div className="px-6 py-3 bg-green-50 border-b border-green-200">
+              <div className="text-green-800 text-sm font-medium">{successMessage}</div>
+            </div>
+          )}
+
+          {/* Tab navigation */}
+          <div className="border-b border-gray-200 px-6">
+            <nav className="flex space-x-1 py-4">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key as any)}
+                  className={`px-4 py-2 text-sm font-medium rounded-t-md transition-all duration-200 ${
+                    activeTab === tab.key
+                      ? 'bg-orange-500 text-white shadow-sm'
+                      : 'text-gray-600 hover:text-orange-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          {/* Content */}
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-800">
+                {tabs.find(t => t.key === activeTab)?.label}
+              </h2>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className={`${buttonStyles} ${primaryButton}`}
+              >
+                {t?.addNew || 'Add New'}
+              </button>
+            </div>
+
+            {/* Master Data Table */}
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+              {loading ? (
+                <div className="p-12 text-center">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
+                  <p className="mt-3 text-gray-600 text-base">{t?.loading || 'Loading...'}</p>
+                </div>
+              ) : masterData.length === 0 ? (
+                <div className="p-12 text-center text-gray-500">
+                  <p className="text-lg">{t?.noData || 'No data found'}</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                          {t.name}
+                        </th>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                          {t.created}
+                        </th>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                          {t.updated}
+                        </th>
+                        <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                          {t?.actions || 'Actions'}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {masterData.map((item) => (
+                        <tr key={item.id} className="hover:bg-gray-50 transition-colors duration-150">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {item.name}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {new Date(item.created_at).toLocaleDateString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric'
+                            })}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {new Date(item.updated_at).toLocaleDateString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric'
+                            })}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div className="flex justify-end space-x-3">
+                              <button
+                                onClick={() => openEditModal(item)}
+                                className="px-3 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors text-sm font-medium"
+                              >
+                                {t?.edit || 'Edit'}
+                              </button>
+                              <button
+                                onClick={() => handleDelete(item.id)}
+                                className="px-3 py-1 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors text-sm font-medium"
+                              >
+                                {t?.delete || 'Delete'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-
-        {/* Master Data Table */}
-        <div className="overflow-x-auto">
-          {loading ? (
-            <div className="p-8 text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <p className="mt-2 text-gray-600">{t?.loading || 'Loading...'}</p>
-            </div>
-          ) : masterData.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              {t?.noData || 'No data found'}
-            </div>
-          ) : (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Created
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Updated
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {t?.actions || 'Actions'}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {masterData.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {item.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(item.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(item.updated_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end space-x-2">
-                        <button
-                          onClick={() => openEditModal(item)}
-                          className="text-indigo-600 hover:text-indigo-900"
-                        >
-                          {t?.edit || 'Edit'}
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          {t?.delete || 'Delete'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
       </div>
+
+      {/* Modal */}
       {(showAddModal || editingItem) && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 {editingItem ? `${t?.edit || 'Edit'} ${tabs.find(t => t.key === activeTab)?.label}` : `${t?.add || 'Add'} ${tabs.find(t => t.key === activeTab)?.label}`}
               </h3>
-              <input
-                type="text"
-                value={newItemName}
-                onChange={(e) => setNewItemName(e.target.value)}
-                placeholder={t.enterName}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
-                autoFocus
-              />
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {t.name}
+                </label>
+                <input
+                  ref={modalInputRef}
+                  type="text"
+                  value={newItemName}
+                  onChange={(e) => setNewItemName(e.target.value)}
+                  onKeyDown={handleModalKeyDown}
+                  placeholder={t.enterName}
+                  className={fieldStyles}
+                  autoFocus
+                />
+              </div>
+              
               <div className="flex justify-end space-x-3">
                 <button
                   onClick={closeModals}
-                  className="px-4 py-2 text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200"
+                  className={`${buttonStyles} ${outlineButton}`}
                 >
                   {t?.cancel || 'Cancel'}
                 </button>
                 <button
                   onClick={editingItem ? handleEdit : handleAdd}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className={`${buttonStyles} ${primaryButton}`}
                 >
                   {editingItem ? (t?.update || 'Update') : (t?.add || 'Add')}
                 </button>

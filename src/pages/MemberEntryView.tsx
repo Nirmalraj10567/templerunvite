@@ -2,8 +2,40 @@
 
 import { Member } from '@/types/member';
 import { User, Phone, Mail, Calendar, Building, CreditCard, Shield, ChevronRight, FileText, Upload } from 'lucide-react';
-import { useState } from 'react';
-import { useLanguage } from '@/lib/language'; // 👈 Added
+import { useState, useRef } from 'react';
+import { useLanguage } from '@/lib/language';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+
+// Custom hook for Enter key navigation
+const useEnterKeyNavigation = () => {
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      
+      if (!formRef.current) return;
+      
+      const focusableElements = formRef.current.querySelectorAll(
+        'input:not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled]):not([readonly]), button:not([disabled])'
+      );
+      
+      const currentElement = document.activeElement;
+      const currentIndex = Array.from(focusableElements).indexOf(currentElement as Element);
+      
+      if (currentIndex !== -1 && currentIndex < focusableElements.length - 1) {
+        const nextElement = focusableElements[currentIndex + 1] as HTMLElement;
+        nextElement.focus();
+      }
+    }
+  };
+
+  return { formRef, handleKeyDown };
+};
 
 export default function MemberEntryForm({
   newMember,
@@ -25,11 +57,17 @@ export default function MemberEntryForm({
   isEditing?: boolean;
 }) {
   // Get current language and invert mapping for UI
-  const { language } = useLanguage(); // Get current language
+  const { language } = useLanguage();
   const lang = (String(language).toLowerCase() === 'english' ? 'tamil' : 'english') as 'tamil' | 'english';
+  const { formRef, handleKeyDown } = useEnterKeyNavigation();
 
   const [showSummary, setShowSummary] = useState(false);
   const [showLoginDetails, setShowLoginDetails] = useState(true);
+
+  // Consistent field styling
+  const fieldStyles = "text-lg py-3 px-4 h-12 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200";
+  const labelStyles = "block text-base font-medium mb-2 text-gray-700";
+  const selectStyles = "text-lg py-3 px-4 h-12 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200 bg-white appearance-none pr-10";
 
   // Translation object
   const t = {
@@ -64,6 +102,8 @@ export default function MemberEntryForm({
       fullAccess: '🔓 முழு அணுகல்',
       member: 'உறுப்பினர்',
       admin: 'நிர்வாகி',
+      showDetails: 'விவரங்களைக் காட்டு',
+      hideDetails: 'விவரங்களை மறை',
     },
     english: {
       updateMember: 'Update Member',
@@ -96,6 +136,8 @@ export default function MemberEntryForm({
       fullAccess: '🔓 Full Access',
       member: 'Member',
       admin: 'Admin',
+      showDetails: 'Show Details',
+      hideDetails: 'Hide Details',
     }
   } as const;
 
@@ -136,11 +178,6 @@ export default function MemberEntryForm({
     setNewMember;
   
   const handleSubmit = isEditing ? handleUpdateMember : handleAddMember;
-
-  // Professional, compact control styles
-  const inputClass = "w-full px-2.5 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition bg-white placeholder:text-slate-400";
-  const labelClass = "block text-xs font-medium mb-1 text-slate-700";
-  const sectionTitleClass = "text-base font-semibold text-slate-800";
 
   // Comprehensive permission options aligned with backend permission IDs and routing guards
   const PERMISSION_OPTIONS = [
@@ -224,326 +261,375 @@ export default function MemberEntryForm({
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-2 md:p-3">
-      <h2 className="text-xl md:text-xl font-semibold mb-4 tracking-tight text-slate-800">
-        {isEditing ? t[lang].updateMember : t[lang].memberEntry}
-      </h2>
-      <form onSubmit={handleSubmit} className="space-y-6 bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-        {/* Basic Details */}
-        <div className="space-y-3">
-          <h3 className={sectionTitleClass}>{t[lang].basicDetails}</h3>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div>
-              <label className={labelClass}>{t[lang].fullName} *</label>
-              <input
-                type="text"
-                value={member?.fullName || ''}
-                onChange={(e) => setMember({ ...member, fullName: e.target.value })}
-                className={inputClass}
-                required
-              />
-              <p className="mt-1 text-[11px] text-slate-500 hidden sm:block">{t[lang].nameNote}</p>
-            </div>
-            <div>
-              <label className={labelClass}>{t[lang].mobile} *</label>
-              <input
-                type="tel"
-                value={member?.mobile || ''}
-                onChange={(e) => setMember({ ...member, mobile: e.target.value })}
-                className={inputClass}
-                inputMode="numeric"
-                pattern="[0-9]{10}"
-                maxLength={10}
-                required
-              />
-              <p className="mt-1 text-[11px] text-slate-500 hidden sm:block">{t[lang].mobileNote}</p>
-            </div>
-            <div>
-              <label className={labelClass}>{t[lang].email}</label>
-              <input
-                type="email"
-                value={member?.email || ''}
-                onChange={(e) => setMember({ ...member, email: e.target.value })}
-                className={inputClass}
-                placeholder="name@example.com"
-              />
-              <p className="mt-1 text-[11px] text-slate-500 hidden sm:block">{t[lang].emailNote}</p>
-            </div>
-            <div>
-              <label className={labelClass}>{t[lang].username}</label>
-              <input
-                type="text"
-                value={member?.username || ''}
-                onChange={(e) => setMember({ ...member, username: e.target.value })}
-                className={inputClass}
-                required={member?.createLogin}
-              />
-              <p className="mt-1 text-[11px] text-slate-500 hidden sm:block">{t[lang].createAdmin}</p>
-            </div>
-          </div>
-        </div>
+    <div className="min-h-screen bg-gray-50 py-6 px-4 w-full">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <Card className="shadow-lg border-0 bg-white rounded-lg">
+          <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white py-6 px-6 rounded-t-lg">
+            <CardTitle className="text-2xl font-bold">
+              {isEditing ? t[lang].updateMember : t[lang].memberEntry}
+            </CardTitle>
+          </CardHeader>
+          
+          <CardContent className="p-6">
+            <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="space-y-8">
+              {/* Basic Details Section */}
+              <div className="space-y-6">
+                <h3 className="text-xl font-semibold text-gray-800 border-b border-gray-200 pb-2">
+                  {t[lang].basicDetails}
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {/* Full Name */}
+                  <div>
+                    <Label className={labelStyles} htmlFor="fullName">
+                      {t[lang].fullName} <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="fullName"
+                      type="text"
+                      value={member?.fullName || ''}
+                      onChange={(e) => setMember({ ...member, fullName: e.target.value })}
+                      className={fieldStyles}
+                      placeholder={t[lang].fullName}
+                      required
+                    />
+                    <p className="mt-1 text-sm text-gray-500">{t[lang].nameNote}</p>
+                  </div>
 
-        <hr className="border-slate-200" />
+                  {/* Mobile */}
+                  <div>
+                    <Label className={labelStyles} htmlFor="mobile">
+                      {t[lang].mobile} <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="mobile"
+                      type="tel"
+                      value={member?.mobile || ''}
+                      onChange={(e) => {
+                        const cleaned = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        setMember({ ...member, mobile: cleaned });
+                      }}
+                      className={fieldStyles}
+                      inputMode="numeric"
+                      maxLength={10}
+                      placeholder="10 digits"
+                      required
+                    />
+                    <p className="mt-1 text-sm text-gray-500">{t[lang].mobileNote}</p>
+                  </div>
 
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className={sectionTitleClass}>{t[lang].loginAccess}</h3>
-            {member?.createLogin && (
-              <button
-                type="button"
-                onClick={() => setShowLoginDetails(v => !v)}
-                className="text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-600"
-              >
-                {showLoginDetails ? 'Hide details' : 'Show details'}
-              </button>
-            )}
-          </div>
-          <label className="flex items-center gap-2 select-none cursor-pointer text-sm">
-            <input
-              type="checkbox"
-              className="accent-orange-600 w-4 h-4"
-              checked={member?.createLogin || false}
-              onChange={(e) => setMember({ ...member, createLogin: e.target.checked })}
-            />
-            <span className="text-sm font-medium">
-              {t[lang].createAdmin}
-            </span>
-          </label>
+                  {/* Email */}
+                  <div>
+                    <Label className={labelStyles} htmlFor="email">
+                      {t[lang].email}
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={member?.email || ''}
+                      onChange={(e) => setMember({ ...member, email: e.target.value })}
+                      className={fieldStyles}
+                      placeholder="name@example.com"
+                    />
+                    <p className="mt-1 text-sm text-gray-500">{t[lang].emailNote}</p>
+                  </div>
 
-          {member?.createLogin && showLoginDetails && (
-            <div className="space-y-3 pl-4">
-              {/* Row 1: Permission Level (left) and Role (right) */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelClass}>{t[lang].permissionLevel}</label>
-                  <select
-                    value={member?.permissionLevel || ''}
-                    onChange={(e) => {
-                      const level = e.target.value as 'view' | 'edit' | 'full' | '';
-                      const base = { ...member, permissionLevel: level } as any;
-                      if (level) {
-                        const existing = member?.customPermissions || [];
-                        const hasMemberEntry = existing.some((p: any) => p.id === 'member_entry');
-                        const updated = hasMemberEntry
-                          ? existing.map((p: any) => p.id === 'member_entry' ? { ...p, access: level } : p)
-                          : [...existing, { id: 'member_entry', access: level }];
-                        setMember({ ...base, customPermissions: updated });
-                      } else {
-                        setMember(base);
-                      }
-                    }}
-                    className={inputClass}
-                  >
-                    <option value="">{t[lang].selectLevel}</option>
-                    <option value="view">{t[lang].viewOnly}</option>
-                    <option value="edit">{t[lang].editAccess}</option>
-                    <option value="full">{t[lang].fullAccess}</option>
-                  </select>
-                </div>
-                <div>
-                  <label className={labelClass}>{t[lang].role}</label>
-                  <select
-                    value={member?.role || 'member'}
-                    onChange={(e) => setMember({ ...member, role: e.target.value })}
-                    className={inputClass}
-                  >
-                    <option value="member">{t[lang].member}</option>
-                    <option value="admin">{t[lang].admin}</option>
-                  </select>
+                  {/* Username */}
+                  <div>
+                    <Label className={labelStyles} htmlFor="username">
+                      {t[lang].username}
+                    </Label>
+                    <Input
+                      id="username"
+                      type="text"
+                      value={member?.username || ''}
+                      onChange={(e) => setMember({ ...member, username: e.target.value })}
+                      className={fieldStyles}
+                      placeholder={t[lang].username}
+                      required={member?.createLogin}
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Password: full width below */}
-              <div>
-                <label className={labelClass}>{t[lang].password}</label>
-                <input
-                  type="password"
-                  value={member?.password || ''}
-                  onChange={(e) => setMember({ ...member, password: e.target.value })}
-                  className={inputClass}
-                  minLength={6}
-                  required
-                />
-              </div>
-
-              {/* Permissions list */}
-              <div className="space-y-2">
+              {/* Login Access Section */}
+              <div className="space-y-6">
                 <div className="flex items-center justify-between">
-                  <label className="block text-sm font-medium">{t[lang].privileges}</label>
-                  {member?.mobile !== '9999999999' && (
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const allPermissions = PERMISSION_OPTIONS.map(opt => ({ id: opt.id, access: 'view' }));
-                          setMember({ ...member, customPermissions: allPermissions });
-                        }}
-                        className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
-                      >
-                        {t[lang].selectAll}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setMember({ ...member, customPermissions: [] })}
-                        className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
-                      >
-                        {t[lang].clearAll}
-                      </button>
-                    </div>
+                  <h3 className="text-xl font-semibold text-gray-800 border-b border-gray-200 pb-2">
+                    {t[lang].loginAccess}
+                  </h3>
+                  {member?.createLogin && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowLoginDetails(!showLoginDetails)}
+                      className="text-sm"
+                    >
+                      {showLoginDetails ? t[lang].hideDetails : t[lang].showDetails}
+                    </Button>
                   )}
                 </div>
-                <div className="max-h-72 overflow-y-auto pr-2 grid grid-cols-1 md:grid-cols-2 gap-2.5 scrollbar-thin smooth-scroll">
-                  {PERMISSION_OPTIONS.map((opt, index) => {
-                    const enabled = (member?.customPermissions || []).some((p: any) => p.id === opt.id);
-                    const current = (member?.customPermissions || []).find((p: any) => p.id === opt.id);
-                    return (
-                      <div 
-                        key={opt.id}
-                        className={`
-                          permission-card relative border rounded-lg p-3
-                          ${enabled 
-                            ? 'enabled shadow-sm' 
-                            : 'bg-white border-gray-200 hover:border-gray-300'
-                          }
-                        `}
-                      >
-                        <div className="flex items-start gap-4">
-                          <div className="flex items-center gap-3">
-                            <div className={`
-                              w-8 h-8 rounded-md flex items-center justify-center text-base
-                              ${enabled 
-                                ? 'bg-blue-100 border-2 border-blue-300' 
-                                : 'bg-gray-100 border-2 border-gray-200'
+                
+                <div className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    id="createLogin"
+                    className="w-5 h-5 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500 focus:ring-2"
+                    checked={member?.createLogin || false}
+                    onChange={(e) => setMember({ ...member, createLogin: e.target.checked })}
+                  />
+                  <Label htmlFor="createLogin" className="text-base font-medium text-gray-700 cursor-pointer">
+                    {t[lang].createAdmin}
+                  </Label>
+                </div>
+
+                {member?.createLogin && showLoginDetails && (
+                  <div className="space-y-6 p-6 bg-gray-50 rounded-lg border">
+                    {/* Permission Level and Role */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      <div>
+                        <Label className={labelStyles} htmlFor="permissionLevel">
+                          {t[lang].permissionLevel}
+                        </Label>
+                        <div className="relative">
+                          <select
+                            id="permissionLevel"
+                            value={member?.permissionLevel || ''}
+                            onChange={(e) => {
+                              const level = e.target.value as 'view' | 'edit' | 'full' | '';
+                              const base = { ...member, permissionLevel: level } as any;
+                              if (level) {
+                                const existing = member?.customPermissions || [];
+                                const hasMemberEntry = existing.some((p: any) => p.id === 'member_entry');
+                                const updated = hasMemberEntry
+                                  ? existing.map((p: any) => p.id === 'member_entry' ? { ...p, access: level } : p)
+                                  : [...existing, { id: 'member_entry', access: level }];
+                                setMember({ ...base, customPermissions: updated });
+                              } else {
+                                setMember(base);
                               }
-                              transition-all duration-200
-                           `}>
-                              {opt.icon}
-                            </div>
-                            <div className="relative flex items-center">
-                              <input
-                                type="checkbox"
-                                checked={!!enabled}
-                                onChange={(e) => togglePermission(opt.id, e.target.checked)}
-                                className="sr-only"
-                                id={`perm-${opt.id}`}
-                              />
-                              <label 
-                                htmlFor={`perm-${opt.id}`}
-                                className={`
-                                  w-5 h-5 rounded-md border-2 cursor-pointer transition-all duration-200
-                                  flex items-center justify-center shadow-sm
-                                  ${enabled 
-                                    ? 'bg-blue-500 border-blue-500 text-white shadow-blue-200' 
-                                    : 'border-gray-300 hover:border-blue-400 bg-white hover:shadow-md'
-                                  }
-                                `}
-                              >
-                                {enabled && (
-                                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                  </svg>
-                                )}
-                              </label>
-                            </div>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <span className={`text-sm font-semibold ${enabled ? 'text-blue-900' : 'text-gray-700'}`}>
-                                    {getPermissionLabel(opt.id, 'label')}
-                                  </span>
-                                  {enabled && (
-                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-800 animate-pulse">
-                                      ✓ Active
-                                    </span>
-                                  )}
-                                </div>
-                                <p className={`text-[13px] leading-relaxed ${enabled ? 'text-blue-700' : 'text-gray-500'}`}>
-                                  {getPermissionLabel(opt.id, 'description')}
-                                </p>
-                              </div>
-                              <div className="flex-shrink-0">
-                                <select
-                                  disabled={!enabled}
-                                  value={(current?.access as any) || 'view'}
-                                  onChange={(e) => setPermissionLevel(opt.id, e.target.value as any)}
-                                  className={`
-                                    px-3 py-1.5 text-sm border rounded-lg transition-all duration-200
-                                    min-w-[120px] font-medium shadow-sm
-                                    ${enabled 
-                                      ? 'border-blue-300 bg-white text-blue-900 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 hover:border-blue-400' 
-                                      : 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
-                                    }
-                                  `}
-                                >
-                                  <option value="view">{t[lang].viewOnly}</option>
-                                  <option value="edit">{t[lang].editAccess}</option>
-                                  <option value="full">{t[lang].fullAccess}</option>
-                                </select>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="absolute top-2 right-2">
-                            <span className={`
-                              inline-flex items-center justify-center w-6 h-6 text-[11px] font-bold rounded-full
-                              shadow-sm border transition-all duration-200
-                              ${enabled 
-                                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-300 shadow-blue-200' 
-                                : 'bg-gray-100 text-gray-500 border-gray-200'
-                              }
-                            `}>
-                              {index + 1}
-                            </span>
+                            }}
+                            className={selectStyles}
+                          >
+                            <option value="">{t[lang].selectLevel}</option>
+                            <option value="view">{t[lang].viewOnly}</option>
+                            <option value="edit">{t[lang].editAccess}</option>
+                            <option value="full">{t[lang].fullAccess}</option>
+                          </select>
+                          <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
+                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
                           </div>
                         </div>
                       </div>
-                    );
-                  })}
-                  {(member?.customPermissions || []).length > 0 ? (
-                    <div className="space-y-2">
-                      <div className="text-[11px] text-gray-600 mb-2">{t[lang].activePermissions}</div>
-                      <div className="flex flex-wrap gap-2">
-                        {(member?.customPermissions || []).map((perm: any) => {
-                          const permOption = PERMISSION_OPTIONS.find(opt => opt.id === perm.id);
-                          const accessColor = perm.access === 'full' ? 'bg-red-100 text-red-800' : 
-                                            perm.access === 'edit' ? 'bg-yellow-100 text-yellow-800' : 
-                                            'bg-green-100 text-green-800';
-                          const label = getPermissionLabel(perm.id, 'label');
-                          return (
-                            <span 
-                              key={perm.id}
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium shadow-sm ${accessColor}`}
-                            >
-                              {permOption?.icon} {label}
-                              <span className="ml-1 opacity-75">
-                                ({perm.access})
-                              </span>
-                            </span>
-                          );
-                        })}
+
+                      <div>
+                        <Label className={labelStyles} htmlFor="role">
+                          {t[lang].role}
+                        </Label>
+                        <div className="relative">
+                          <select
+                            id="role"
+                            value={member?.role || 'member'}
+                            onChange={(e) => setMember({ ...member, role: e.target.value })}
+                            className={selectStyles}
+                          >
+                            <option value="member">{t[lang].member}</option>
+                            <option value="admin">{t[lang].admin}</option>
+                          </select>
+                          <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
+                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label className={labelStyles} htmlFor="password">
+                          {t[lang].password}
+                        </Label>
+                        <Input
+                          id="password"
+                          type="password"
+                          value={member?.password || ''}
+                          onChange={(e) => setMember({ ...member, password: e.target.value })}
+                          className={fieldStyles}
+                          minLength={6}
+                          placeholder="Min 6 characters"
+                          required
+                        />
                       </div>
                     </div>
-                  ) : (
-                    <div className="text-center py-2">
-                      <span className="text-gray-500 text-[13px]">{t[lang].noPermissions}</span>
+
+                    {/* Permissions Section */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-lg font-semibold text-gray-800">{t[lang].privileges}</h4>
+                        {member?.mobile !== '9999999999' && (
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const allPermissions = PERMISSION_OPTIONS.map(opt => ({ id: opt.id, access: 'view' }));
+                                setMember({ ...member, customPermissions: allPermissions });
+                              }}
+                              className="text-xs px-3 py-1"
+                            >
+                              {t[lang].selectAll}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setMember({ ...member, customPermissions: [] })}
+                              className="text-xs px-3 py-1"
+                            >
+                              {t[lang].clearAll}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="max-h-96 overflow-y-auto border rounded-lg bg-white">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">
+                          {PERMISSION_OPTIONS.map((opt, index) => {
+                            const enabled = (member?.customPermissions || []).some((p: any) => p.id === opt.id);
+                            const current = (member?.customPermissions || []).find((p: any) => p.id === opt.id);
+                            
+                            return (
+                              <div 
+                                key={opt.id}
+                                className={`border rounded-lg p-4 transition-all duration-200 ${
+                                  enabled 
+                                    ? 'bg-orange-50 border-orange-200 shadow-sm' 
+                                    : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+                                }`}
+                              >
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="flex items-start gap-3 flex-1">
+                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${
+                                      enabled ? 'bg-orange-100 border-2 border-orange-300' : 'bg-gray-100 border-2 border-gray-200'
+                                    }`}>
+                                      {opt.icon}
+                                    </div>
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <input
+                                          type="checkbox"
+                                          checked={!!enabled}
+                                          onChange={(e) => togglePermission(opt.id, e.target.checked)}
+                                          className="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500 focus:ring-2"
+                                          id={`perm-${opt.id}`}
+                                        />
+                                        <label 
+                                          htmlFor={`perm-${opt.id}`}
+                                          className={`text-sm font-semibold cursor-pointer ${
+                                            enabled ? 'text-orange-900' : 'text-gray-700'
+                                          }`}
+                                        >
+                                          {getPermissionLabel(opt.id, 'label')}
+                                        </label>
+                                        {enabled && (
+                                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                            Active
+                                          </span>
+                                        )}
+                                      </div>
+                                      <p className={`text-xs leading-relaxed ${
+                                        enabled ? 'text-orange-700' : 'text-gray-500'
+                                      }`}>
+                                        {getPermissionLabel(opt.id, 'description')}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="flex-shrink-0">
+                                    <div className="relative">
+                                      <select
+                                        disabled={!enabled}
+                                        value={(current?.access as any) || 'view'}
+                                        onChange={(e) => setPermissionLevel(opt.id, e.target.value as any)}
+                                        className={`text-sm border rounded-md px-2 py-1 min-w-[100px] ${
+                                          enabled 
+                                            ? 'border-orange-300 bg-white text-orange-900 focus:ring-2 focus:ring-orange-200' 
+                                            : 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                                        }`}
+                                      >
+                                        <option value="view">👁️ View</option>
+                                        <option value="edit">✏️ Edit</option>
+                                        <option value="full">🔓 Full</option>
+                                      </select>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Active Permissions Summary */}
+                      {(member?.customPermissions || []).length > 0 && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <h5 className="text-sm font-semibold text-blue-900 mb-2">
+                            {t[lang].activePermissions}
+                          </h5>
+                          <div className="flex flex-wrap gap-2">
+                            {(member?.customPermissions || []).map((perm: any) => {
+                              const permOption = PERMISSION_OPTIONS.find(opt => opt.id === perm.id);
+                              const accessColor = perm.access === 'full' ? 'bg-red-100 text-red-800 border-red-200' : 
+                                                perm.access === 'edit' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 
+                                                'bg-green-100 text-green-800 border-green-200';
+                              const label = getPermissionLabel(perm.id, 'label');
+                              return (
+                                <span 
+                                  key={perm.id}
+                                  className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${accessColor}`}
+                                >
+                                  {permOption?.icon} {label}
+                                  <span className="ml-1 opacity-75">
+                                    ({perm.access})
+                                  </span>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap gap-4 justify-between items-center pt-6 border-t border-gray-200">
+                <div className="flex gap-3">
+                  {/* Keyboard shortcut hint */}
+                  <div className="text-sm text-gray-500 hidden md:flex items-center">
+                    <kbd className="px-2 py-1 text-xs bg-gray-100 border border-gray-300 rounded">Enter</kbd>
+                    <span className="ml-2">to navigate</span>
+                  </div>
+                </div>
+                
+                <div className="flex gap-3">
+                  <Button
+                    type="submit"
+                    size="default"
+                    className="px-8 py-3 text-base bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-md"
+                  >
+                    {isEditing ? t[lang].update : t[lang].addMember}
+                  </Button>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
-        {/* Form footer actions */}
-        <div className="mt-4 flex justify-end">
-          <button
-            type="submit"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
-          >
-            {isEditing ? t[lang].update : t[lang].addMember}
-          </button>
-        </div>
-      </form>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

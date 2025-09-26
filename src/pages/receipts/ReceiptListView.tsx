@@ -381,7 +381,7 @@ export default function ReceiptListView() {
       setLogsOpen(true);
       setLogsLoading(true);
       setLogsTitle(t('viewReceipt'));
-      const res = await fetch(`/api/receipts/logs?page=${page}&pageSize=${logsPageSize}`, {
+      const res = await fetch(`http://localhost:4000/api/receipts/logs?page=${page}&pageSize=${logsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const result = await res.json();
@@ -528,6 +528,9 @@ export default function ReceiptListView() {
     return { total, income, expense, balance };
   }, [data]);
 
+  // Get the ID of the last (most recent) receipt
+  const lastReceiptId = data.length > 0 ? data[0].id : null;
+
   return (
     <div className="container mx-auto py-6 px-4">
       <div className="flex flex-col space-y-4">
@@ -621,7 +624,7 @@ export default function ReceiptListView() {
                   </TableHeader>
                   <TableBody>
                     {data.length > 0 ? (
-                      data.map((rec, index) => (
+                      data.map((rec) => (
                         <TableRow key={rec.id}>
                           <TableCell className="font-medium">
                             {rec.receipt_number}
@@ -683,17 +686,21 @@ export default function ReceiptListView() {
                               >
                                 <Search className="h-4 w-4" />
                               </Button>
-                              {index === 0 && (
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  onClick={() => handleDeleteClick(rec.id)}
-                                  title={t('delete')}
-                                  className="text-red-500 hover:text-red-700"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              )}
+                              {/* Delete button enabled ONLY for the last (most recent) receipt */}
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleDeleteClick(rec.id)}
+                                disabled={rec.id !== lastReceiptId}
+                                title={t('delete')}
+                                className={`${
+                                  rec.id === lastReceiptId 
+                                    ? 'text-red-500 hover:text-red-700' 
+                                    : 'opacity-50 cursor-not-allowed'
+                                }`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -876,6 +883,97 @@ export default function ReceiptListView() {
           </div>
         )}
       </div>
+
+      {/* Logs Modal */}
+      {logsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setLogsOpen(false)} />
+          <div className="relative bg-white rounded shadow-lg w-full max-w-5xl mx-2 p-3">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-semibold">{logsTitle}</h2>
+              <button onClick={() => setLogsOpen(false)} className="text-xs px-2 py-1 border rounded">{t('close')}</button>
+            </div>
+            {logsLoading ? (
+              <div className="p-3 text-xs text-gray-600">{t('loading')}</div>
+            ) : (
+              <>
+                <div className="max-h-[70vh] overflow-y-auto border rounded">
+                  <table className="min-w-full text-xs">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th className="text-left px-2 py-1">{t('date')}</th>
+                        <th className="text-left px-2 py-1">{t('type')}</th>
+                        {isAllLogs && (
+                          <>
+                            <th className="text-left px-2 py-1">{t('receiptNumber')}</th>
+                            <th className="text-left px-2 py-1">{t('donor')}</th>
+                            <th className="text-left px-2 py-1">{t('receiver')}</th>
+                          </>
+                        )}
+                        <th className="text-left px-2 py-1">User</th>
+                        <th className="text-left px-2 py-1">{t('remarks')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {logs.length === 0 ? (
+                        <tr>
+                          <td colSpan={isAllLogs ? 7 : 4} className="px-2 py-2 text-center text-gray-500">
+                            {t('noReceipts')}
+                          </td>
+                        </tr>
+                      ) : logs.map((log: any) => (
+                        <tr key={log.id} className="border-t align-top">
+                          <td className="px-2 py-1 whitespace-nowrap">
+                            {log.created_at ? new Date(log.created_at).toLocaleString(language === 'tamil' ? 'ta-IN' : 'en-IN') : '-'}
+                          </td>
+                          <td className="px-2 py-1">{log.action}</td>
+                          {isAllLogs && (
+                            <>
+                              <td className="px-2 py-1">{log.receipt_number || '-'}</td>
+                              <td className="px-2 py-1">{log.donor || '-'}</td>
+                              <td className="px-2 py-1">{log.receiver || '-'}</td>
+                            </>
+                          )}
+                          <td className="px-2 py-1">{log.created_by || '-'}</td>
+                          <td className="px-2 py-1">
+                            <pre className="whitespace-pre-wrap break-words text-[10px] bg-gray-50 p-2 rounded border max-w-[40vw]">
+                              {JSON.stringify(log.details, null, 2)}
+                            </pre>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {isAllLogs && (
+                  <div className="flex items-center justify-between mt-2 text-xs">
+                    <div className="text-gray-700">
+                      {t('showing')} <span className="font-medium">{logsTotal}</span> {t('items')}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        className="px-2 py-1 border border-gray-300 rounded shadow-sm text-xs bg-white hover:bg-gray-50"
+                        disabled={logsPage <= 1}
+                        onClick={() => openAllLogs(logsPage - 1)}
+                      >
+                        {t('previous')}
+                      </button>
+                      <span>{t('showing')} {logsPage}</span>
+                      <button
+                        className="px-2 py-1 border border-gray-300 rounded shadow-sm text-xs bg-white hover:bg-gray-50"
+                        disabled={logsPage * logsPageSize >= logsTotal}
+                        onClick={() => openAllLogs(logsPage + 1)}
+                      >
+                        {t('next')}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

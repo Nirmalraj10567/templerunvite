@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -53,28 +53,42 @@ const texts = {
   }
 };
 
-const generateReceiptNo = () => {
-  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  let result = '';
-  for (let i = 0; i < 8; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
+// Custom hook for Enter key navigation
+const useEnterKeyNavigation = () => {
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      
+      if (!formRef.current) return;
+      
+      const focusableElements = formRef.current.querySelectorAll(
+        'input:not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled]):not([readonly]), button:not([disabled])'
+      );
+      
+      const currentElement = document.activeElement;
+      const currentIndex = Array.from(focusableElements).indexOf(currentElement as Element);
+      
+      if (currentIndex !== -1 && currentIndex < focusableElements.length - 1) {
+        const nextElement = focusableElements[currentIndex + 1] as HTMLElement;
+        nextElement.focus();
+      }
+    }
+  };
+
+  return { formRef, handleKeyDown };
 };
 
 interface AnnadhanamFormData {
   receiptNumber: string;
   name: string;
   mobileNumber: string;
-  // What kind of donation is being made
   donationType: 'food' | 'product' | 'money';
-  // Food specific
   food?: string;
   peoples?: string;
-  // Product specific
   productName?: string;
   quantity?: string;
-  // Money specific
   amount?: string;
   time: string;
   fromDate: string;
@@ -95,6 +109,7 @@ export default function AnnadhanamEntryPage() {
   const { id } = useParams<{ id: string }>();
   const { token } = useAuth();
   const { language } = useLanguage();
+  const { formRef, handleKeyDown } = useEnterKeyNavigation();
 
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -105,24 +120,18 @@ export default function AnnadhanamEntryPage() {
   const [logs, setLogs] = useState<AnnadhanamLog[]>([]);
   const [showLogs, setShowLogs] = useState(false);
   const [logsLoading, setLogsLoading] = useState(false);
-  // Receipt number will be filled from backend (on edit or after create)
   
-  // Translation function (inline helper)
   const tr = (en: string, ta: string) => language === 'english' ? ta : en;
   
-  // Helpers to normalize API values into <input type="date"> / <input type="time"> formats
   const normalizeDateString = (s?: string) => {
     if (!s) return '';
-    // Accept 'YYYY-MM-DD' or ISO strings 'YYYY-MM-DDTHH:mm:ssZ'
     return s.slice(0, 10);
   };
 
   const normalizeTimeString = (s?: string) => {
     if (!s) return '';
-    // If already HH:MM or HH:MM:SS -> return HH:MM
     const hm = s.match(/^\d{2}:\d{2}(:\d{2})?$/);
     if (hm) return s.slice(0, 5);
-    // Handle 12-hour formats like '12:00 PM' or '1:05 am'
     const ampm = s.match(/^(\d{1,2}):(\d{2})\s*([AaPp][Mm])$/);
     if (ampm) {
       let h = parseInt(ampm[1], 10);
@@ -133,7 +142,6 @@ export default function AnnadhanamEntryPage() {
       const hh = String(h).padStart(2, '0');
       return `${hh}:${m}`;
     }
-    // Fallback: try to Date-parse and extract HH:MM
     const d = new Date(s);
     if (!isNaN(d.getTime())) {
       const hh = String(d.getHours()).padStart(2, '0');
@@ -143,7 +151,6 @@ export default function AnnadhanamEntryPage() {
     return '';
   };
   
-  // Function to fetch next receipt number
   const fetchNextReceipt = async () => {
     if (id) return;
     try {
@@ -158,65 +165,54 @@ export default function AnnadhanamEntryPage() {
         setValue('receiptNumber', res.receipt_number || res.data?.receipt_number, { shouldValidate: true });
       }
     } catch (e) {
-      // ignore preview errors; field can remain blank until submit
+      // ignore preview errors
     }
   };
 
-  // Function to fetch logs for specific annadhanam entry
   const fetchLogs = async () => {
     if (!id) return;
     try {
-      console.log('🔍 Fetching logs for annadhanam ID:', id);
       setLogsLoading(true);
       const response = await fetch(`http://localhost:4000/api/annadhanam/${id}/logs`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
-
-      console.log('📡 Logs API response status:', response.status);
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Logs API error:', errorText);
         throw new Error('Failed to fetch logs');
       }
 
       const result = await response.json();
-      console.log('📋 Logs API result:', result);
       
       if (result.success) {
-        console.log('✅ Logs fetched successfully:', result.data?.length || 0, 'logs');
         setLogs(result.data || []);
       } else {
-        console.error('❌ Logs API returned success: false:', result.error);
         throw new Error(result.error || 'Failed to fetch logs');
       }
     } catch (error) {
-      console.error("❌ Error fetching logs:", error);
+      console.error("Error fetching logs:", error);
       setLogs([]);
     } finally {
       setLogsLoading(false);
     }
   };
 
-  // No client-side receipt generation; backend sets it on create and we display it
   useEffect(() => {
     fetchNextReceipt();
   }, [id, token]);
 
-  // Set today's date for fromDate and toDate on new entry
   useEffect(() => {
-    if (id) return; // don't override when editing
+    if (id) return;
     const today = new Date().toISOString().slice(0, 10);
     setValue('fromDate', today);
     setValue('toDate', today);
   }, [id, setValue]);
 
-  // Keep toDate in sync when it's empty (single-day convenience)
   const fromDateWatch = watch('fromDate');
   const toDateWatch = watch('toDate');
   const donationType = watch('donationType', 'food');
+  
   useEffect(() => {
     if (fromDateWatch && !toDateWatch) {
       setValue('toDate', fromDateWatch, { shouldValidate: true });
@@ -224,8 +220,6 @@ export default function AnnadhanamEntryPage() {
   }, [fromDateWatch, toDateWatch, setValue]);
 
   useEffect(() => {
-    // Don't set receipt number here - it will be generated on the server
-    
     if (id) {
       const fetchAnnadhanam = async () => {
         try {
@@ -244,7 +238,6 @@ export default function AnnadhanamEntryPage() {
           
           if (result.success) {
             const data = result.data;
-            // Determine donation type from stored `food` field
             let donationType: AnnadhanamFormData['donationType'] = 'food';
             let food = '';
             let peoples = data.peoples?.toString?.() ?? '1';
@@ -255,7 +248,6 @@ export default function AnnadhanamEntryPage() {
             const storedFood = (data.food || '').toString();
             if (storedFood.startsWith('Product:')) {
               donationType = 'product';
-              // Expected format: "Product: NAME | Qty: X" or "Product: NAME | X"
               const rest = storedFood.replace(/^Product:\s*/i, '').trim();
               const parts = rest.split('|').map((p: string) => p.trim());
               productName = parts[0] || '';
@@ -276,7 +268,6 @@ export default function AnnadhanamEntryPage() {
               name: data.name,
               mobileNumber: data.mobile_number,
               donationType,
-              // include all possible fields so reset populates properly
               food,
               peoples,
               productName,
@@ -287,10 +278,8 @@ export default function AnnadhanamEntryPage() {
               toDate: normalizeDateString(data.to_date),
               remarks: data.remarks || ''
             };
-            // Reset the form with populated fields
-            reset(formData as AnnadhanamFormData);
             
-            // Set lastCreatedId for logs (similar to MoneyDonationEntry.tsx)
+            reset(formData as AnnadhanamFormData);
             setLastCreatedId(Number(id));
            } else {
              throw new Error(result.error || 'Failed to load data');
@@ -311,7 +300,6 @@ export default function AnnadhanamEntryPage() {
     }
   }, [id, reset, setValue, token, language]);
 
-  // Load logs for the entry when in edit mode (similar to MoneyDonationEntry.tsx)
   useEffect(() => {
     const loadLogs = async () => {
       try {
@@ -325,17 +313,19 @@ export default function AnnadhanamEntryPage() {
   }, [id, token]);
 
   if (isLoading) {
-    return <div className="p-4">Loading annadhanam data...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg">Loading annadhanam data...</div>
+      </div>
+    );
   }
 
   const onSubmit = async (data: AnnadhanamFormData) => {
     try {
       setIsSubmitting(true);
       
-      // Single date usage: use fromDate as both from_date and to_date
       const singleDate = data.fromDate;
 
-      // Map different donation types to existing backend fields
       let mappedFood = '';
       let mappedPeoples = 1;
       if (data.donationType === 'food') {
@@ -394,9 +384,7 @@ export default function AnnadhanamEntryPage() {
           setLastCreatedId(newId);
           setShowPrintPrompt(true);
           
-          // Fetch logs after successful create/update (similar to MoneyDonationEntry.tsx)
           if (id) {
-            // For updates, fetch logs immediately
             try {
               await fetchLogs();
             } catch (e) {
@@ -405,7 +393,6 @@ export default function AnnadhanamEntryPage() {
           }
           
           if (!id) {
-            // Clear form for new entries after successful submission
             reset({
               receiptNumber: '',
               name: '',
@@ -421,7 +408,6 @@ export default function AnnadhanamEntryPage() {
               toDate: new Date().toISOString().slice(0, 10),
               remarks: ''
             });
-            // Fetch next receipt number
             fetchNextReceipt();
           }
         }
@@ -452,342 +438,399 @@ export default function AnnadhanamEntryPage() {
     }
   };
 
+  // Consistent field styling
+  const fieldStyles = "text-lg py-3 px-4 h-12 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200";
+  const labelStyles = "block text-base font-medium mb-2 text-gray-700";
+
   return (
-    <div className="w-full max-w-4xl mx-auto bg-white p-3 rounded shadow text-sm">
-      <Card className="w-full border-none shadow-none">
-        <CardHeader className="p-2">
-          <CardTitle className="text-lg font-semibold text-center">
-            {tr('Annadhanam Entry', 'அன்னதானம் பதிவு')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-2">
-          <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <Label className="block text-xs mb-1" htmlFor="receiptNumber">
-                {tr('Receipt Number', 'ரசீது எண்')}
-              </Label>
-              <Input
-                id="receiptNumber"
-                className="text-xs p-1 h-8"
-                readOnly
-                {...register('receiptNumber')}
-                placeholder={tr('Auto-generated by system', 'கணினியால் தானாக உருவாக்கப்பட்டது')}
-              />
-            </div>
+    <div className="min-h-screen bg-gray-50 py-6 px-4 w-full">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <Card className="shadow-lg border-0 bg-white rounded-lg">
+          <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white py-6 px-6 rounded-t-lg">
+            <CardTitle className="text-2xl font-bold text-center">
+              {tr('Annadhanam Entry', 'அன்னதானம் பதிவு')}
+            </CardTitle>
+          </CardHeader>
+          
+          <CardContent className="p-6">
+            <form ref={formRef} onSubmit={handleSubmit(onSubmit)} onKeyDown={handleKeyDown} className="space-y-6">
+              
+              {/* Enhanced Grid Layout - All fields same size */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                
+                {/* Receipt Number */}
+                <div>
+                  <Label className={labelStyles} htmlFor="receiptNumber">
+                    {tr('Receipt No.', 'ரசீது எண்')}
+                  </Label>
+                  <Input
+                    id="receiptNumber"
+                    className={`${fieldStyles} bg-gray-100`}
+                    readOnly
+                    {...register('receiptNumber')}
+                    placeholder={tr('Auto', 'தானாக')}
+                  />
+                </div>
 
-            <div>
-              <Label className="block text-xs mb-1" htmlFor="name">{tr('Name', 'பெயர்')} *</Label>
-              <Input
-                id="name"
-                className="text-xs p-1 h-8"
-                {...register('name', { required: true })}
-              />
-            </div>
+                {/* Name */}
+                <div>
+                  <Label className={labelStyles} htmlFor="name">
+                    {tr('Name', 'பெயர்')} <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="name"
+                    className={fieldStyles}
+                    {...register('name', { required: true })}
+                    placeholder={tr('Enter name', 'பெயரை உள்ளிடவும்')}
+                  />
+                </div>
 
-            <div>
-              <Label className="block text-xs mb-1" htmlFor="mobileNumber">
-                {tr('Mobile Number', 'மொபைல் எண்')} *
-              </Label>
-              <Input
-                id="mobileNumber"
-                type="tel"
-                inputMode="numeric"
-                maxLength={10}
-                onInput={(e) => {
-                  const el = e.currentTarget as HTMLInputElement;
-                  const cleaned = el.value.replace(/\D/g, '').slice(0, 10);
-                  if (el.value !== cleaned) {
-                    el.value = cleaned;
-                  }
-                  // keep react-hook-form state in sync
-                  setValue('mobileNumber', cleaned, { shouldValidate: true, shouldDirty: true });
-                }}
-                className="text-xs p-1 h-8"
-                {...register('mobileNumber', { 
-                  required: true,
-                  pattern: {
-                    value: /^[0-9]{10}$/, 
-                    message: 'Please enter a valid 10-digit mobile number'
-                  }
-                })}
-                placeholder={tr('Enter 10-digit mobile number', '10 இலக்க மொபைல் எண்ணை உள்ளிடவும்')}
-              />
-            </div>
+                {/* Mobile Number */}
+                <div>
+                  <Label className={labelStyles} htmlFor="mobileNumber">
+                    {tr('Mobile', 'மொபைல்')} <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="mobileNumber"
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
+                    onInput={(e) => {
+                      const el = e.currentTarget as HTMLInputElement;
+                      const cleaned = el.value.replace(/\D/g, '').slice(0, 10);
+                      if (el.value !== cleaned) {
+                        el.value = cleaned;
+                      }
+                      setValue('mobileNumber', cleaned, { shouldValidate: true, shouldDirty: true });
+                    }}
+                    className={fieldStyles}
+                    {...register('mobileNumber', { 
+                      required: true,
+                      pattern: {
+                        value: /^[0-9]{10}$/, 
+                        message: 'Please enter a valid 10-digit mobile number'
+                      }
+                    })}
+                    placeholder={tr('10 digits', '10 இலக்கம்')}
+                  />
+                </div>
 
-            <div>
-              <Label className="block text-xs mb-1" htmlFor="time">
-                {tr('Time', 'நேரம்')} *
-              </Label>
-              <Input
-                id="time"
-                type="time"
-                className="text-xs p-1 h-8"
-                {...register('time', { required: true })}
-              />
-            </div>
+                {/* Time */}
+                <div>
+                  <Label className={labelStyles} htmlFor="time">
+                    {tr('Time', 'நேரம்')} <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="time"
+                    type="time"
+                    className={fieldStyles}
+                    {...register('time', { required: true })}
+                  />
+                </div>
 
-            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <Label className="block text-xs mb-1" htmlFor="fromDate">
-                  {tr('Date', 'தேதி')} *
-                </Label>
-                <Input
-                  id="fromDate"
-                  type="date"
-                  className="text-xs p-1 h-8"
-                  {...register('fromDate', { required: true })}
-                />
-              </div>
+                {/* Date */}
+                <div>
+                  <Label className={labelStyles} htmlFor="fromDate">
+                    {tr('Date', 'தேதி')} <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="fromDate"
+                    type="date"
+                    className={fieldStyles}
+                    {...register('fromDate', { required: true })}
+                  />
+                </div>
 
-              <div>
-                <Label className="block text-xs mb-1" htmlFor="donationType">
-                  {tr('Donation Type', 'தானத்தின் வகை')} *
-                </Label>
-                <select
-                  id="donationType"
-                  className="text-xs p-1 h-8 w-full border rounded"
-                  {...register('donationType', { required: true })}
-                  defaultValue="food"
-                >
-                  <option value="food">{tr('Food', 'உணவு')}</option>
-                  <option value="product">{tr('Product', 'பொருள்')}</option>
-                  <option value="money">{tr('Money', 'பணம்')}</option>
-                </select>
-              </div>
-
-              {watch('donationType') === 'food' && (
-                <>
-                  <div>
-                    <Label className="block text-xs mb-1" htmlFor="food">
-                      {tr('Food Items', 'உணவு பொருட்கள்')} *
-                    </Label>
-                    <Textarea
-                      id="food"
-                      className="text-xs p-1 min-h-[60px]"
-                      {...register('food', { required: watch('donationType') === 'food' })}
-                      placeholder={tr('Enter food items (e.g., Rice, Sambar, Curry)', 'உணவு பொருட்களை உள்ளிடவும் (எ.கா., அரிசி, சாம்பார், கறி)')}
-                    />
+                {/* Donation Type */}
+                <div>
+                  <Label className={labelStyles} htmlFor="donationType">
+                    {tr('Donation Type', 'தானத்தின் வகை')} <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="relative">
+                    <select
+                      id="donationType"
+                      className={`${fieldStyles} appearance-none pr-10 bg-white`}
+                      {...register('donationType', { required: true })}
+                      defaultValue="food"
+                    >
+                      <option value="food">{tr('Food', 'உணவு')}</option>
+                      <option value="product">{tr('Product', 'பொருள்')}</option>
+                      <option value="money">{tr('Money', 'பணம்')}</option>
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
                   </div>
-                  <div>
-                    <Label className="block text-xs mb-1" htmlFor="peoples">
-                      {tr('Number of People', 'மக்கள் எண்ணிக்கை')}
-                    </Label>
-                    <Input
-                      id="peoples"
-                      type="number"
-                      className="text-xs p-1 h-8"
-                      {...register('peoples', {
-                        validate: (v) => !v || parseInt(v, 10) >= 1 || 'Number of people must be at least 1'
-                      })}
-                      placeholder={tr('Enter number of people (optional)', 'மக்கள் எண்ணிக்கையை உள்ளிடவும் (விருப்பம்)')}
-                    />
-                  </div>
-                </>
-              )}
+                </div>
 
-              {watch('donationType') === 'product' && (
-                <>
-                  <div>
-                    <Label className="block text-xs mb-1" htmlFor="productName">
-                      {tr('Product Name', 'பொருளின் பெயர்')} *
-                    </Label>
-                    <Input
-                      id="productName"
-                      className="text-xs p-1 h-8"
-                      {...register('productName', { required: watch('donationType') === 'product' })}
-                      placeholder={tr('Enter product name', 'பொருளின் பெயரை உள்ளிடவும்')}
-                    />
-                  </div>
-                  <div>
-                    <Label className="block text-xs mb-1" htmlFor="quantity">
-                      {tr('Quantity', 'அளவு')} *
-                    </Label>
-                    <Input
-                      id="quantity"
-                      type="number"
-                      className="text-xs p-1 h-8"
-                      {...register('quantity', { required: watch('donationType') === 'product', min: { value: 1, message: 'Quantity must be at least 1' } })}
-                      placeholder={tr('Enter quantity', 'அளவை உள்ளிடவும்')}
-                    />
-                  </div>
-                </>
-              )}
+                {/* Placeholder to maintain grid alignment */}
+                <div className="md:col-span-2 lg:col-span-1"></div>
 
-              {watch('donationType') === 'money' && (
-                <>
+                {/* Dynamic Fields Based on Donation Type - All same size */}
+                {watch('donationType') === 'food' && (
+                  <>
+                    <div className="md:col-span-2">
+                      <Label className={labelStyles} htmlFor="food">
+                        {tr('Food Items', 'உணவு பொருட்கள்')} <span className="text-red-500">*</span>
+                      </Label>
+                      <Textarea
+                        id="food"
+                        className={fieldStyles}
+                        rows={3}
+                        {...register('food', { required: watch('donationType') === 'food' })}
+                        placeholder={tr('Rice, Curry, etc.', 'சாதம், கறி, etc.')}
+                      />
+                    </div>
+                    <div>
+                      <Label className={labelStyles} htmlFor="peoples">
+                        {tr('People Count', 'மக்கள் எண்ணிக்கை')}
+                      </Label>
+                      <Input
+                        id="peoples"
+                        type="number"
+                        className={fieldStyles}
+                        {...register('peoples', {
+                          validate: (v) => !v || parseInt(v, 10) >= 1 || 'Number must be at least 1'
+                        })}
+                        placeholder={tr('Count', 'எண்ணிக்கை')}
+                        min="1"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {watch('donationType') === 'product' && (
+                  <>
+                    <div>
+                      <Label className={labelStyles} htmlFor="productName">
+                        {tr('Product Name', 'பொருளின் பெயர்')} <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="productName"
+                        className={fieldStyles}
+                        {...register('productName', { required: watch('donationType') === 'product' })}
+                        placeholder={tr('Enter product name', 'பொருளின் பெயரை உள்ளிடவும்')}
+                      />
+                    </div>
+                    <div>
+                      <Label className={labelStyles} htmlFor="quantity">
+                        {tr('Quantity', 'அளவு')} <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="quantity"
+                        type="number"
+                        className={fieldStyles}
+                        {...register('quantity', { required: watch('donationType') === 'product', min: { value: 1, message: 'Quantity must be at least 1' } })}
+                        placeholder={tr('Qty', 'அளவு')}
+                        min="1"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {watch('donationType') === 'money' && (
                   <div>
-                    <Label className="block text-xs mb-1" htmlFor="amount">
-                      {tr('Amount', 'தொகை')} *
+                    <Label className={labelStyles} htmlFor="amount">
+                      {tr('Amount (₹)', 'தொகை (₹)')} <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       id="amount"
                       type="number"
-                      className="text-xs p-1 h-8"
-                      {...register('amount', { required: watch('donationType') === 'money', min: { value: 1, message: 'Amount must be at least 1' } })}
+                      className={fieldStyles}
+                      {...register('amount', { required: watch('donationType') === 'money', min: { value: 1, message: 'Amount must be at least ₹1' } })}
                       placeholder={tr('Enter amount', 'தொகையை உள்ளிடவும்')}
+                      min="1"
                     />
                   </div>
-                </>
-              )}
+                )}
 
-              <div>
-                <Label className="block text-xs mb-1" htmlFor="remarks">
-                  {tr('Remarks', 'குறிப்புகள்')}
-                </Label>
-                <Textarea
-                  id="remarks"
-                  className="text-xs p-1 min-h-[60px]"
-                  {...register('remarks')}
-                  placeholder={tr('Enter any additional remarks', 'கூடுதல் குறிப்புகளை உள்ளிடவும்')}
-                />
+                {/* Remarks - Full width */}
+                <div className="md:col-span-2 lg:col-span-3 xl:col-span-4">
+                  <Label className={labelStyles} htmlFor="remarks">
+                    {tr('Remarks', 'குறிப்புகள்')}
+                  </Label>
+                  <Textarea
+                    id="remarks"
+                    className={fieldStyles}
+                    rows={3}
+                    {...register('remarks')}
+                    placeholder={tr('Additional notes', 'கூடுதல் குறிப்புகள்')}
+                  />
+                </div>
               </div>
-            </div>
 
-            <div className="md:col-span-2 flex gap-2 justify-between pt-2 border-t">
-              <div className="flex gap-2">
-                {id && (
+              {/* Action Buttons */}
+              <div className="flex flex-wrap gap-4 justify-between items-center pt-6 border-t border-gray-200">
+                <div className="flex gap-3">
+                  {id && (
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="default"
+                      className="px-6 py-2 text-sm border hover:bg-gray-50 rounded-md"
+                      onClick={() => {
+                        setShowLogs(!showLogs);
+                        if (!showLogs) {
+                          fetchLogs();
+                        }
+                      }}
+                    >
+                      {showLogs ? tr('Hide Logs', 'மறை') : tr('Show Logs', 'பதிவுகள்')}
+                    </Button>
+                  )}
+                </div>
+                
+                <div className="flex gap-3">
                   <Button 
                     type="button" 
                     variant="outline" 
-                    className="text-xs px-3 py-1 h-8"
-                    onClick={() => {
-                      setShowLogs(!showLogs);
-                      if (!showLogs) {
-                        fetchLogs();
-                      }
-                    }}
+                    size="default"
+                    className="px-6 py-2 text-sm border hover:bg-gray-50 rounded-md"
+                    onClick={handleCancel}
+                    disabled={isSubmitting}
                   >
-                    {showLogs ? tr('Hide Logs', 'பதிவுகளை மறை') : tr('Show Logs', 'பதிவுகளை காட்டு')}
+                    {tr('Cancel', 'ரத்து')}
                   </Button>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  className="text-xs px-3 py-1 h-8"
-                  onClick={handleCancel}
-                  disabled={isSubmitting}
-                >
-                  {tr('Cancel', 'ரத்து செய்')}
-                </Button>
-                <Button 
-                  type="submit" 
-                  className="text-xs px-3 py-1 h-8 bg-orange-600 hover:bg-orange-700"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting 
-                    ? tr('Saving...', 'சேமிக்கிறது...') 
-                    : id 
-                      ? tr('Update Annadhanam', 'அன்னதானத்தை புதுப்பிக்க') 
-                      : tr('Save Annadhanam', 'அன்னதானத்தை சேமிக்க')
-                  }
-                </Button>
-              </div>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* Logs Display */}
-      {showLogs && id && (
-        <Card className="w-full border-none shadow-none mt-4">
-          <CardContent className="p-2">
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold">
-                {tr('Activity Log', 'செயல்பாட்டு பதிவு')}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {tr('History of changes for this annadhanam entry', 'இந்த அன்னதான பதிவுக்கான மாற்றங்களின் வரலாறு')}
-              </p>
-            </div>
-            
-            <div className="rounded-md border">
-              {logsLoading ? (
-                <div className="flex items-center justify-center h-32">
-                  <div className="text-sm text-muted-foreground">Loading logs...</div>
+                  <Button 
+                    type="submit" 
+                    size="default"
+                    className="px-6 py-2 text-sm bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-md"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting 
+                      ? tr('Saving...', 'சேமிக்கிறது...') 
+                      : id 
+                        ? tr('Update', 'புதுப்பிக்க') 
+                        : tr('Save', 'சேமிக்க')
+                    }
+                  </Button>
                 </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left p-2">{tr('Action', 'செயல்')}</th>
-                        <th className="text-left p-2">{tr('Date', 'தேதி')}</th>
-                        <th className="text-left p-2">{tr('Details', 'விவரங்கள்')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {logs.length > 0 ? (
-                        logs.map((log) => (
-                          <tr key={log.id} className="border-b">
-                            <td className="p-2">
-                              <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                log.action === 'create' ? 'bg-green-100 text-green-800' :
-                                log.action === 'update' ? 'bg-blue-100 text-blue-800' :
-                                log.action === 'delete' ? 'bg-red-100 text-red-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>
-                                {log.action === 'create' ? tr('Created', 'உருவாக்கப்பட்டது') :
-                                 log.action === 'update' ? tr('Updated', 'புதுப்பிக்கப்பட்டது') :
-                                 log.action === 'delete' ? tr('Deleted', 'நீக்கப்பட்டது') :
-                                 log.action}
-                              </span>
-                            </td>
-                            <td className="p-2">
-                              {new Date(log.created_at).toLocaleString()}
-                            </td>
-                            <td className="p-2 max-w-xs">
-                              <div className="text-xs text-muted-foreground">
-                                {log.details ? (
-                                  <pre className="whitespace-pre-wrap break-words">
-                                    {JSON.stringify(log.details, null, 2)}
-                                  </pre>
-                                ) : '-'}
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={3} className="h-24 text-center text-muted-foreground">
-                            {tr('No logs found', 'பதிவுகள் எதுவும் கிடைக்கவில்லை')}
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+              </div>
+            </form>
           </CardContent>
         </Card>
-      )}
 
-      {showPrintPrompt && lastCreatedId != null && (
-        <Modal
-          title={tr('Print Receipt', 'ரசீதை அச்சிடவா?')}
-          onClose={() => setShowPrintPrompt(false)}
-        >
-          <p className="mb-3 text-xs">{tr('Do you want to open the PDF receipt for printing?', 'PDF ரசீதை அச்சிட திறக்க விரும்புகிறீர்களா?')}</p>
-          <div className="flex justify-end gap-2">
-            <button className="px-3 py-1 rounded border text-xs" onClick={() => setShowPrintPrompt(false)}>
-              {tr('No', 'இல்லை')}
-            </button>
-            <button
-              className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 text-xs"
-              onClick={() => {
-                const q = token ? `?token=${encodeURIComponent(token)}` : '';
-                const url = `http://localhost:4000/api/annadhanam/${lastCreatedId}/receipt.pdf${q}`;
-                window.open(url, '_blank');
-                setShowPrintPrompt(false);
-              }} 
-            >
-              {tr('Yes, Print', 'ஆம், அச்சிடு')}
-            </button>
-          </div>
-        </Modal>
-      )}
+        {/* Logs Display */}
+        {showLogs && id && (
+          <Card className="shadow-lg border-0 bg-white rounded-lg">
+            <CardHeader className="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-6 px-6 rounded-t-lg">
+              <CardTitle className="text-xl font-bold">
+                {tr('Activity Log', 'செயல்பாட்டு பதிவு')}
+              </CardTitle>
+            </CardHeader>
+            
+            <CardContent className="p-6">
+              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                {logsLoading ? (
+                  <div className="flex items-center justify-center h-32">
+                    <div className="text-lg text-gray-600">Loading logs...</div>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                            {tr('Action', 'செயல்')}
+                          </th>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                            {tr('Date & Time', 'தேதி மற்றும் நேரம்')}
+                          </th>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                            {tr('Details', 'விவரங்கள்')}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {logs.length > 0 ? (
+                          logs.map((log, index) => (
+                            <tr key={log.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50`}>
+                              <td className="py-3 px-4 border-b">
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                  log.action === 'create' ? 'bg-green-100 text-green-800' :
+                                  log.action === 'update' ? 'bg-blue-100 text-blue-800' :
+                                  log.action === 'delete' ? 'bg-red-100 text-red-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {log.action === 'create' ? tr('Created', 'உருவாக்கப்பட்டது') :
+                                   log.action === 'update' ? tr('Updated', 'புதுப்பிக்கப்பட்டது') :
+                                   log.action === 'delete' ? tr('Deleted', 'நீக்கப்பட்டது') :
+                                   log.action}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-sm text-gray-700 border-b">
+                                {new Date(log.created_at).toLocaleString('en-IN', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </td>
+                              <td className="py-3 px-4 border-b">
+                                <div className="text-sm text-gray-600 max-w-md">
+                                  {log.details ? (
+                                    <pre className="whitespace-pre-wrap break-words bg-gray-100 p-2 rounded text-xs max-h-32 overflow-y-auto">
+                                      {JSON.stringify(log.details, null, 2)}
+                                    </pre>
+                                  ) : (
+                                    <span className="text-gray-400">-</span>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={3} className="h-32 text-center text-gray-500 py-8">
+                              {tr('No activity logs found', 'செயல்பாட்டு பதிவுகள் இல்லை')}
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Print Receipt Modal */}
+        {showPrintPrompt && lastCreatedId != null && (
+          <Modal
+            title={tr('Print Receipt?', 'ரசீது அச்சிட?')}
+            onClose={() => setShowPrintPrompt(false)}
+          >
+            <div className="p-6">
+              <p className="mb-6 text-base text-gray-700">
+                {tr('Entry saved! Open PDF receipt for printing?', 'பதிவு சேமிக்கப்பட்டது! PDF ரசீதைத் திற?')}
+              </p>
+              <div className="flex justify-end gap-3">
+                <button 
+                  className="px-4 py-2 rounded-md border text-sm hover:bg-gray-50" 
+                  onClick={() => setShowPrintPrompt(false)}
+                >
+                  {tr('Not Now', 'இப்போது வேண்டாம்')}
+                </button>
+                <button
+                  className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
+                  onClick={() => {
+                    const q = token ? `?token=${encodeURIComponent(token)}` : '';
+                    const url = `http://localhost:4000/api/annadhanam/${lastCreatedId}/receipt.pdf${q}`;
+                    window.open(url, '_blank');
+                    setShowPrintPrompt(false);
+                  }} 
+                >
+                  {tr('Yes, Open', 'ஆம், திற')}
+                </button>
+              </div>
+            </div>
+          </Modal>
+        )}
+      </div>
     </div>
   );
 }

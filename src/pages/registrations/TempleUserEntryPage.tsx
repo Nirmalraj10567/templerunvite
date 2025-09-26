@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { CardHeader, CardTitle } from '@/components/ui/card';
 
 type Heir = {
   id: number;
@@ -649,11 +650,12 @@ export default function TempleUserEntryPage() {
   return (
     <div className="container mx-auto p-4">
       <div className="flex items-center justify-between mb-3">
-        <div className="text-center flex-1">
-          <h1 className="text-lg font-bold text-gray-900">
-            {t[language as 'tamil' | 'english'].pageTitle}
-          </h1>
-        </div>
+      <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white py-6 px-6 rounded-t-lg">
+          <CardTitle className="text-2xl font-bold text-center">
+          {t[language as 'tamil' | 'english'].pageTitle}
+         </CardTitle>
+</CardHeader>
+
       </div>
       {/* Main Container */}
       <div className="bg-white rounded-lg shadow-md border border-gray-200 p-2">

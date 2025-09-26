@@ -66,6 +66,7 @@ export default function LedgerEntryPage() {
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const categoryInputRef = useRef<HTMLButtonElement | null>(null);
   const [showSavedModal, setShowSavedModal] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
   
   const templeId = user?.templeId;
   
@@ -84,36 +85,22 @@ export default function LedgerEntryPage() {
   });
 
   // Handle Enter key to move to next field
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    if (e.key === 'Enter') {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       
-      // Get all focusable elements in the form
-      const form = e.currentTarget.closest('form');
-      if (!form) return;
+      if (!formRef.current) return;
       
-      const focusableElements = Array.from(
-        form.querySelectorAll<HTMLElement>(
-          'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])'
-        )
+      const focusableElements = formRef.current.querySelectorAll(
+        'input:not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled]):not([readonly]), button:not([disabled])'
       );
       
-      const currentIndex = focusableElements.indexOf(e.currentTarget);
-      if (currentIndex === -1) return;
+      const currentElement = document.activeElement;
+      const currentIndex = Array.from(focusableElements).indexOf(currentElement as Element);
       
-      // Find next focusable element
-      let nextIndex = currentIndex + 1;
-      while (nextIndex < focusableElements.length) {
-        const nextElement = focusableElements[nextIndex];
-        if (nextElement.offsetParent !== null) { // Check if element is visible
-          nextElement.focus();
-          // If it's a select or textarea, open it
-          if (nextElement.tagName === 'SELECT' || nextElement.tagName === 'TEXTAREA') {
-            nextElement.click();
-          }
-          break;
-        }
-        nextIndex++;
+      if (currentIndex !== -1 && currentIndex < focusableElements.length - 1) {
+        const nextElement = focusableElements[currentIndex + 1] as HTMLElement;
+        nextElement.focus();
       }
     }
   };
@@ -444,350 +431,372 @@ export default function LedgerEntryPage() {
     }
   }, [currentBalance, watch('amount'), watch('type')]);
 
-  const inputClass = "w-full p-2 border rounded";
-
-  // Register input with keydown handler
-  const registerWithKeyNav = (name: keyof LedgerEntry, options = {}) => ({
-    ...register(name, options),
-    onKeyDown: handleKeyDown
-  });
+  // Consistent field styling with orange color scheme
+  const fieldStyles = "text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200";
+  const labelStyles = "block text-sm font-medium mb-1.5 text-gray-700";
+  const buttonStyles = "px-4 py-2 text-sm font-medium rounded-md transition-all duration-200";
 
   return (
-    <>
-    <div className="p-2 bg-gray-50">
-      {/* Compact Header */}
-      <div className="flex justify-between items-center mb-2">
-        <h1 className="text-base font-bold text-gray-800">
-          {t('Ledger Entry', 'பதிவேடு பதிவு')}
-        </h1>
-        <div className="flex items-center gap-3 text-xs">
-          <div className="text-gray-500">
-            {t('Balance', 'இருப்பு')}: <span className="font-medium">₹{formatINR(currentBalance)}</span>
-          </div>
-          <CategoryManager categories={categories} setCategories={setCategories} />
-        </div>
-      </div>
-
-      {/* Single Compact Card */}
-      <Card>
-        <CardContent className="p-3">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
-            {/* Top Row: Date, Actions, Status */}
-            <div className="flex justify-between items-center pb-2 border-b">
-              <div className="flex items-center gap-2">
-                <CalendarIcon className="h-3 w-3 text-gray-400" />
-                <Input
-                  type="date"
-                  {...register('date')}
-                  className="w-32 text-xs h-7 p-1"
-                />
+    <div className="min-h-screen bg-gray-50 py-6 px-4">
+      <div className="max-w-7xl mx-auto">
+        <Card className="shadow-lg border-0 bg-white rounded-lg overflow-hidden">
+          <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 py-6 px-6">
+            <CardTitle className="text-2xl font-bold text-center text-white">
+              {t('Ledger Entry', 'பதிவேடு பதிவு')}
+            </CardTitle>
+          </CardHeader>
+          
+          <CardContent className="p-6">
+            <div className="mb-4 flex justify-between items-center">
+              <div className="text-sm text-gray-600">
+                {t('Balance', 'இருப்பு')}: <span className="font-semibold text-lg">₹{formatINR(currentBalance)}</span>
               </div>
-
-              <div className="flex items-center gap-2">
-                {isDirty && (
-                  <div className="flex items-center text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded">
-                    <div className="w-1.5 h-1.5 bg-amber-400 rounded-full mr-1"></div>
-                    {t('Unsaved', 'சேமிக்கப்படவில்லை')}
-                  </div>
-                )}
-                
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => setShowAdvanced(!showAdvanced)}
-                  className="text-xs py-1 px-2 h-6"
-                >
-                  {showAdvanced ? t('Basic', 'அடிப்படை') : t('More', 'மேலும்')}
-                </Button>
-              </div>
+              <CategoryManager categories={categories} setCategories={setCategories} />
             </div>
 
-            {/* Main Form - 4 columns layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
-              {/* Column 1: Name */}
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">{t('Name', 'பெயர்')}*</Label>
-                <Input
-                  id="name"
-                  className={inputClass}
-                  {...registerWithKeyNav('name', { required: t('Name is required', 'பெயர் தேவை') })}
-                />
-                {errors.name && <p className="text-xs text-red-500">{errors.name.message}</p>}
-              </div>
+            <form 
+              ref={formRef} 
+              onSubmit={handleSubmit(onSubmit)} 
+              onKeyDown={handleKeyDown}
+              className="space-y-6"
+            >
+              {/* Main Form Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* Name */}
+                <div>
+                  <Label className={labelStyles}>
+                    {t('Name', 'பெயர்')} <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="name"
+                    className={fieldStyles}
+                    {...register('name', { required: t('Name is required', 'பெயர் தேவை') })}
+                    placeholder={t('Enter name', 'பெயரை உள்ளிடவும்')}
+                  />
+                  {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>}
+                </div>
 
-              {/* Column 2: Category */}
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">{t('Category', 'வகை')}</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
+                {/* Category */}
+                <div>
+                  <Label className={labelStyles}>
+                    {t('Category', 'வகை')}
+                  </Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        ref={categoryInputRef}
+                        className={cn(
+                          fieldStyles,
+                          "justify-between",
+                          !watch('under') && "text-gray-500"
+                        )}
+                      >
+                        <span className="truncate">
+                          {watch('under')
+                            ? categories.find(
+                                (category) => category.value === watch('under')
+                              )?.label || watch('under')
+                            : t('Select category', 'வகையைத் தேர்ந்தெடுக்கவும்')}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[250px] p-0">
+                      <Command>
+                        <CommandInput 
+                          placeholder={t('Search...', 'தேடு...')} 
+                          className="h-9"
+                        />
+                        <CommandEmpty>
+                          <Button
+                            variant="ghost"
+                            className="w-full justify-start h-9"
+                            onClick={() => {
+                              const input = document.querySelector('[cmdk-input]') as HTMLInputElement;
+                              if (input?.value) handleCreateCategory(input.value);
+                            }}
+                          >
+                            {t('Create new category', 'புதிய வகையை உருவாக்கவும்')}
+                          </Button>
+                        </CommandEmpty>
+                        <CommandGroup className="max-h-48 overflow-y-auto">
+                          {categories.filter(Boolean).map((category) => (
+                            <CommandItem
+                              value={category?.value ?? ''}
+                              key={category?.value ?? String(category?.id ?? Math.random())}
+                              onSelect={() => setValue('under', category?.value ?? '')}
+                              className="flex items-center justify-between"
+                            >
+                              <div className="flex items-center">
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    watch('under') === (category?.value ?? '') ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <span className="truncate">{category?.label ?? category?.value ?? ''}</span>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* Type */}
+                <div>
+                  <Label className={labelStyles}>
+                    {t('Type', 'வகை')} <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="grid grid-cols-2 gap-3">
                     <Button
-                      variant="outline"
-                      role="combobox"
-                      ref={categoryInputRef}
+                      type="button"
+                      variant={watch('type') === 'credit' ? 'default' : 'outline'}
+                      onClick={() => setValue('type', 'credit')}
                       className={cn(
-                        "w-full justify-between text-xs h-8",
-                        !watch('under') && "text-muted-foreground"
+                        buttonStyles,
+                        watch('type') === 'credit' 
+                          ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700' 
+                          : 'border-gray-300 hover:bg-gray-50'
                       )}
                     >
-                      <span className="truncate">
-                        {watch('under')
-                          ? categories.find(
-                              (category) => category.value === watch('under')
-                            )?.label || watch('under')
-                          : t('Select', 'தேர்ந்தெடு')}
-                      </span>
-                      <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                      {t('Credit', 'கடன்')}
                     </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[250px] p-0">
-                    <Command>
-                      <CommandInput 
-                        placeholder={t('Search...', 'தேடு...')} 
-                        className="text-xs"
+                    <Button
+                      type="button"
+                      variant={watch('type') === 'debit' ? 'default' : 'outline'}
+                      onClick={() => setValue('type', 'debit')}
+                      className={cn(
+                        buttonStyles,
+                        watch('type') === 'debit' 
+                          ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700' 
+                          : 'border-gray-300 hover:bg-gray-50'
+                      )}
+                    >
+                      {t('Debit', 'பற்று')}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Amount */}
+                <div>
+                  <Label className={labelStyles}>
+                    {t('Amount', 'தொகை')} <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
+                    <Input
+                      type="number"
+                      id="amount"
+                      className={cn(fieldStyles, "pl-8")}
+                      {...register('amount', { 
+                        min: { 
+                          value: 0, 
+                          message: t('Amount cannot be negative', 'தொகை மைனஸாக இருக்கக்கூடாது') 
+                        },
+                        required: t('Amount is required', 'தொகை தேவை')
+                      })}
+                      placeholder="0.00"
+                      min={0}
+                      step="0.01"
+                      inputMode="decimal"
+                    />
+                  </div>
+                  {errors.amount && <p className="text-red-500 text-sm mt-1">{errors.amount.message}</p>}
+                  
+                  {watch('amount') && (
+                    <div className="mt-2 text-sm text-gray-600">
+                      {t('New Balance', 'புதிய இருப்பு')}: <span className={cn("font-semibold", calculatedBalance >= 0 ? "text-green-600" : "text-red-600")}>₹{displayAmount(calculatedBalance, watch('type'))}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Advanced Fields */}
+              <div className="border-t border-gray-200 pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium text-gray-800">
+                    {t('Additional Details', 'கூடுதல் விவரங்கள்')}
+                  </h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    className="text-sm border-gray-300 hover:bg-gray-50"
+                  >
+                    {showAdvanced ? t('Hide', 'மறை') : t('Show', 'காட்டு')}
+                  </Button>
+                </div>
+
+                {showAdvanced && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+                    <div>
+                      <Label className={labelStyles}>
+                        {t('Phone', 'தொலைபேசி')}
+                      </Label>
+                      <Input
+                        type="tel"
+                        id="phone"
+                        className={fieldStyles}
+                        {...register('phone')}
+                        placeholder={t('Enter phone', 'தொலைபேசி எண்ணை உள்ளிடவும்')}
                       />
-                      <CommandEmpty>
-                        <Button
-                          variant="ghost"
-                          className="w-full justify-start text-xs h-7"
-                          onClick={() => {
-                            const input = document.querySelector('[cmdk-input]') as HTMLInputElement;
-                            if (input?.value) handleCreateCategory(input.value);
-                          }}
-                        >
-                        
-                        </Button>
-                      </CommandEmpty>
-                      <CommandGroup className="max-h-32 overflow-y-auto">
-                        {categories.filter(Boolean).map((category) => (
-                          <CommandItem
-                            value={category?.value ?? ''}
-                            key={category?.value ?? String(category?.id ?? Math.random())}
-                            onSelect={() => setValue('under', category?.value ?? '')}
-                            className="flex items-center justify-between text-xs"
-                          >
-                            <div className="flex items-center">
-                              <Check
-                                className={cn(
-                                  "mr-2 h-3 w-3",
-                                  watch('under') === (category?.value ?? '') ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              <span className="truncate">{category?.label ?? category?.value ?? ''}</span>
-                            </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              {/* Column 3: Type */}
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">{t('Type', 'வகை')}*</Label>
-                <div className="grid grid-cols-2 gap-1">
-                  <Button
-                    type="button"
-                    variant={watch('type') === 'credit' ? 'default' : 'outline'}
-                    onClick={() => setValue('type', 'credit')}
-                    className="h-8 text-xs"
-                  >
-                    {t('Credit', 'கடன்')}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={watch('type') === 'debit' ? 'default' : 'outline'}
-                    onClick={() => setValue('type', 'debit')}
-                    className="h-8 text-xs"
-                  >
-                    {t('Debit', 'பற்று')}
-                  </Button>
-                </div>
-              </div>
-
-              {/* Column 4: Amount */}
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">{t('Amount', 'தொகை')}*</Label>
-                <div className="relative">
-                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-xs">₹</span>
-                  <Input
-                    type="number"
-                    id="amount"
-                    className={cn(inputClass, "pl-6 text-xs h-8")}
-                    {...registerWithKeyNav('amount', { 
-                      min: { 
-                        value: 0, 
-                        message: t('Amount cannot be negative', 'தொகை மைனஸாக இருக்கக்கூடாது') 
-                      }
-                    })}
-                    placeholder="0.00"
-                    min={0}
-                    step="0.01"
-                    inputMode="decimal"
-                  />
-                </div>
-                {errors.amount && <p className="text-xs text-red-500">{errors.amount.message}</p>}
-                
-                {watch('amount') && (
-                  <div className="text-xs text-gray-500">
-                    {t('New', 'புதிய')}: <span className={cn("font-medium", calculatedBalance >= 0 ? "text-green-600" : "text-red-600")}>₹{displayAmount(calculatedBalance, watch('type'))}</span>
+                    </div>
+                    <div>
+                      <Label className={labelStyles}>
+                        {t('Mobile', 'கைபேசி')}
+                      </Label>
+                      <Input
+                        type="tel"
+                        id="mobile"
+                        className={fieldStyles}
+                        {...register('mobile')}
+                        placeholder={t('Enter mobile', 'கைபேசி எண்ணை உள்ளிடவும்')}
+                      />
+                    </div>
+                    <div>
+                      <Label className={labelStyles}>
+                        Email
+                      </Label>
+                      <Input
+                        type="email"
+                        id="email"
+                        className={fieldStyles}
+                        {...register('email')}
+                        placeholder="Enter email"
+                      />
+                    </div>
+                    <div>
+                      <Label className={labelStyles}>
+                        {t('City', 'ஊர்')}
+                      </Label>
+                      <Input
+                        id="city"
+                        className={fieldStyles}
+                        {...register('city')}
+                        placeholder={t('Enter city', 'ஊரை உள்ளிடவும்')}
+                      />
+                    </div>
+                    <div className="xl:col-span-2">
+                      <Label className={labelStyles}>
+                        {t('Address', 'முகவரி')}
+                      </Label>
+                      <Input
+                        id="address"
+                        className={fieldStyles}
+                        {...register('address')}
+                        placeholder={t('Enter address', 'முகவரியை உள்ளிடவும்')}
+                      />
+                    </div>
+                    <div className="xl:col-span-6">
+                      <Label className={labelStyles}>
+                        {t('Notes', 'குறிப்பு')}
+                      </Label>
+                      <Textarea
+                        id="note"
+                        className={cn(fieldStyles, "min-h-[80px]")}
+                        {...register('note')}
+                        placeholder={t('Enter notes', 'குறிப்புகளை உள்ளிடவும்')}
+                      />
+                    </div>
                   </div>
                 )}
               </div>
-            </div>
 
-            {/* Advanced Fields - Collapsible */}
-            {showAdvanced && (
-              <div className="border-t pt-3 space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs">{t('Phone', 'தொலைபேசி')}</Label>
-                    <Input
-                      type="tel"
-                      id="phone"
-                      className={inputClass}
-                      {...registerWithKeyNav('phone')}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">{t('Mobile', 'கைபேசி')}</Label>
-                    <Input
-                      type="tel"
-                      id="mobile"
-                      className={inputClass}
-                      {...registerWithKeyNav('mobile')}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Email</Label>
-                    <Input
-                      type="email"
-                      id="email"
-                      className={inputClass}
-                      {...registerWithKeyNav('email')}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">{t('City', 'ஊர்')}</Label>
-                    <Input
-                      id="city"
-                      className={inputClass}
-                      {...registerWithKeyNav('city')}
-                    />
-                  </div>
-                  <div className="space-y-1 lg:col-span-2">
-                    <Label className="text-xs">{t('Address', 'முகவரி')}</Label>
-                    <Input
-                      id="address"
-                      className={inputClass}
-                      {...registerWithKeyNav('address')}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-xs">{t('Notes', 'குறிப்பு')}</Label>
-                  <Textarea
-                    id="note"
-                    className={cn(inputClass, "resize-none text-xs")}
-                    {...registerWithKeyNav('note')}
-                    rows={2}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Bottom Action Bar */}
-            <div className="flex justify-between items-center pt-2 border-t">
-              <div className="flex gap-2">
+              {/* Action Buttons */}
+              <div className="flex flex-wrap gap-4 justify-end pt-6 border-t border-gray-200">
                 <Button
+                  type="button"
                   variant="outline"
-                  size="sm"
+                  className="px-5 py-2.5 text-base border-gray-300 hover:bg-gray-50 rounded-md"
                   onClick={() => navigate(-1)}
                   disabled={isSubmitting}
-                  className="text-xs h-7"
                 >
-                  <X className="h-3 w-3 mr-1" />
+                  <X className="h-4 w-4 mr-2" />
                   {t('Cancel', 'ரத்து')}
                 </Button>
                 
                 <Button
-                  variant="outline" 
-                  size="sm"
+                  type="button"
+                  variant="outline"
+                  className="px-5 py-2.5 text-base border-gray-300 hover:bg-gray-50 rounded-md"
                   onClick={handleExportPdf}
-                  className="text-xs h-7"
                 >
-                  <FileDown className="h-3 w-3 mr-1" />
+                  <FileDown className="h-4 w-4 mr-2" />
                   {t('Export', 'ஏற்றுமதி')}
                 </Button>
-              </div>
 
-              <div className="flex gap-2">
                 <Button
+                  type="button"
                   variant="outline"
-                  size="sm"
+                  className="px-5 py-2.5 text-base border-gray-300 hover:bg-gray-50 rounded-md"
                   onClick={handleReset}
                   disabled={!isDirty || isSubmitting}
-                  className="text-xs h-7"
                 >
                   {t('Clear', 'அழி')}
                 </Button>
 
                 <Button
+                  type="button"
+                  variant="outline"
+                  className="px-5 py-2.5 text-base border-gray-300 hover:bg-gray-50 rounded-md"
                   onClick={handleSubmit(handleSaveAndNew)}
                   disabled={isSubmitting || !isDirty}
-                  variant="outline"
-                  size="sm"
-                  className="text-xs h-7"
                 >
                   {isSubmitting ? (
-                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
-                    <Plus className="h-3 w-3 mr-1" />
+                    <Plus className="h-4 w-4 mr-2" />
                   )}
                   {t('Save & New', 'சேமித்து புதியது')}
                 </Button>
                 
                 <Button 
-                  onClick={handleSubmit(onSubmit)}
+                  type="submit"
+                  className="px-5 py-2.5 text-base bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-md"
                   disabled={isSubmitting || !isDirty}
-                  size="sm"
-                  className="text-xs h-7 bg-green-600 hover:bg-green-700"
                 >
                   {isSubmitting ? (
                     <>
-                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       {t('Saving...', 'சேமிக்கிறது...')}
                     </>
                   ) : (
                     <>
-                      <Save className="h-3 w-3 mr-1" />
+                      <Save className="h-4 w-4 mr-2" />
                       {t('Save', 'சேமி')}
                     </>
                   )}
                 </Button>
               </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+
+      {showSavedModal && (
+        <Modal
+          title={t('Saved Successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது')}
+          onClose={() => setShowSavedModal(false)}
+        >
+          <div className="p-6">
+            <p className="mb-6 text-base text-gray-700">
+              {t('Ledger entry has been saved successfully.', 'பதிவேடு பதிவு வெற்றிகரமாக சேமிக்கப்பட்டது.')}
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                className="px-4 py-2 rounded-md border text-sm hover:bg-gray-50"
+                onClick={() => setShowSavedModal(false)}
+              >
+                {t('OK', 'சரி')}
+              </button>
             </div>
-          </form>
-        </CardContent>
-      </Card>
+          </div>
+        </Modal>
+      )}
     </div>
-    {showSavedModal && (
-      <Modal
-        title={t('Saved Successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது')}
-        onClose={() => setShowSavedModal(false)}
-      >
-        <p className="mb-3 text-sm">{t('Ledger entry has been saved successfully.', 'பதிவேடு பதிவு வெற்றிகரமாக சேமிக்கப்பட்டது.')}</p>
-        <div className="flex justify-end gap-2">
-          <button
-            className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 text-xs"
-            onClick={() => setShowSavedModal(false)}
-          >
-            {t('OK', 'சரி')}
-          </button>
-        </div>
-      </Modal>
-    )}
-    </>
   );
 }
