@@ -275,7 +275,7 @@ app.get('/api/journal/balance', authenticateToken, async (req, res) => {
   }
 });
 
-// POST /api/journal/sync-pooja - manually sync existing pooja entries to journal
+// POST /api/journal/sync-pooja - manually sync existing pooja and money donation entries to journal
 app.post('/api/journal/sync-pooja', authenticateToken, async (req, res) => {
   try {
     const hasJournal = await db.schema.hasTable('journal_entries');
@@ -283,13 +283,18 @@ app.post('/api/journal/sync-pooja', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'journal_entries table does not exist' });
     }
 
+    const templeId = req.user.templeId;
+    let totalCreated = 0;
+    let totalSkipped = 0;
+
+    // Sync pooja entries
     const poojas = await db('pooja')
-      .where('temple_id', req.user.templeId)
+      .where('temple_id', templeId)
       .whereNotNull('amount')
       .where('amount', '>', 0);
 
-    let created = 0;
-    let skipped = 0;
+    let poojaCreated = 0;
+    let poojaSkipped = 0;
 
     for (const pooja of poojas) {
       const existing = await db('journal_entries')
@@ -310,16 +315,62 @@ app.post('/api/journal/sync-pooja', authenticateToken, async (req, res) => {
           created_by: pooja.created_by,
           created_at: db.fn.now(),
         });
-        created++;
+        poojaCreated++;
       } else {
-        skipped++;
+        poojaSkipped++;
       }
     }
 
-    res.json({ success: true, created, skipped, total: poojas.length });
+    // Sync money donation entries
+    const moneyDonations = await db('money_donations')
+      .where('temple_id', templeId)
+      .whereNotNull('amount')
+      .where('amount', '>', 0);
+
+    let donationCreated = 0;
+    let donationSkipped = 0;
+
+    for (const donation of moneyDonations) {
+      const existing = await db('journal_entries')
+        .where({ reference_type: 'money_donation', reference_id: donation.id, temple_id: donation.temple_id })
+        .first();
+
+      if (!existing) {
+        await db('journal_entries').insert({
+          date: donation.date || new Date().toISOString().slice(0,10),
+          from_account: 'DONATION A/C',
+          to_account: donation.transfer_to_account || 'INCOME A/C',
+          amount: Number(donation.amount),
+          entry_type: 'transfer',
+          remarks: donation.reason || null,
+          reference_type: 'money_donation',
+          reference_id: donation.id,
+          temple_id: donation.temple_id,
+          created_by: donation.created_by,
+          created_at: db.fn.now(),
+        });
+        donationCreated++;
+      } else {
+        donationSkipped++;
+      }
+    }
+
+    totalCreated = poojaCreated + donationCreated;
+    totalSkipped = poojaSkipped + donationSkipped;
+
+    res.json({ 
+      success: true, 
+      created: totalCreated, 
+      skipped: totalSkipped, 
+      total: poojas.length + moneyDonations.length,
+      details: {
+        pooja: { created: poojaCreated, skipped: poojaSkipped, total: poojas.length },
+        moneyDonations: { created: donationCreated, skipped: donationSkipped, total: moneyDonations.length }
+      }
+    });
   } catch (err) {
-    console.error('Error syncing pooja to journal:', err);
-    res.status(500).json({ error: 'Failed to sync pooja entries' });
+    console.error('Error syncing entries to journal:', err);
+    res.status(500).json({ error: 'Failed to sync entries' });
   }
 });
 
@@ -1145,6 +1196,8 @@ app.get('/api/mobile/events', async (req, res) => {
       const templeId = req.user.templeId;
       // BEFORE snapshot
       const beforeRow = await db('money_donations').where({ id }).andWhere('temple_id', templeId).first();
+      if (!beforeRow) return res.status(404).json({ error: 'Not found' });
+      
       const update = {
         register_no: b.registerNo,
         date: b.date,
@@ -1163,6 +1216,64 @@ app.get('/api/mobile/events', async (req, res) => {
       const changed = await db('money_donations').where({ id }).andWhere('temple_id', templeId).update(update);
       if (!changed) return res.status(404).json({ error: 'Not found' });
       const row = await db('money_donations').where({ id }).first();
+
+      // Update corresponding journal entry if it exists
+      try {
+        const hasJournal = await db.schema.hasTable('journal_entries');
+        if (hasJournal) {
+          const existingJournalEntry = await db('journal_entries')
+            .where({ 
+              reference_type: 'money_donation', 
+              reference_id: Number(id),
+              temple_id: templeId 
+            })
+            .first();
+
+          if (existingJournalEntry) {
+            // Update the journal entry with new values
+            const journalUpdate = {
+              date: row.date,
+              amount: row.amount,
+              remarks: row.reason || null,
+              to_account: row.transfer_to_account || 'INCOME A/C',
+              updated_at: db.fn.now(),
+            };
+
+            await db('journal_entries')
+              .where({ 
+                reference_type: 'money_donation', 
+                reference_id: Number(id),
+                temple_id: templeId 
+              })
+              .update(journalUpdate);
+
+            console.log('Successfully updated journal entry for money donation ID:', id);
+          } else {
+            // If no journal entry exists, create one (for backward compatibility)
+            const fromAccount = 'DONATION A/C';
+            const toAccount = row.transfer_to_account || 'INCOME A/C';
+            
+            await db('journal_entries').insert({
+              date: row.date,
+              from_account: fromAccount,
+              to_account: toAccount,
+              amount: row.amount,
+              entry_type: 'transfer',
+              remarks: row.reason || null,
+              reference_type: 'money_donation',
+              reference_id: row.id,
+              temple_id: templeId,
+              created_by: req.user.id,
+              created_at: db.fn.now(),
+            });
+
+            console.log('Created missing journal entry for money donation ID:', id);
+          }
+        }
+      } catch (journalError) {
+        console.error('Failed to update journal entry for donation:', journalError);
+        // Don't fail the main request, but log the error
+      }
 
       // Log update with before/after
       try {
@@ -1191,8 +1302,32 @@ app.get('/api/mobile/events', async (req, res) => {
       const { id } = req.params;
       const templeId = req.user.templeId;
       const existing = await db('money_donations').where({ id }).andWhere('temple_id', templeId).first();
+      if (!existing) return res.status(404).json({ error: 'Not found' });
+
+      // Delete corresponding journal entry first
+      try {
+        const hasJournal = await db.schema.hasTable('journal_entries');
+        if (hasJournal) {
+          const deletedJournalEntries = await db('journal_entries')
+            .where({ 
+              reference_type: 'money_donation', 
+              reference_id: Number(id),
+              temple_id: templeId 
+            })
+            .del();
+
+          if (deletedJournalEntries > 0) {
+            console.log('Successfully deleted journal entry for money donation ID:', id);
+          }
+        }
+      } catch (journalError) {
+        console.error('Failed to delete journal entry for donation:', journalError);
+        // Don't fail the main request, but log the error
+      }
+
       const del = await db('money_donations').where({ id }).andWhere('temple_id', templeId).del();
       if (!del) return res.status(404).json({ error: 'Not found' });
+      
       // Log deletion with snapshot
       try {
         await logMoneyDonationAction({

@@ -85,6 +85,21 @@ export default function MoneyDonationEntry() {
 
   const t = (en: string, ta: string) => language === 'english' ? ta : en;
 
+  // Function to refresh journal after money donation operations
+  const refreshJournal = async () => {
+    try {
+      await fetch('https://tmsapi.xesstechlink.com/api/journal/sync-pooja', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+    } catch (e) {
+      console.error('Failed to sync journal logs:', e);
+    }
+  };
+
   const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
@@ -269,7 +284,7 @@ export default function MoneyDonationEntry() {
       console.log('DEBUG: Form validation passed!');
       if (isEdit && editId) {
         // Update existing donation
-        const updatePayload: any = { ...form };
+        const updatePayload: any = { ...form, transfer_to_account: form.transferTo };
         await moneyDonationService.update(token, editId, updatePayload);
         setIsError(false);
         setMessage(t('Updated successfully', 'வெற்றிகரமாக புதுப்பிக்கப்பட்டது'));
@@ -297,6 +312,9 @@ export default function MoneyDonationEntry() {
         } catch (e) {
           console.error('Failed to load approval logs after update:', e);
         }
+
+        // Refresh journal after successful edit
+        await refreshJournal();
 
         // After fetching logs, navigate back to the list page (short delay to allow user to see message)
         setTimeout(() => {
@@ -333,6 +351,10 @@ export default function MoneyDonationEntry() {
         }
         setIsError(false);
         setMessage(t('Saved successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது'));
+        
+        // Refresh journal after successful create
+        await refreshJournal();
+        
         if (createdId != null) {
           setShowPrintPrompt(true);
         }
@@ -365,6 +387,7 @@ export default function MoneyDonationEntry() {
           reason: d.reason || '',
           transferTo: 'INCOME A/C',
         });
+        setLastCreatedId(editId); // Set lastCreatedId here
       } catch (e) {
         setMessage(t('Failed to load record for edit', 'திருத்தத்திற்கான பதிவை ஏற்ற முடியவில்லை'));
         setIsError(true);

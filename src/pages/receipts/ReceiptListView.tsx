@@ -1,14 +1,31 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Loader2, Eye, Edit, Trash2, Calendar, IndianRupee, ArrowDownCircle, ArrowUpCircle, Plus } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import { toast } from '@/components/ui/use-toast';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
@@ -226,9 +243,6 @@ export default function ReceiptListView() {
   const canEdit = isSuperAdmin || (user as any)?.permissions?.some((p: any) => 
     p.permission_id === 'receipts' && (p.access_level === 'edit' || p.access_level === 'full')
   );
-  const canDelete = isSuperAdmin || (user as any)?.permissions?.some((p: any) => 
-    p.permission_id === 'receipts' && p.access_level === 'full'
-  );
 
   // Fetch receipts function
   const fetchReceipts = async () => {
@@ -252,13 +266,25 @@ export default function ReceiptListView() {
       const result = await res.json();
       if (!result.success) throw new Error(result.error || 'Failed to fetch receipts');
       
-      // Map API response to frontend format
+      // Map API response to frontend format and sort in descending receipt order
       const mappedData = (result.data || []).map(mapApiReceiptToFrontend);
-      setData(mappedData);
+      const sortedData = mappedData.slice().sort((a, b) => {
+        const aNum = parseInt((a.receipt_number || '').replace(/\D/g, '') || '0', 10);
+        const bNum = parseInt((b.receipt_number || '').replace(/\D/g, '') || '0', 10);
+
+        if (bNum !== aNum) {
+          return bNum - aNum;
+        }
+
+        // Fallback to date comparison when receipt numbers match
+        return (b.date || '').localeCompare(a.date || '');
+      });
+
+      setData(sortedData);
       setPagination((prev) => ({ 
         ...prev, 
-        total: result.pagination?.total || mappedData.length || 0, 
-        totalPages: result.pagination?.totalPages || Math.ceil((result.pagination?.total || mappedData.length || 0) / prev.pageSize) 
+        total: result.pagination?.total || sortedData.length || 0, 
+        totalPages: result.pagination?.totalPages || Math.ceil((result.pagination?.total || sortedData.length || 0) / prev.pageSize) 
       }));
     } catch (e) {
       console.error(e);
@@ -595,7 +621,7 @@ export default function ReceiptListView() {
                   </TableHeader>
                   <TableBody>
                     {data.length > 0 ? (
-                      data.map((rec) => (
+                      data.map((rec, index) => (
                         <TableRow key={rec.id}>
                           <TableCell className="font-medium">
                             {rec.receipt_number}
@@ -657,11 +683,13 @@ export default function ReceiptListView() {
                               >
                                 <Search className="h-4 w-4" />
                               </Button>
-                              {canDelete && (
+                              {index === 0 && (
                                 <Button 
                                   variant="ghost" 
                                   size="sm" 
                                   onClick={() => handleDeleteClick(rec.id)}
+                                  title={t('delete')}
+                                  className="text-red-500 hover:text-red-700"
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>

@@ -125,12 +125,24 @@ export default function MoneyDonationList() {
       const res = await fetch(`https://tmsapi.xesstechlink.com/api/money-donations/${donationId}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (!res.ok) throw new Error('Failed to fetch logs');
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('API Error:', res.status, errorText);
+        throw new Error(`Failed to fetch logs: ${res.status}`);
+      }
       const result = await res.json();
-      setLogs(Array.isArray(result?.data) ? result.data : []);
+      console.log('Logs API Response:', result); // Debug log
+      if (result.success) {
+        setLogs(Array.isArray(result.data) ? result.data : []);
+      } else {
+        console.error('API returned error:', result.error);
+        setLogs([]);
+      }
     } catch (e) {
       console.error('Failed to load logs:', e);
       setLogs([]);
+      // Show user-friendly error
+      alert(t('Failed to load logs. Please try again.', 'பதிவுகளை ஏற்ற முடியவில்லை. மீண்டும் முயற்சிக்கவும்.'));
     } finally {
       setLogsLoading(false);
     }
@@ -152,19 +164,27 @@ export default function MoneyDonationList() {
       const res = await fetch(`https://tmsapi.xesstechlink.com/api/money-donations/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (!res.ok) throw new Error('Failed to fetch logs');
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('API Error:', res.status, errorText);
+        throw new Error(`Failed to fetch logs: ${res.status}`);
+      }
       const result = await res.json();
+      console.log('All Logs API Response:', result); // Debug log
       if (result.success) {
         setAllLogs(Array.isArray(result.data) ? result.data : []);
         setAllLogsTotal(Number(result.total || 0));
         setAllLogsPage(pageNum);
       } else {
+        console.error('API returned error:', result.error);
         throw new Error(result.error || 'Failed to load logs');
       }
     } catch (e) {
       console.error('Failed to load all logs:', e);
       setAllLogs([]);
       setAllLogsTotal(0);
+      // Show user-friendly error
+      alert(t('Failed to load logs. Please try again.', 'பதிவுகளை ஏற்ற முடியவில்லை. மீண்டும் முயற்சிக்கவும்.'));
     } finally {
       setAllLogsLoading(false);
     }
@@ -225,6 +245,21 @@ export default function MoneyDonationList() {
     navigate(`/dashboard/donations/money-entry?editId=${row.id}`);
   };
 
+  // Function to refresh journal after money donation operations
+  const refreshJournal = async () => {
+    try {
+      await fetch('https://tmsapi.xesstechlink.com/api/journal/sync-pooja', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+    } catch (e) {
+      console.error('Failed to sync journal logs:', e);
+    }
+  };
+
   // Delete confirmation modal state
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteRow, setDeleteRow] = useState<MoneyDonationItem | null>(null);
@@ -243,6 +278,8 @@ export default function MoneyDonationList() {
     try {
       await moneyDonationService.delete(token, deleteRow.id);
       setItems(prev => prev.filter(it => it.id !== deleteRow.id));
+      // Refresh journal logs after successful delete
+      await refreshJournal();
     } catch (e) {
       console.error('Failed to delete donation', e);
       // Optional: use toast if available; fallback alert

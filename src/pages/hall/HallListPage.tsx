@@ -4,6 +4,7 @@ import { useLanguage } from '@/lib/language';
 import { PrintButton } from '@/components/ui/print-button';
 import { Modal } from '@/components/ui/modal';
 import { useNavigate } from 'react-router-dom';
+import { Trash2 } from 'lucide-react';
 
 interface HallBooking {
   id: number;
@@ -35,7 +36,14 @@ export default function HallListPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(10);
+  const [totalRecords, setTotalRecords] = useState(0);
 
+
+  
   const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
   const handleEdit = (id: number) => {
@@ -122,7 +130,7 @@ export default function HallListPage() {
     );
   }, [rows]);
 
-  const fetchData = async () => {
+  const fetchData = async (page: number = currentPage) => {
     setLoading(true);
     setError(undefined);
     try {
@@ -130,11 +138,30 @@ export default function HallListPage() {
       if (q) params.set('q', q);
       if (from) params.set('from', from);
       if (to) params.set('to', to);
+      params.set('sort', 'desc'); // Add descending order parameter
+      params.set('page', page.toString());
+      params.set('limit', pageSize.toString());
       const url = 'https://tmsapi.xesstechlink.com/api/hall-bookings' + (params.toString() ? `?${params.toString()}` : '');
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error('Failed');
       const data = await res.json();
-      setRows(data.data || []);
+      
+      // Handle paginated response
+      if (data.data && Array.isArray(data.data)) {
+        setRows(data.data);
+        setTotalRecords(data.total || data.data.length);
+      } else if (Array.isArray(data)) {
+        // Fallback for non-paginated response
+        const sortedData = data.sort((a: HallBooking, b: HallBooking) => b.id - a.id);
+        setRows(sortedData);
+        setTotalRecords(sortedData.length);
+      } else {
+        setRows([]);
+        setTotalRecords(0);
+      }
+      
+      // Scroll to top when page changes
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
       setError(err.message || 'Failed to load');
     } finally {
@@ -209,8 +236,8 @@ export default function HallListPage() {
         />
         <input type="date" className="border px-2 py-1 rounded text-xs" value={from} onChange={(e) => setFrom(e.target.value)} />
         <input type="date" className="border px-2 py-1 rounded text-xs" value={to} onChange={(e) => setTo(e.target.value)} />
-        <button className="border px-2 py-1 rounded" onClick={fetchData}>{t('Search', 'தேடுக')}</button>
-        <button className="border px-2 py-1 rounded" onClick={() => { setQ(''); setFrom(''); setTo(''); }}>{t('Clear', 'அழி')}</button>
+        <button className="border px-2 py-1 rounded" onClick={() => { setCurrentPage(1); fetchData(1); }}>{t('Search', 'தேடுக')}</button>
+        <button className="border px-2 py-1 rounded" onClick={() => { setQ(''); setFrom(''); setTo(''); setCurrentPage(1); fetchData(1); }}>{t('Clear', 'அழி')}</button>
         <div className="flex gap-1">
           <button className="border px-2 py-1 rounded flex-1" onClick={handleExportCSV}>{t('CSV', 'CSV')}</button>
           <button className="border px-2 py-1 rounded flex-1" onClick={handleExportPDF}>{t('PDF', 'PDF')}</button>
@@ -268,9 +295,11 @@ export default function HallListPage() {
                     setSelectedBookingId(r.id);
                     setShowDeleteModal(true);
                   }}
-                  className="border px-2 py-1 rounded hover:bg-red-100 text-red-600 text-xs"
+                  className={`border px-2 py-1 rounded hover:bg-red-100 text-red-600 ${idx === 0 ? '' : 'opacity-50 cursor-not-allowed'}`}
+                  title={t('Delete', 'நீக்கு')}
+                  disabled={idx !== 0}
                 >
-                  {t('Delete', 'நீக்கு')}
+                  <Trash2 size={14} />
                 </button>
               </div>
             </td>
@@ -284,13 +313,81 @@ export default function HallListPage() {
 
       {/* Totals */}
       <div className="mt-2 flex justify-between text-xs text-gray-600">
-        <div>{t('Total records', 'மொத்த பதிவுகள்')}: {rows.length}</div>
+        <div>
+          {t('Showing', 'காட்டப்படுகிறது')} {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalRecords)} {t('of', 'இல்')} {totalRecords} {t('records', 'பதிவுகள்')}
+        </div>
         <div className="flex gap-3">
           <span>{t('Advance', 'முன்பணம்')}: {totals.advance.toLocaleString()}</span>
           <span>{t('Total', 'மொத்தம்')}: {totals.total.toLocaleString()}</span>
           <span>{t('Balance', 'இருப்பு')}: {totals.balance.toLocaleString()}</span>
         </div>
       </div>
+
+      {/* Debug info - remove this later */}
+      <div className="mt-2 text-xs text-gray-500">
+        Debug: totalRecords={totalRecords}, pageSize={pageSize}, currentPage={currentPage}, showPagination={totalRecords >= pageSize}
+      </div>
+
+      {/* Pagination Controls */}
+      {totalRecords >= pageSize && (
+        <div className="mt-3 flex justify-center items-center gap-2">
+          <button
+            onClick={() => {
+              const newPage = currentPage - 1;
+              setCurrentPage(newPage);
+              fetchData(newPage);
+            }}
+            disabled={currentPage === 1}
+            className="border px-3 py-1 rounded text-xs hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed bg-white"
+          >
+            {t('Previous', 'முந்தைய')}
+          </button>
+          
+          <div className="flex gap-1">
+            {Array.from({ length: Math.ceil(totalRecords / pageSize) }, (_, i) => i + 1)
+              .filter(page => {
+                // Show first page, last page, current page, and pages around current page
+                return page === 1 || 
+                       page === Math.ceil(totalRecords / pageSize) || 
+                       Math.abs(page - currentPage) <= 2;
+              })
+              .map((page, index, array) => {
+                // Add ellipsis if there's a gap
+                const showEllipsis = index > 0 && page - array[index - 1] > 1;
+                return (
+                  <React.Fragment key={page}>
+                    {showEllipsis && <span className="px-2 text-gray-500">...</span>}
+                    <button
+                      onClick={() => {
+                        setCurrentPage(page);
+                        fetchData(page);
+                      }}
+                      className={`border px-2 py-1 rounded text-xs ${
+                        page === currentPage 
+                          ? 'bg-blue-500 text-white border-blue-500' 
+                          : 'hover:bg-gray-100'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  </React.Fragment>
+                );
+              })}
+          </div>
+          
+          <button
+            onClick={() => {
+              const newPage = currentPage + 1;
+              setCurrentPage(newPage);
+              fetchData(newPage);
+            }}
+            disabled={currentPage >= Math.ceil(totalRecords / pageSize)}
+            className="border px-3 py-1 rounded text-xs hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed bg-white"
+          >
+            {t('Next', 'அடுத்து')}
+          </button>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedBookingId && (
@@ -327,8 +424,8 @@ export default function HallListPage() {
                     throw new Error('Failed to delete booking');
                   }
 
-                  // Refresh the list
-                  fetchData();
+                  // Refresh the current page
+                  fetchData(currentPage);
                   
                   // Close modal
                   setShowDeleteModal(false);

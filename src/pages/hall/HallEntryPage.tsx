@@ -374,6 +374,10 @@ export default function HallEntryPage() {
         }
         setShowPrintPrompt(true);
         setForm({ ...initialState, registerNo: '' });
+      } else {
+        // For edit mode, redirect to list page after successful update
+        navigate('/dashboard/hall/list');
+        return;
       }
       
       setIsError(false);

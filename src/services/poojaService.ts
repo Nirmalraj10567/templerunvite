@@ -57,7 +57,7 @@ interface ApiResponse<T> {
 }
 
 class PoojaService {
-  private baseUrl = `${import.meta.env.VITE_API_BASE_URL || ''}/api/pooja`;
+  private baseUrl = `${import.meta.env.VITE_API_BASE_URL || 'https://tmsapi.xesstechlink.com'}/api/pooja`;
   private token: string | null = null;
 
   constructor() {

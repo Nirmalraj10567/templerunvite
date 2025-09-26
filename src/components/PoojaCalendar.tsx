@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useLanguage } from '@/lib/language';
 import { poojaService, PoojaBooking } from '@/services/poojaService';
 
 interface PoojaCalendarProps {
@@ -20,24 +20,34 @@ export default function PoojaCalendar({
   className = '',
   showBookingTimes = true
 }: PoojaCalendarProps) {
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(() => {
+    // Initialize with current date, but ensure it's in the correct timezone
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  });
   const [bookings, setBookings] = useState<PoojaBooking[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { token } = useAuth();
   const { language } = useLanguage();
 
-  const t = (en: string, ta: string) => language === 'tamil' ? ta : en;
+  const t = (en: string, ta: string) => language === 'english' ? ta : en;
 
   // Fetch bookings for current month
   const fetchBookings = async (year: number, month: number) => {
-    if (!token) return;
+    if (!token) {
+      console.warn('PoojaCalendar: No token available, skipping bookings fetch');
+      return;
+    }
     
     setIsLoading(true);
     try {
+      console.log(`PoojaCalendar: Fetching bookings for ${year}-${month}`);
       const result = await poojaService.getBookings(year, month);
+      console.log('PoojaCalendar: Bookings result:', result);
       setBookings(result.data || []);
     } catch (error) {
-      console.error('Error fetching bookings:', error);
+      console.error('PoojaCalendar: Error fetching bookings:', error);
+      setBookings([]); // Set empty array on error
     } finally {
       setIsLoading(false);
     }
@@ -65,11 +75,12 @@ export default function PoojaCalendar({
     return bookings.filter((booking) => {
       const from = norm((booking as any).from_date);
       const to = norm((booking as any).to_date);
-      // Anchor comparisons at 12:00 local to avoid timezone crossing issues
-      const bookingStart = new Date(from + 'T00:00:00');
-      const bookingEnd = new Date(to + 'T23:59:59');
-      const checkDate = new Date(date + 'T12:00:00');
-      return checkDate >= bookingStart && checkDate <= bookingEnd;
+      
+      // Simple string comparison for YYYY-MM-DD format dates
+      const checkDateNorm = date.slice(0, 10);
+      
+      // Check if the date falls within the booking range (inclusive)
+      return checkDateNorm >= from && checkDateNorm <= to;
     });
   };
 
@@ -78,7 +89,11 @@ export default function PoojaCalendar({
   };
 
   const formatDate = (date: Date) => {
-    return date.toISOString().split('T')[0];
+    // Use local date formatting to avoid timezone issues
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   const getDaysInMonth = (date: Date) => {
@@ -219,7 +234,15 @@ export default function PoojaCalendar({
             {showBookingTimes && selectedDate && (
               <div className="mt-4 p-3 bg-gray-50 rounded-lg">
                 <h4 className="text-sm font-medium mb-2">
-                  {t('Bookings for', 'பதிவுகள்')} {new Date(selectedDate + 'T12:00:00').toLocaleDateString()}
+                  {t('Bookings for', 'பதிவுகள்')} {(() => {
+                    try {
+                      const [year, month, day] = selectedDate.split('-');
+                      const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                      return date.toLocaleDateString(language === 'english' ? 'ta-IN' : 'en-IN');
+                    } catch {
+                      return selectedDate;
+                    }
+                  })()}
                 </h4>
                 {(() => {
                   const dayBookings = getBookingsForDate(selectedDate);

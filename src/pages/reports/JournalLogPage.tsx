@@ -276,7 +276,10 @@ export default function JournalLogPage() {
                     });
                     const result = await response.json();
                     if (result.success) {
-                      alert(`Synced ${result.created} pooja entries to journal (${result.skipped} already existed)`);
+                      const message = result.details ? 
+                        `Synced ${result.created} entries to journal (${result.skipped} already existed)\n- Pooja: ${result.details.pooja.created} new, ${result.details.pooja.skipped} existing\n- Money Donations: ${result.details.moneyDonations.created} new, ${result.details.moneyDonations.skipped} existing` :
+                        `Synced ${result.created} entries to journal (${result.skipped} already existed)`;
+                      alert(message);
                       load(); // Refresh the list
                     } else {
                       alert('Sync failed: ' + result.error);
@@ -304,6 +307,35 @@ export default function JournalLogPage() {
               >
                 <FileText className="h-4 w-4 mr-2" />
                 {t('Export PDF', 'PDF ஏற்றுமதி')}
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={async () => {
+                  try {
+                    const response = await fetch('https://tmsapi.xesstechlink.com/api/journal/sync-pooja', {
+                      method: 'POST',
+                      headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                      }
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                      const message = result.details ? 
+                        `Synced ${result.created} entries to journal (${result.skipped} already existed)\n- Pooja: ${result.details.pooja.created} new, ${result.details.pooja.skipped} existing\n- Money Donations: ${result.details.moneyDonations.created} new, ${result.details.moneyDonations.skipped} existing` :
+                        `Synced ${result.created} entries to journal (${result.skipped} already existed)`;
+                      alert(message);
+                      load(); // Refresh the list
+                    } else {
+                      alert('Sync failed: ' + result.error);
+                    }
+                  } catch (e: any) {
+                    alert('Sync failed: ' + e.message);
+                  }
+                }}
+                disabled={isLoading || !token}
+              >
+                {t('Sync Pooja', 'பூஜை ஒத்திசைவு')}
               </Button>
               <Button variant="outline" onClick={() => navigate(-1)}>{t('Back', 'பின் செல்ல')}</Button>
               <Button onClick={load} disabled={isLoading}>{t('Refresh', 'புதுப்பிக்க')}</Button>
