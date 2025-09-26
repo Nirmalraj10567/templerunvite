@@ -49,14 +49,6 @@ export default function MoneyDonationEntry() {
     performed_by_name?: string; // from backend join
   }
   const [approvalLogs, setApprovalLogs] = useState<ApprovalLog[]>([]);
-  // Money donation logs state (backend logs)
-  const [donationLogs, setDonationLogs] = useState<Array<{
-    id: number;
-    action: string;
-    created_at: string;
-    created_by: number | null;
-    details: any;
-  }>>([]);
 
   // Auto-hide success messages after 4 seconds (do not hide error messages)
   const messageTimeoutRef = React.useRef<number | null>(null);
@@ -88,7 +80,7 @@ export default function MoneyDonationEntry() {
   // Function to refresh journal after money donation operations
   const refreshJournal = async () => {
     try {
-      await fetch('https://tmsapi.xesstechlink.com/api/journal/sync-pooja', {
+      await fetch('http://localhost:4000/api/journal/sync-pooja', {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -130,7 +122,7 @@ export default function MoneyDonationEntry() {
     const loadLogs = async () => {
       try {
         if (!lastCreatedId || !token) return;
-        const res = await fetch(`https://tmsapi.xesstechlink.com/api/donations-approval/request/${lastCreatedId}`, {
+        const res = await fetch(`http://localhost:4000/api/donations-approval/request/${lastCreatedId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!res.ok) return;
@@ -143,20 +135,6 @@ export default function MoneyDonationEntry() {
     loadLogs();
   }, [lastCreatedId, token]);
 
-  // Load backend money donation change logs for the newly created donation
-  useEffect(() => {
-    const loadDonationLogs = async () => {
-      try {
-        if (!lastCreatedId || !token) return;
-        const response = await moneyDonationService.getLogs(token, lastCreatedId);
-        setDonationLogs(Array.isArray(response.data) ? response.data : []);
-      } catch (e) {
-        console.error('Failed to load donation logs:', e);
-        setDonationLogs([]);
-      }
-    };
-    loadDonationLogs();
-  }, [lastCreatedId, token]);
 
   // Compute next register number by year using existing records (reusable)
   const computeNextRegisterNo = useCallback(async (): Promise<string | null> => {
@@ -292,16 +270,9 @@ export default function MoneyDonationEntry() {
         console.log('DEBUG: Update successful, setting lastCreatedId to fetch logs for id:', editId);
         setLastCreatedId(editId);
 
-        // Fetch donation logs and approval logs immediately so UI has updated logs
-        try {
-          const dResp = await moneyDonationService.getLogs(token, editId);
-          setDonationLogs(Array.isArray(dResp.data) ? dResp.data : []);
-        } catch (e) {
-          console.error('Failed to load donation logs after update:', e);
-        }
         try {
           if (token) {
-            const res = await fetch(`https://tmsapi.xesstechlink.com/api/donations-approval/request/${editId}`, {
+            const res = await fetch(`http://localhost:4000/api/donations-approval/request/${editId}`, {
               headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
@@ -407,38 +378,6 @@ export default function MoneyDonationEntry() {
             <AlertTitle>{isError ? t('Error', 'பிழை') : t('Success', 'வெற்றி')}</AlertTitle>
             <AlertDescription>{message}</AlertDescription>
           </Alert>
-        </div>
-      )}
-      {/* Show logs for the newly created donation, if any */}
-      {lastCreatedId != null && donationLogs.length > 0 && (
-        <div className="mb-4 border rounded p-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">{t('Change Logs', 'மாற்றுப் பதிவுகள்')} #{lastCreatedId}</h2>
-          </div>
-          <div className="max-h-72 overflow-y-auto mt-2">
-            <table className="min-w-full text-xs">
-              <thead className="bg-gray-50 sticky top-0">
-                <tr>
-                  <th className="text-left px-2 py-1">{t('Time', 'நேரம்')}</th>
-                  <th className="text-left px-2 py-1">{t('Action', 'செயல்')}</th>
-                  <th className="text-left px-2 py-1">{t('User', 'பயனர்')}</th>
-                  <th className="text-left px-2 py-1">{t('Details', 'விவரங்கள்')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {donationLogs.map((lg) => (
-                  <tr key={lg.id} className="border-t align-top">
-                    <td className="px-2 py-1 whitespace-nowrap">{lg.created_at ? new Date(lg.created_at).toLocaleString(language === 'tamil' ? 'ta-IN' : 'en-IN') : '-'}</td>
-                    <td className="px-2 py-1">{lg.action}</td>
-                    <td className="px-2 py-1">{lg.created_by ?? '-'}</td>
-                    <td className="px-2 py-1">
-                      <pre className="whitespace-pre-wrap break-words text-[10px] bg-gray-50 p-2 rounded border">{JSON.stringify(lg.details, null, 2)}</pre>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
         </div>
       )}
       <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-3">

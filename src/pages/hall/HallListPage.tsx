@@ -23,6 +23,17 @@ interface HallBooking {
   remarks: string | null;
 }
 
+interface HallBookingLog {
+  id: number;
+  hall_booking_id: number;
+  action: string;
+  created_at: string;
+  created_by: number | null;
+  hall_booking_name: string | null;
+  receipt_number: string | null;
+  details: any;
+}
+
 export default function HallListPage() {
   const { token } = useAuth();
   const { language } = useLanguage();
@@ -41,10 +52,78 @@ export default function HallListPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10);
   const [totalRecords, setTotalRecords] = useState(0);
+  
+  // Logs state
+  const [logsFor, setLogsFor] = useState<number | null>(null);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logs, setLogs] = useState<HallBookingLog[]>([]);
+  const [allLogsOpen, setAllLogsOpen] = useState(false);
+  const [allLogsLoading, setAllLogsLoading] = useState(false);
+  const [allLogs, setAllLogs] = useState<HallBookingLog[]>([]);
+  const [allLogsTotal, setAllLogsTotal] = useState(0);
+  const [allLogsPage, setAllLogsPage] = useState(1);
+  const [allLogsPageSize] = useState(50);
 
 
   
   const t = (en: string, ta: string) => (language === 'english' ? ta : en);
+
+  // Logs functions
+  const openLogs = async (item: HallBooking) => {
+    setLogsFor(item.id);
+    setLogsLoading(true);
+    try {
+      const response = await fetch(`http://localhost:4000/api/hall-bookings/${item.id}/logs`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Failed to fetch logs');
+      const result = await response.json();
+      if (result.success) {
+        setLogs(result.data || []);
+      }
+    } catch (e) {
+      console.error('Failed to load logs:', e);
+      setLogs([]);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  const closeLogs = () => {
+    setLogsFor(null);
+    setLogs([]);
+  };
+
+  const openAllLogs = async () => {
+    setAllLogsOpen(true);
+    setAllLogsLoading(true);
+    await loadAllHallBookingLogs();
+  };
+
+  const loadAllHallBookingLogs = async () => {
+    try {
+      const response = await fetch(`http://localhost:4000/api/hall-bookings/logs?page=${allLogsPage}&pageSize=${allLogsPageSize}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Failed to fetch logs');
+      const result = await response.json();
+      if (result.success) {
+        setAllLogs(result.data || []);
+        setAllLogsTotal(result.total || 0);
+      }
+    } catch (e) {
+      console.error('Failed to load all logs:', e);
+      setAllLogs([]);
+    } finally {
+      setAllLogsLoading(false);
+    }
+  };
+
+  const closeAllLogs = () => {
+    setAllLogsOpen(false);
+    setAllLogs([]);
+    setAllLogsPage(1);
+  };
 
   const handleEdit = (id: number) => {
     navigate(`/dashboard/hall/edit/${id}`);
@@ -141,7 +220,7 @@ export default function HallListPage() {
       params.set('sort', 'desc'); // Add descending order parameter
       params.set('page', page.toString());
       params.set('limit', pageSize.toString());
-      const url = 'https://tmsapi.xesstechlink.com/api/hall-bookings' + (params.toString() ? `?${params.toString()}` : '');
+      const url = 'http://localhost:4000/api/hall-bookings' + (params.toString() ? `?${params.toString()}` : '');
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error('Failed');
       const data = await res.json();
@@ -185,7 +264,7 @@ export default function HallListPage() {
   const handleExportCSV = async () => {
     try {
       const qs = buildQueryString();
-      const url = 'https://tmsapi.xesstechlink.com/api/hall-bookings/export' + (qs ? `?${qs}` : '');
+      const url = 'http://localhost:4000/api/hall-bookings/export' + (qs ? `?${qs}` : '');
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error('Failed to export CSV');
       const blob = await res.blob();
@@ -205,7 +284,7 @@ export default function HallListPage() {
   const handleExportPDF = async () => {
     try {
       const qs = buildQueryString();
-      const url = 'https://tmsapi.xesstechlink.com/api/hall-bookings/export-pdf' + (qs ? `?${qs}` : '');
+      const url = 'http://localhost:4000/api/hall-bookings/export-pdf' + (qs ? `?${qs}` : '');
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error('Failed to export PDF');
       const blob = await res.blob();
@@ -241,6 +320,7 @@ export default function HallListPage() {
         <div className="flex gap-1">
           <button className="border px-2 py-1 rounded flex-1" onClick={handleExportCSV}>{t('CSV', 'CSV')}</button>
           <button className="border px-2 py-1 rounded flex-1" onClick={handleExportPDF}>{t('PDF', 'PDF')}</button>
+          <button className="border px-2 py-1 rounded flex-1" onClick={openAllLogs}>{t('All Logs', 'அனைத்து பதிவுகள்')}</button>
         </div>
       </div>
 
@@ -289,6 +369,12 @@ export default function HallListPage() {
                   className="border px-2 py-1 rounded hover:bg-gray-100 text-xs"
                 >
                   {t('Edit', 'திருத்து')}
+                </button>
+                <button 
+                  onClick={() => openLogs(r)}
+                  className="border px-2 py-1 rounded hover:bg-green-100 text-green-600 text-xs"
+                >
+                  {t('Logs', 'பதிவுகள்')}
                 </button>
                 <button 
                   onClick={() => {
@@ -415,7 +501,7 @@ export default function HallListPage() {
                 if (!selectedBookingId) return;
                 setDeleting(true);
                 try {
-                  const res = await fetch(`https://tmsapi.xesstechlink.com/api/hall-bookings/${selectedBookingId}`, {
+                  const res = await fetch(`http://localhost:4000/api/hall-bookings/${selectedBookingId}`, {
                     method: 'DELETE',
                     headers: { Authorization: `Bearer ${token}` },
                   });
@@ -441,6 +527,167 @@ export default function HallListPage() {
             >
               {deleting ? t('Deleting...', 'நீக்குகிறது...') : t('Delete', 'நீக்கு')}
             </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* All Hall Booking Logs Modal */}
+      {allLogsOpen && (
+        <Modal title={t('All Hall Booking Logs', 'அனைத்து மண்டப பதிவு பதிவுகள்')} onClose={closeAllLogs}>
+          <div className="max-h-96 overflow-y-auto">
+            {allLogsLoading ? (
+              <div className="flex items-center justify-center h-32">
+                <div className="text-sm text-muted-foreground">Loading logs...</div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-2">{t('Action', 'செயல்')}</th>
+                      <th className="text-left p-2">{t('Booking', 'பதிவு')}</th>
+                      <th className="text-left p-2">{t('Receipt', 'ரசீது')}</th>
+                      <th className="text-left p-2">{t('Date', 'தேதி')}</th>
+                      <th className="text-left p-2">{t('Details', 'விவரங்கள்')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allLogs.length > 0 ? (
+                      allLogs.map((log) => (
+                        <tr key={log.id} className="border-b">
+                          <td className="p-2">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              log.action === 'create' ? 'bg-green-100 text-green-800' :
+                              log.action === 'update' ? 'bg-blue-100 text-blue-800' :
+                              log.action === 'delete' ? 'bg-red-100 text-red-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {log.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
+                               log.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
+                               log.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
+                               log.action}
+                            </span>
+                          </td>
+                          <td className="p-2">{log.hall_booking_name || '-'}</td>
+                          <td className="p-2">{log.receipt_number || '-'}</td>
+                          <td className="p-2">
+                            {new Date(log.created_at).toLocaleString()}
+                          </td>
+                          <td className="p-2 max-w-xs">
+                            <div className="text-xs text-muted-foreground">
+                              {log.details ? (
+                                <pre className="whitespace-pre-wrap break-words">
+                                  {JSON.stringify(log.details, null, 2)}
+                                </pre>
+                              ) : '-'}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="h-24 text-center text-muted-foreground">
+                          {t('No logs found', 'பதிவுகள் எதுவும் கிடைக்கவில்லை')}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          {allLogsTotal > allLogsPageSize && (
+            <div className="mt-4 flex justify-between items-center">
+              <div className="text-sm text-muted-foreground">
+                {t('Showing', 'காட்டப்படுகிறது')} {((allLogsPage - 1) * allLogsPageSize) + 1} - {Math.min(allLogsPage * allLogsPageSize, allLogsTotal)} {t('of', 'மொத்தம்')} {allLogsTotal}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setAllLogsPage(prev => Math.max(1, prev - 1));
+                    loadAllHallBookingLogs();
+                  }}
+                  disabled={allLogsPage <= 1}
+                  className="px-2 py-1 text-xs border rounded disabled:opacity-50"
+                >
+                  {t('Previous', 'முந்தைய')}
+                </button>
+                <button
+                  onClick={() => {
+                    setAllLogsPage(prev => prev + 1);
+                    loadAllHallBookingLogs();
+                  }}
+                  disabled={allLogsPage * allLogsPageSize >= allLogsTotal}
+                  className="px-2 py-1 text-xs border rounded disabled:opacity-50"
+                >
+                  {t('Next', 'அடுத்து')}
+                </button>
+              </div>
+            </div>
+          )}
+        </Modal>
+      )}
+
+      {/* Hall Booking Logs Modal */}
+      {logsFor && (
+        <Modal title={t('Hall Booking Logs', 'மண்டப பதிவு பதிவுகள்')} onClose={closeLogs}>
+          <div className="max-h-96 overflow-y-auto">
+            {logsLoading ? (
+              <div className="flex items-center justify-center h-32">
+                <div className="text-sm text-muted-foreground">Loading logs...</div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-2">{t('Action', 'செயல்')}</th>
+                      <th className="text-left p-2">{t('Date', 'தேதி')}</th>
+                      <th className="text-left p-2">{t('Details', 'விவரங்கள்')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {logs.length > 0 ? (
+                      logs.map((log) => (
+                        <tr key={log.id} className="border-b">
+                          <td className="p-2">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              log.action === 'create' ? 'bg-green-100 text-green-800' :
+                              log.action === 'update' ? 'bg-blue-100 text-blue-800' :
+                              log.action === 'delete' ? 'bg-red-100 text-red-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {log.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
+                               log.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
+                               log.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
+                               log.action}
+                            </span>
+                          </td>
+                          <td className="p-2">
+                            {new Date(log.created_at).toLocaleString()}
+                          </td>
+                          <td className="p-2 max-w-xs">
+                            <div className="text-xs text-muted-foreground">
+                              {log.details ? (
+                                <pre className="whitespace-pre-wrap break-words">
+                                  {JSON.stringify(log.details, null, 2)}
+                                </pre>
+                              ) : '-'}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={3} className="h-24 text-center text-muted-foreground">
+                          {t('No logs found', 'பதிவுகள் எதுவும் கிடைக்கவில்லை')}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </Modal>
       )}

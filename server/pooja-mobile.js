@@ -92,9 +92,27 @@ module.exports = function(deps = {}) {
         });
       }
 
+      // Resolve a valid temple id
+      let templeId = Number(req.body?.temple_id) || null;
+      try {
+        if (templeId) {
+          const t = await db('temples').where({ id: templeId }).first();
+          if (!t) templeId = null;
+        }
+        if (!templeId) {
+          // fallback: pick the first available temple id, else 1
+          let row = null;
+          try { row = await db('temples').min({ id: 'id' }).first(); } catch {}
+          templeId = Number(row?.id) || 1;
+        }
+      } catch (e) {
+        // If temples table not accessible, fallback to 1
+        templeId = 1;
+      }
+
       // Check for double booking
       const conflictingBooking = await db('pooja')
-        .where('temple_id', 1) // Default temple
+        .where('temple_id', templeId)
         .where('status', 'approved')
         .where(function() {
           this.whereBetween('from_date', [from_date, to_date])
@@ -116,7 +134,7 @@ module.exports = function(deps = {}) {
 
       // Insert pooja request
       const [poojaId] = await db('pooja').insert({
-        temple_id: 1,
+        temple_id: templeId,
         receipt_number,
         name,
         mobile_number: req.userMobile,
@@ -397,7 +415,7 @@ module.exports = function(deps = {}) {
       return res.json({
         success: true,
         temple_id: templeId,
-        latest_receipt_number: latestNumber,
+        latest_receipt_number: latestNumber && /^\d+$/.test(latestNumber) ? String(Number(latestNumber) + 1) : latestNumber,
         next_receipt_number: nextNumber
       });
     } catch (err) {

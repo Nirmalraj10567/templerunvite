@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
+
 // Function to generate the next receipt number in format YYYY-XXXX
 async function generateReceiptNumber(db, templeId) {
   const year = new Date().getFullYear();
@@ -27,6 +28,44 @@ async function generateReceiptNumber(db, templeId) {
 
 module.exports = function(deps = {}) {
   const { db } = deps;
+
+  // Helper to write annadhanam logs
+  async function logAnnadhanamAction({ annadhanamId, templeId, userId, action, details }) {
+    try {
+      const has = await db.schema.hasTable('annadhanam_logs');
+      if (!has) {
+        console.warn('annadhanam_logs table does not exist, creating it...');
+        // Create the table if it doesn't exist
+        await db.schema.createTable('annadhanam_logs', (table) => {
+          table.increments('id').primary();
+          table.integer('temple_id').notNullable().index();
+          table.integer('annadhanam_id').notNullable().index();
+          table.string('action').notNullable(); // create | update | delete
+          table.text('details'); // JSON string with full snapshot/diff
+          table.integer('created_by').nullable().index();
+          table.timestamp('created_at').defaultTo(db.fn.now());
+        });
+        console.log('Created annadhanam_logs table');
+      }
+      
+      const logData = {
+        annadhanam_id: Number(annadhanamId),
+        temple_id: Number(templeId),
+        created_by: userId ? Number(userId) : null,
+        action,
+        details: details ? JSON.stringify(details) : null,
+        created_at: db.fn.now(),
+      };
+      
+      console.log('Inserting annadhanam log:', logData);
+      await db('annadhanam_logs').insert(logData);
+      console.log('Successfully inserted annadhanam log');
+    } catch (e) {
+      console.error('Failed to write annadhanam_logs:', e.message);
+      console.error('Error details:', e);
+      throw e; // Re-throw to let caller handle
+    }
+  }
 
   // List with optional search and date filter
   router.get('/', async (req, res) => {
@@ -71,6 +110,63 @@ module.exports = function(deps = {}) {
     } catch (err) {
       console.error('GET /api/annadhanam/next-receipt error:', err);
       res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Get all logs for the current temple (MUST be before /:id route)
+  router.get('/logs', async (req, res) => {
+    try {
+      console.log('🔍 Fetching all annadhanam logs');
+      console.log('User temple ID:', req.user.templeId);
+      console.log('Query params:', req.query);
+      
+      const templeId = req.user.templeId;
+      const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+      const pageSize = Math.min(200, Math.max(1, parseInt(req.query.pageSize, 10) || 50));
+      const has = await db.schema.hasTable('annadhanam_logs');
+      console.log('Table exists:', has);
+      
+      if (!has) {
+        console.log('⚠️ annadhanam_logs table does not exist');
+        return res.json({ success: true, data: [], total: 0, page, pageSize });
+      }
+      
+      console.log('Building query for temple_id:', templeId);
+      const base = db('annadhanam_logs as l')
+        .leftJoin('annadhanam as a', 'a.id', 'l.annadhanam_id')
+        .where('l.temple_id', templeId);
+      
+      console.log('Counting total logs...');
+      const totalRow = await base.clone().count({ c: '*' }).first();
+      const total = Number(totalRow?.c || totalRow?.count || 0);
+      console.log('Total logs found:', total);
+      
+      console.log('Fetching logs with pagination...');
+      const rows = await base.clone()
+        .orderBy('l.created_at', 'desc')
+        .orderBy('l.id', 'desc')
+        .limit(pageSize)
+        .offset((page - 1) * pageSize)
+        .select('l.*', 'a.name as annadhanam_name', 'a.receipt_number as receipt_number');
+      
+      console.log('Query results:', rows.length, 'logs');
+      console.log('Sample log data:', rows.slice(0, 2));
+      
+      const data = rows.map(r => ({
+        id: r.id,
+        annadhanam_id: r.annadhanam_id,
+        action: r.action,
+        created_at: r.created_at,
+        created_by: r.created_by,
+        annadhanam_name: r.annadhanam_name || null,
+        receipt_number: r.receipt_number || null,
+        details: (() => { try { return r.details ? JSON.parse(r.details) : null; } catch { return r.details; } })(),
+      }));
+      
+      res.json({ success: true, data, total, page, pageSize });
+    } catch (e) {
+      console.error('Error fetching /api/annadhanam/logs:', e);
+      res.status(500).json({ error: 'Failed to fetch logs' });
     }
   });
 
@@ -191,6 +287,22 @@ module.exports = function(deps = {}) {
         // Fallback: return minimal payload if select fails
         createdRow = { id: insertedId, ...record };
       }
+
+      // Log creation with full snapshot
+      try {
+        await logAnnadhanamAction({
+          annadhanamId: insertedId,
+          templeId: req.user.templeId,
+          userId: req.user.id,
+          action: 'create',
+          details: createdRow || { ...record, id: insertedId },
+        });
+        console.log('Successfully logged annadhanam creation for ID:', insertedId);
+      } catch (logError) {
+        console.error('Failed to log annadhanam creation:', logError);
+        // Don't fail the request if logging fails, but log the error
+      }
+
       res.json({ success: true, data: createdRow });
     } catch (err) {
       console.error('POST /api/annadhanam error:', err);
@@ -201,6 +313,11 @@ module.exports = function(deps = {}) {
   // Update annadhanam entry
   router.put('/:id', async (req, res) => {
     try {
+      console.log('🔍 Annadhanam update API called');
+      console.log('Request params:', req.params);
+      console.log('Request body:', req.body);
+      console.log('User:', req.user);
+      
       const { id } = req.params;
       const body = req.body || {};
 
@@ -290,6 +407,32 @@ module.exports = function(deps = {}) {
       }
       
       const annadhanam = await db('annadhanam').where({ id }).first();
+
+      // Log update with before/after
+      try {
+        console.log('🔍 Attempting to log annadhanam update...');
+        console.log('Log data:', {
+          annadhanamId: id,
+          templeId: req.user.templeId,
+          userId: req.user.id,
+          action: 'update',
+          details: { before: null, after: annadhanam || null }
+        });
+        
+        await logAnnadhanamAction({
+          annadhanamId: id,
+          templeId: req.user.templeId,
+          userId: req.user.id,
+          action: 'update',
+          details: { before: null, after: annadhanam || null }, // We don't have before state in this context
+        });
+        console.log('✅ Successfully logged annadhanam update for ID:', id);
+      } catch (logError) {
+        console.error('❌ Failed to log annadhanam update:', logError);
+        console.error('Log error details:', logError);
+        // Don't fail the request if logging fails, but log the error
+      }
+
       res.json({ success: true, data: annadhanam });
     } catch (err) {
       console.error('PUT /api/annadhanam/:id error:', err);
@@ -301,6 +444,10 @@ module.exports = function(deps = {}) {
   router.delete('/:id', async (req, res) => {
     try {
       const { id } = req.params;
+      
+      // Get the data before deleting for logging
+      const beforeRow = await db('annadhanam').where({ id }).andWhere('temple_id', req.user.templeId).first();
+      
       const result = await db('annadhanam')
         .where({ id })
         .andWhere('temple_id', req.user.templeId)
@@ -308,6 +455,21 @@ module.exports = function(deps = {}) {
       
       if (!result) {
         return res.status(404).json({ error: 'Annadhanam entry not found' });
+      }
+
+      // Log deletion with before snapshot
+      try {
+        await logAnnadhanamAction({
+          annadhanamId: id,
+          templeId: req.user.templeId,
+          userId: req.user.id,
+          action: 'delete',
+          details: { before: beforeRow || null, after: null },
+        });
+        console.log('Successfully logged annadhanam deletion for ID:', id);
+      } catch (logError) {
+        console.error('Failed to log annadhanam deletion:', logError);
+        // Don't fail the request if logging fails, but log the error
       }
       
       res.json({ success: true });
@@ -376,6 +538,47 @@ module.exports = function(deps = {}) {
       res.status(500).json({ error: 'Internal server error' });
     }
   });
+
+  // Get logs for a specific annadhanam entry
+  router.get('/:id/logs', async (req, res) => {
+    try {
+      console.log('🔍 Fetching logs for annadhanam ID:', req.params.id);
+      console.log('User temple ID:', req.user.templeId);
+      
+      const { id } = req.params;
+      const templeId = req.user.templeId;
+      const has = await db.schema.hasTable('annadhanam_logs');
+      console.log('Table exists:', has);
+      
+      if (!has) {
+        console.log('⚠️ annadhanam_logs table does not exist');
+        return res.json({ success: true, data: [] });
+      }
+
+      console.log('Querying logs for annadhanam_id:', id, 'temple_id:', templeId);
+      const logs = await db('annadhanam_logs')
+        .where({ annadhanam_id: id, temple_id: templeId })
+        .orderBy('created_at', 'desc')
+        .select('*');
+      
+      console.log('Found logs:', logs.length);
+      console.log('Logs data:', logs);
+
+      const data = logs.map(log => ({
+        id: log.id,
+        action: log.action,
+        created_at: log.created_at,
+        created_by: log.created_by,
+        details: (() => { try { return log.details ? JSON.parse(log.details) : null; } catch { return log.details; } })(),
+      }));
+
+      res.json({ success: true, data });
+    } catch (e) {
+      console.error('Error fetching /api/annadhanam/:id/logs:', e);
+      res.status(500).json({ error: 'Failed to fetch logs' });
+    }
+  });
+
 
   return router;
 };

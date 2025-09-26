@@ -14,6 +14,17 @@ interface ReceiptItem {
   remarks: string;
 }
 
+interface ReceiptLog {
+  id: number;
+  receipt_id: number;
+  action: string;
+  created_at: string;
+  created_by: number | null;
+  receipt_name: string | null;
+  register_no: string | null;
+  details: any;
+}
+
 export default function ReceiptListPage() {
   const { token } = useAuth();
   const { language } = useLanguage();
@@ -24,7 +35,7 @@ export default function ReceiptListPage() {
   const [logOpen, setLogOpen] = useState(false);
   const [logTitle, setLogTitle] = useState('');
   const [logLoading, setLogLoading] = useState(false);
-  const [logs, setLogs] = useState<any[]>([]);
+  const [logs, setLogs] = useState<ReceiptLog[]>([]);
   const [logPage, setLogPage] = useState(1);
   const [logTotal, setLogTotal] = useState(0);
   const [logPageSize] = useState(50);
@@ -251,15 +262,29 @@ export default function ReceiptListPage() {
                         {isAllLogs && <th className="p-1.5 text-left">{t('Reg No', 'பதிவு எண்')}</th>}
                         <th className="p-1.5 text-left">{t('Date', 'தேதி')}</th>
                         <th className="p-1.5 text-left">{t('Action', 'செயல்')}</th>
+                        <th className="p-1.5 text-left">{t('User', 'பயனர்')}</th>
                         <th className="p-1.5 text-left">{t('Details', 'விவரங்கள்')}</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {logs.map((l: any, idx: number) => (
+                      {logs.map((l: ReceiptLog, idx: number) => (
                         <tr key={l.id || idx} className="border-t">
                           {isAllLogs && <td className="p-1.5">{l.register_no || ''}</td>}
                           <td className="p-1.5">{(l.created_at || '').toString().replace('T', ' ').replace('Z','')}</td>
-                          <td className="p-1.5 uppercase">{l.action}</td>
+                          <td className="p-1.5">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              l.action === 'create' ? 'bg-green-100 text-green-800' :
+                              l.action === 'update' ? 'bg-blue-100 text-blue-800' :
+                              l.action === 'delete' ? 'bg-red-100 text-red-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {l.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
+                               l.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
+                               l.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
+                               l.action.toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="p-1.5">{l.created_by ? `User ${l.created_by}` : '-'}</td>
                           <td className="p-1.5 whitespace-pre-wrap">
                             {(() => {
                               const d = l.details;

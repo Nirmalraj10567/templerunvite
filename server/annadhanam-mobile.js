@@ -126,8 +126,45 @@ module.exports = function(deps = {}) {
     }
   });
 
-  // Get user's submitted annadhanam requests
+  // Get all annadhanam requests for a mobile number
   router.get('/my-requests', async (req, res) => {
+    try {
+      const { mobile_number } = req.query;
+      
+      if (!mobile_number) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Mobile number is required' 
+        });
+      }
+      
+      if (!/^\d{10}$/.test(mobile_number)) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Mobile number must be 10 digits' 
+        });
+      }
+      
+      const requests = await db('annadhanam')
+        .where('mobile_number', mobile_number)
+        .orderBy('created_at', 'desc');
+      
+      return res.json({ 
+        success: true, 
+        data: requests,
+        count: requests.length
+      });
+    } catch (error) {
+      console.error('Error getting annadhanam requests:', error);
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Failed to get requests' 
+      });
+    }
+  });
+
+  // Get user's submitted annadhanam requests
+  router.get('/my-submitted-requests', async (req, res) => {
     try {
       const { mobile_number } = req.query;
       if (!mobile_number) {
@@ -373,6 +410,36 @@ module.exports = function(deps = {}) {
     } catch (err) {
       console.error('GET /api/annadhanam-mobile/next-receipt error:', err);
       res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  });
+
+  // Get annadhanam request by receipt number or mobile number
+  router.get('/get', async (req, res) => {
+    try {
+      const { receipt_number, mobile_number } = req.query;
+      
+      if (!receipt_number && !mobile_number) {
+        return res.status(400).json({ success: false, error: 'Must provide either receipt_number or mobile_number' });
+      }
+      
+      let query = db('annadhanam');
+      
+      if (receipt_number) {
+        query = query.where('receipt_number', receipt_number);
+      } else if (mobile_number) {
+        query = query.where('mobile_number', mobile_number);
+      }
+      
+      const request = await query.first();
+      
+      if (!request) {
+        return res.status(404).json({ success: false, error: 'Request not found' });
+      }
+      
+      return res.json({ success: true, data: request });
+    } catch (error) {
+      console.error('Error getting annadhanam request:', error);
+      return res.status(500).json({ success: false, error: 'Failed to get request' });
     }
   });
 

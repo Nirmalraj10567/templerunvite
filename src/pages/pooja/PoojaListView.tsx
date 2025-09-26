@@ -30,6 +30,17 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/lib/language";
 import { poojaService, Pooja, PoojaFormData } from "@/services/poojaService";
 
+interface PoojaLog {
+  id: number;
+  pooja_id: number;
+  action: string;
+  created_at: string;
+  created_by: number | null;
+  pooja_name: string | null;
+  receipt_number: string | null;
+  details: any;
+}
+
 export default function PoojaListView() {
   const navigate = useNavigate();
   const { user, token } = useAuth();
@@ -150,6 +161,18 @@ export default function PoojaListView() {
       failedToDeletePooja: 'Failed to delete pooja',
       poojaUpdatedSuccessfully: 'Pooja updated successfully',
       poojaDeletedSuccessfully: 'Pooja deleted successfully',
+      allLogs: 'All Logs',
+      logs: 'Logs',
+      allPoojaLogs: 'All Pooja Logs',
+      poojaLogs: 'Pooja Logs',
+      action: 'Action',
+      pooja: 'Pooja',
+      date: 'Date',
+      details: 'Details',
+      created: 'Created',
+      updated: 'Updated',
+      deleted: 'Deleted',
+      noLogsFound: 'No logs found',
     }
   };
 
@@ -157,6 +180,63 @@ export default function PoojaListView() {
   const translate = (key: string) => {
     const lang = language === 'tamil' || language === 'english' ? language : 'tamil';
     return (t as any)[lang]?.[key] ?? key;
+  };
+
+  // Logs functions
+  const openLogs = async (item: Pooja) => {
+    setLogsFor(item.id);
+    setLogsLoading(true);
+    try {
+      const response = await fetch(`http://localhost:4000/api/pooja/${item.id}/logs`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Failed to fetch logs');
+      const result = await response.json();
+      if (result.success) {
+        setLogs(result.data || []);
+      }
+    } catch (e) {
+      console.error('Failed to load logs:', e);
+      setLogs([]);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  const closeLogs = () => {
+    setLogsFor(null);
+    setLogs([]);
+  };
+
+  const openAllLogs = async () => {
+    setAllLogsOpen(true);
+    setAllLogsLoading(true);
+    await loadAllPoojaLogs();
+  };
+
+  const loadAllPoojaLogs = async () => {
+    try {
+      const response = await fetch(`http://localhost:4000/api/pooja/logs?page=${allLogsPage}&pageSize=${allLogsPageSize}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Failed to fetch logs');
+      const result = await response.json();
+      if (result.success) {
+        setAllLogs(result.data || []);
+        setAllLogsTotal(result.total || 0);
+      }
+    } catch (e) {
+      console.error('Failed to load all logs:', e);
+      setAllLogs([]);
+    } finally {
+      setAllLogsLoading(false);
+    }
+  };
+
+  const closeAllLogs = () => {
+    setAllLogsOpen(false);
+    setAllLogs([]);
+    setAllLogsPage(1);
   };
 
   const [loading, setLoading] = useState(false);
@@ -172,6 +252,17 @@ export default function PoojaListView() {
   const [viewPooja, setViewPooja] = useState<Pooja | null>(null);
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [categories, setCategories] = useState<Array<{ id: number; value: string; label: string }>>([]);
+  
+  // Logs state
+  const [logsFor, setLogsFor] = useState<number | null>(null);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logs, setLogs] = useState<PoojaLog[]>([]);
+  const [allLogsOpen, setAllLogsOpen] = useState(false);
+  const [allLogsLoading, setAllLogsLoading] = useState(false);
+  const [allLogs, setAllLogs] = useState<PoojaLog[]>([]);
+  const [allLogsTotal, setAllLogsTotal] = useState(0);
+  const [allLogsPage, setAllLogsPage] = useState(1);
+  const [allLogsPageSize] = useState(50);
   
   // Quick search filter
   const [quickSearch, setQuickSearch] = useState("");
@@ -341,7 +432,7 @@ export default function PoojaListView() {
     const load = async () => {
       try {
         if (!token) return;
-        const resp = await fetch('https://tmsapi.xesstechlink.com/api/ledger/categories', { headers: { Authorization: `Bearer ${token}` } });
+        const resp = await fetch('http://localhost:4000/api/ledger/categories', { headers: { Authorization: `Bearer ${token}` } });
         const body = await resp.json().catch(() => ({}));
         const raw = Array.isArray(body?.data) ? body.data : (Array.isArray(body) ? body : []);
         const mapped = (raw || []).map((item: any, idx: number) => {
@@ -471,6 +562,10 @@ export default function PoojaListView() {
               <FileDown className="h-3 w-3 mr-1" />
               {translate("export")}
             </Button>
+            <Button variant="outline" size="sm" onClick={openAllLogs} className="text-xs h-7 px-2">
+              <FileDown className="h-3 w-3 mr-1" />
+              {translate("allLogs")}
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -591,6 +686,15 @@ export default function PoojaListView() {
                                 <Trash2 className="h-3 w-3" />
                               </Button>
                             )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openLogs(pooja)}
+                              className="h-6 w-6 p-0 text-green-600"
+                              title={translate("logs")}
+                            >
+                              <FileDown className="h-3 w-3" />
+                            </Button>
                           </div>
                         </td>
                       )}
@@ -868,6 +972,195 @@ export default function PoojaListView() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* All Pooja Logs Modal */}
+      {allLogsOpen && (
+        <Dialog open={allLogsOpen} onOpenChange={setAllLogsOpen}>
+          <DialogContent className="sm:max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-base">
+                {translate("allPoojaLogs")}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="max-h-96 overflow-y-auto">
+              {allLogsLoading ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="text-sm text-muted-foreground">Loading logs...</div>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-2">{translate("action")}</th>
+                        <th className="text-left p-2">{translate("pooja")}</th>
+                        <th className="text-left p-2">{translate("receipt")}</th>
+                        <th className="text-left p-2">{translate("date")}</th>
+                        <th className="text-left p-2">{translate("details")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allLogs.length > 0 ? (
+                        allLogs.map((log) => (
+                          <tr key={log.id} className="border-b">
+                            <td className="p-2">
+                              <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                log.action === 'create' ? 'bg-green-100 text-green-800' :
+                                log.action === 'update' ? 'bg-blue-100 text-blue-800' :
+                                log.action === 'delete' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {log.action === 'create' ? translate("created") :
+                                 log.action === 'update' ? translate("updated") :
+                                 log.action === 'delete' ? translate("deleted") :
+                                 log.action}
+                              </span>
+                            </td>
+                            <td className="p-2">{log.pooja_name || '-'}</td>
+                            <td className="p-2">{log.receipt_number || '-'}</td>
+                            <td className="p-2">
+                              {new Date(log.created_at).toLocaleString()}
+                            </td>
+                            <td className="p-2 max-w-xs">
+                              <div className="text-xs text-muted-foreground">
+                                {log.details ? (
+                                  <pre className="whitespace-pre-wrap break-words">
+                                    {JSON.stringify(log.details, null, 2)}
+                                  </pre>
+                                ) : '-'}
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={5} className="h-24 text-center text-muted-foreground">
+                            {translate("noLogsFound")}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            {allLogsTotal > allLogsPageSize && (
+              <div className="mt-4 flex justify-between items-center">
+                <div className="text-sm text-muted-foreground">
+                  {translate("showing")} {((allLogsPage - 1) * allLogsPageSize) + 1} - {Math.min(allLogsPage * allLogsPageSize, allLogsTotal)} {translate("of")} {allLogsTotal}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setAllLogsPage(prev => Math.max(1, prev - 1));
+                      loadAllPoojaLogs();
+                    }}
+                    disabled={allLogsPage <= 1}
+                    className="text-xs"
+                  >
+                    {translate("previous")}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setAllLogsPage(prev => prev + 1);
+                      loadAllPoojaLogs();
+                    }}
+                    disabled={allLogsPage * allLogsPageSize >= allLogsTotal}
+                    className="text-xs"
+                  >
+                    {translate("next")}
+                  </Button>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" size="sm" onClick={closeAllLogs} className="text-xs">
+                {translate("close")}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Pooja Logs Modal */}
+      {logsFor && (
+        <Dialog open={!!logsFor} onOpenChange={() => setLogsFor(null)}>
+          <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-base">
+                {translate("poojaLogs")}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="max-h-96 overflow-y-auto">
+              {logsLoading ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="text-sm text-muted-foreground">Loading logs...</div>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-2">{translate("action")}</th>
+                        <th className="text-left p-2">{translate("date")}</th>
+                        <th className="text-left p-2">{translate("details")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {logs.length > 0 ? (
+                        logs.map((log) => (
+                          <tr key={log.id} className="border-b">
+                            <td className="p-2">
+                              <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                log.action === 'create' ? 'bg-green-100 text-green-800' :
+                                log.action === 'update' ? 'bg-blue-100 text-blue-800' :
+                                log.action === 'delete' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {log.action === 'create' ? translate("created") :
+                                 log.action === 'update' ? translate("updated") :
+                                 log.action === 'delete' ? translate("deleted") :
+                                 log.action}
+                              </span>
+                            </td>
+                            <td className="p-2">
+                              {new Date(log.created_at).toLocaleString()}
+                            </td>
+                            <td className="p-2 max-w-xs">
+                              <div className="text-xs text-muted-foreground">
+                                {log.details ? (
+                                  <pre className="whitespace-pre-wrap break-words">
+                                    {JSON.stringify(log.details, null, 2)}
+                                  </pre>
+                                ) : '-'}
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={3} className="h-24 text-center text-muted-foreground">
+                            {translate("noLogsFound")}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" size="sm" onClick={closeLogs} className="text-xs">
+                {translate("close")}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

@@ -82,6 +82,15 @@ interface AnnadhanamFormData {
   remarks?: string;
 }
 
+interface AnnadhanamLog {
+  id: number;
+  annadhanam_id: number;
+  action: string;
+  created_at: string;
+  created_by: number | null;
+  details: any;
+}
+
 export default function AnnadhanamEntryPage() {
   const { id } = useParams<{ id: string }>();
   const { token } = useAuth();
@@ -93,6 +102,9 @@ export default function AnnadhanamEntryPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastCreatedId, setLastCreatedId] = useState<number | null>(null);
   const [showPrintPrompt, setShowPrintPrompt] = useState(false);
+  const [logs, setLogs] = useState<AnnadhanamLog[]>([]);
+  const [showLogs, setShowLogs] = useState(false);
+  const [logsLoading, setLogsLoading] = useState(false);
   // Receipt number will be filled from backend (on edit or after create)
   
   // Translation function (inline helper)
@@ -135,7 +147,7 @@ export default function AnnadhanamEntryPage() {
   const fetchNextReceipt = async () => {
     if (id) return;
     try {
-      const resp = await fetch('https://tmsapi.xesstechlink.com/api/annadhanam/next-receipt', {
+      const resp = await fetch('http://localhost:4000/api/annadhanam/next-receipt', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -147,6 +159,44 @@ export default function AnnadhanamEntryPage() {
       }
     } catch (e) {
       // ignore preview errors; field can remain blank until submit
+    }
+  };
+
+  // Function to fetch logs for specific annadhanam entry
+  const fetchLogs = async () => {
+    if (!id) return;
+    try {
+      console.log('🔍 Fetching logs for annadhanam ID:', id);
+      setLogsLoading(true);
+      const response = await fetch(`http://localhost:4000/api/annadhanam/${id}/logs`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      console.log('📡 Logs API response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Logs API error:', errorText);
+        throw new Error('Failed to fetch logs');
+      }
+
+      const result = await response.json();
+      console.log('📋 Logs API result:', result);
+      
+      if (result.success) {
+        console.log('✅ Logs fetched successfully:', result.data?.length || 0, 'logs');
+        setLogs(result.data || []);
+      } else {
+        console.error('❌ Logs API returned success: false:', result.error);
+        throw new Error(result.error || 'Failed to fetch logs');
+      }
+    } catch (error) {
+      console.error("❌ Error fetching logs:", error);
+      setLogs([]);
+    } finally {
+      setLogsLoading(false);
     }
   };
 
@@ -180,7 +230,7 @@ export default function AnnadhanamEntryPage() {
       const fetchAnnadhanam = async () => {
         try {
           setIsLoading(true);
-          const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${id}`, {
+          const response = await fetch(`http://localhost:4000/api/annadhanam/${id}`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -239,6 +289,9 @@ export default function AnnadhanamEntryPage() {
             };
             // Reset the form with populated fields
             reset(formData as AnnadhanamFormData);
+            
+            // Set lastCreatedId for logs (similar to MoneyDonationEntry.tsx)
+            setLastCreatedId(Number(id));
            } else {
              throw new Error(result.error || 'Failed to load data');
            }
@@ -257,6 +310,19 @@ export default function AnnadhanamEntryPage() {
       fetchAnnadhanam();
     }
   }, [id, reset, setValue, token, language]);
+
+  // Load logs for the entry when in edit mode (similar to MoneyDonationEntry.tsx)
+  useEffect(() => {
+    const loadLogs = async () => {
+      try {
+        if (!id || !token) return;
+        await fetchLogs();
+      } catch (e) {
+        console.error('Failed to load logs on mount:', e);
+      }
+    };
+    loadLogs();
+  }, [id, token]);
 
   if (isLoading) {
     return <div className="p-4">Loading annadhanam data...</div>;
@@ -298,7 +364,7 @@ export default function AnnadhanamEntryPage() {
         remarks: data.remarks || ''
       };
 
-      const url = id ? `https://tmsapi.xesstechlink.com/api/annadhanam/${id}` : 'https://tmsapi.xesstechlink.com/api/annadhanam';
+      const url = id ? `http://localhost:4000/api/annadhanam/${id}` : 'http://localhost:4000/api/annadhanam';
       const method = id ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -327,6 +393,16 @@ export default function AnnadhanamEntryPage() {
         if (typeof newId === 'number') {
           setLastCreatedId(newId);
           setShowPrintPrompt(true);
+          
+          // Fetch logs after successful create/update (similar to MoneyDonationEntry.tsx)
+          if (id) {
+            // For updates, fetch logs immediately
+            try {
+              await fetchLogs();
+            } catch (e) {
+              console.error('Failed to load logs after update:', e);
+            }
+          }
           
           if (!id) {
             // Clear form for new entries after successful submission
@@ -567,32 +643,127 @@ export default function AnnadhanamEntryPage() {
               </div>
             </div>
 
-            <div className="md:col-span-2 flex gap-2 justify-end pt-2 border-t">
-              <Button 
-                type="button" 
-                variant="outline" 
-                className="text-xs px-3 py-1 h-8"
-                onClick={handleCancel}
-                disabled={isSubmitting}
-              >
-                {tr('Cancel', 'ரத்து செய்')}
-              </Button>
-              <Button 
-                type="submit" 
-                className="text-xs px-3 py-1 h-8 bg-orange-600 hover:bg-orange-700"
-                disabled={isSubmitting}
-              >
-                {isSubmitting 
-                  ? tr('Saving...', 'சேமிக்கிறது...') 
-                  : id 
-                    ? tr('Update Annadhanam', 'அன்னதானத்தை புதுப்பிக்க') 
-                    : tr('Save Annadhanam', 'அன்னதானத்தை சேமிக்க')
-                }
-              </Button>
+            <div className="md:col-span-2 flex gap-2 justify-between pt-2 border-t">
+              <div className="flex gap-2">
+                {id && (
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    className="text-xs px-3 py-1 h-8"
+                    onClick={() => {
+                      setShowLogs(!showLogs);
+                      if (!showLogs) {
+                        fetchLogs();
+                      }
+                    }}
+                  >
+                    {showLogs ? tr('Hide Logs', 'பதிவுகளை மறை') : tr('Show Logs', 'பதிவுகளை காட்டு')}
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="text-xs px-3 py-1 h-8"
+                  onClick={handleCancel}
+                  disabled={isSubmitting}
+                >
+                  {tr('Cancel', 'ரத்து செய்')}
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="text-xs px-3 py-1 h-8 bg-orange-600 hover:bg-orange-700"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting 
+                    ? tr('Saving...', 'சேமிக்கிறது...') 
+                    : id 
+                      ? tr('Update Annadhanam', 'அன்னதானத்தை புதுப்பிக்க') 
+                      : tr('Save Annadhanam', 'அன்னதானத்தை சேமிக்க')
+                  }
+                </Button>
+              </div>
             </div>
           </form>
         </CardContent>
       </Card>
+
+      {/* Logs Display */}
+      {showLogs && id && (
+        <Card className="w-full border-none shadow-none mt-4">
+          <CardContent className="p-2">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold">
+                {tr('Activity Log', 'செயல்பாட்டு பதிவு')}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {tr('History of changes for this annadhanam entry', 'இந்த அன்னதான பதிவுக்கான மாற்றங்களின் வரலாறு')}
+              </p>
+            </div>
+            
+            <div className="rounded-md border">
+              {logsLoading ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="text-sm text-muted-foreground">Loading logs...</div>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-2">{tr('Action', 'செயல்')}</th>
+                        <th className="text-left p-2">{tr('Date', 'தேதி')}</th>
+                        <th className="text-left p-2">{tr('Details', 'விவரங்கள்')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {logs.length > 0 ? (
+                        logs.map((log) => (
+                          <tr key={log.id} className="border-b">
+                            <td className="p-2">
+                              <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                log.action === 'create' ? 'bg-green-100 text-green-800' :
+                                log.action === 'update' ? 'bg-blue-100 text-blue-800' :
+                                log.action === 'delete' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {log.action === 'create' ? tr('Created', 'உருவாக்கப்பட்டது') :
+                                 log.action === 'update' ? tr('Updated', 'புதுப்பிக்கப்பட்டது') :
+                                 log.action === 'delete' ? tr('Deleted', 'நீக்கப்பட்டது') :
+                                 log.action}
+                              </span>
+                            </td>
+                            <td className="p-2">
+                              {new Date(log.created_at).toLocaleString()}
+                            </td>
+                            <td className="p-2 max-w-xs">
+                              <div className="text-xs text-muted-foreground">
+                                {log.details ? (
+                                  <pre className="whitespace-pre-wrap break-words">
+                                    {JSON.stringify(log.details, null, 2)}
+                                  </pre>
+                                ) : '-'}
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={3} className="h-24 text-center text-muted-foreground">
+                            {tr('No logs found', 'பதிவுகள் எதுவும் கிடைக்கவில்லை')}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {showPrintPrompt && lastCreatedId != null && (
         <Modal
           title={tr('Print Receipt', 'ரசீதை அச்சிடவா?')}
@@ -607,7 +778,7 @@ export default function AnnadhanamEntryPage() {
               className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 text-xs"
               onClick={() => {
                 const q = token ? `?token=${encodeURIComponent(token)}` : '';
-                const url = `https://tmsapi.xesstechlink.com/api/annadhanam/${lastCreatedId}/receipt.pdf${q}`;
+                const url = `http://localhost:4000/api/annadhanam/${lastCreatedId}/receipt.pdf${q}`;
                 window.open(url, '_blank');
                 setShowPrintPrompt(false);
               }} 

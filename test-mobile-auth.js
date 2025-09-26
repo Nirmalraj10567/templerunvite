@@ -1,6 +1,6 @@
 import fetch from 'node-fetch';
 
-const BASE_URL = 'https://tmsapi.xesstechlink.com/api/mobile-auth';
+const BASE_URL = 'http://localhost:4000/api/mobile-auth';
 
 async function testMobileAuth() {
   console.log('🧪 Testing Mobile Auth API Endpoints\n');

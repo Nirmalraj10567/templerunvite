@@ -3,6 +3,44 @@ const router = express.Router();
 
 module.exports = function(deps = {}) {
   const { db } = deps;
+
+  // Helper to write donation product logs
+  async function logDonationProductAction({ donationId, templeId, userId, action, details }) {
+    try {
+      const has = await db.schema.hasTable('donation_product_logs');
+      if (!has) {
+        console.warn('donation_product_logs table does not exist, creating it...');
+        // Create the table if it doesn't exist
+        await db.schema.createTable('donation_product_logs', (table) => {
+          table.increments('id').primary();
+          table.integer('temple_id').notNullable().index();
+          table.integer('donation_id').notNullable().index();
+          table.string('action').notNullable(); // create | update | delete
+          table.text('details'); // JSON string with full snapshot/diff
+          table.integer('created_by').nullable().index();
+          table.timestamp('created_at').defaultTo(db.fn.now());
+        });
+        console.log('Created donation_product_logs table');
+      }
+      
+      const logData = {
+        donation_id: Number(donationId),
+        temple_id: Number(templeId),
+        created_by: userId ? Number(userId) : null,
+        action,
+        details: details ? JSON.stringify(details) : null,
+        created_at: db.fn.now(),
+      };
+      
+      console.log('Inserting donation product log:', logData);
+      await db('donation_product_logs').insert(logData);
+      console.log('Successfully inserted donation product log');
+    } catch (e) {
+      console.error('Failed to write donation_product_logs:', e.message);
+      console.error('Error details:', e);
+      throw e; // Re-throw to let caller handle
+    }
+  }
   
   // Create donations table if it doesn't exist
   const initDb = async () => {
@@ -38,6 +76,103 @@ module.exports = function(deps = {}) {
 
   // Initialize database
   initDb().catch(console.error);
+
+  // Get all logs for the current temple (MUST be before /:id route)
+  router.get('/logs', async (req, res) => {
+    try {
+      console.log('🔍 Fetching all donation product logs');
+      console.log('User temple ID:', req.user.templeId);
+      console.log('Query params:', req.query);
+      
+      const templeId = req.user.templeId;
+      const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+      const pageSize = Math.min(200, Math.max(1, parseInt(req.query.pageSize, 10) || 50));
+      const has = await db.schema.hasTable('donation_product_logs');
+      console.log('Table exists:', has);
+      
+      if (!has) {
+        console.log('⚠️ donation_product_logs table does not exist');
+        return res.json({ success: true, data: [], total: 0, page, pageSize });
+      }
+      
+      console.log('Building query for temple_id:', templeId);
+      const base = db('donation_product_logs as l')
+        .leftJoin('donations as d', 'd.id', 'l.donation_id')
+        .where('l.temple_id', templeId);
+      
+      console.log('Counting total logs...');
+      const totalRow = await base.clone().count({ c: '*' }).first();
+      const total = Number(totalRow?.c || totalRow?.count || 0);
+      console.log('Total logs found:', total);
+      
+      console.log('Fetching logs with pagination...');
+      const rows = await base.clone()
+        .orderBy('l.created_at', 'desc')
+        .orderBy('l.id', 'desc')
+        .limit(pageSize)
+        .offset((page - 1) * pageSize)
+        .select('l.*', 'd.product_name as donation_name', 'd.register_no as receipt_number');
+      
+      console.log('Query results:', rows.length, 'logs');
+      console.log('Sample log data:', rows.slice(0, 2));
+      
+      const data = rows.map(r => ({
+        id: r.id,
+        donation_id: r.donation_id,
+        action: r.action,
+        created_at: r.created_at,
+        created_by: r.created_by,
+        donation_name: r.donation_name || null,
+        receipt_number: r.receipt_number || null,
+        details: (() => { try { return r.details ? JSON.parse(r.details) : null; } catch { return r.details; } })(),
+      }));
+      
+      res.json({ success: true, data, total, page, pageSize });
+    } catch (e) {
+      console.error('Error fetching /api/donations/logs:', e);
+      res.status(500).json({ error: 'Failed to fetch logs' });
+    }
+  });
+
+  // Get logs for a specific donation entry
+  router.get('/:id/logs', async (req, res) => {
+    try {
+      console.log('🔍 Fetching logs for donation ID:', req.params.id);
+      console.log('User temple ID:', req.user.templeId);
+      
+      const { id } = req.params;
+      const templeId = req.user.templeId;
+      const has = await db.schema.hasTable('donation_product_logs');
+      console.log('Table exists:', has);
+      
+      if (!has) {
+        console.log('⚠️ donation_product_logs table does not exist');
+        return res.json({ success: true, data: [] });
+      }
+
+      console.log('Querying logs for donation_id:', id, 'temple_id:', templeId);
+      const logs = await db('donation_product_logs')
+        .where({ donation_id: id, temple_id: templeId })
+        .orderBy('created_at', 'desc')
+        .select('*');
+      
+      console.log('Found logs:', logs.length);
+      console.log('Logs data:', logs);
+
+      const data = logs.map(log => ({
+        id: log.id,
+        action: log.action,
+        created_at: log.created_at,
+        created_by: log.created_by,
+        details: (() => { try { return log.details ? JSON.parse(log.details) : null; } catch { return log.details; } })(),
+      }));
+
+      res.json({ success: true, data });
+    } catch (e) {
+      console.error('Error fetching /api/donations/:id/logs:', e);
+      res.status(500).json({ error: 'Failed to fetch logs' });
+    }
+  });
 
   // GET /api/donations - Get all donations for current temple (with search)
   router.get('/', async (req, res) => {
@@ -95,6 +230,8 @@ module.exports = function(deps = {}) {
   // POST /api/donations - Create a new donation
   router.post('/', async (req, res) => {
     try {
+      console.log('🔍 Creating donation product with data:', req.body);
+      
       // Set default values if not provided
       const productName = req.body.productName || req.body.registerNo || req.body.name || '';
       const price = parseFloat(req.body.price || req.body.amount || 0);
@@ -102,6 +239,14 @@ module.exports = function(deps = {}) {
       // Get current date in YYYY-MM-DD format
       const currentDate = new Date().toISOString().split('T')[0];
       
+      // Safely parse quantity with validation
+      const quantityValue = req.body.quantity || req.body.unit || 1;
+      console.log('🔍 Raw quantity value:', quantityValue, 'Type:', typeof quantityValue);
+      const parsedQuantity = parseInt(quantityValue, 10);
+      console.log('🔍 Parsed quantity:', parsedQuantity, 'Is NaN:', isNaN(parsedQuantity));
+      const quantity = isNaN(parsedQuantity) || parsedQuantity < 1 ? 1 : parsedQuantity;
+      console.log('🔍 Final quantity:', quantity);
+
       const donationData = {
         temple_id: req.user.templeId,
         register_no: req.body.registerNo || null,
@@ -109,7 +254,7 @@ module.exports = function(deps = {}) {
         product_name: req.body.product || req.body.productName || productName,
         description: req.body.description || req.body.reason || '',
         price: price,
-        quantity: parseInt(req.body.quantity || req.body.unit || 1),
+        quantity: quantity,
         category: req.body.category || 'General',
         donor_name: req.body.donorName || req.body.name || 'Anonymous',
         donor_contact: req.body.donorContact || req.body.phone || '',
@@ -119,8 +264,24 @@ module.exports = function(deps = {}) {
         transfer_to_account: req.body.transfer_to_account || req.body.transferTo || null
       };
 
+      console.log('🔍 Final donation data to insert:', donationData);
       const [id] = await db('donations').insert(donationData);
       const donation = await db('donations').where({ id }).first();
+      
+      // Log creation with full snapshot
+      try {
+        await logDonationProductAction({
+          donationId: id,
+          templeId: req.user.templeId,
+          userId: req.user.id,
+          action: 'create',
+          details: donation,
+        });
+        console.log('Successfully logged donation product creation for ID:', id);
+      } catch (logError) {
+        console.error('Failed to log donation product creation:', logError);
+        // Don't fail the request if logging fails, but log the error
+      }
       
       res.json({ success: true, data: donation });
     } catch (err) {
@@ -134,11 +295,18 @@ module.exports = function(deps = {}) {
     try {
       const { id } = req.params;
       
+      // Safely parse quantity with validation for updates
+      let quantity = req.body.quantity;
+      if (quantity !== undefined && quantity !== null) {
+        const parsedQuantity = parseInt(quantity, 10);
+        quantity = isNaN(parsedQuantity) || parsedQuantity < 1 ? 1 : parsedQuantity;
+      }
+
       const updateData = {
         product_name: req.body.product || req.body.productName,
         description: req.body.description,
         price: req.body.price,
-        quantity: req.body.quantity,
+        quantity: quantity,
         category: req.body.category,
         donor_name: req.body.donorName,
         donor_contact: req.body.donorContact,
@@ -159,6 +327,32 @@ module.exports = function(deps = {}) {
       }
       
       const donation = await db('donations').where({ id }).first();
+      
+      // Log update with after snapshot
+      try {
+        console.log('🔍 Attempting to log donation product update...');
+        console.log('Log data:', {
+          donationId: id,
+          templeId: req.user.templeId,
+          userId: req.user.id,
+          action: 'update',
+          details: { before: null, after: donation || null }
+        });
+        
+        await logDonationProductAction({
+          donationId: id,
+          templeId: req.user.templeId,
+          userId: req.user.id,
+          action: 'update',
+          details: { before: null, after: donation || null }, // We don't have before state in this context
+        });
+        console.log('✅ Successfully logged donation product update for ID:', id);
+      } catch (logError) {
+        console.error('❌ Failed to log donation product update:', logError);
+        console.error('Log error details:', logError);
+        // Don't fail the request if logging fails, but log the error
+      }
+      
       res.json({ success: true, data: donation });
     } catch (err) {
       console.error('PUT /api/donations/:id error:', err);
@@ -211,6 +405,9 @@ module.exports = function(deps = {}) {
     try {
       const { id } = req.params;
       
+      // Get the data before deleting for logging
+      const beforeRow = await db('donations').where({ id }).andWhere('temple_id', req.user.templeId).first();
+      
       const result = await db('donations')
         .where({ id })
         .andWhere('temple_id', req.user.templeId)
@@ -218,6 +415,21 @@ module.exports = function(deps = {}) {
       
       if (!result) {
         return res.status(404).json({ error: 'Donation not found' });
+      }
+      
+      // Log deletion with before snapshot
+      try {
+        await logDonationProductAction({
+          donationId: id,
+          templeId: req.user.templeId,
+          userId: req.user.id,
+          action: 'delete',
+          details: { before: beforeRow || null, after: null },
+        });
+        console.log('Successfully logged donation product deletion for ID:', id);
+      } catch (logError) {
+        console.error('Failed to log donation product deletion:', logError);
+        // Don't fail the request if logging fails, but log the error
       }
       
       res.json({ success: true });

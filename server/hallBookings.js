@@ -5,6 +5,44 @@ const PDFDocument = require('pdfkit');
 module.exports = function (deps = {}) {
   const { db } = deps;
 
+  // Helper to write hall booking logs
+  async function logHallBookingAction({ hallBookingId, templeId, userId, action, details }) {
+    try {
+      const has = await db.schema.hasTable('hall_booking_logs');
+      if (!has) {
+        console.warn('hall_booking_logs table does not exist, creating it...');
+        // Create the table if it doesn't exist
+        await db.schema.createTable('hall_booking_logs', (table) => {
+          table.increments('id').primary();
+          table.integer('temple_id').notNullable().index();
+          table.integer('hall_booking_id').notNullable().index();
+          table.string('action').notNullable(); // create | update | delete
+          table.text('details'); // JSON string with full snapshot/diff
+          table.integer('created_by').nullable().index();
+          table.timestamp('created_at').defaultTo(db.fn.now());
+        });
+        console.log('Created hall_booking_logs table');
+      }
+      
+      const logData = {
+        hall_booking_id: Number(hallBookingId),
+        temple_id: Number(templeId),
+        created_by: userId ? Number(userId) : null,
+        action,
+        details: details ? JSON.stringify(details) : null,
+        created_at: db.fn.now(),
+      };
+      
+      console.log('Inserting hall booking log:', logData);
+      await db('hall_booking_logs').insert(logData);
+      console.log('Successfully inserted hall booking log');
+    } catch (e) {
+      console.error('Failed to write hall_booking_logs:', e.message);
+      console.error('Error details:', e);
+      throw e; // Re-throw to let caller handle
+    }
+  }
+
   // Ensure optional columns exist on marriage_hall_bookings table
   // Adds: cleaning, chair, eb, gas, ac (numeric); check_in_date, check_in_time, check_out_date, check_out_time (string)
   async function ensureHallExtrasColumns() {
@@ -38,6 +76,103 @@ module.exports = function (deps = {}) {
       console.warn('ensureHallExtrasColumns skipped due to error:', e.message);
     }
   }
+
+  // Get all logs for the current temple (MUST be before /:id route)
+  router.get('/logs', async (req, res) => {
+    try {
+      console.log('🔍 Fetching all hall booking logs');
+      console.log('User temple ID:', req.user.templeId);
+      console.log('Query params:', req.query);
+      
+      const templeId = req.user.templeId;
+      const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+      const pageSize = Math.min(200, Math.max(1, parseInt(req.query.pageSize, 10) || 50));
+      const has = await db.schema.hasTable('hall_booking_logs');
+      console.log('Table exists:', has);
+      
+      if (!has) {
+        console.log('⚠️ hall_booking_logs table does not exist');
+        return res.json({ success: true, data: [], total: 0, page, pageSize });
+      }
+      
+      console.log('Building query for temple_id:', templeId);
+      const base = db('hall_booking_logs as l')
+        .leftJoin('marriage_hall_bookings as h', 'h.id', 'l.hall_booking_id')
+        .where('l.temple_id', templeId);
+      
+      console.log('Counting total logs...');
+      const totalRow = await base.clone().count({ c: '*' }).first();
+      const total = Number(totalRow?.c || totalRow?.count || 0);
+      console.log('Total logs found:', total);
+      
+      console.log('Fetching logs with pagination...');
+      const rows = await base.clone()
+        .orderBy('l.created_at', 'desc')
+        .orderBy('l.id', 'desc')
+        .limit(pageSize)
+        .offset((page - 1) * pageSize)
+        .select('l.*', 'h.name as hall_booking_name', 'h.register_no as receipt_number');
+      
+      console.log('Query results:', rows.length, 'logs');
+      console.log('Sample log data:', rows.slice(0, 2));
+      
+      const data = rows.map(r => ({
+        id: r.id,
+        hall_booking_id: r.hall_booking_id,
+        action: r.action,
+        created_at: r.created_at,
+        created_by: r.created_by,
+        hall_booking_name: r.hall_booking_name || null,
+        receipt_number: r.receipt_number || null,
+        details: (() => { try { return r.details ? JSON.parse(r.details) : null; } catch { return r.details; } })(),
+      }));
+      
+      res.json({ success: true, data, total, page, pageSize });
+    } catch (e) {
+      console.error('Error fetching /api/hall-bookings/logs:', e);
+      res.status(500).json({ error: 'Failed to fetch logs' });
+    }
+  });
+
+  // Get logs for a specific hall booking entry
+  router.get('/:id/logs', async (req, res) => {
+    try {
+      console.log('🔍 Fetching logs for hall booking ID:', req.params.id);
+      console.log('User temple ID:', req.user.templeId);
+      
+      const { id } = req.params;
+      const templeId = req.user.templeId;
+      const has = await db.schema.hasTable('hall_booking_logs');
+      console.log('Table exists:', has);
+      
+      if (!has) {
+        console.log('⚠️ hall_booking_logs table does not exist');
+        return res.json({ success: true, data: [] });
+      }
+
+      console.log('Querying logs for hall_booking_id:', id, 'temple_id:', templeId);
+      const logs = await db('hall_booking_logs')
+        .where({ hall_booking_id: id, temple_id: templeId })
+        .orderBy('created_at', 'desc')
+        .select('*');
+      
+      console.log('Found logs:', logs.length);
+      console.log('Logs data:', logs);
+
+      const data = logs.map(log => ({
+        id: log.id,
+        action: log.action,
+        created_at: log.created_at,
+        created_by: log.created_by,
+        details: (() => { try { return log.details ? JSON.parse(log.details) : null; } catch { return log.details; } })(),
+      }));
+
+      res.json({ success: true, data });
+    } catch (e) {
+      console.error('Error fetching /api/hall-bookings/:id/logs:', e);
+      res.status(500).json({ error: 'Failed to fetch logs' });
+    }
+  });
 
   // List with optional search and date filter
   router.get('/', async (req, res) => {
@@ -308,6 +443,21 @@ module.exports = function (deps = {}) {
         console.error('❌ Full error:', e);
       }
 
+      // Log creation with full snapshot
+      try {
+        await logHallBookingAction({
+          hallBookingId: row.id,
+          templeId: req.user.templeId,
+          userId: req.user.id,
+          action: 'create',
+          details: row,
+        });
+        console.log('Successfully logged hall booking creation for ID:', row.id);
+      } catch (logError) {
+        console.error('Failed to log hall booking creation:', logError);
+        // Don't fail the request if logging fails, but log the error
+      }
+
       res.json({ success: true, data: row });
     } catch (err) {
       console.error('POST /api/hall-bookings error:', err);
@@ -404,6 +554,31 @@ module.exports = function (deps = {}) {
         }
       } catch (e) {
         console.error('❌ Failed to sync hall booking journal mirror on update:', e.message);
+      }
+
+      // Log update with after snapshot
+      try {
+        console.log('🔍 Attempting to log hall booking update...');
+        console.log('Log data:', {
+          hallBookingId: idNum,
+          templeId: req.user.templeId,
+          userId: req.user.id,
+          action: 'update',
+          details: { before: null, after: booking || null }
+        });
+        
+        await logHallBookingAction({
+          hallBookingId: idNum,
+          templeId: req.user.templeId,
+          userId: req.user.id,
+          action: 'update',
+          details: { before: null, after: booking || null }, // We don't have before state in this context
+        });
+        console.log('✅ Successfully logged hall booking update for ID:', idNum);
+      } catch (logError) {
+        console.error('❌ Failed to log hall booking update:', logError);
+        console.error('Log error details:', logError);
+        // Don't fail the request if logging fails, but log the error
       }
 
       res.json({ success: true, data: booking });
@@ -540,6 +715,9 @@ module.exports = function (deps = {}) {
         return res.status(400).json({ error: 'Invalid booking ID' });
       }
 
+      // Get the data before deleting for logging
+      const beforeRow = await db('marriage_hall_bookings').where({ id: idNum }).andWhere('temple_id', req.user.templeId).first();
+
       const result = await db('marriage_hall_bookings')
         .where({ id: idNum })
         .andWhere('temple_id', req.user.templeId)
@@ -559,6 +737,21 @@ module.exports = function (deps = {}) {
         }
       } catch (e) {
         console.warn('Failed to cleanup hall booking journal mirror:', e);
+      }
+
+      // Log deletion with before snapshot
+      try {
+        await logHallBookingAction({
+          hallBookingId: idNum,
+          templeId: req.user.templeId,
+          userId: req.user.id,
+          action: 'delete',
+          details: { before: beforeRow || null, after: null },
+        });
+        console.log('Successfully logged hall booking deletion for ID:', idNum);
+      } catch (logError) {
+        console.error('Failed to log hall booking deletion:', logError);
+        // Don't fail the request if logging fails, but log the error
       }
 
       res.json({ success: true });

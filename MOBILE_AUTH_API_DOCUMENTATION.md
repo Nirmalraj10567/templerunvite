@@ -9,7 +9,7 @@ This comprehensive mobile authentication system allows users to:
 
 ## Base URL
 ```
-https://tmsapi.xesstechlink.com/api/mobile-auth
+http://localhost:4000/api/mobile-auth
 ```
 
 ## Authentication Flow
@@ -221,7 +221,7 @@ Authorization: Bearer mobile_1_1703123456789
 
 1. **Send OTP**
 ```bash
-curl -X POST https://tmsapi.xesstechlink.com/api/mobile-auth/send-otp \
+curl -X POST http://localhost:4000/api/mobile-auth/send-otp \
   -H "Content-Type: application/json" \
   -d '{
     "mobileNumber": "9999999999",
@@ -231,7 +231,7 @@ curl -X POST https://tmsapi.xesstechlink.com/api/mobile-auth/send-otp \
 
 2. **Verify OTP**
 ```bash
-curl -X POST https://tmsapi.xesstechlink.com/api/mobile-auth/verify-otp \
+curl -X POST http://localhost:4000/api/mobile-auth/verify-otp \
   -H "Content-Type: application/json" \
   -d '{
     "mobileNumber": "9999999999",
@@ -243,7 +243,7 @@ curl -X POST https://tmsapi.xesstechlink.com/api/mobile-auth/verify-otp \
 
 3. **Get Payment Details**
 ```bash
-curl -X GET https://tmsapi.xesstechlink.com/api/mobile-auth/payment-details/1 \
+curl -X GET http://localhost:4000/api/mobile-auth/payment-details/1 \
   -H "Authorization: Bearer mobile_1_1703123456789"
 ```
 

@@ -58,7 +58,7 @@ export default function DonationProductEntry() {
   // Centralized loader for next register number
   const fetchNextRegisterNo = async () => {
     try {
-      const resp = await axios.get<any>('https://tmsapi.xesstechlink.com/api/donations/next-register-no', {
+      const resp = await axios.get<any>('http://localhost:4000/api/donations/next-register-no', {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });
       const nextNo = resp.data?.nextRegisterNo || generateNextRegisterNo();
@@ -71,7 +71,7 @@ export default function DonationProductEntry() {
   useEffect(() => {
     const loadProducts = async () => {
       try {
-        const resp = await axios.get<{ data: DonationProduct[] }>('https://tmsapi.xesstechlink.com/api/donation-products', {
+        const resp = await axios.get<{ data: DonationProduct[] }>('http://localhost:4000/api/donation-products', {
           headers: { Authorization: `Bearer ${getAuthToken()}` }
         });
         const data = Array.isArray(resp.data) ? resp.data : resp.data.data || [];

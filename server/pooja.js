@@ -11,6 +11,141 @@ const getNumericPart = (receiptNumber) => {
 module.exports = function(deps = {}) {
   const { db } = deps;
 
+  // Helper to write pooja logs
+  async function logPoojaAction({ poojaId, templeId, userId, action, details }) {
+    try {
+      const has = await db.schema.hasTable('pooja_logs');
+      if (!has) {
+        console.warn('pooja_logs table does not exist, creating it...');
+        // Create the table if it doesn't exist
+        await db.schema.createTable('pooja_logs', (table) => {
+          table.increments('id').primary();
+          table.integer('temple_id').notNullable().index();
+          table.integer('pooja_id').notNullable().index();
+          table.string('action').notNullable(); // create | update | delete
+          table.text('details'); // JSON string with full snapshot/diff
+          table.integer('created_by').nullable().index();
+          table.timestamp('created_at').defaultTo(db.fn.now());
+        });
+        console.log('Created pooja_logs table');
+      }
+      
+      const logData = {
+        pooja_id: Number(poojaId),
+        temple_id: Number(templeId),
+        created_by: userId ? Number(userId) : null,
+        action,
+        details: details ? JSON.stringify(details) : null,
+        created_at: db.fn.now(),
+      };
+      
+      console.log('Inserting pooja log:', logData);
+      await db('pooja_logs').insert(logData);
+      console.log('Successfully inserted pooja log');
+    } catch (e) {
+      console.error('Failed to write pooja_logs:', e.message);
+      console.error('Error details:', e);
+      throw e; // Re-throw to let caller handle
+    }
+  }
+
+  // Get all logs for the current temple (MUST be before /:id route)
+  router.get('/logs', async (req, res) => {
+    try {
+      console.log('🔍 Fetching all pooja logs');
+      console.log('User temple ID:', req.user.templeId);
+      console.log('Query params:', req.query);
+      
+      const templeId = req.user.templeId;
+      const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+      const pageSize = Math.min(200, Math.max(1, parseInt(req.query.pageSize, 10) || 50));
+      const has = await db.schema.hasTable('pooja_logs');
+      console.log('Table exists:', has);
+      
+      if (!has) {
+        console.log('⚠️ pooja_logs table does not exist');
+        return res.json({ success: true, data: [], total: 0, page, pageSize });
+      }
+      
+      console.log('Building query for temple_id:', templeId);
+      const base = db('pooja_logs as l')
+        .leftJoin('pooja as p', 'p.id', 'l.pooja_id')
+        .where('l.temple_id', templeId);
+      
+      console.log('Counting total logs...');
+      const totalRow = await base.clone().count({ c: '*' }).first();
+      const total = Number(totalRow?.c || totalRow?.count || 0);
+      console.log('Total logs found:', total);
+      
+      console.log('Fetching logs with pagination...');
+      const rows = await base.clone()
+        .orderBy('l.created_at', 'desc')
+        .orderBy('l.id', 'desc')
+        .limit(pageSize)
+        .offset((page - 1) * pageSize)
+        .select('l.*', 'p.name as pooja_name', 'p.receipt_number as receipt_number');
+      
+      console.log('Query results:', rows.length, 'logs');
+      console.log('Sample log data:', rows.slice(0, 2));
+      
+      const data = rows.map(r => ({
+        id: r.id,
+        pooja_id: r.pooja_id,
+        action: r.action,
+        created_at: r.created_at,
+        created_by: r.created_by,
+        pooja_name: r.pooja_name || null,
+        receipt_number: r.receipt_number || null,
+        details: (() => { try { return r.details ? JSON.parse(r.details) : null; } catch { return r.details; } })(),
+      }));
+      
+      res.json({ success: true, data, total, page, pageSize });
+    } catch (e) {
+      console.error('Error fetching /api/pooja/logs:', e);
+      res.status(500).json({ error: 'Failed to fetch logs' });
+    }
+  });
+
+  // Get logs for a specific pooja entry
+  router.get('/:id/logs', async (req, res) => {
+    try {
+      console.log('🔍 Fetching logs for pooja ID:', req.params.id);
+      console.log('User temple ID:', req.user.templeId);
+      
+      const { id } = req.params;
+      const templeId = req.user.templeId;
+      const has = await db.schema.hasTable('pooja_logs');
+      console.log('Table exists:', has);
+      
+      if (!has) {
+        console.log('⚠️ pooja_logs table does not exist');
+        return res.json({ success: true, data: [] });
+      }
+
+      console.log('Querying logs for pooja_id:', id, 'temple_id:', templeId);
+      const logs = await db('pooja_logs')
+        .where({ pooja_id: id, temple_id: templeId })
+        .orderBy('created_at', 'desc')
+        .select('*');
+      
+      console.log('Found logs:', logs.length);
+      console.log('Logs data:', logs);
+
+      const data = logs.map(log => ({
+        id: log.id,
+        action: log.action,
+        created_at: log.created_at,
+        created_by: log.created_by,
+        details: (() => { try { return log.details ? JSON.parse(log.details) : null; } catch { return log.details; } })(),
+      }));
+
+      res.json({ success: true, data });
+    } catch (e) {
+      console.error('Error fetching /api/pooja/:id/logs:', e);
+      res.status(500).json({ error: 'Failed to fetch logs' });
+    }
+  });
+
   // Get the latest receipt number
   router.get('/latest-receipt', async (req, res) => {
     try {
@@ -297,6 +432,21 @@ module.exports = function(deps = {}) {
         // Do not fail the main request
       }
 
+      // Log creation with full snapshot
+      try {
+        await logPoojaAction({
+          poojaId: row.id,
+          templeId: req.user.templeId,
+          userId: req.user.id,
+          action: 'create',
+          details: row,
+        });
+        console.log('Successfully logged pooja creation for ID:', row.id);
+      } catch (logError) {
+        console.error('Failed to log pooja creation:', logError);
+        // Don't fail the request if logging fails, but log the error
+      }
+
       res.json({ success: true, data: row });
     } catch (err) {
       console.error('POST /api/pooja error:', err);
@@ -386,6 +536,31 @@ module.exports = function(deps = {}) {
         console.error('Failed to sync journal mirror for pooja update:', e);
       }
 
+      // Log update with after snapshot
+      try {
+        console.log('🔍 Attempting to log pooja update...');
+        console.log('Log data:', {
+          poojaId: id,
+          templeId: req.user.templeId,
+          userId: req.user.id,
+          action: 'update',
+          details: { before: null, after: pooja || null }
+        });
+        
+        await logPoojaAction({
+          poojaId: id,
+          templeId: req.user.templeId,
+          userId: req.user.id,
+          action: 'update',
+          details: { before: null, after: pooja || null }, // We don't have before state in this context
+        });
+        console.log('✅ Successfully logged pooja update for ID:', id);
+      } catch (logError) {
+        console.error('❌ Failed to log pooja update:', logError);
+        console.error('Log error details:', logError);
+        // Don't fail the request if logging fails, but log the error
+      }
+
       res.json({ success: true, data: pooja });
     } catch (err) {
       console.error('PUT /api/pooja/:id error:', err);
@@ -397,6 +572,10 @@ module.exports = function(deps = {}) {
   router.delete('/:id', async (req, res) => {
     try {
       const { id } = req.params;
+      
+      // Get the data before deleting for logging
+      const beforeRow = await db('pooja').where({ id }).andWhere('temple_id', req.user.templeId).first();
+      
       const result = await db('pooja')
         .where({ id })
         .andWhere('temple_id', req.user.templeId)
@@ -416,6 +595,21 @@ module.exports = function(deps = {}) {
         }
       } catch (e) {
         console.warn('Failed to cleanup journal mirror for pooja delete:', id, e);
+      }
+
+      // Log deletion with before snapshot
+      try {
+        await logPoojaAction({
+          poojaId: id,
+          templeId: req.user.templeId,
+          userId: req.user.id,
+          action: 'delete',
+          details: { before: beforeRow || null, after: null },
+        });
+        console.log('Successfully logged pooja deletion for ID:', id);
+      } catch (logError) {
+        console.error('Failed to log pooja deletion:', logError);
+        // Don't fail the request if logging fails, but log the error
       }
 
       res.json({ success: true });

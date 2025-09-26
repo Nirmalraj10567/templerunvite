@@ -151,7 +151,7 @@ export default function LedgerEntryPage() {
       setIsLoadingCategories(true);
       try {
         // Pass templeId as a query parameter
-        const resp1 = await axios.get<any>(`https://tmsapi.xesstechlink.com/api/ledger/categories?templeId=${templeId}`, {
+        const resp1 = await axios.get<any>(`http://localhost:4000/api/ledger/categories?templeId=${templeId}`, {
           headers: { Authorization: `Bearer ${getAuthToken()}` }
         });
         const data1 = (resp1?.data && Array.isArray(resp1.data.data)) ? resp1.data.data : (Array.isArray(resp1?.data) ? resp1.data : []);
@@ -160,7 +160,7 @@ export default function LedgerEntryPage() {
         if (!combined || combined.length === 0) {
           try {
             // Pass templeId as a query parameter
-            const resp2 = await axios.get<any>(`https://tmsapi.xesstechlink.com/api/ledger/categories-used?templeId=${templeId}`, {
+            const resp2 = await axios.get<any>(`http://localhost:4000/api/ledger/categories-used?templeId=${templeId}`, {
               headers: { Authorization: `Bearer ${getAuthToken()}` }
             });
             const data2: any[] = (resp2?.data && Array.isArray(resp2.data.data)) ? resp2.data.data : (Array.isArray(resp2?.data) ? resp2.data : []);
@@ -235,7 +235,7 @@ export default function LedgerEntryPage() {
         templeId: templeId || undefined,
       } as const;
 
-      await axios.post('https://tmsapi.xesstechlink.com/api/ledger/entries', payload, {
+      await axios.post('http://localhost:4000/api/ledger/entries', payload, {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });
 
@@ -311,7 +311,7 @@ export default function LedgerEntryPage() {
     }
     try {
       setIsLoadingCategories(true);
-      const response = await axios.post<Category>('https://tmsapi.xesstechlink.com/api/ledger/categories/find-or-create', {
+      const response = await axios.post<Category>('http://localhost:4000/api/ledger/categories/find-or-create', {
         value: cleanVal,
         label: searchValue,
         templeId: templeId
@@ -377,7 +377,7 @@ export default function LedgerEntryPage() {
     }
     
     try {
-      await axios.delete(`https://tmsapi.xesstechlink.com/api/ledger/categories/${id}?templeId=${templeId}`, {
+      await axios.delete(`http://localhost:4000/api/ledger/categories/${id}?templeId=${templeId}`, {
         headers: {
           Authorization: `Bearer ${getAuthToken()}`
         }

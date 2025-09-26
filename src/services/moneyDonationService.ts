@@ -34,7 +34,7 @@ export interface ApiResponse<T> {
 }
 
 class MoneyDonationService {
-  private baseUrl = 'https://tmsapi.xesstechlink.com/api/money-donations';
+  private baseUrl = 'http://localhost:4000/api/money-donations';
 
   private getHeaders(token: string | null): HeadersInit {
     const headers: HeadersInit = { 'Content-Type': 'application/json' };
@@ -51,13 +51,37 @@ class MoneyDonationService {
   }
 
   async update(token: string | null, id: number, data: Partial<MoneyDonationFormData>): Promise<ApiResponse<MoneyDonationItem>> {
-    const response = await fetch(`${this.baseUrl}/${id}`, {
-      method: 'PUT',
-      headers: this.getHeaders(token),
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return response.json();
+    console.log('=== DEBUG: moneyDonationService.update called ===');
+    console.log('URL:', `${this.baseUrl}/${id}`);
+    console.log('Method: PUT');
+    console.log('Headers:', this.getHeaders(token));
+    console.log('Data being sent:', data);
+    console.log('JSON stringified data:', JSON.stringify(data));
+    
+    try {
+      const response = await fetch(`${this.baseUrl}/${id}`, {
+        method: 'PUT',
+        headers: this.getHeaders(token),
+        body: JSON.stringify(data),
+      });
+      
+      console.log('DEBUG: Update response received');
+      console.log('DEBUG: Update response status:', response.status);
+      console.log('DEBUG: Update response ok:', response.ok);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log('DEBUG: Update error response text:', errorText);
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+      }
+      
+      const result = await response.json();
+      console.log('DEBUG: Update success response data:', result);
+      return result;
+    } catch (error) {
+      console.error('DEBUG: Update fetch error:', error);
+      throw error;
+    }
   }
 
   async list(token: string | null): Promise<ApiResponse<MoneyDonationItem[]>> {

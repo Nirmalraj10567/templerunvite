@@ -1048,6 +1048,44 @@ app.get('/api/mobile/events', async (req, res) => {
   const express = require('express');
   const r = express.Router();
 
+  // Helper to write money donation logs
+  async function logMoneyDonationAction({ donationId, templeId, userId, action, details }) {
+    try {
+      const has = await db.schema.hasTable('money_donation_logs');
+      if (!has) {
+        console.warn('money_donation_logs table does not exist, creating it...');
+        // Create the table if it doesn't exist
+        await db.schema.createTable('money_donation_logs', (table) => {
+          table.increments('id').primary();
+          table.integer('temple_id').notNullable().index();
+          table.integer('donation_id').notNullable().index();
+          table.string('action').notNullable(); // create | update | delete
+          table.text('details'); // JSON string with full snapshot/diff
+          table.integer('created_by').nullable().index();
+          table.timestamp('created_at').defaultTo(db.fn.now());
+        });
+        console.log('Created money_donation_logs table');
+      }
+      
+      const logData = {
+        donation_id: Number(donationId),
+        temple_id: Number(templeId),
+        created_by: userId ? Number(userId) : null,
+        action,
+        details: details ? JSON.stringify(details) : null,
+        created_at: db.fn.now(),
+      };
+      
+      console.log('Inserting money donation log:', logData);
+      await db('money_donation_logs').insert(logData);
+      console.log('Successfully inserted money donation log');
+    } catch (e) {
+      console.error('Failed to write money_donation_logs:', e.message);
+      console.error('Error details:', e);
+      throw e; // Re-throw to let caller handle
+    }
+  }
+
   // List money donations (current user temple)
   r.get('/', authenticateToken, authorizePermission('view_donations', 'view'), async (req, res) => {
     try {
@@ -1175,6 +1213,42 @@ app.get('/api/mobile/events', async (req, res) => {
     }
   });
 
+  // Logs: all logs for current temple (MUST be before /:id route)
+  r.get('/logs', authenticateToken, authorizePermission('view_donations', 'view'), async (req, res) => {
+    try {
+      const templeId = req.user.templeId;
+      const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+      const pageSize = Math.min(200, Math.max(1, parseInt(req.query.pageSize, 10) || 50));
+      const has = await db.schema.hasTable('money_donation_logs');
+      if (!has) return res.json({ success: true, data: [], total: 0, page, pageSize });
+      const base = db('money_donation_logs as l')
+        .leftJoin('money_donations as d', 'd.id', 'l.donation_id')
+        .where('l.temple_id', templeId);
+      const totalRow = await base.clone().count({ c: '*' }).first();
+      const total = Number(totalRow?.c || totalRow?.count || 0);
+      const rows = await base.clone()
+        .orderBy('l.created_at', 'desc')
+        .orderBy('l.id', 'desc')
+        .limit(pageSize)
+        .offset((page - 1) * pageSize)
+        .select('l.*', 'd.name as donation_name', 'd.register_no as register_no');
+      const data = rows.map(r => ({
+        id: r.id,
+        donation_id: r.donation_id,
+        action: r.action,
+        created_at: r.created_at,
+        created_by: r.created_by,
+        donation_name: r.donation_name || null,
+        register_no: r.register_no || null,
+        details: (() => { try { return r.details ? JSON.parse(r.details) : null; } catch { return r.details; } })(),
+      }));
+      res.json({ success: true, data, total, page, pageSize });
+    } catch (e) {
+      console.error('Error fetching /api/money-donations/logs:', e);
+      res.status(500).json({ error: 'Failed to fetch logs' });
+    }
+  });
+
   // Get single
   r.get('/:id', authenticateToken, authorizePermission('view_donations', 'view'), async (req, res) => {
     try {
@@ -1191,6 +1265,11 @@ app.get('/api/mobile/events', async (req, res) => {
   // Update
   r.put('/:id', authenticateToken, authorizePermission('edit_donations', 'edit'), async (req, res) => {
     try {
+      console.log('🔍 Money donation update API called');
+      console.log('Request params:', req.params);
+      console.log('Request body:', req.body);
+      console.log('User:', req.user);
+      
       const { id } = req.params;
       const b = req.body || {};
       const templeId = req.user.templeId;
@@ -1217,61 +1296,45 @@ app.get('/api/mobile/events', async (req, res) => {
       if (!changed) return res.status(404).json({ error: 'Not found' });
       const row = await db('money_donations').where({ id }).first();
 
-      // Update corresponding journal entry if it exists
+      // Sync journal mirror on update (delete old and recreate - same pattern as hall bookings)
       try {
         const hasJournal = await db.schema.hasTable('journal_entries');
         if (hasJournal) {
-          const existingJournalEntry = await db('journal_entries')
+          // First, delete existing journal entries for this donation
+          await db('journal_entries')
             .where({ 
               reference_type: 'money_donation', 
               reference_id: Number(id),
               temple_id: templeId 
             })
-            .first();
+            .del();
 
-          if (existingJournalEntry) {
-            // Update the journal entry with new values
-            const journalUpdate = {
-              date: row.date,
-              amount: row.amount,
-              remarks: row.reason || null,
+          // Create new journal entry with updated data
+          const amountNum = Number(row.amount || 0);
+          if (amountNum > 0) {
+            const entryData = {
+              date: row.date || new Date().toISOString().slice(0, 10),
+              from_account: 'DONATION A/C',
               to_account: row.transfer_to_account || 'INCOME A/C',
-              updated_at: db.fn.now(),
-            };
-
-            await db('journal_entries')
-              .where({ 
-                reference_type: 'money_donation', 
-                reference_id: Number(id),
-                temple_id: templeId 
-              })
-              .update(journalUpdate);
-
-            console.log('Successfully updated journal entry for money donation ID:', id);
-          } else {
-            // If no journal entry exists, create one (for backward compatibility)
-            const fromAccount = 'DONATION A/C';
-            const toAccount = row.transfer_to_account || 'INCOME A/C';
-            
-            await db('journal_entries').insert({
-              date: row.date,
-              from_account: fromAccount,
-              to_account: toAccount,
-              amount: row.amount,
+              amount: amountNum,
               entry_type: 'transfer',
-              remarks: row.reason || null,
+              remarks: row.reason || `Updated money donation - ${row.name || 'Unknown'}`,
               reference_type: 'money_donation',
-              reference_id: row.id,
+              reference_id: Number(id),
               temple_id: templeId,
               created_by: req.user.id,
-              created_at: db.fn.now(),
-            });
+              created_at: db.fn.now()
+            };
 
-            console.log('Created missing journal entry for money donation ID:', id);
+            console.log('🔍 Money donation journal mirror debug - Updating entry:', entryData);
+            await db('journal_entries').insert(entryData);
+            console.log(`✅ Journal entry updated for money donation ${id}`);
+          } else {
+            console.log(`⚠️ Skipping journal update for money donation ${id} due to zero amount`);
           }
         }
       } catch (journalError) {
-        console.error('Failed to update journal entry for donation:', journalError);
+        console.error('❌ Failed to sync money donation journal mirror on update:', journalError);
         // Don't fail the main request, but log the error
       }
 
@@ -1374,41 +1437,6 @@ app.get('/api/mobile/events', async (req, res) => {
     }
   });
 
-  // Logs: all logs for current temple
-  r.get('/logs', authenticateToken, authorizePermission('view_donations', 'view'), async (req, res) => {
-    try {
-      const templeId = req.user.templeId;
-      const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-      const pageSize = Math.min(200, Math.max(1, parseInt(req.query.pageSize, 10) || 50));
-      const has = await db.schema.hasTable('money_donation_logs');
-      if (!has) return res.json({ success: true, data: [], total: 0, page, pageSize });
-      const base = db('money_donation_logs as l')
-        .leftJoin('money_donations as d', 'd.id', 'l.donation_id')
-        .where('l.temple_id', templeId);
-      const totalRow = await base.clone().count({ c: '*' }).first();
-      const total = Number(totalRow?.c || totalRow?.count || 0);
-      const rows = await base.clone()
-        .orderBy('l.created_at', 'desc')
-        .orderBy('l.id', 'desc')
-        .limit(pageSize)
-        .offset((page - 1) * pageSize)
-        .select('l.*', 'd.name as donation_name', 'd.register_no as register_no');
-      const data = rows.map(r => ({
-        id: r.id,
-        donation_id: r.donation_id,
-        action: r.action,
-        created_at: r.created_at,
-        created_by: r.created_by,
-        donation_name: r.donation_name || null,
-        register_no: r.register_no || null,
-        details: (() => { try { return r.details ? JSON.parse(r.details) : null; } catch { return r.details; } })(),
-      }));
-      res.json({ success: true, data, total, page, pageSize });
-    } catch (e) {
-      console.error('Error fetching /api/money-donations/logs:', e);
-      res.status(500).json({ error: 'Failed to fetch logs' });
-    }
-  });
 
   app.use('/api/money-donations', r);
 })();
@@ -2648,913 +2676,9 @@ app.get('/api/dashboard/stats', authenticateToken, async (req, res) => {
   }
 });
 
-// Migrate tables if not exist
-async function migrate() {
-  try {
-    console.log('Starting database migration...');
-    // ... (rest of the code remains the same)
-    // Create temples table
-    if (!(await db.schema.hasTable('temples'))) {
-      await db.schema.createTable('temples', (table) => {
-        table.increments('id').primary();
-        table.string('name', 100).notNullable();
-        table.string('address', 200).notNullable();
-        table.string('city', 50);
-        table.string('state', 50);
-        table.string('country', 50).defaultTo('India');
-        table.string('postal_code', 20);
-        table.string('phone', 20);
-        table.string('email', 100);
-        table.string('website', 100);
-        table.text('description');
-        table.decimal('latitude', 9, 6);
-        table.decimal('longitude', 9, 6);
-        table.string('status', 20).defaultTo('active');
-        table.timestamp('created_at').defaultTo(db.fn.now());
-        table.timestamp('updated_at').defaultTo(db.fn.now());
-        
-        table.unique(['name', 'city']);
-        table.index(['city', 'state']);
-      });
-      
-      // Create default temples with professional standards
-      await db.transaction(async trx => {
-        const defaultTemples = [
-          { 
-            name: 'Main Temple', 
-            address: '123 Main Street',
-            city: 'Chennai',
-            state: 'Tamil Nadu',
-            postal_code: '600001',
-            phone: '+91 44 12345678', 
-            email: 'contact@maintemple.com',
-            website: 'https://maintemple.com',
-            description: 'Primary temple location with full facilities',
-            latitude: 13.0825,
-            longitude: 80.2750,
-            status: 'active'
-          },
-          { 
-            name: 'Branch Temple', 
-            address: '456 Branch Road',
-            city: 'Coimbatore',
-            state: 'Tamil Nadu',
-            postal_code: '641001',
-            phone: '+91 422 9876543', 
-            email: 'info@branchtemple.org',
-            website: 'https://branchtemple.org',
-            description: 'Secondary temple location with basic facilities',
-            latitude: 11.0168,
-            longitude: 76.9558,
-            status: 'active'
-          }
-        ];
 
-        for (const temple of defaultTemples) {
-          if (!temple.name || !temple.address || !temple.city) {
-            throw new Error('Temple name, address and city are required');
-          }
-          
-          await trx('temples').insert({
-            name: temple.name.trim(),
-            address: temple.address.trim(),
-            city: temple.city.trim(),
-            state: temple.state?.trim() || null,
-            country: temple.country?.trim() || 'India',
-            postal_code: temple.postal_code?.trim() || null,
-            phone: temple.phone?.trim() || null,
-            email: temple.email?.trim() || null,
-            website: temple.website?.trim() || null,
-            description: temple.description?.trim() || null,
-            latitude: temple.latitude || null,
-            longitude: temple.longitude || null,
-            status: 'active',
-            created_at: db.fn.now(),
-            updated_at: db.fn.now()
-          });
-        }
-      });
 
-      // Continue with other table creations below...
-    }
 
-    // Ensure users.email allows NULL (email is optional but must be UNIQUE when present)
-    try {
-      const cols = await db.raw(`PRAGMA table_info('users')`);
-      const emailCol = (cols?.[0] || cols).find?.(c => c.name === 'email');
-      if (emailCol && emailCol.notnull === 1) {
-        console.log('Migrating users table to allow NULL emails (keeping UNIQUE constraint)');
-        await db.transaction(async trx => {
-          // Create new table with email nullable
-          await trx.schema.createTable('users_new', (table) => {
-            table.increments('id').primary();
-            table.string('username').notNullable().unique();
-            table.string('email').unique().nullable();
-            table.string('full_name');
-            table.string('mobile').notNullable().unique();
-            table.string('password').notNullable();
-            table.string('role').notNullable().defaultTo('member');
-            table.integer('temple_id').notNullable();
-            table.string('status').notNullable().defaultTo('active');
-            table.timestamp('created_at').defaultTo(trx.fn.now());
-            table.timestamp('updated_at').defaultTo(trx.fn.now());
-          });
-
-          // Copy data; convert empty emails to NULL
-          const rows = await trx('users').select('*');
-          for (const r of rows) {
-            await trx('users_new').insert({
-              id: r.id,
-              username: r.username,
-              email: r.email && String(r.email).trim() !== '' ? r.email : null,
-              full_name: r.full_name,
-              mobile: r.mobile,
-              password: r.password,
-              role: r.role,
-              temple_id: r.temple_id,
-              status: r.status,
-              created_at: r.created_at,
-              updated_at: r.updated_at,
-            });
-          }
-
-          // Replace old table
-          await trx.schema.dropTable('users');
-          await trx.schema.renameTable('users_new', 'users');
-
-          // Recreate foreign keys if necessary (SQLite limitations)
-          // Note: If there are FKs referencing users.id, they remain valid by table rename.
-          console.log('Users table migrated successfully.');
-        });
-      }
-    } catch (e) {
-      console.warn('Users email NULL migration skipped or failed:', e.message);
-    }
-
-    // Create properties table
-    if (!(await db.schema.hasTable('properties'))) {
-      await db.schema.createTable('properties', (table) => {
-        table.increments('id').primary();
-        table.string('property_no').notNullable();
-        table.string('survey_no').notNullable();
-        table.string('ward_no').notNullable();
-        table.string('street_name').notNullable();
-        table.string('area').notNullable();
-        table.string('city').notNullable();
-        table.string('pincode').notNullable();
-        table.string('owner_name').notNullable();
-        table.string('owner_mobile').notNullable();
-        table.string('owner_aadhaar');
-        table.text('owner_address');
-        table.decimal('tax_amount', 10, 2).notNullable();
-        table.integer('tax_year').notNullable();
-        table.string('tax_status').defaultTo('pending');
-        table.date('last_paid_date');
-        table.decimal('pending_amount', 10, 2).notNullable();
-        table.integer('created_by').notNullable();
-        table.integer('temple_id').notNullable();
-        table.timestamp('created_at').defaultTo(db.fn.now());
-        table.timestamp('updated_at').defaultTo(db.fn.now());
-        
-        table.foreign('temple_id').references('id').inTable('temples').onDelete('CASCADE');
-        table.foreign('created_by').references('id').inTable('users').onDelete('SET NULL');
-        
-        table.index(['temple_id']);
-        table.index(['property_no']);
-        table.index(['owner_mobile']);
-        table.index(['tax_status']);
-      });
-      
-      // Add property_registrations permission if it doesn't exist
-      await db.raw(`
-        INSERT OR IGNORE INTO permissions (id, name, description)
-        VALUES ('property_registrations', 'Property Registrations', 'Manage property registrations and tax details')
-      `);
-
-      // Add pdf_settings permission if it doesn't exist
-      await db.raw(`
-        INSERT OR IGNORE INTO permissions (id, name, description)
-        VALUES ('pdf_settings', 'PDF Settings', 'Manage receipt PDF titles and logo')
-        VALUES ('pdf_settings', 'PDF Settings', 'Manage receipt PDF titles and logo');
-      `);
-      
-      // Grant full permission to admin role
-      await db.raw(`
-        INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level)
-        SELECT 'admin', 'property_registrations', 'full'
-        WHERE NOT EXISTS (
-          SELECT 1 FROM role_permissions 
-          WHERE role_id = 'admin' AND permission_id = 'property_registrations'
-        )
-      `);
-      
-      // Grant view permission to member role
-      await db.raw(`
-        INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level)
-        SELECT 'member', 'property_registrations', 'view'
-        WHERE NOT EXISTS (
-          SELECT 1 FROM role_permissions 
-          WHERE role_id = 'member' AND permission_id = 'property_registrations'
-        )
-      `);
-    }
-
-    // Create users table with enhanced schema
-    if (!(await db.schema.hasTable('users'))) {
-      await db.schema.createTable('users', (table) => {
-        table.increments('id').primary();
-        table.string('mobile').notNullable().unique();
-        table.string('username').notNullable();
-        table.string('password').notNullable();
-        table.string('email');
-        table.string('full_name');
-        table.string('website_link');
-        table.string('profile_image');
-        table.string('trust_information');
-        table.integer('temple_id').notNullable().references('id').inTable('temples');
-        table.string('role').defaultTo('member'); // member, admin, superadmin
-        table.string('status').defaultTo('active'); // active, inactive, suspended
-        table.timestamp('created_at').defaultTo(db.fn.now());
-        table.timestamp('updated_at').defaultTo(db.fn.now());
-        table.timestamp('last_login');
-      });
-    } else {
-      // Check if migration for new fields is needed
-      const columns = await db.raw("PRAGMA table_info(users)");
-      const columnNames = columns.map(col => col.name);
-      
-      if (!columnNames.includes('temple_id')) {
-        console.log('Migrating users table to add temple_id and role fields...');
-        
-        // Add new columns if they don't exist
-        if (!columnNames.includes('temple_id')) {
-          await db.raw('ALTER TABLE users ADD COLUMN temple_id INTEGER DEFAULT 1');
-        }
-        if (!columnNames.includes('role')) {
-          await db.raw('ALTER TABLE users ADD COLUMN role TEXT DEFAULT "member"');
-        }
-        if (!columnNames.includes('status')) {
-          await db.raw('ALTER TABLE users ADD COLUMN status TEXT DEFAULT "active"');
-        }
-        if (!columnNames.includes('last_login')) {
-          await db.raw('ALTER TABLE users ADD COLUMN last_login DATETIME');
-        }
-        
-        console.log('Migration completed. Added new fields to users table.');
-      }
-    }
-
-    // Import and run user_tax_registrations table migration
-    const createUserTaxRegistrationsTable = require('./db/migrations/createUserTaxRegistrationsTable');
-    await createUserTaxRegistrationsTable(db);
-
-    // Import and run pdf_settings table migration
-    const createPdfSettingsTable = require('./db/migrations/createPdfSettingsTable');
-    await createPdfSettingsTable(db);
-
-    // Import and run tax_settings table migration
-    const createTaxSettingsTable = require('./db/migrations/createTaxSettingsTable');
-    await createTaxSettingsTable(db);
-
-    // Import and run user_settings table migration
-    const createUserSettingsTable = require('./db/migrations/createUserSettingsTable');
-    await createUserSettingsTable(db);
-
-    // Import and run migration to add include_previous_years to tax_settings
-    const addIncludePreviousYearsToTaxSettings = require('./db/migrations/addIncludePreviousYearsToTaxSettings');
-    await addIncludePreviousYearsToTaxSettings(db);
-
-    // Import and run tax settings data seeder
-    const seedTaxSettingsData = require('./db/seed/taxSettingsData');
-    await seedTaxSettingsData(db);
-
-    // Import dummy data utilities
-    const { createDummyTaxRegistrations, createDefaultUsers } = require('./db/seed/dummyData');
-    
-    // Create default users (superadmin and admin)
-    await createDefaultUsers(db, bcrypt);
-    
-    // Create dummy tax registrations for testing
-    await createDummyTaxRegistrations(db);
-
-    // Import and run master table migrations
-    const createMasterTables = require('./db/migrations/createMasterTables');
-    await createMasterTables(db);
-
-    // Import and run master_people table migration
-    const createMasterPeopleTable = require('./db/migrations/createMasterPeopleTable');
-    await createMasterPeopleTable(db);
-
-    // Import and run master_groups table migration
-    const createMasterGroupsTable = require('./db/migrations/createMasterGroupsTable');
-    await createMasterGroupsTable(db);
-
-    // Import and run master_clans table migration
-    const createMasterClansTable = require('./db/migrations/createMasterClansTable');
-    await createMasterClansTable(db);
-
-    // Import and run master_occupations table migration
-    const createMasterOccupationsTable = require('./db/migrations/createMasterOccupationsTable');
-    await createMasterOccupationsTable(db);
-
-    // Import and run master_villages table migration
-    const createMasterVillagesTable = require('./db/migrations/createMasterVillagesTable');
-    await createMasterVillagesTable(db);
-
-    // Import and run master_educations table migration
-    const createMasterEducationsTable = require('./db/migrations/createMasterEducationsTable');
-    await createMasterEducationsTable(db);
-
-    // Import and run master_halls and master_hall_events table migrations
-    try {
-      const createMasterHallsTable = require('./db/migrations/createMasterHallsTable');
-      await createMasterHallsTable(db);
-    } catch (e) { console.warn('createMasterHallsTable migration failed:', e.message); }
-    try {
-      const createMasterHallEventsTable = require('./db/migrations/createMasterHallEventsTable');
-      await createMasterHallEventsTable(db);
-    } catch (e) { console.warn('createMasterHallEventsTable migration failed:', e.message); }
-
-    // Create user_registrations table using the modular migration
-    const createUserRegistrationsTable = require('./db/migrations/createUserRegistrationsTable');
-    await createUserRegistrationsTable(db);
-
-    // Create user_heirs table (for heirs/family details)
-    const createUserHeirsTable = require('./db/migrations/createUserHeirsTable');
-    await createUserHeirsTable(db);
-
-    // Create session_logs table
-    if (!(await db.schema.hasTable('session_logs'))) {
-      await db.schema.createTable('session_logs', (table) => {
-        table.increments('id').primary();
-        table.integer('user_id').notNullable();
-        table.timestamp('login_time').defaultTo(db.fn.now());
-        table.timestamp('logout_time');
-        table.string('ip_address').notNullable();
-        table.string('user_agent');
-        table.integer('duration_seconds');
-      });
-      console.log('Created session_logs table.');
-    }
-    
-    // Create external temple databases registry (for superadmin cross-tenant monitoring)
-    if (!(await db.schema.hasTable('external_temple_databases'))) {
-      await db.schema.createTable('external_temple_databases', (table) => {
-        table.increments('id').primary();
-        table.string('name').notNullable();
-        table.string('db_path').notNullable();
-        table.string('status').notNullable().defaultTo('active'); // active/inactive
-        table.timestamp('created_at').defaultTo(db.fn.now());
-        table.timestamp('updated_at').defaultTo(db.fn.now());
-      });
-      console.log('Created external_temple_databases table.');
-    }
-    
-    // Create simple key-value system settings table
-    if (!(await db.schema.hasTable('system_settings'))) {
-      await db.schema.createTable('system_settings', (table) => {
-        table.string('key').primary();
-        table.text('value');
-        table.timestamp('updated_at').defaultTo(db.fn.now());
-      });
-      console.log('Created system_settings table.');
-    }
-    // Seed default year-end flags if missing
-    const ensureSetting = async (key, defaultValue) => {
-      const row = await db('system_settings').where({ key }).first();
-      if (!row) {
-        await db('system_settings').insert({ key, value: JSON.stringify(defaultValue), updated_at: db.fn.now() });
-      }
-    };
-    await ensureSetting('year_end_enforced', false);
-    await ensureSetting('year_end_locked', false);
-    
-    // Ensure ledger_entries table and add registration_id linkage
-    if (!(await db.schema.hasTable('ledger_entries'))) {
-      await db.schema.createTable('ledger_entries', (table) => {
-        table.increments('id').primary();
-        table.integer('temple_id').notNullable().defaultTo(1);
-        table.string('receipt_no').notNullable();
-        table.string('date');
-        table.string('donor_name').notNullable();
-        table.string('village');
-        table.string('mobile');
-        table.float('amount').notNullable();
-        table.float('paid_amount').defaultTo(0);
-        table.float('donation_amount').defaultTo(0);
-        table.string('year');
-        table.string('status').defaultTo('pending');
-        table.integer('registration_id'); // link to user_registrations
-        table.timestamp('created_at').defaultTo(db.fn.now());
-        table.timestamp('updated_at').defaultTo(db.fn.now());
-      });
-      console.log('Created ledger_entries table.');
-    } else {
-      try {
-        const cols = await db.raw("PRAGMA table_info(ledger_entries)");
-        const colNames = cols.map(c => c.name);
-        if (!colNames.includes('registration_id')) {
-          await db.raw('ALTER TABLE ledger_entries ADD COLUMN registration_id INTEGER');
-          console.log('Added registration_id to ledger_entries.');
-        }
-      } catch (e) {
-        console.log('Note: Could not alter ledger_entries for registration_id:', e.message);
-      }
-    }
-
-    // Run SQL migrations from migrations directory
-    try {
-      const fs = require('fs');
-      const migrationsDir = path.join(__dirname, 'migrations');
-      
-      if (fs.existsSync(migrationsDir)) {
-        const migrationFiles = fs.readdirSync(migrationsDir)
-          .filter(file => file.endsWith('.sql'))
-          .sort(); // Run migrations in alphabetical order
-        
-        for (const file of migrationFiles) {
-          try {
-            const migrationSQL = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-            const statements = migrationSQL.split(';').filter(stmt => stmt.trim());
-            
-            for (const statement of statements) {
-              if (statement.trim()) {
-                await db.raw(statement);
-              }
-            }
-            console.log(`Migration ${file} completed.`);
-          } catch (err) {
-            console.log(`Migration ${file} skipped or failed:`, err.message);
-          }
-        }
-      }
-    } catch (migrationErr) {
-      console.log('SQL migrations skipped:', migrationErr.message);
-    }
-
-    // Run enhanced permissions migration
-    try {
-      const fs = require('fs');
-      const migrationSQL = fs.readFileSync(path.join(__dirname, 'enhanced_permissions_migration.sql'), 'utf8');
-      const statements = migrationSQL.split(';').filter(stmt => stmt.trim());
-      
-      for (const statement of statements) {
-        if (statement.trim()) {
-          await db.raw(statement);
-        }
-      }
-      console.log('Enhanced permissions migration completed.');
-    } catch (migrationErr) {
-      console.log('Enhanced permissions migration skipped (file not found or already applied):', migrationErr.message);
-    }
-    
-    // Run ledger categories temple_id migration
-    try {
-      const addTempleIdToLedgerCategories = require('./db/migrations/addTempleIdToLedgerCategories');
-      await addTempleIdToLedgerCategories(db);
-      console.log('Ledger categories temple_id migration completed.');
-    } catch (migrationErr) {
-      console.log('Ledger categories temple_id migration skipped or failed:', migrationErr.message);
-    }
-
-    // Create marriage_registers table
-    if (!(await db.schema.hasTable('marriage_registers'))) {
-      await db.schema.createTable('marriage_registers', (table) => {
-        table.increments('id').primary();
-        table.integer('temple_id').notNullable().defaultTo(1);
-        table.string('register_no');
-        table.string('date');
-        table.string('time');
-        table.string('event'); // ceremony type
-        table.string('groom_name');
-        table.string('bride_name');
-        table.string('address');
-        table.string('village');
-        table.string('guardian_name');
-        table.string('witness_one');
-        table.string('witness_two');
-        table.string('remarks');
-        table.timestamp('created_at').defaultTo(db.fn.now());
-        table.timestamp('updated_at').defaultTo(db.fn.now());
-      });
-      console.log('Created marriage_registers table.');
-    }
-
-    // Create marriage_hall_bookings table
-    if (!(await db.schema.hasTable('marriage_hall_bookings'))) {
-      await db.schema.createTable('marriage_hall_bookings', (table) => {
-        table.increments('id').primary();
-        table.integer('temple_id').notNullable().defaultTo(1);
-        table.string('register_no');
-        table.string('date');
-        table.string('time');
-        table.string('event');
-        table.string('subdivision');
-        table.string('name');
-        table.string('address');
-        table.string('village');
-        table.string('mobile');
-        table.string('advance_amount');
-        table.string('total_amount');
-        table.string('balance_amount');
-        table.string('remarks');
-        table.timestamp('created_at').defaultTo(db.fn.now());
-        table.timestamp('updated_at').defaultTo(db.fn.now());
-      });
-      console.log('Created marriage_hall_bookings table.');
-    }
-    
-    // Add approval system fields to marriage_hall_bookings
-    try {
-      await db.raw("ALTER TABLE marriage_hall_bookings ADD COLUMN status TEXT DEFAULT 'approved' CHECK (status IN ('pending', 'approved', 'rejected', 'cancelled'))");
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    try {
-      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN submitted_by_mobile TEXT');
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    try {
-      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    try {
-      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN approved_by INTEGER REFERENCES users(id) ON DELETE SET NULL');
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    try {
-      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN approved_at TIMESTAMP');
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    try {
-      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN rejection_reason TEXT');
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    try {
-      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN admin_notes TEXT');
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    // Add transfer_to_account for ledger account mapping
-    try {
-      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN transfer_to_account TEXT');
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    // Add hall_id and event_id references to master tables (nullable for backward compat)
-    try {
-      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN hall_id INTEGER');
-    } catch (err) { /* ignore if exists */ }
-    try {
-      await db.raw('ALTER TABLE marriage_hall_bookings ADD COLUMN event_id INTEGER');
-    } catch (err) { /* ignore if exists */ }
-
-    // Create hall_approval_logs table
-    if (!(await db.schema.hasTable('hall_approval_logs'))) {
-      await db.schema.createTable('hall_approval_logs', (table) => {
-        table.increments('id').primary();
-        table.integer('booking_id').notNullable().references('id').inTable('marriage_hall_bookings').onDelete('CASCADE');
-        table.string('action').notNullable();
-        table.integer('performed_by').references('id').inTable('users').onDelete('SET NULL');
-        table.timestamp('performed_at').defaultTo(db.fn.now());
-        table.text('notes');
-        table.string('old_status');
-        table.string('new_status');
-        table.index(['booking_id']);
-        table.index(['action']);
-      });
-      console.log('Created hall_approval_logs table.');
-    }
-
-    // Add permissions for hall approval system
-    await db.raw(`
-      INSERT OR IGNORE INTO permissions (id, name, description) VALUES 
-      ('hall_approval', 'Hall Approval', 'Approve or reject hall booking requests from mobile users'),
-      ('hall_mobile_submit', 'Hall Mobile Submit', 'Submit hall booking requests from mobile app')
-    `);
-
-    // Grant permissions to roles
-    await db.raw(`
-      INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level) VALUES
-      ('admin', 'hall_approval', 'full'),
-      ('superadmin', 'hall_approval', 'full'),
-      ('member', 'hall_mobile_submit', 'full')
-    `);
-
-    // Ensure ledger_categories table exists (for Manage Categories)
-    if (!(await db.schema.hasTable('ledger_categories'))) {
-      await db.schema.createTable('ledger_categories', (table) => {
-        table.increments('id').primary();
-        table.string('value').notNullable();
-        table.string('label').notNullable();
-        table.integer('temple_id').notNullable().defaultTo(1);
-        table.timestamp('created_at').defaultTo(db.fn.now());
-        table.timestamp('updated_at');
-        table.unique(['value', 'temple_id']);
-        table.unique(['label', 'temple_id']);
-      });
-      console.log('Created ledger_categories table.');
-    } else {
-      // Add temple_id column if it doesn't exist
-      try {
-        const cols = await db.raw("PRAGMA table_info(ledger_categories)");
-        const colNames = cols.map(c => c.name);
-        if (!colNames.includes('temple_id')) {
-          await db.raw('ALTER TABLE ledger_categories ADD COLUMN temple_id INTEGER NOT NULL DEFAULT 1');
-          console.log('Added temple_id column to ledger_categories table.');
-        }
-      } catch (e) {
-        console.log('Note: Could not alter ledger_categories for temple_id:', e.message);
-      }
-    }
-
-    // Seed ledger_categories from existing ledger_entries.under (idempotent)
-    try {
-      // Get distinct temple_ids from ledger_entries
-      const templeRows = await db('ledger_entries')
-        .distinct('temple_id')
-        .whereNotNull('temple_id');
-      
-      for (const templeRow of templeRows) {
-        const templeId = templeRow.temple_id;
-        
-        // Get existing values for this temple
-        const existingValues = new Set(
-          (await db('ledger_categories')
-            .where('temple_id', templeId)
-            .select('value'))
-            .map(r => r.value)
-        );
-        
-        // Get distinct 'under' values for this temple
-        const underRows = await db('ledger_entries')
-          .where('temple_id', templeId)
-          .whereNotNull('under')
-          .distinct({ value: 'under' })
-          .orderBy('under', 'asc');
-          
-        const toInsert = underRows
-          .map(r => ({ value: r.value, label: r.value, temple_id: templeId }))
-          .filter(r => r.value && !existingValues.has(r.value));
-          
-        if (toInsert.length > 0) {
-          await db('ledger_categories').insert(
-            toInsert.map(r => ({ ...r, created_at: db.fn.now() }))
-          );
-          console.log(`Seeded ${toInsert.length} categories for temple ${templeId} from ledger_entries.`);
-        }
-      }
-    } catch (seedErr) {
-      console.log('Seeding ledger_categories skipped or failed:', seedErr.message);
-    }
-
-    // Ensure donation_products table exists
-    if (!(await db.schema.hasTable('donation_products'))) {
-      await db.schema.createTable('donation_products', (table) => {
-        table.increments('id').primary();
-        table.string('value').notNullable();
-        table.string('label').notNullable();
-        table.string('unit');
-        table.timestamp('created_at').defaultTo(db.fn.now());
-        table.timestamp('updated_at');
-        table.unique(['value']);
-        table.unique(['label']);
-      });
-      console.log('Created donation_products table.');
-    }
-
-    // Ensure money_donations table exists
-    if (!(await db.schema.hasTable('money_donations'))) {
-      await db.schema.createTable('money_donations', (table) => {
-        table.increments('id').primary();
-        table.string('register_no');
-        table.string('date').notNullable();
-        table.string('name');
-        table.string('father_name');
-        table.string('address');
-        table.string('village');
-        table.string('phone');
-        table.float('amount').notNullable();
-        table.string('reason');
-        table.integer('temple_id').notNullable().defaultTo(1);
-        table.timestamp('created_at').defaultTo(db.fn.now());
-        table.timestamp('updated_at').defaultTo(db.fn.now());
-      });
-      console.log('Created money_donations table.');
-    }
-    // Safe column additions for money_donations table
-    try { await db.raw('ALTER TABLE money_donations ADD COLUMN transfer_to_account TEXT'); } catch (e) {}
-
-    // Create annadhanam table
-    if (!(await db.schema.hasTable('annadhanam'))) {
-      await db.schema.createTable('annadhanam', (table) => {
-        table.increments('id').primary();
-        table.integer('temple_id').notNullable().defaultTo(1);
-        table.string('receipt_number').notNullable();
-        table.string('name').notNullable();
-        table.string('mobile_number').notNullable();
-        table.text('food').notNullable();
-        table.integer('peoples').notNullable();
-        table.string('time').notNullable();
-        table.date('from_date').notNullable();
-        table.date('to_date').notNullable();
-        table.text('remarks');
-        table.integer('created_by').references('id').inTable('users').onDelete('SET NULL');
-        table.timestamp('created_at').defaultTo(db.fn.now());
-        table.timestamp('updated_at').defaultTo(db.fn.now());
-        
-        table.foreign('temple_id').references('id').inTable('temples').onDelete('CASCADE');
-        table.index(['temple_id']);
-        table.index(['receipt_number']);
-        table.index(['name']);
-        table.index(['mobile_number']);
-        table.index(['from_date']);
-        table.index(['to_date']);
-      });
-      console.log('Created annadhanam table.');
-      
-      // Add annadhanam_registrations permission if it doesn't exist
-      await db.raw(`
-        INSERT OR IGNORE INTO permissions (id, name, description)
-        VALUES ('annadhanam_registrations', 'Annadhanam Registrations', 'Manage annadhanam registrations and food distribution')
-      `);
-      
-      // Grant full permission to admin role
-      await db.raw(`
-        INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level)
-        SELECT 'admin', 'annadhanam_registrations', 'full'
-        WHERE NOT EXISTS (
-          SELECT 1 FROM role_permissions 
-          WHERE role_id = 'admin' AND permission_id = 'annadhanam_registrations'
-        )
-      `);
-      
-      // Grant view permission to member role
-      await db.raw(`
-        INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level)
-        SELECT 'member', 'annadhanam_registrations', 'view'
-        WHERE NOT EXISTS (
-          SELECT 1 FROM role_permissions 
-          WHERE role_id = 'member' AND permission_id = 'annadhanam_registrations'
-        )
-      `);
-      
-      // Grant full permission to superadmin role
-      await db.raw(`
-        INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level)
-        SELECT 'superadmin', 'annadhanam_registrations', 'full'
-        WHERE NOT EXISTS (
-          SELECT 1 FROM role_permissions 
-          WHERE role_id = 'superadmin' AND permission_id = 'annadhanam_registrations'
-        )
-      `);
-
-      // Grant specific permission to user with mobile 9999999999
-      await db.raw(`
-        INSERT OR IGNORE INTO user_permissions (user_id, permission_id, access_level)
-        SELECT u.id, 'annadhanam_registrations', 'full'
-        FROM users u
-        WHERE u.mobile = '9999999999'
-        AND NOT EXISTS (
-          SELECT 1 FROM user_permissions up
-          WHERE up.user_id = u.id AND up.permission_id = 'annadhanam_registrations'
-        )
-      `);
-
-      // Insert sample test data
-      await db.raw(`
-        INSERT OR IGNORE INTO annadhanam (temple_id, receipt_number, name, mobile_number, food, peoples, time, from_date, to_date, remarks, created_by, created_at, updated_at) VALUES
-        (1, 'ANN001', 'Rajesh Kumar', '9876543210', 'Breakfast', 10, '08:00', '2024-01-15', '2024-01-15', 'Morning Annadhanam', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-        (1, 'ANN002', 'Priya Sharma', '9876543211', 'Lunch', 20, '12:00', '2024-01-16', '2024-01-16', 'Afternoon Annadhanam', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-        (1, 'ANN003', 'Suresh Reddy', '9876543212', 'Dinner', 30, '18:00', '2024-01-17', '2024-01-17', 'Evening Annadhanam', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-        (1, 'ANN004', 'Meera Patel', '9876543213', 'Breakfast', 40, '08:00', '2024-01-18', '2024-01-20', '3-day Annadhanam', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-        (1, 'ANN005', 'Kumar Singh', '9876543214', 'Lunch', 50, '12:00', '2024-01-19', '2024-01-19', 'Special Annadhanam', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-        (1, 'ANN006', 'Anita Desai', '9876543215', 'Dinner', 60, '18:00', '2024-01-20', '2024-01-20', 'Annadhanam for guests', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-        (1, 'ANN007', 'Vikram Joshi', '9876543216', 'Breakfast', 70, '08:00', '2024-01-21', '2024-01-21', 'Annadhanam for devotees', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-        (1, 'ANN008', 'Sunita Agarwal', '9876543217', 'Lunch', 80, '12:00', '2024-01-22', '2024-01-22', 'Annadhanam for visitors', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-        (1, 'ANN009', 'Ramesh Gupta', '9876543218', 'Dinner', 90, '18:00', '2024-01-23', '2024-01-23', 'Annadhanam for staff', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-        (1, 'ANN010', 'Lakshmi Iyer', '9876543219', 'Breakfast', 100, '08:00', '2024-01-24', '2024-01-26', '3-day Annadhanam for all', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      `);
-    }
-
-    // Add approval system fields to annadhanam table
-    try {
-      await db.raw(`ALTER TABLE annadhanam ADD COLUMN status TEXT DEFAULT 'approved' CHECK (status IN ('pending', 'approved', 'rejected', 'cancelled'))`);
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    try {
-      await db.raw(`ALTER TABLE annadhanam ADD COLUMN submitted_by_mobile TEXT`);
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    try {
-      await db.raw(`ALTER TABLE annadhanam ADD COLUMN submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    try {
-      await db.raw(`ALTER TABLE annadhanam ADD COLUMN approved_by INTEGER REFERENCES users(id) ON DELETE SET NULL`);
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    try {
-      await db.raw(`ALTER TABLE annadhanam ADD COLUMN approved_at TIMESTAMP`);
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    try {
-      await db.raw(`ALTER TABLE annadhanam ADD COLUMN rejection_reason TEXT`);
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    try {
-      await db.raw(`ALTER TABLE annadhanam ADD COLUMN admin_notes TEXT`);
-    } catch (err) {
-      // Column might already exist, ignore error
-    }
-
-    // Create annadhanam_approval_logs table
-    if (!(await db.schema.hasTable('annadhanam_approval_logs'))) {
-      await db.schema.createTable('annadhanam_approval_logs', (table) => {
-        table.increments('id').primary();
-        table.integer('annadhanam_id').notNullable().references('id').inTable('annadhanam').onDelete('CASCADE');
-        table.string('action').notNullable();
-        table.integer('performed_by').references('id').inTable('users').onDelete('SET NULL');
-        table.timestamp('performed_at').defaultTo(db.fn.now());
-        table.text('notes');
-        table.string('old_status');
-        table.string('new_status');
-        table.index(['annadhanam_id']);
-        table.index(['action']);
-      });
-      console.log('Created annadhanam_approval_logs table.');
-    }
-
-    // Add permissions for annadhanam approval system
-    await db.raw(`
-      INSERT OR IGNORE INTO permissions (id, name, description) VALUES 
-      ('annadhanam_approval', 'Annadhanam Approval', 'Approve or reject annadhanam requests from mobile users'),
-      ('annadhanam_mobile_submit', 'Annadhanam Mobile Submit', 'Submit annadhanam requests from mobile app')
-    `);
-
-    // Grant permissions to roles
-    await db.raw(`
-      INSERT OR IGNORE INTO role_permissions (role_id, permission_id, access_level) VALUES
-      ('admin', 'annadhanam_approval', 'full'),
-      ('superadmin', 'annadhanam_approval', 'full'),
-      ('member', 'annadhanam_mobile_submit', 'full')
-    `);
-
-    // Grant specific permission to user with mobile 9999999999
-    await db.raw(`
-      INSERT OR IGNORE INTO user_permissions (user_id, permission_id, access_level)
-      SELECT u.id, 'annadhanam_mobile_submit', 'full'
-      FROM users u
-      WHERE u.mobile = '9999999999'
-      AND NOT EXISTS (
-        SELECT 1 FROM user_permissions up
-        WHERE up.user_id = u.id AND up.permission_id = 'annadhanam_mobile_submit'
-      )
-    `);
-
-    console.log('Migration completed successfully!');
-  } catch (err) {
-    console.error('Migration error:', err);
-    throw err;
-  }
-}
-
-console.log('Starting migration...');
-// Skip automatic migrations
-// await db.migrate.latest();
-migrate().then(() => {
-  console.log('Migration completed, starting server...');
-}).catch(err => {
-  console.error('Migration failed:', err);
-  console.log('Continuing with server startup...');
-});
-
-// Mount users router (provides /api/login for username/mobile + password, and protects other user routes)
 try {
   const usersRouter = require('./users')({ db, JWT_SECRET, authenticateToken: authenticateToken });
   app.use('/api', usersRouter);
@@ -4665,35 +3789,6 @@ app.use('/api/properties',
   },
   propertiesRouter
 );
-
-// Create test data
-app.post('/api/create-test-user', async (req, res) => {
-  try {
-    // First check if temple exists
-    const temple = await db('temples').where({id: 1}).first();
-    if (!temple) {
-      await db('temples').insert({id: 1, name: 'Test Temple'});
-    }
-    
-    const hashedPassword = await bcrypt.hash('admin123', 10);
-    
-    await db('users').insert({
-      username: 'admin',
-      mobile: '9999999999',
-      password: hashedPassword,
-      role: 'admin',
-      status: 'active',
-      temple_id: 1,
-      email: 'admin@test.com',
-      full_name: 'Admin User',
-      created_at: db.fn.now()
-    });
-    
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
 // Mount admin members router
 const createAdminMembersRouter = require('./routes/admin/members');
