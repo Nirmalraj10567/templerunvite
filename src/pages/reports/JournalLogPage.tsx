@@ -267,7 +267,7 @@ export default function JournalLogPage() {
                 variant="outline" 
                 onClick={async () => {
                   try {
-                    const response = await fetch('http://localhost:4000/api/journal/sync-pooja', {
+                    const response = await fetch('https://tmsapi.xesstechlink.com/api/journal/sync-pooja', {
                       method: 'POST',
                       headers: { 
                         'Authorization': `Bearer ${token}`,
@@ -312,7 +312,7 @@ export default function JournalLogPage() {
                 variant="outline" 
                 onClick={async () => {
                   try {
-                    const response = await fetch('http://localhost:4000/api/journal/sync-pooja', {
+                    const response = await fetch('https://tmsapi.xesstechlink.com/api/journal/sync-pooja', {
                       method: 'POST',
                       headers: { 
                         'Authorization': `Bearer ${token}`,

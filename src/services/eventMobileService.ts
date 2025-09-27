@@ -15,7 +15,7 @@ interface ApiError {
 }
 
 export class EventMobileService {
-  private baseUrl = 'http://localhost:4000/api/events/mobile';
+  private baseUrl = 'https://tmsapi.xesstechlink.com/api/events/mobile';
 
   private async handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {

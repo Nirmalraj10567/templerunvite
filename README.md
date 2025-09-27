@@ -2,7 +2,6 @@
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/ef0d919c-a6d3-434c-9506-bdd2888ee774
 
 ## How can I edit this code?
 
@@ -10,9 +9,6 @@ There are several ways of editing your application.
 
 **Use Lovable**
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/ef0d919c-a6d3-434c-9506-bdd2888ee774) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
 
 **Use your preferred IDE**
 
@@ -172,3 +168,6 @@ Deploy steps on cPanel:
 Upload dist-cpanel.zip to your target folder (public_html or a subfolder).
 Extract it so index.html, assets/, and .htaccess are in the same directory.
 If in a subfolder, ensure the folder is the site root for that domain/subdomai
+
+
+
