@@ -479,7 +479,7 @@ export default function TaxUserEntryPage() {
 
     if (cleanMobile.length >= 3 && user?.templeId && token) {
       console.log('Will trigger lookup'); // Debug log
-      lookupUserByMobile(formatted);
+          lookupUserByMobile(formatted);
     } else {
       console.log('Clearing results'); // Debug log
       setMobileResults([]);

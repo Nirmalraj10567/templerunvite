@@ -274,7 +274,7 @@ module.exports = function(deps = {}) {
 
       // Get recent activity (last 7 days)
       const recentActivity = await db('pooja_approval_logs')
-        .where('performed_at', '>=', db.raw("datetime('now', '-7 days')"))
+        .where('performed_at', '>=', db.raw("DATE_SUB(NOW(), INTERVAL 7 DAY)"))
         .select('action')
         .count('* as count')
         .groupBy('action');
@@ -413,6 +413,134 @@ module.exports = function(deps = {}) {
         success: false, 
         error: 'Internal server error' 
       });
+    }
+  });
+
+  // Get logs for a specific pooja request
+  router.get('/:id/logs', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const logs = await db('pooja_approval_logs as l')
+        .leftJoin('users as u', 'l.performed_by', 'u.id')
+        .where('l.pooja_id', id)
+        .orderBy('l.performed_at', 'desc')
+        .select(
+          'l.id',
+          'l.action',
+          'l.performed_at as created_at',
+          'l.performed_by as created_by',
+          'l.notes',
+          'l.old_status',
+          'l.new_status',
+          db.raw("COALESCE(u.full_name, u.username, u.mobile) as performed_by_name")
+        );
+      
+      // Format the logs to match the expected structure
+      const formattedLogs = logs.map(log => ({
+        id: log.id,
+        action: log.action,
+        created_at: log.created_at,
+        created_by: log.created_by,
+        details: {
+          notes: log.notes,
+          old_status: log.old_status,
+          new_status: log.new_status,
+          performed_by_name: log.performed_by_name,
+          full_payload: {
+            id: log.id,
+            action: log.action,
+            performed_at: log.created_at,
+            performed_by: log.created_by,
+            created_by: log.created_by,
+            notes: log.notes,
+            old_status: log.old_status,
+            new_status: log.new_status,
+            performed_by_name: log.performed_by_name
+          }
+        }
+      }));
+
+      res.json({ success: true, data: formattedLogs });
+    } catch (err) {
+      console.error('GET /api/pooja-approval/:id/logs error:', err);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  });
+
+  // Get all pooja logs with pagination
+  router.get('/logs', async (req, res) => {
+    try {
+      const { page = 1, pageSize = 50 } = req.query;
+      const offset = (page - 1) * pageSize;
+
+      // Get total count
+      const totalResult = await db('pooja_approval_logs as l')
+        .count('* as total')
+        .first();
+      const total = parseInt(totalResult.total);
+
+      // Get logs with pooja request details
+      const logs = await db('pooja_approval_logs as l')
+        .leftJoin('pooja as p', 'l.pooja_id', 'p.id')
+        .leftJoin('users as u', 'l.performed_by', 'u.id')
+        .orderBy('l.performed_at', 'desc')
+        .limit(pageSize)
+        .offset(offset)
+        .select(
+          'l.id',
+          'l.pooja_id',
+          'l.action',
+          'l.performed_at as created_at',
+          'l.performed_by as created_by',
+          'l.notes',
+          'l.old_status',
+          'l.new_status',
+          'p.name as pooja_name',
+          'p.receipt_number',
+          db.raw("COALESCE(u.full_name, u.username, u.mobile) as performed_by_name")
+        );
+
+      // Format the logs to match the expected structure
+      const formattedLogs = logs.map(log => ({
+        id: log.id,
+        pooja_id: log.pooja_id,
+        action: log.action,
+        created_at: log.created_at,
+        created_by: log.created_by,
+        pooja_name: log.pooja_name,
+        receipt_number: log.receipt_number,
+        details: {
+          notes: log.notes,
+          old_status: log.old_status,
+          new_status: log.new_status,
+          performed_by_name: log.performed_by_name,
+          full_payload: {
+            id: log.id,
+            pooja_id: log.pooja_id,
+            action: log.action,
+            performed_at: log.created_at,
+            performed_by: log.created_by,
+            created_by: log.created_by,
+            notes: log.notes,
+            old_status: log.old_status,
+            new_status: log.new_status,
+            pooja_name: log.pooja_name,
+            receipt_number: log.receipt_number,
+            performed_by_name: log.performed_by_name
+          }
+        }
+      }));
+
+      res.json({ 
+        success: true, 
+        data: formattedLogs,
+        total: total,
+        page: parseInt(page),
+        pageSize: parseInt(pageSize)
+      });
+    } catch (err) {
+      console.error('GET /api/pooja-approval/logs error:', err);
+      res.status(500).json({ success: false, error: 'Internal server error' });
     }
   });
 

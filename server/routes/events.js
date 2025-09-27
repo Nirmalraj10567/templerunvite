@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { compressImage } = require('../middlewares/imageCompression');
 
 // Ensure upload directory exists
 const uploadDir = path.join(__dirname, '../../public/uploads/events');
@@ -80,7 +81,7 @@ router.get('/:id', async (req, res) => {
 router.put('/:id', upload.fields([
   { name: 'images', maxCount: 10 },
   { name: 'eventImages', maxCount: 10 }
-]), async (req, res) => {
+]), compressImage, async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (Number.isNaN(id)) return res.status(400).json({ error: 'Invalid event id' });
@@ -288,7 +289,7 @@ router.get('/', async (req, res) => {
 router.post('/', upload.fields([
   { name: 'images', maxCount: 10 },
   { name: 'eventImages', maxCount: 10 }
-]), async (req, res) => {
+]), compressImage, async (req, res) => {
   try {
     const { title, description, date, time, location } = req.body;
     

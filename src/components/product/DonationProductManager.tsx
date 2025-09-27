@@ -54,7 +54,21 @@ export function DonationProductManager({
         { value: label, label, unit, templeId },
         { headers: { Authorization: `Bearer ${getAuthToken()}` } }
       );
-      setProducts(prev => [...prev, resp.data]);
+      
+      // Handle backend response structure: { success: true, data: product }
+      const newProduct = resp.data.data;
+      console.log('Add product response:', resp.data);
+      console.log('New product:', newProduct);
+      
+      if (newProduct && newProduct.id && newProduct.label) {
+        setProducts(prev => {
+          const updated = [...(Array.isArray(prev) ? prev : []), newProduct];
+          console.log('Updated products array:', updated);
+          return updated;
+        });
+      } else {
+        console.error('Invalid product response:', resp.data);
+      }
       setDraft({ label: '', unit: '' });
       setIsAdding(false);
     } catch (e) {
@@ -65,8 +79,8 @@ export function DonationProductManager({
   };
 
   const handleSave = async (item: DonationProduct) => {
-    if (isLoading) return;
-    const label = item.label.trim();
+    if (isLoading || !item) return;
+    const label = (item.label || '').trim();
     const unit = (item.unit || '').trim();
     if (!label) return;
     try {
@@ -76,7 +90,14 @@ export function DonationProductManager({
         { value: label, label, unit, templeId },
         { headers: { Authorization: `Bearer ${getAuthToken()}` } }
       );
-      setProducts(prev => prev.map(p => (p.id === item.id ? resp.data : p)));
+      
+      // Handle backend response structure: { success: true, data: product }
+      const updatedProduct = resp.data.data;
+      if (updatedProduct && updatedProduct.id && updatedProduct.label) {
+        setProducts(prev => (Array.isArray(prev) ? prev : []).map(p => (p && p.id === item.id ? updatedProduct : p)));
+      } else {
+        console.error('Invalid update response:', resp.data);
+      }
       setEditing(null);
     } catch (e) {
       console.error('Update product failed:', e);
@@ -92,7 +113,7 @@ export function DonationProductManager({
       await axios.delete(`/api/donation-products/${templeId}/${id}`, {
         headers: { Authorization: `Bearer ${getAuthToken()}` },
       });
-      setProducts(prev => prev.filter(p => p.id !== id));
+      setProducts(prev => (Array.isArray(prev) ? prev : []).filter(p => p && p.id !== id));
     } catch (e) {
       console.error('Delete product failed:', e);
     } finally {
@@ -131,14 +152,14 @@ export function DonationProductManager({
                   <TableRow key={p.id}>
                     <TableCell>
                       {editing?.id === p.id ? (
-                        <Input value={editing.label} onChange={e => setEditing({ ...editing, label: e.target.value })} />
+                        <Input value={editing?.label || ''} onChange={e => setEditing(editing ? { ...editing, label: e.target.value } : null)} />
                       ) : (
                         p.label
                       )}
                     </TableCell>
                     <TableCell>
                       {editing?.id === p.id ? (
-                        <Input value={editing.unit || ''} onChange={e => setEditing({ ...editing, unit: e.target.value })} />
+                        <Input value={editing?.unit || ''} onChange={e => setEditing(editing ? { ...editing, unit: e.target.value } : null)} />
                       ) : (
                         p.unit || ''
                       )}
@@ -146,7 +167,7 @@ export function DonationProductManager({
                     <TableCell className="flex gap-2">
                       {editing?.id === p.id ? (
                         <>
-                          <Button size="sm" onClick={() => handleSave(editing!)} disabled={isLoading}>
+                          <Button size="sm" onClick={() => editing && handleSave(editing)} disabled={isLoading}>
                             {isLoading ? <Loader2 className="animate-spin" /> : t('Save', 'சேமிக்க')}
                           </Button>
                           <Button size="sm" variant="outline" onClick={() => setEditing(null)}>

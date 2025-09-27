@@ -269,7 +269,7 @@ module.exports = function(deps = {}) {
       }
 
       const recentActivity = await db('donations_approval_logs')
-        .where('performed_at', '>=', db.raw("datetime('now', '-7 days')"))
+        .where('performed_at', '>=', db.raw("DATE_SUB(NOW(), INTERVAL 7 DAY)"))
         .select('action')
         .count('* as count')
         .groupBy('action');

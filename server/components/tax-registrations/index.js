@@ -5,6 +5,7 @@ const PDFDocument = require('pdfkit');
 const router = express.Router();
 const db = require('../../db');
 const { authenticateToken, authorizePermission } = require('../../middleware');
+const { compressImage } = require('../../middlewares/imageCompression');
 
 // Configure storage for tax photos
 const storage = multer.diskStorage({
@@ -119,7 +120,7 @@ router.get('/logs', authenticateToken, authorizePermission('tax_registrations', 
 });
 
 // POST endpoint for tax registrations
-router.post('/', authenticateToken, authorizePermission('tax_registrations', 'edit'), upload.single('photo'), async (req, res) => {
+router.post('/', authenticateToken, authorizePermission('tax_registrations', 'edit'), upload.single('photo'), compressImage, async (req, res) => {
   try {
     const formData = req.body;
     const errors = validateFormData(formData);

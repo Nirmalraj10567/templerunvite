@@ -64,6 +64,34 @@ export default function HallListPage() {
   const [allLogsPage, setAllLogsPage] = useState(1);
   const [allLogsPageSize] = useState(50);
 
+  // Context Menu
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const onContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setMenuPos({ x: e.clientX, y: e.clientY });
+    setMenuOpen(true);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEsc);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEsc);
+    };
+  }, []);
 
   
   const t = (en: string, ta: string) => (language === 'english' ? ta : en);
@@ -327,92 +355,185 @@ export default function HallListPage() {
       {loading && <div>{t('Loading...', 'ஏற்றுகிறது...')}</div>}
       {error && <div className="text-red-600">{error}</div>}
 
-      {/* Grid layout */}
-      <div className="grid border border-gray-300">
-        {/* Header */}
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(80px,1fr))] bg-gray-100 text-gray-700 font-medium">
-          {allColumns.map(c => visibleCols[c.key] && (
-            <div key={c.key} className={`px-2 py-1 border-b border-r ${c.align === 'right' ? 'text-right' : 'text-left'} whitespace-nowrap`}>
-              {c.label}
-            </div>
-          ))}
-          <div className="px-2 py-1 border-b text-right">{t('Actions', 'செயல்கள்')}</div>
+      {/* Table layout */}
+      <div 
+        className="bg-white rounded border border-gray-200 overflow-hidden"
+        onContextMenu={onContextMenu}
+      >
+        <div className="overflow-x-auto text-xs max-h-[50vh]">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50 sticky top-0 z-10">
+              <tr>
+                {allColumns.map(
+                  (col) =>
+                    visibleCols[col.key] && (
+                      <th
+                        key={col.key}
+                        className={`px-2 py-1 text-xs font-medium text-gray-500 uppercase tracking-wider ${col.align === 'right'
+                            ? 'text-right'
+                            : 'text-left'
+                          }`}
+                      >
+                        {col.label}
+                      </th>
+                    )
+                )}
+                <th className="px-2 py-1 text-xs font-medium text-gray-500 uppercase tracking-wider text-center">
+                  {t('Actions', 'செயல்கள்')}
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {loading ? (
+                <tr>
+                  <td
+                    colSpan={Object.values(visibleCols).filter(Boolean).length + 1}
+                    className="px-2 py-2 text-center text-xs text-gray-500"
+                  >
+                    {t('Loading...', 'ஏற்றுகிறது...')}
+                  </td>
+                </tr>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={Object.values(visibleCols).filter(Boolean).length + 1}
+                    className="px-2 py-2 text-center text-xs text-gray-500"
+                  >
+                    {t('No records found', 'பதிவுகள் கிடைக்கவில்லை')}
+                  </td>
+                </tr>
+              ) : (
+                rows.map((r, idx) => (
+                  <tr key={r.id} className="hover:bg-gray-50">
+                    {visibleCols.register_no && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                        {r.register_no || '-'}
+                      </td>
+                    )}
+                    {visibleCols.date && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                        {r.date || '-'}
+                      </td>
+                    )}
+                    {visibleCols.time && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                        {r.time || '-'}
+                      </td>
+                    )}
+                    {visibleCols.event && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                        {r.event || '-'}
+                      </td>
+                    )}
+                    {visibleCols.subdivision && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                        {r.subdivision || '-'}
+                      </td>
+                    )}
+                    {visibleCols.name && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                        {r.name || '-'}
+                      </td>
+                    )}
+                    {visibleCols.address && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                        {r.address || '-'}
+                      </td>
+                    )}
+                    {visibleCols.village && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                        {r.village || '-'}
+                      </td>
+                    )}
+                    {visibleCols.mobile && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                        {r.mobile || '-'}
+                      </td>
+                    )}
+                    {visibleCols.advance_amount && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900 text-right">
+                        ₹{toNum(r.advance_amount).toLocaleString()}
+                      </td>
+                    )}
+                    {visibleCols.total_amount && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900 text-right">
+                        ₹{toNum(r.total_amount).toLocaleString()}
+                      </td>
+                    )}
+                    {visibleCols.balance_amount && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900 text-right">
+                        ₹{toNum(r.balance_amount).toLocaleString()}
+                      </td>
+                    )}
+                    {visibleCols.remarks && (
+                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                        {r.remarks || '-'}
+                      </td>
+                    )}
+                    <td className="px-2 py-1 whitespace-nowrap text-xs font-medium text-center">
+                      <div className="flex gap-1 justify-center">
+                        <PrintButton
+                          onClick={() => {
+                            const pdfUrl = `/api/hall-bookings/${r.id}/receipt.pdf`;
+                            // Simple approach: open in new tab
+                            window.open(pdfUrl, '_blank');
+                          }}
+                        />
+                        <button 
+                          onClick={() => handleEdit(r.id)}
+                          className="border px-2 py-1 rounded hover:bg-gray-100 text-xs"
+                        >
+                          {t('Edit', 'திருத்து')}
+                        </button>
+                        <button 
+                          onClick={() => openLogs(r)}
+                          className="border px-2 py-1 rounded hover:bg-green-100 text-green-600 text-xs"
+                        >
+                          {t('Logs', 'பதிவுகள்')}
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setSelectedBookingId(r.id);
+                            setShowDeleteModal(true);
+                          }}
+                          className={`border px-2 py-1 rounded hover:bg-red-100 text-red-600 ${idx === 0 ? '' : 'opacity-50 cursor-not-allowed'}`}
+                          title={t('Delete', 'நீக்கு')}
+                          disabled={idx !== 0}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
 
-        {/* Rows */}
-        {rows.map((r, idx) => (
-          <div key={r.id} className={`grid grid-cols-[repeat(auto-fit,minmax(80px,1fr))] ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-            {visibleCols.register_no && (<div className="px-2 py-1 border-b truncate">{r.register_no || ''}</div>)}
-            {visibleCols.date && (<div className="px-2 py-1 border-b truncate">{r.date || ''}</div>)}
-            {visibleCols.time && (<div className="px-2 py-1 border-b truncate">{r.time || ''}</div>)}
-            {visibleCols.event && (<div className="px-2 py-1 border-b truncate">{r.event || ''}</div>)}
-            {visibleCols.subdivision && (<div className="px-2 py-1 border-b truncate">{r.subdivision || ''}</div>)}
-            {visibleCols.name && (<div className="px-2 py-1 border-b truncate">{r.name || ''}</div>)}
-            {visibleCols.address && (<div className="px-2 py-1 border-b truncate">{r.address || ''}</div>)}
-            {visibleCols.village && (<div className="px-2 py-1 border-b truncate">{r.village || ''}</div>)}
-            {visibleCols.mobile && (<div className="px-2 py-1 border-b truncate">{r.mobile || ''}</div>)}
-            {visibleCols.advance_amount && (<div className="px-2 py-1 border-b text-right">{toNum(r.advance_amount).toLocaleString()}</div>)}
-            {visibleCols.total_amount && (<div className="px-2 py-1 border-b text-right">{toNum(r.total_amount).toLocaleString()}</div>)}
-            {visibleCols.balance_amount && (<div className="px-2 py-1 border-b text-right">{toNum(r.balance_amount).toLocaleString()}</div>)}
-            {visibleCols.remarks && (<div className="px-2 py-1 border-b truncate">{r.remarks || ''}</div>)}
-            <td className="border px-2 py-1 text-right">
-              <div className="flex gap-1 justify-end">
-                <PrintButton
-                  onClick={() => {
-                    const pdfUrl = `/api/hall-bookings/${r.id}/receipt.pdf`;
-                    // Simple approach: open in new tab
-                    window.open(pdfUrl, '_blank');
-                  }}
-                />
-                <button 
-                  onClick={() => handleEdit(r.id)}
-                  className="border px-2 py-1 rounded hover:bg-gray-100 text-xs"
-                >
-                  {t('Edit', 'திருத்து')}
-                </button>
-                <button 
-                  onClick={() => openLogs(r)}
-                  className="border px-2 py-1 rounded hover:bg-green-100 text-green-600 text-xs"
-                >
-                  {t('Logs', 'பதிவுகள்')}
-                </button>
-                <button 
-                  onClick={() => {
-                    setSelectedBookingId(r.id);
-                    setShowDeleteModal(true);
-                  }}
-                  className={`border px-2 py-1 rounded hover:bg-red-100 text-red-600 ${idx === 0 ? '' : 'opacity-50 cursor-not-allowed'}`}
-                  title={t('Delete', 'நீக்கு')}
-                  disabled={idx !== 0}
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </td>
+        {/* Footer */}
+        <div className="px-2 py-1 flex items-center justify-between border-t border-gray-200 text-xs">
+          <div className="text-gray-700">
+            {t('Showing', 'காட்டப்படுகிறது')}{' '}
+            <span className="font-medium">{(currentPage - 1) * pageSize + 1}</span> {t('to', 'இலிருந்து')}{' '}
+            <span className="font-medium">{Math.min(currentPage * pageSize, totalRecords)}</span> {t('of', 'மொத்தம்')}{' '}
+            <span className="font-medium">{totalRecords}</span> {t('results', 'முடிவுகள்')}
           </div>
-        ))}
-
-        {!rows.length && !loading && (
-          <div className="col-span-full text-center px-2 py-2">{t('No records', 'பதிவுகள் இல்லை')}</div>
-        )}
+          <div className="text-gray-700">
+            {t('Total', 'மொத்தம்')}: <span className="font-medium">{totalRecords}</span>
+          </div>
+        </div>
       </div>
 
-      {/* Totals */}
-      <div className="mt-2 flex justify-between text-xs text-gray-600">
-        <div>
-          {t('Showing', 'காட்டப்படுகிறது')} {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalRecords)} {t('of', 'இல்')} {totalRecords} {t('records', 'பதிவுகள்')}
-        </div>
+      {/* Financial Totals */}
+      <div className="mt-2 flex justify-end text-xs text-gray-600">
         <div className="flex gap-3">
-          <span>{t('Advance', 'முன்பணம்')}: {totals.advance.toLocaleString()}</span>
-          <span>{t('Total', 'மொத்தம்')}: {totals.total.toLocaleString()}</span>
-          <span>{t('Balance', 'இருப்பு')}: {totals.balance.toLocaleString()}</span>
+          <span>{t('Advance', 'முன்பணம்')}: ₹{totals.advance.toLocaleString()}</span>
+          <span>{t('Total', 'மொத்தம்')}: ₹{totals.total.toLocaleString()}</span>
+          <span>{t('Balance', 'இருப்பு')}: ₹{totals.balance.toLocaleString()}</span>
         </div>
       </div>
 
-      {/* Debug info - remove this later */}
-      <div className="mt-2 text-xs text-gray-500">
-        Debug: totalRecords={totalRecords}, pageSize={pageSize}, currentPage={currentPage}, showPagination={totalRecords >= pageSize}
-      </div>
 
       {/* Pagination Controls */}
       {totalRecords >= pageSize && (
@@ -690,6 +811,74 @@ export default function HallListPage() {
             )}
           </div>
         </Modal>
+      )}
+
+      {/* Context Menu */}
+      {menuOpen && (
+        <div
+          ref={menuRef}
+          className="fixed z-50 bg-white rounded shadow border border-gray-200 w-48 text-xs"
+          style={{ left: menuPos.x, top: menuPos.y }}
+        >
+          <div className="px-3 py-2 border-b border-gray-200">
+            <h3 className="text-xs font-medium text-gray-900">{t('Columns', 'நெடுவரிசைகள்')}</h3>
+            <p className="text-xs text-gray-500">
+              {t('Visible', 'காட்டப்படும்')} {Object.values(visibleCols).filter(Boolean).length}/{allColumns.length}
+            </p>
+          </div>
+          <div className="max-h-48 overflow-y-auto p-1">
+            {allColumns.map((col) => (
+              <label
+                key={col.key}
+                className="flex items-center px-2 py-1 rounded hover:bg-gray-50 cursor-pointer select-none"
+              >
+                <input
+                  type="checkbox"
+                  checked={!!visibleCols[col.key]}
+                  onChange={() =>
+                    setVisibleCols((prev) => ({ ...prev, [col.key]: !prev[col.key] }))
+                  }
+                  className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <span className="ml-2 text-xs text-gray-700">{col.label}</span>
+              </label>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-1 p-1 border-t border-gray-200">
+            <button
+              className="text-xs py-0.5 px-1.5 h-auto border rounded hover:bg-gray-50"
+              onClick={() =>
+                setVisibleCols(
+                  Object.fromEntries(allColumns.map((c) => [c.key, true])) as Record<ColKey, boolean>
+                )
+              }
+            >
+              {t('Select all', 'அனைத்தையும் தேர்ந்தெடு')}
+            </button>
+            <button
+              className="text-xs py-0.5 px-1.5 h-auto border rounded hover:bg-gray-50"
+              onClick={() =>
+                setVisibleCols(
+                  Object.fromEntries(allColumns.map((c) => [c.key, false])) as Record<ColKey, boolean>
+                )
+              }
+            >
+              {t('Clear all', 'அனைத்தையும் அழி')}
+            </button>
+            <button
+              className="text-xs py-0.5 px-1.5 h-auto border rounded hover:bg-gray-50"
+              onClick={() => setVisibleCols({ ...defaultVisible })}
+            >
+              {t('Reset', 'மீட்டமை')}
+            </button>
+            <button
+              className="text-xs py-0.5 px-1.5 h-auto border rounded hover:bg-gray-50 ml-auto"
+              onClick={() => setMenuOpen(false)}
+            >
+              {t('Close', 'மூடு')}
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

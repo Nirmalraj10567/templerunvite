@@ -253,7 +253,7 @@ module.exports = function(deps = {}) {
 
       // Get recent activity (last 7 days)
       const recentActivity = await db('annadhanam_approval_logs')
-        .where('performed_at', '>=', db.raw("datetime('now', '-7 days')"))
+        .where('performed_at', '>=', db.raw("DATE_SUB(NOW(), INTERVAL 7 DAY)"))
         .select('action')
         .count('* as count')
         .groupBy('action');

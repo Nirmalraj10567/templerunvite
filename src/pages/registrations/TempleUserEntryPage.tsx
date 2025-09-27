@@ -354,7 +354,30 @@ export default function TempleUserEntryPage() {
               }))
             : [],
         }));
-        setExistingPhotoUrl(r.photo_path ? `/public${r.photo_path}` : null);
+        // Debug: Log the photo path
+        console.log('Photo path from API:', r.photo_path);
+        const photoUrl = r.photo_path ? `/public${r.photo_path}` : null;
+        console.log('Constructed photo URL:', photoUrl);
+        
+        // Test if the photo URL is accessible
+        if (photoUrl) {
+          fetch(photoUrl, { method: 'HEAD' })
+            .then(response => {
+              if (response.ok) {
+                console.log('Photo URL is accessible:', photoUrl);
+                setExistingPhotoUrl(photoUrl);
+              } else {
+                console.warn('Photo URL not accessible:', photoUrl, 'Status:', response.status);
+                setExistingPhotoUrl(null);
+              }
+            })
+            .catch(error => {
+              console.error('Error checking photo URL:', photoUrl, error);
+              setExistingPhotoUrl(null);
+            });
+        } else {
+          setExistingPhotoUrl(null);
+        }
       } catch (e) {
         console.error('Failed to load registration for edit', e);
       }
@@ -522,14 +545,23 @@ export default function TempleUserEntryPage() {
     }));
   };
 
-  // Photo handler (100KB limit as per UI note)
+  // Photo handler (1MB+ limit, backend will compress)
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 100 * 1024) {
-      setErr(language === 'tamil' ? 'புகைப்படம் 100KB-க்கும் குறைவாக இருக்க வேண்டும்' : 'Photo size must be less than 100KB');
+    
+    // Allow up to 5MB, backend will compress
+    if (file.size > 5 * 1024 * 1024) {
+      setErr(language === 'tamil' ? 'புகைப்படம் 5MB-க்கும் குறைவாக இருக்க வேண்டும்' : 'Photo size must be less than 5MB');
       return;
     }
+    
+    // Check if it's a valid image file
+    if (!file.type.startsWith('image/')) {
+      setErr(language === 'tamil' ? 'புகைப்படம் மட்டுமே அனுமதிக்கப்படுகிறது' : 'Only image files are allowed');
+      return;
+    }
+    
     setNewUser((prev) => ({ ...prev, photo: file }));
     if (existingPhotoUrl) setExistingPhotoUrl(null);
     if (err) setErr(null);
@@ -555,55 +587,114 @@ export default function TempleUserEntryPage() {
     setErr(null);
     setMsg(null);
     try {
-      const body = {
-        referenceNumber: newUser.receiptNumber, // backend will override/generate
-        date: newUser.date,
-        name: newUser.name,
-        alternativeName: newUser.alternativeName,
-        wifeName: newUser.wifeName,
-        education: newUser.education,
-        occupation: newUser.occupation,
-        fatherName: newUser.fatherName,
-        address: newUser.address,
-        birthDate: '',
-        village: '',
-        mobileNumber: newUser.mobileNumber,
-        aadhaarNumber: newUser.aadhaarNumber,
-        panNumber: '',
-        clan: newUser.clan,
-        group: newUser.group,
-        postalCode: newUser.postalCode,
-        maleHeirs: newUser.maleHeirs,
-        femaleHeirs: newUser.femaleHeirs,
-        heirs: newUser.heirs.map(h => ({
+      const isEdit = !!editId;
+      const url = isEdit ? `http://localhost:4000/api/registrations/${editId}` : 'http://localhost:4000/api/registrations';
+      const method = isEdit ? 'PUT' : 'POST';
+      
+      // Check if we have a photo to upload
+      if (newUser.photo) {
+        console.log('Photo detected, using FormData for upload:', newUser.photo.name, newUser.photo.size);
+        // Use FormData for photo upload
+        const formData = new FormData();
+        formData.append('photo', newUser.photo);
+        formData.append('referenceNumber', newUser.receiptNumber);
+        formData.append('date', newUser.date);
+        formData.append('name', newUser.name);
+        formData.append('alternativeName', newUser.alternativeName);
+        formData.append('wifeName', newUser.wifeName);
+        formData.append('education', newUser.education);
+        formData.append('occupation', newUser.occupation);
+        formData.append('fatherName', newUser.fatherName);
+        formData.append('address', newUser.address);
+        formData.append('birthDate', '');
+        formData.append('village', '');
+        formData.append('mobileNumber', newUser.mobileNumber);
+        formData.append('aadhaarNumber', newUser.aadhaarNumber);
+        formData.append('panNumber', '');
+        formData.append('clan', newUser.clan);
+        formData.append('group', newUser.group);
+        formData.append('postalCode', newUser.postalCode);
+        formData.append('maleHeirs', newUser.maleHeirs.toString());
+        formData.append('femaleHeirs', newUser.femaleHeirs.toString());
+        formData.append('heirs', JSON.stringify(newUser.heirs.map(h => ({
           serialNumber: h.serialNumber,
           name: h.name,
           race: h.race,
           maritalStatus: h.maritalStatus,
           education: h.education,
           birthDate: h.birthDate,
-        })),
-      };
-      const isEdit = !!editId;
-      const url = isEdit ? `http://localhost:4000/api/registrations/${editId}` : 'http://localhost:4000/api/registrations';
-      const method = isEdit ? 'PUT' : 'POST';
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || 'Failed');
-      if (!isEdit) {
-        const ref = data?.reference_number as string | undefined;
-        // Show success message first, then clear the form fields while keeping the message visible
-        setMsg(t[language as 'tamil' | 'english'].success.saved);
-        if (ref) {
-          // If backend sent a ref, we can briefly show it in message; form will reset anyway
+        }))));
+        
+        const res = await fetch(url, {
+          method,
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        });
+        
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || 'Failed');
+        
+        if (!isEdit) {
+          const ref = data?.reference_number as string | undefined;
+          setMsg(t[language as 'tamil' | 'english'].success.saved);
+          if (ref) {
+            // If backend sent a ref, we can briefly show it in message; form will reset anyway
+          }
+          resetFormFieldsWithoutClearingMessage();
+        } else {
+          setMsg(t[language as 'tamil' | 'english'].success.updated);
         }
-        resetFormFieldsWithoutClearingMessage();
       } else {
-        setMsg(t[language as 'tamil' | 'english'].success.updated);
+        // No photo, use JSON for regular data
+        const body = {
+          referenceNumber: newUser.receiptNumber, // backend will override/generate
+          date: newUser.date,
+          name: newUser.name,
+          alternativeName: newUser.alternativeName,
+          wifeName: newUser.wifeName,
+          education: newUser.education,
+          occupation: newUser.occupation,
+          fatherName: newUser.fatherName,
+          address: newUser.address,
+          birthDate: '',
+          village: '',
+          mobileNumber: newUser.mobileNumber,
+          aadhaarNumber: newUser.aadhaarNumber,
+          panNumber: '',
+          clan: newUser.clan,
+          group: newUser.group,
+          postalCode: newUser.postalCode,
+          maleHeirs: newUser.maleHeirs,
+          femaleHeirs: newUser.femaleHeirs,
+          heirs: newUser.heirs.map(h => ({
+            serialNumber: h.serialNumber,
+            name: h.name,
+            race: h.race,
+            maritalStatus: h.maritalStatus,
+            education: h.education,
+            birthDate: h.birthDate,
+          })),
+        };
+        
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(body),
+        });
+        
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || 'Failed');
+        
+        if (!isEdit) {
+          const ref = data?.reference_number as string | undefined;
+          setMsg(t[language as 'tamil' | 'english'].success.saved);
+          if (ref) {
+            // If backend sent a ref, we can briefly show it in message; form will reset anyway
+          }
+          resetFormFieldsWithoutClearingMessage();
+        } else {
+          setMsg(t[language as 'tamil' | 'english'].success.updated);
+        }
       }
     } catch (e: any) {
       setErr(e?.message || t[language as 'tamil' | 'english'].errors.general);
@@ -648,15 +739,17 @@ export default function TempleUserEntryPage() {
   };
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex items-center justify-between mb-3">
-      <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white py-6 px-6 rounded-t-lg">
-          <CardTitle className="text-2xl font-bold text-center">
-          {t[language as 'tamil' | 'english'].pageTitle}
-         </CardTitle>
-</CardHeader>
-
+    <div className="min-h-screen bg-gray-50">
+      {/* Full width header */}
+      <div className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-6 px-6">
+        <div className="container mx-auto">
+          <h1 className="text-2xl font-bold text-center">
+            {t[language as 'tamil' | 'english'].pageTitle}
+          </h1>
+        </div>
       </div>
+      
+      <div className="container mx-auto p-4">
       {/* Main Container */}
       <div className="bg-white rounded-lg shadow-md border border-gray-200 p-2">
         {/* Status Messages */}
@@ -1047,7 +1140,37 @@ export default function TempleUserEntryPage() {
                 <div className="flex flex-col items-center">
                   <div className="w-24 h-28 bg-white border-2 border-dashed border-gray-300 rounded flex items-center justify-center mb-2">
                     {(!newUser.photo && existingPhotoUrl) ? (
-                      <img src={existingPhotoUrl} alt="Profile" className="w-full h-full object-cover rounded" />
+                      <>
+                        <img 
+                          src={existingPhotoUrl} 
+                          alt="Profile" 
+                          className="w-full h-full object-cover rounded"
+                          onError={(e) => {
+                            console.error('Failed to load existing photo:', existingPhotoUrl);
+                            // Hide the image and show placeholder
+                            e.currentTarget.style.display = 'none';
+                            // Show a fallback placeholder
+                            const placeholder = e.currentTarget.parentElement?.querySelector('.photo-placeholder');
+                            if (placeholder) {
+                              (placeholder as HTMLElement).style.display = 'block';
+                            }
+                          }}
+                          onLoad={(e) => {
+                            console.log('Successfully loaded existing photo:', existingPhotoUrl);
+                            // Hide placeholder when image loads successfully
+                            const placeholder = e.currentTarget.parentElement?.querySelector('.photo-placeholder');
+                            if (placeholder) {
+                              (placeholder as HTMLElement).style.display = 'none';
+                            }
+                          }}
+                        />
+                        <div className="photo-placeholder text-center text-gray-500" style={{ display: 'none' }}>
+                          <svg className="w-8 h-8 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          <p className="text-xs">Photo not found</p>
+                        </div>
+                      </>
                     ) : newUser.photo ? (
                       <img src={URL.createObjectURL(newUser.photo)} alt="Preview" className="w-full h-full object-cover rounded" />
                     ) : (
@@ -1094,6 +1217,7 @@ export default function TempleUserEntryPage() {
           </div>
         </div>
         {/* PDF print flow removed on this page */}
+      </div>
       </div>
     </div>
   );

@@ -127,5 +127,133 @@ module.exports = function({ db, authenticateToken, authorizePermission }) {
     }
   });
 
+  // Get logs for a specific hall booking
+  router.get('/:id/logs', authorizePermission('hall_approval', 'view'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const logs = await db('hall_approval_logs as l')
+        .leftJoin('users as u', 'l.performed_by', 'u.id')
+        .where('l.booking_id', id)
+        .orderBy('l.performed_at', 'desc')
+        .select(
+          'l.id',
+          'l.action',
+          'l.performed_at as created_at',
+          'l.performed_by as created_by',
+          'l.notes',
+          'l.old_status',
+          'l.new_status',
+          db.raw("COALESCE(u.full_name, u.username, u.mobile) as performed_by_name")
+        );
+      
+      // Format the logs to match the expected structure
+      const formattedLogs = logs.map(log => ({
+        id: log.id,
+        action: log.action,
+        created_at: log.created_at,
+        created_by: log.created_by,
+        details: {
+          notes: log.notes,
+          old_status: log.old_status,
+          new_status: log.new_status,
+          performed_by_name: log.performed_by_name,
+          full_payload: {
+            id: log.id,
+            action: log.action,
+            performed_at: log.created_at,
+            performed_by: log.created_by,
+            created_by: log.created_by,
+            notes: log.notes,
+            old_status: log.old_status,
+            new_status: log.new_status,
+            performed_by_name: log.performed_by_name
+          }
+        }
+      }));
+
+      res.json({ success: true, data: formattedLogs });
+    } catch (err) {
+      console.error('GET /api/hall-approval/:id/logs error:', err);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  });
+
+  // Get all hall logs with pagination
+  router.get('/logs', authorizePermission('hall_approval', 'view'), async (req, res) => {
+    try {
+      const { page = 1, pageSize = 50 } = req.query;
+      const offset = (page - 1) * pageSize;
+
+      // Get total count
+      const totalResult = await db('hall_approval_logs as l')
+        .count('* as total')
+        .first();
+      const total = parseInt(totalResult.total);
+
+      // Get logs with hall booking details
+      const logs = await db('hall_approval_logs as l')
+        .leftJoin('marriage_hall_bookings as h', 'l.booking_id', 'h.id')
+        .leftJoin('users as u', 'l.performed_by', 'u.id')
+        .orderBy('l.performed_at', 'desc')
+        .limit(pageSize)
+        .offset(offset)
+        .select(
+          'l.id',
+          'l.booking_id as hall_id',
+          'l.action',
+          'l.performed_at as created_at',
+          'l.performed_by as created_by',
+          'l.notes',
+          'l.old_status',
+          'l.new_status',
+          'h.name as hall_name',
+          'h.register_no as register_number',
+          db.raw("COALESCE(u.full_name, u.username, u.mobile) as performed_by_name")
+        );
+
+      // Format the logs to match the expected structure
+      const formattedLogs = logs.map(log => ({
+        id: log.id,
+        hall_id: log.hall_id,
+        action: log.action,
+        created_at: log.created_at,
+        created_by: log.created_by,
+        hall_name: log.hall_name,
+        register_number: log.register_number,
+        details: {
+          notes: log.notes,
+          old_status: log.old_status,
+          new_status: log.new_status,
+          performed_by_name: log.performed_by_name,
+          full_payload: {
+            id: log.id,
+            hall_id: log.hall_id,
+            action: log.action,
+            performed_at: log.created_at,
+            performed_by: log.created_by,
+            created_by: log.created_by,
+            notes: log.notes,
+            old_status: log.old_status,
+            new_status: log.new_status,
+            hall_name: log.hall_name,
+            register_number: log.register_number,
+            performed_by_name: log.performed_by_name
+          }
+        }
+      }));
+
+      res.json({ 
+        success: true, 
+        data: formattedLogs,
+        total: total,
+        page: parseInt(page),
+        pageSize: parseInt(pageSize)
+      });
+    } catch (err) {
+      console.error('GET /api/hall-approval/logs error:', err);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  });
+
   return router;
 };

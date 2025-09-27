@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { compressImage } = require('../middlewares/imageCompression');
 
 module.exports = function createPdfSettingsRouter({ db, authenticateToken, authorizePermission }) {
   const router = express.Router();
@@ -175,7 +176,7 @@ module.exports = function createPdfSettingsRouter({ db, authenticateToken, autho
   });
 
   // Upload a logo image and store its relative URL
-  router.post('/logo', authenticateToken, authorizePermission('pdf_settings', 'edit'), upload.single('logo'), async (req, res) => {
+  router.post('/logo', authenticateToken, authorizePermission('pdf_settings', 'edit'), upload.single('logo'), compressImage, async (req, res) => {
     try {
       await ensurePdfSettingsTable();
       const templeId = req.user.templeId;

@@ -161,7 +161,7 @@ function createRegistrationsRouter(db) {
             fs.mkdirSync(uploadDir, { recursive: true });
           }
           
-          const fileName = `${id}${path.extname(req.file.originalname) || '.jpg'}`;
+          const fileName = `${id}.jpg`; // Always use .jpg for consistency
           const uploadPath = path.join(uploadDir, fileName);
           
           await fs.promises.rename(req.file.path, uploadPath);
@@ -296,6 +296,33 @@ function createRegistrationsRouter(db) {
       } catch (e) {
         console.warn('Heirs update skipped:', e.message);
       }
+
+      // Handle photo upload if provided
+      console.log('PUT endpoint - req.file:', req.file ? 'Present' : 'Not present');
+      if (req.file) {
+        console.log('PUT endpoint - Processing photo upload:', req.file.filename, req.file.size);
+        try {
+          const uploadDir = path.join(__dirname, '../../public/uploads/registrations');
+          if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+          }
+          
+          const fileName = `${id}.jpg`; // Always use .jpg for consistency
+          const uploadPath = path.join(uploadDir, fileName);
+          
+          await fs.promises.rename(req.file.path, uploadPath);
+          
+          await db('user_registrations')
+            .where({ id })
+            .update({ 
+              photo_path: `/uploads/registrations/${fileName}`,
+              updated_at: db.fn.now() 
+            });
+        } catch (err) {
+          console.error('Photo upload error during update:', err);
+        }
+      }
+
       const row = await db('user_registrations').where({ id }).first();
       const heirs = await db('user_heirs').where({ registration_id: id }).orderBy('serial_number');
       res.json({ success: true, data: { ...row, heirs } });
@@ -399,22 +426,31 @@ function createRegistrationsRouter(db) {
     }
   });
 
-  // Photo upload endpoint
+  // Photo upload endpoint (with compression)
   router.post('/:id/photo', authenticateToken, async (req, res) => {
     try {
-      if (!req.files || !req.files.photo) {
+      if (!req.file) {
         return res.status(400).json({ error: 'No photo uploaded' });
       }
       
-      const photo = req.files.photo;
-      if (photo.size > 100 * 1024) { // 100KB limit
-        return res.status(400).json({ error: 'Photo must be less than 100KB' });
+      const photo = req.file;
+      
+      // Check file type
+      if (!photo.mimetype.startsWith('image/')) {
+        return res.status(400).json({ error: 'Only image files are allowed' });
       }
       
       const registrationId = req.params.id;
       const uploadPath = path.join(__dirname, '../../public/uploads/registrations', `${registrationId}.jpg`);
       
-      await photo.mv(uploadPath);
+      // Ensure upload directory exists
+      const uploadDir = path.dirname(uploadPath);
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      
+      // Move the compressed file to final location
+      fs.renameSync(photo.path, uploadPath);
       
       // Update registration record with photo path
       await db('user_registrations')
@@ -424,7 +460,12 @@ function createRegistrationsRouter(db) {
           updated_at: db.fn.now() 
         });
       
-      res.json({ success: true });
+      res.json({ 
+        success: true, 
+        message: 'Photo uploaded and compressed successfully',
+        originalSize: photo.originalSize || 'unknown',
+        compressedSize: photo.size
+      });
     } catch (err) {
       console.error('Photo upload error:', err);
       res.status(500).json({ error: 'Failed to upload photo' });

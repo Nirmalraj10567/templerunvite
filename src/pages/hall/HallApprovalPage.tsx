@@ -50,7 +50,108 @@ export default function HallApprovalPage() {
     totalAmount?: string; advanceAmount?: string; balanceAmount?: string; remarks?: string; 
   }>({});
 
+  // Logs modal state
+  const [logsFor, setLogsFor] = useState<number | null>(null);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logs, setLogs] = useState<Array<{ id: number; action: string; created_at: string; created_by: number | null; details: any }>>([]);
+
+  // All Logs (temple scoped) state
+  const [allLogsOpen, setAllLogsOpen] = useState(false);
+  const [allLogsLoading, setAllLogsLoading] = useState(false);
+  const [allLogs, setAllLogs] = useState<Array<{
+    id: number;
+    hall_id: number;
+    action: string;
+    created_at: string;
+    created_by: number | null;
+    hall_name: string | null;
+    register_number: string | null;
+    details: any;
+  }>>([]);
+  const [allLogsTotal, setAllLogsTotal] = useState(0);
+  const [allLogsPage, setAllLogsPage] = useState(1);
+  const allLogsPageSize = 50;
+
   const t = (en: string, ta: string) => (language === 'english' ? ta : en);
+
+  // Logs functions
+  const openLogs = async (hallId: number) => {
+    setLogsFor(hallId);
+    setLogs([]);
+    setLogsLoading(true);
+    try {
+      const res = await fetch(`http://localhost:4000/api/hall-approval/${hallId}/logs`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('API Error:', res.status, errorText);
+        throw new Error(`Failed to fetch logs: ${res.status}`);
+      }
+      const result = await res.json();
+      console.log('Logs API Response:', result); // Debug log
+      if (result.success) {
+        setLogs(Array.isArray(result.data) ? result.data : []);
+      } else {
+        console.error('API returned error:', result.error);
+        setLogs([]);
+      }
+    } catch (e) {
+      console.error('Failed to load logs:', e);
+      setLogs([]);
+      // Show user-friendly error
+      alert(t('Failed to load logs. Please try again.', 'பதிவுகளை ஏற்ற முடியவில்லை. மீண்டும் முயற்சிக்கவும்.'));
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  const closeLogs = () => {
+    setLogsFor(null);
+    setLogs([]);
+  };
+
+  const openAllLogs = async () => {
+    setAllLogsOpen(true);
+    await loadAllHallLogs(1);
+  };
+
+  const loadAllHallLogs = async (pageNum: number) => {
+    setAllLogsLoading(true);
+    try {
+      const res = await fetch(`http://localhost:4000/api/hall-approval/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('API Error:', res.status, errorText);
+        throw new Error(`Failed to fetch logs: ${res.status}`);
+      }
+      const result = await res.json();
+      console.log('All Logs API Response:', result); // Debug log
+      if (result.success) {
+        setAllLogs(Array.isArray(result.data) ? result.data : []);
+        setAllLogsTotal(Number(result.total || 0));
+        setAllLogsPage(pageNum);
+      } else {
+        console.error('API returned error:', result.error);
+        throw new Error(result.error || 'Failed to load logs');
+      }
+    } catch (e) {
+      console.error('Failed to load all logs:', e);
+      setAllLogs([]);
+      setAllLogsTotal(0);
+      // Show user-friendly error
+      alert(t('Failed to load logs. Please try again.', 'பதிவுகளை ஏற்ற முடியவில்லை. மீண்டும் முயற்சிக்கவும்.'));
+    } finally {
+      setAllLogsLoading(false);
+    }
+  };
+
+  const closeAllLogs = () => {
+    setAllLogsOpen(false);
+    setAllLogs([]);
+  };
 
   const load = async () => {
     if (!token) return;
@@ -183,6 +284,9 @@ export default function HallApprovalPage() {
           onChange={(e) => setMobile(e.target.value)}
         />
         <button className="border px-4 py-2 rounded" onClick={load}>{t('Filter', 'வடிகட்டி')}</button>
+        <button className="border px-4 py-2 rounded bg-blue-50 text-blue-700 hover:bg-blue-100" onClick={openAllLogs}>
+          {t('All Logs', 'அனைத்து பதிவுகள்')}
+        </button>
       </div>
 
       {error && <div className="text-red-700 mb-3 text-sm">{error}</div>}
@@ -215,6 +319,9 @@ export default function HallApprovalPage() {
                     <div className="flex flex-wrap gap-2">
                       <Button className="px-3 py-1" variant="outline" onClick={() => onEdit(it.id)}>
                         {t('Edit', 'திருத்து')}
+                      </Button>
+                      <Button className="px-3 py-1" variant="outline" onClick={() => openLogs(it.id)}>
+                        {t('Logs', 'பதிவுகள்')}
                       </Button>
                       {it.status === 'pending' ? (
                         <>
@@ -337,6 +444,120 @@ export default function HallApprovalPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* All Logs Modal */}
+      {allLogsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={closeAllLogs} />
+          <div className="relative bg-white rounded shadow-lg w-full max-w-5xl mx-2 p-3">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-semibold">{t('All Hall Logs', 'அனைத்து மண்டப பதிவுகள்')}</h2>
+              <button onClick={closeAllLogs} className="text-xs px-2 py-1 border rounded">{t('Close', 'மூடு')}</button>
+            </div>
+            {allLogsLoading ? (
+              <div className="p-3 text-xs text-gray-600">{t('Loading logs...', 'பதிவுகள் ஏற்றப்படுகிறது...')}</div>
+            ) : (
+                <>
+                  <div className="max-h-[70vh] overflow-y-auto border rounded">
+                    <table className="min-w-full text-xs">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="text-left px-2 py-1">{t('Time', 'நேரம்')}</th>
+                          <th className="text-left px-2 py-1">{t('Action', 'செயல்')}</th>
+                          <th className="text-left px-2 py-1">{t('Hall ID', 'மண்டப ஐடி')}</th>
+                          <th className="text-left px-2 py-1">{t('Name', 'பெயர்')}</th>
+                          <th className="text-left px-2 py-1">{t('Register No', 'பதிவு எண்')}</th>
+                          <th className="text-left px-2 py-1">{t('User', 'பயனர்')}</th>
+                          <th className="text-left px-2 py-1">{t('Details', 'விவரங்கள்')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allLogs.length === 0 ? (
+                          <tr>
+                            <td className="px-2 py-2 text-center text-gray-500" colSpan={7}>{t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}</td>
+                          </tr>
+                        ) : allLogs.map((lg) => (
+                          <tr key={lg.id} className="border-t align-top">
+                            <td className="px-2 py-1 whitespace-nowrap">{lg.created_at ? new Date(lg.created_at).toLocaleString(language === 'tamil' ? 'ta-IN' : 'en-IN') : '-'}</td>
+                            <td className="px-2 py-1">{lg.action}</td>
+                            <td className="px-2 py-1">{lg.hall_id}</td>
+                            <td className="px-2 py-1">{lg.hall_name ?? '-'}</td>
+                            <td className="px-2 py-1">{lg.register_number ?? '-'}</td>
+                            <td className="px-2 py-1">{lg.created_by ?? '-'}</td>
+                            <td className="px-2 py-1"><pre className="whitespace-pre-wrap break-words text-[10px] bg-gray-50 p-2 rounded border max-w-[40vw]">{JSON.stringify(lg.details, null, 2)}</pre></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="flex items-center justify-between mt-2 text-xs">
+                    <div className="text-gray-700">{t('Total', 'மொத்தம்')}: <span className="font-medium">{allLogsTotal}</span></div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        className="px-2 py-1 border border-gray-300 rounded shadow-sm text-xs bg-white hover:bg-gray-50"
+                        disabled={allLogsPage <= 1}
+                        onClick={() => loadAllHallLogs(allLogsPage - 1)}
+                      >
+                        {t('Previous', 'முந்தைய')}
+                      </button>
+                      <span>{t('Page', 'பக்கம்')} {allLogsPage}</span>
+                      <button
+                        className="px-2 py-1 border border-gray-300 rounded shadow-sm text-xs bg-white hover:bg-gray-50"
+                        disabled={allLogsPage * allLogsPageSize >= allLogsTotal}
+                        onClick={() => loadAllHallLogs(allLogsPage + 1)}
+                      >
+                        {t('Next', 'அடுத்தது')}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+          </div>
+        </div>
+      )}
+
+      {/* Logs Modal */}
+      {logsFor !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={closeLogs} />
+          <div className="relative bg-white rounded shadow-lg w-full max-w-4xl mx-2 p-3">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-semibold">{t('Hall Logs', 'மண்டப பதிவுகள்')} #{logsFor}</h2>
+              <button onClick={closeLogs} className="text-xs px-2 py-1 border rounded">{t('Close', 'மூடு')}</button>
+            </div>
+            {logsLoading ? (
+              <div className="p-3 text-xs text-gray-600">{t('Loading logs...', 'பதிவுகள் ஏறுகிறது...')}</div>
+            ) : (
+              <div className="max-h-[70vh] overflow-y-auto border rounded">
+                <table className="min-w-full text-xs">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th className="text-left px-2 py-1">{t('Time', 'நேரம்')}</th>
+                      <th className="text-left px-2 py-1">{t('Action', 'செயல்')}</th>
+                      <th className="text-left px-2 py-1">{t('User', 'பயனர்')}</th>
+                      <th className="text-left px-2 py-1">{t('Details', 'விவரங்கள்')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {logs.length === 0 ? (
+                      <tr><td colSpan={4} className="px-2 py-2 text-center text-gray-500">{t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}</td></tr>
+                    ) : logs.map(lg => (
+                      <tr key={lg.id} className="border-t align-top">
+                        <td className="px-2 py-1 whitespace-nowrap">{lg.created_at ? new Date(lg.created_at).toLocaleString(language === 'tamil' ? 'ta-IN' : 'en-IN') : '-'}</td>
+                        <td className="px-2 py-1">{lg.action}</td>
+                        <td className="px-2 py-1">{lg.created_by ?? '-'}</td>
+                        <td className="px-2 py-1">
+                          <pre className="whitespace-pre-wrap break-words text-[10px] bg-gray-50 p-2 rounded border max-w-[40vw]">{JSON.stringify(lg.details, null, 2)}</pre>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
     </div>
   );

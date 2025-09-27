@@ -3907,10 +3907,13 @@ try {
 
 const upload = multer({ 
   dest: tempUploadDir,
-  limits: { fileSize: 100 * 1024 } // 100KB
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit, backend will compress
 });
 
-app.use('/api/registrations', upload.single('photo'), registrationsRouter);
+// Import image compression middleware
+const { compressImage } = require('./middlewares/imageCompression');
+
+app.use('/api/registrations', upload.single('photo'), compressImage, registrationsRouter);
 
 // Mount tax registrations router (ensure correct index.js is used)
 const taxRegistrationsRouter = require('./components/tax-registrations/index.js');

@@ -40,6 +40,11 @@ export default function DonationProductEntry() {
   const [message, setMessage] = useState<string | undefined>();
   const [isError, setIsError] = useState<boolean>(false);
   const [products, setProducts] = useState<DonationProduct[]>([]);
+
+  // Debug: Log products state changes
+  useEffect(() => {
+    console.log('Products state updated:', products);
+  }, [products]);
   const [nextRegisterNo, setNextRegisterNo] = useState<string>('');
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -226,6 +231,7 @@ export default function DonationProductEntry() {
         );
         const data = Array.isArray(resp.data) ? resp.data : resp.data.data || [];
         const validProducts = data.filter(p => p && p.id && p.label);
+        console.log('Loaded products:', validProducts);
         setProducts(validProducts);
       } catch (error) { 
         console.error('Failed to load products:', error);
@@ -296,9 +302,9 @@ export default function DonationProductEntry() {
   }, [message, isError, isEdit, token]);
 
   // Consistent field styling
-  const fieldStyles = "text-lg py-3 px-4 h-12 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200";
-  const labelStyles = "block text-base font-medium mb-2 text-gray-700";
-  const textareaStyles = "text-lg py-3 px-4 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200 resize-none";
+  const fieldStyles = "text-sm py-2 px-3 h-8 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200";
+  const labelStyles = "block text-sm font-medium mb-1 text-gray-700";
+  const textareaStyles = "text-sm py-2 px-3 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200 resize-none";
 
   // Error message component
   const ErrorMessage = ({ error }: { error?: string }) => {
@@ -315,13 +321,13 @@ export default function DonationProductEntry() {
     <div className="min-h-screen bg-gray-50 py-6 px-4 w-full">
       <div className="max-w-7xl mx-auto space-y-6">
         <Card className="shadow-lg border-0 bg-white rounded-lg">
-          <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white py-6 px-6 rounded-t-lg">
+          <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 rounded-t-lg">
             <CardTitle className="text-2xl font-bold text-center">
               {t('Donation Entry','பொருள் நன்கொடைக் பதிவு')}
             </CardTitle>
           </CardHeader>
           
-          <CardContent className="p-6">
+          <CardContent className="p-4">
             {/* Register Number and Product Manager */}
             <div className="flex items-center justify-between mb-6 bg-gray-50 p-4 rounded-lg">
               <div className="text-lg">
@@ -351,9 +357,9 @@ export default function DonationProductEntry() {
               </div>
             )}
 
-            <form onSubmit={onSubmit} className="space-y-6">
+            <form onSubmit={onSubmit} className="space-y-4">
               {/* Enhanced Grid Layout - All fields same size */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 
                 {/* Date */}
                 <div>
@@ -467,7 +473,7 @@ export default function DonationProductEntry() {
                     value={form.address}
                     onChange={onChange}
                     onKeyDown={(e) => handleKeyDown(e, 5)}
-                    rows={3}
+                    rows={2}
                     className={textareaStyles}
                     placeholder={t('Enter address','முகவரியை உள்ளிடவும்')}
                   />
@@ -494,7 +500,7 @@ export default function DonationProductEntry() {
                       }}
                       onBlur={onBlur}
                       onKeyDown={(e) => handleKeyDown(e, 6)}
-                      className={`${fieldStyles} appearance-none pr-10 bg-white ${errors.product ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
+                      className={`text-sm py-2 px-3 h-10 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200 appearance-none pr-10 bg-white ${errors.product ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
                     >
                       <option value="">{t('Select Product','பொருள் தேர்வு')}</option>
                       {products.filter(p => p && p.id && p.label).map(p => 
@@ -541,7 +547,7 @@ export default function DonationProductEntry() {
                     value={form.reason}
                     onChange={onChange}
                     onKeyDown={(e) => handleKeyDown(e, 8)}
-                    rows={3}
+                    rows={2}
                     className={textareaStyles}
                     placeholder={t('Enter reason','காரணத்தை உள்ளிடவும்')}
                   />
@@ -549,7 +555,7 @@ export default function DonationProductEntry() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-wrap gap-4 justify-between items-center pt-6 border-t border-gray-200">
+              <div className="flex flex-wrap gap-4 justify-between items-center pt-4 border-t border-gray-200">
                 <div className="flex gap-3">
                   {/* Keyboard shortcut hint */}
                   <div className="text-sm text-gray-500 hidden md:flex items-center">

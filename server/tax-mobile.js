@@ -8,12 +8,13 @@ module.exports = function createTaxMobileRouter(deps = {}) {
   const normMobile = (m) => (m ? String(m).replace(/\D/g, '') : '');
 
   // Public endpoint: fetch tax registrations for a mobile number within a temple
-  // GET /api/tax-mobile/by-mobile?templeId=1&mobile=9876543210[&year=2025]
+  // GET /api/tax-mobile/by-mobile?templeId=1&mobile=9876543210[&year=2025][&pending=1]
   router.get('/by-mobile', async (req, res) => {
     try {
       const templeId = Number(req.query.templeId) || null;
       const mobile = normMobile(req.query.mobile || '');
       const year = req.query.year ? Number(req.query.year) : null;
+      const pending = req.query.pending === '1' || req.query.pending === 'true';
 
       if (!templeId || !mobile) {
         return res.status(400).json({ success: false, error: 'templeId and mobile are required' });
@@ -51,7 +52,10 @@ module.exports = function createTaxMobileRouter(deps = {}) {
         };
       });
 
-      res.json({ success: true, data, temple_id: templeId, mobile });
+      // Apply pending filter if requested
+      const filteredData = pending ? data.filter(item => item.status === 'pending') : data;
+
+      res.json({ success: true, data: filteredData, temple_id: templeId, mobile, filtered: pending });
     } catch (e) {
       console.error('GET /api/tax-mobile/by-mobile error:', e);
       res.status(500).json({ success: false, error: 'Internal server error' });
@@ -59,11 +63,13 @@ module.exports = function createTaxMobileRouter(deps = {}) {
   });
 
   // Public endpoint: summary for a mobile (totals by year)
-  // GET /api/tax-mobile/summary?templeId=1&mobile=9876543210
+  // GET /api/tax-mobile/summary?templeId=1&mobile=9876543210[&pending=1]
   router.get('/summary', async (req, res) => {
     try {
       const templeId = Number(req.query.templeId) || null;
       const mobile = normMobile(req.query.mobile || '');
+      const pending = req.query.pending === '1' || req.query.pending === 'true';
+      
       if (!templeId || !mobile) {
         return res.status(400).json({ success: false, error: 'templeId and mobile are required' });
       }
@@ -81,6 +87,12 @@ module.exports = function createTaxMobileRouter(deps = {}) {
         const tax = Number(r.tax_amount || 0);
         const paid = Number(r.amount_paid || 0);
         const outstanding = r.outstanding_amount != null ? Number(r.outstanding_amount) : Math.max(0, tax - paid);
+        
+        // Apply pending filter: only include records with outstanding amount > 0
+        if (pending && outstanding <= 0) {
+          continue;
+        }
+        
         const prev = byYear.get(y) || { year: y, tax_amount: 0, amount_paid: 0, outstanding_amount: 0 };
         prev.tax_amount += tax;
         prev.amount_paid += paid;
@@ -97,7 +109,7 @@ module.exports = function createTaxMobileRouter(deps = {}) {
         outstanding_amount: acc.outstanding_amount + s.outstanding_amount,
       }), { tax_amount: 0, amount_paid: 0, outstanding_amount: 0 });
 
-      res.json({ success: true, data: { summary_by_year: summary, totals }, temple_id: templeId, mobile });
+      res.json({ success: true, data: { summary_by_year: summary, totals }, temple_id: templeId, mobile, filtered: pending });
     } catch (e) {
       console.error('GET /api/tax-mobile/summary error:', e);
       res.status(500).json({ success: false, error: 'Internal server error' });

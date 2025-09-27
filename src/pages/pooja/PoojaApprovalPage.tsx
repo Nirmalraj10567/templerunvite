@@ -84,6 +84,28 @@ export default function PoojaApprovalPage() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [requestLogs, setRequestLogs] = useState<ApprovalLog[]>([]);
 
+  // Logs modal state
+  const [logsFor, setLogsFor] = useState<number | null>(null);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logs, setLogs] = useState<Array<{ id: number; action: string; created_at: string; created_by: number | null; details: any }>>([]);
+
+  // All Logs (temple scoped) state
+  const [allLogsOpen, setAllLogsOpen] = useState(false);
+  const [allLogsLoading, setAllLogsLoading] = useState(false);
+  const [allLogs, setAllLogs] = useState<Array<{
+    id: number;
+    pooja_id: number;
+    action: string;
+    created_at: string;
+    created_by: number | null;
+    pooja_name: string | null;
+    receipt_number: string | null;
+    details: any;
+  }>>([]);
+  const [allLogsTotal, setAllLogsTotal] = useState(0);
+  const [allLogsPage, setAllLogsPage] = useState(1);
+  const allLogsPageSize = 50;
+
   // Column Keys
   type ColKey = 'receipt' | 'name' | 'mobile' | 'dateRange' | 'time' | 'status' | 'submitted' | 'actions';
 
@@ -158,6 +180,85 @@ export default function PoojaApprovalPage() {
     () => Object.values(visibleCols).filter(Boolean).length + 1, // +1 for checkbox
     [visibleCols]
   );
+
+  // Logs functions
+  const openLogs = async (poojaId: number) => {
+    setLogsFor(poojaId);
+    setLogs([]);
+    setLogsLoading(true);
+    try {
+      const res = await fetch(`http://localhost:4000/api/pooja-approval/${poojaId}/logs`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('API Error:', res.status, errorText);
+        throw new Error(`Failed to fetch logs: ${res.status}`);
+      }
+      const result = await res.json();
+      console.log('Logs API Response:', result); // Debug log
+      if (result.success) {
+        setLogs(Array.isArray(result.data) ? result.data : []);
+      } else {
+        console.error('API returned error:', result.error);
+        setLogs([]);
+      }
+    } catch (e) {
+      console.error('Failed to load logs:', e);
+      setLogs([]);
+      // Show user-friendly error
+      alert(t('Failed to load logs. Please try again.', 'பதிவுகளை ஏற்ற முடியவில்லை. மீண்டும் முயற்சிக்கவும்.'));
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  const closeLogs = () => {
+    setLogsFor(null);
+    setLogs([]);
+  };
+
+  const openAllLogs = async () => {
+    setAllLogsOpen(true);
+    await loadAllPoojaLogs(1);
+  };
+
+  const loadAllPoojaLogs = async (pageNum: number) => {
+    setAllLogsLoading(true);
+    try {
+      const res = await fetch(`http://localhost:4000/api/pooja-approval/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('API Error:', res.status, errorText);
+        throw new Error(`Failed to fetch logs: ${res.status}`);
+      }
+      const result = await res.json();
+      console.log('All Logs API Response:', result); // Debug log
+      if (result.success) {
+        setAllLogs(Array.isArray(result.data) ? result.data : []);
+        setAllLogsTotal(Number(result.total || 0));
+        setAllLogsPage(pageNum);
+      } else {
+        console.error('API returned error:', result.error);
+        throw new Error(result.error || 'Failed to load logs');
+      }
+    } catch (e) {
+      console.error('Failed to load all logs:', e);
+      setAllLogs([]);
+      setAllLogsTotal(0);
+      // Show user-friendly error
+      alert(t('Failed to load logs. Please try again.', 'பதிவுகளை ஏற்ற முடியவில்லை. மீண்டும் முயற்சிக்கவும்.'));
+    } finally {
+      setAllLogsLoading(false);
+    }
+  };
+
+  const closeAllLogs = () => {
+    setAllLogsOpen(false);
+    setAllLogs([]);
+  };
 
   const fetchRequests = async (page = pagination.page, pageSize = pagination.pageSize) => {
     try {
@@ -538,6 +639,14 @@ export default function PoojaApprovalPage() {
             <Button
               variant="outline"
               size="sm"
+              onClick={openAllLogs}
+              className="text-xs h-7 px-2 bg-blue-50 text-blue-700 hover:bg-blue-100"
+            >
+              {t('All Logs', 'அனைத்து பதிவுகள்')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => {
                 fetchRequests();
                 fetchStats();
@@ -676,6 +785,15 @@ export default function PoojaApprovalPage() {
                             className="h-6 w-6 p-0"
                           >
                             <Eye className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openLogs(request.id)}
+                            className="h-6 w-6 p-0 text-blue-600"
+                            title={t('Logs', 'பதிவுகள்')}
+                          >
+                            {t('L', 'ப')}
                           </Button>
                           <Button
                             variant="ghost"
@@ -1122,6 +1240,120 @@ export default function PoojaApprovalPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* All Logs Modal */}
+      {allLogsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={closeAllLogs} />
+          <div className="relative bg-white rounded shadow-lg w-full max-w-5xl mx-2 p-3">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-semibold">{t('All Pooja Logs', 'அனைத்து பூஜை பதிவுகள்')}</h2>
+              <button onClick={closeAllLogs} className="text-xs px-2 py-1 border rounded">{t('Close', 'மூடு')}</button>
+            </div>
+            {allLogsLoading ? (
+              <div className="p-3 text-xs text-gray-600">{t('Loading logs...', 'பதிவுகள் ஏற்றப்படுகிறது...')}</div>
+            ) : (
+                <>
+                  <div className="max-h-[70vh] overflow-y-auto border rounded">
+                    <table className="min-w-full text-xs">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="text-left px-2 py-1">{t('Time', 'நேரம்')}</th>
+                          <th className="text-left px-2 py-1">{t('Action', 'செயல்')}</th>
+                          <th className="text-left px-2 py-1">{t('Pooja ID', 'பூஜை ஐடி')}</th>
+                          <th className="text-left px-2 py-1">{t('Name', 'பெயர்')}</th>
+                          <th className="text-left px-2 py-1">{t('Receipt No', 'ரசீது எண்')}</th>
+                          <th className="text-left px-2 py-1">{t('User', 'பயனர்')}</th>
+                          <th className="text-left px-2 py-1">{t('Details', 'விவரங்கள்')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allLogs.length === 0 ? (
+                          <tr>
+                            <td className="px-2 py-2 text-center text-gray-500" colSpan={7}>{t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}</td>
+                          </tr>
+                        ) : allLogs.map((lg) => (
+                          <tr key={lg.id} className="border-t align-top">
+                            <td className="px-2 py-1 whitespace-nowrap">{lg.created_at ? new Date(lg.created_at).toLocaleString(language === 'tamil' ? 'ta-IN' : 'en-IN') : '-'}</td>
+                            <td className="px-2 py-1">{lg.action}</td>
+                            <td className="px-2 py-1">{lg.pooja_id}</td>
+                            <td className="px-2 py-1">{lg.pooja_name ?? '-'}</td>
+                            <td className="px-2 py-1">{lg.receipt_number ?? '-'}</td>
+                            <td className="px-2 py-1">{lg.created_by ?? '-'}</td>
+                            <td className="px-2 py-1"><pre className="whitespace-pre-wrap break-words text-[10px] bg-gray-50 p-2 rounded border max-w-[40vw]">{JSON.stringify(lg.details, null, 2)}</pre></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="flex items-center justify-between mt-2 text-xs">
+                    <div className="text-gray-700">{t('Total', 'மொத்தம்')}: <span className="font-medium">{allLogsTotal}</span></div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        className="px-2 py-1 border border-gray-300 rounded shadow-sm text-xs bg-white hover:bg-gray-50"
+                        disabled={allLogsPage <= 1}
+                        onClick={() => loadAllPoojaLogs(allLogsPage - 1)}
+                      >
+                        {t('Previous', 'முந்தைய')}
+                      </button>
+                      <span>{t('Page', 'பக்கம்')} {allLogsPage}</span>
+                      <button
+                        className="px-2 py-1 border border-gray-300 rounded shadow-sm text-xs bg-white hover:bg-gray-50"
+                        disabled={allLogsPage * allLogsPageSize >= allLogsTotal}
+                        onClick={() => loadAllPoojaLogs(allLogsPage + 1)}
+                      >
+                        {t('Next', 'அடுத்தது')}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+          </div>
+        </div>
+      )}
+
+      {/* Logs Modal */}
+      {logsFor !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={closeLogs} />
+          <div className="relative bg-white rounded shadow-lg w-full max-w-4xl mx-2 p-3">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-semibold">{t('Pooja Logs', 'பூஜை பதிவுகள்')} #{logsFor}</h2>
+              <button onClick={closeLogs} className="text-xs px-2 py-1 border rounded">{t('Close', 'மூடு')}</button>
+            </div>
+            {logsLoading ? (
+              <div className="p-3 text-xs text-gray-600">{t('Loading logs...', 'பதிவுகள் ஏறுகிறது...')}</div>
+            ) : (
+              <div className="max-h-[70vh] overflow-y-auto border rounded">
+                <table className="min-w-full text-xs">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th className="text-left px-2 py-1">{t('Time', 'நேரம்')}</th>
+                      <th className="text-left px-2 py-1">{t('Action', 'செயல்')}</th>
+                      <th className="text-left px-2 py-1">{t('User', 'பயனர்')}</th>
+                      <th className="text-left px-2 py-1">{t('Details', 'விவரங்கள்')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {logs.length === 0 ? (
+                      <tr><td colSpan={4} className="px-2 py-2 text-center text-gray-500">{t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}</td></tr>
+                    ) : logs.map(lg => (
+                      <tr key={lg.id} className="border-t align-top">
+                        <td className="px-2 py-1 whitespace-nowrap">{lg.created_at ? new Date(lg.created_at).toLocaleString(language === 'tamil' ? 'ta-IN' : 'en-IN') : '-'}</td>
+                        <td className="px-2 py-1">{lg.action}</td>
+                        <td className="px-2 py-1">{lg.created_by ?? '-'}</td>
+                        <td className="px-2 py-1">
+                          <pre className="whitespace-pre-wrap break-words text-[10px] bg-gray-50 p-2 rounded border max-w-[40vw]">{JSON.stringify(lg.details, null, 2)}</pre>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
