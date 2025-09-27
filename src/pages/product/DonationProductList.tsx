@@ -65,7 +65,7 @@ export default function DonationProductList() {
     setLogsFor(item.id);
     setLogsLoading(true);
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/donations/${item.id}/logs`, {
+      const response = await fetch(`http://localhost:4000/api/donations/${item.id}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch logs');
@@ -94,7 +94,7 @@ export default function DonationProductList() {
 
   const loadAllDonationProductLogs = async () => {
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/donations/logs?page=${allLogsPage}&pageSize=${allLogsPageSize}`, {
+      const response = await fetch(`http://localhost:4000/api/donations/logs?page=${allLogsPage}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch logs');

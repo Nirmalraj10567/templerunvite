@@ -10,6 +10,7 @@ import { toast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Modal } from '@/components/ui/modal';
 import { useLanguage } from '@/lib/language';
+import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
 
 // Translation object
 const texts = {
@@ -154,7 +155,7 @@ export default function AnnadhanamEntryPage() {
   const fetchNextReceipt = async () => {
     if (id) return;
     try {
-      const resp = await fetch('https://tmsapi.xesstechlink.com/api/annadhanam/next-receipt', {
+      const resp = await fetch('http://localhost:4000/api/annadhanam/next-receipt', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -173,7 +174,7 @@ export default function AnnadhanamEntryPage() {
     if (!id) return;
     try {
       setLogsLoading(true);
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${id}/logs`, {
+      const response = await fetch(`http://localhost:4000/api/annadhanam/${id}/logs`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -224,7 +225,7 @@ export default function AnnadhanamEntryPage() {
       const fetchAnnadhanam = async () => {
         try {
           setIsLoading(true);
-          const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${id}`, {
+          const response = await fetch(`http://localhost:4000/api/annadhanam/${id}`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -354,7 +355,7 @@ export default function AnnadhanamEntryPage() {
         remarks: data.remarks || ''
       };
 
-      const url = id ? `https://tmsapi.xesstechlink.com/api/annadhanam/${id}` : 'https://tmsapi.xesstechlink.com/api/annadhanam';
+      const url = id ? `http://localhost:4000/api/annadhanam/${id}` : 'http://localhost:4000/api/annadhanam';
       const method = id ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -438,34 +439,28 @@ export default function AnnadhanamEntryPage() {
     }
   };
 
-  // Consistent field styling
-  const fieldStyles = "text-lg py-3 px-4 h-12 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200";
-  const labelStyles = "block text-base font-medium mb-2 text-gray-700";
-
   return (
-    <div className="min-h-screen bg-gray-50 py-6 px-4 w-full">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <Card className="shadow-lg border-0 bg-white rounded-lg">
-          <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white py-6 px-6 rounded-t-lg">
-            <CardTitle className="text-2xl font-bold text-center">
+    <div className={pageContainerStyles.container}>
+      <div className={pageContainerStyles.content}>
+        <Card className={formFieldStyles.card.container}>
+          <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white", formFieldStyles.card.header)}>
+            <CardTitle className="text-lg font-bold text-center">
               {tr('Annadhanam Entry', 'அன்னதானம் பதிவு')}
             </CardTitle>
           </CardHeader>
           
-          <CardContent className="p-6">
-            <form ref={formRef} onSubmit={handleSubmit(onSubmit)} onKeyDown={handleKeyDown} className="space-y-6">
-              
-              {/* Enhanced Grid Layout - All fields same size */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <CardContent className={formFieldStyles.card.content}>
+            <form ref={formRef} onSubmit={handleSubmit(onSubmit)} onKeyDown={handleKeyDown} className={formFieldStyles.form.container}>
+              <div className={formFieldStyles.form.grid}>
                 
                 {/* Receipt Number */}
                 <div>
-                  <Label className={labelStyles} htmlFor="receiptNumber">
+                  <Label className={formFieldStyles.label} htmlFor="receiptNumber">
                     {tr('Receipt No.', 'ரசீது எண்')}
                   </Label>
                   <Input
                     id="receiptNumber"
-                    className={`${fieldStyles} bg-gray-100`}
+                    className={cn(formFieldStyles.input, "bg-gray-100")}
                     readOnly
                     {...register('receiptNumber')}
                     placeholder={tr('Auto', 'தானாக')}
@@ -474,12 +469,12 @@ export default function AnnadhanamEntryPage() {
 
                 {/* Name */}
                 <div>
-                  <Label className={labelStyles} htmlFor="name">
+                  <Label className={formFieldStyles.label} htmlFor="name">
                     {tr('Name', 'பெயர்')} <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="name"
-                    className={fieldStyles}
+                    className={formFieldStyles.input}
                     {...register('name', { required: true })}
                     placeholder={tr('Enter name', 'பெயரை உள்ளிடவும்')}
                   />
@@ -487,7 +482,7 @@ export default function AnnadhanamEntryPage() {
 
                 {/* Mobile Number */}
                 <div>
-                  <Label className={labelStyles} htmlFor="mobileNumber">
+                  <Label className={formFieldStyles.label} htmlFor="mobileNumber">
                     {tr('Mobile', 'மொபைல்')} <span className="text-red-500">*</span>
                   </Label>
                   <Input
@@ -503,7 +498,7 @@ export default function AnnadhanamEntryPage() {
                       }
                       setValue('mobileNumber', cleaned, { shouldValidate: true, shouldDirty: true });
                     }}
-                    className={fieldStyles}
+                    className={formFieldStyles.input}
                     {...register('mobileNumber', { 
                       required: true,
                       pattern: {
@@ -517,39 +512,39 @@ export default function AnnadhanamEntryPage() {
 
                 {/* Time */}
                 <div>
-                  <Label className={labelStyles} htmlFor="time">
+                  <Label className={formFieldStyles.label} htmlFor="time">
                     {tr('Time', 'நேரம்')} <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="time"
                     type="time"
-                    className={fieldStyles}
+                    className={formFieldStyles.input}
                     {...register('time', { required: true })}
                   />
                 </div>
 
                 {/* Date */}
                 <div>
-                  <Label className={labelStyles} htmlFor="fromDate">
+                  <Label className={formFieldStyles.label} htmlFor="fromDate">
                     {tr('Date', 'தேதி')} <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="fromDate"
                     type="date"
-                    className={fieldStyles}
+                    className={formFieldStyles.input}
                     {...register('fromDate', { required: true })}
                   />
                 </div>
 
                 {/* Donation Type */}
                 <div>
-                  <Label className={labelStyles} htmlFor="donationType">
+                  <Label className={formFieldStyles.label} htmlFor="donationType">
                     {tr('Donation Type', 'தானத்தின் வகை')} <span className="text-red-500">*</span>
                   </Label>
                   <div className="relative">
                     <select
                       id="donationType"
-                      className={`${fieldStyles} appearance-none pr-10 bg-white`}
+                      className={formFieldStyles.select}
                       {...register('donationType', { required: true })}
                       defaultValue="food"
                     >
@@ -572,25 +567,25 @@ export default function AnnadhanamEntryPage() {
                 {watch('donationType') === 'food' && (
                   <>
                     <div className="md:col-span-2">
-                      <Label className={labelStyles} htmlFor="food">
+                      <Label className={formFieldStyles.label} htmlFor="food">
                         {tr('Food Items', 'உணவு பொருட்கள்')} <span className="text-red-500">*</span>
                       </Label>
                       <Textarea
                         id="food"
-                        className={fieldStyles}
-                        rows={3}
+                        className={formFieldStyles.textarea}
+                        rows={1}
                         {...register('food', { required: watch('donationType') === 'food' })}
                         placeholder={tr('Rice, Curry, etc.', 'சாதம், கறி, etc.')}
                       />
                     </div>
                     <div>
-                      <Label className={labelStyles} htmlFor="peoples">
+                      <Label className={formFieldStyles.label} htmlFor="peoples">
                         {tr('People Count', 'மக்கள் எண்ணிக்கை')}
                       </Label>
                       <Input
                         id="peoples"
                         type="number"
-                        className={fieldStyles}
+                        className={formFieldStyles.input}
                         {...register('peoples', {
                           validate: (v) => !v || parseInt(v, 10) >= 1 || 'Number must be at least 1'
                         })}
@@ -604,24 +599,24 @@ export default function AnnadhanamEntryPage() {
                 {watch('donationType') === 'product' && (
                   <>
                     <div>
-                      <Label className={labelStyles} htmlFor="productName">
+                      <Label className={formFieldStyles.label} htmlFor="productName">
                         {tr('Product Name', 'பொருளின் பெயர்')} <span className="text-red-500">*</span>
                       </Label>
                       <Input
                         id="productName"
-                        className={fieldStyles}
+                        className={formFieldStyles.input}
                         {...register('productName', { required: watch('donationType') === 'product' })}
                         placeholder={tr('Enter product name', 'பொருளின் பெயரை உள்ளிடவும்')}
                       />
                     </div>
                     <div>
-                      <Label className={labelStyles} htmlFor="quantity">
+                      <Label className={formFieldStyles.label} htmlFor="quantity">
                         {tr('Quantity', 'அளவு')} <span className="text-red-500">*</span>
                       </Label>
                       <Input
                         id="quantity"
                         type="number"
-                        className={fieldStyles}
+                        className={formFieldStyles.input}
                         {...register('quantity', { required: watch('donationType') === 'product', min: { value: 1, message: 'Quantity must be at least 1' } })}
                         placeholder={tr('Qty', 'அளவு')}
                         min="1"
@@ -632,13 +627,13 @@ export default function AnnadhanamEntryPage() {
 
                 {watch('donationType') === 'money' && (
                   <div>
-                    <Label className={labelStyles} htmlFor="amount">
+                    <Label className={formFieldStyles.label} htmlFor="amount">
                       {tr('Amount (₹)', 'தொகை (₹)')} <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       id="amount"
                       type="number"
-                      className={fieldStyles}
+                      className={formFieldStyles.input}
                       {...register('amount', { required: watch('donationType') === 'money', min: { value: 1, message: 'Amount must be at least ₹1' } })}
                       placeholder={tr('Enter amount', 'தொகையை உள்ளிடவும்')}
                       min="1"
@@ -648,12 +643,12 @@ export default function AnnadhanamEntryPage() {
 
                 {/* Remarks - Full width */}
                 <div className="md:col-span-2 lg:col-span-3 xl:col-span-4">
-                  <Label className={labelStyles} htmlFor="remarks">
+                  <Label className={formFieldStyles.label} htmlFor="remarks">
                     {tr('Remarks', 'குறிப்புகள்')}
                   </Label>
                   <Textarea
                     id="remarks"
-                    className={fieldStyles}
+                    className={formFieldStyles.textarea}
                     rows={3}
                     {...register('remarks')}
                     placeholder={tr('Additional notes', 'கூடுதல் குறிப்புகள்')}
@@ -682,37 +677,40 @@ export default function AnnadhanamEntryPage() {
                   )}
                 </div>
                 
-                <div className="flex gap-3">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="default"
-                    className="px-6 py-2 text-sm border hover:bg-gray-50 rounded-md"
-                    onClick={handleCancel}
-                    disabled={isSubmitting}
-                  >
-                    {tr('Cancel', 'ரத்து')}
-                  </Button>
-                  <Button 
-                    type="submit" 
-                    size="default"
-                    className="px-6 py-2 text-sm bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-md"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting 
-                      ? tr('Saving...', 'சேமிக்கிறது...') 
-                      : id 
-                        ? tr('Update', 'புதுப்பிக்க') 
-                        : tr('Save', 'சேமிக்க')
-                    }
-                  </Button>
+                <div className={formFieldStyles.actions.container}>
+                  <div className={formFieldStyles.actions.buttonGroup}>
+                    {/* Keyboard shortcut hint can be added here */}
+                  </div>
+                  
+                  <div className={formFieldStyles.actions.buttonGroup}>
+                    <Button 
+                      type="submit"
+                      size="default"
+                      className={formFieldStyles.button.primary}
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <span className="flex items-center">
+                          <svg className="animate-spin -ml-1 mr-1 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          {tr('Saving...', 'சேமிக்கிறது...')}
+                        </span>
+                      ) : id ? (
+                        tr('Update', 'புதுப்பிக்கவும்')
+                      ) : (
+                        tr('Save', 'சேமிக்கவும்')
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </div>
             </form>
           </CardContent>
         </Card>
 
-        {/* Logs Display */}
+
         {showLogs && id && (
           <Card className="shadow-lg border-0 bg-white rounded-lg">
             <CardHeader className="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-6 px-6 rounded-t-lg">
@@ -819,7 +817,7 @@ export default function AnnadhanamEntryPage() {
                   className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
                   onClick={() => {
                     const q = token ? `?token=${encodeURIComponent(token)}` : '';
-                    const url = `https://tmsapi.xesstechlink.com/api/annadhanam/${lastCreatedId}/receipt.pdf${q}`;
+                    const url = `http://localhost:4000/api/annadhanam/${lastCreatedId}/receipt.pdf${q}`;
                     window.open(url, '_blank');
                     setShowPrintPrompt(false);
                   }} 

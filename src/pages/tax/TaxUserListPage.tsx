@@ -75,12 +75,28 @@ export default function TaxUserListPage() {
     setLogs([]);
     setLogsLoading(true);
     try {
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations/${row.id}/logs`, {
+      const res = await fetch(`http://localhost:4000/api/tax-registrations/${row.id}/logs`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
+      console.log('openLogs - API response:', data);
       if (!res.ok) throw new Error(data.error || 'Failed to load logs');
-      setLogs(Array.isArray(data.data) ? data.data : []);
+      const logsData = Array.isArray(data.data) ? data.data : [];
+      console.log('openLogs - logsData:', logsData);
+      setLogs(logsData);
+      
+      // Fetch user names for the logs
+      const userIds = logsData
+        .map(log => log.created_by)
+        .filter((id): id is number => id !== null && id !== undefined);
+      console.log('openLogs - Found userIds:', userIds);
+      console.log('openLogs - Raw created_by values:', logsData.map(log => ({ id: log.id, created_by: log.created_by, action: log.action })));
+      if (userIds.length > 0) {
+        console.log('openLogs - Calling fetchUserNames with:', userIds);
+        await fetchUserNames(userIds);
+      } else {
+        console.log('openLogs - No userIds found, skipping fetchUserNames');
+      }
     } catch (e) {
       alert((e as Error).message);
     } finally {
@@ -91,6 +107,273 @@ export default function TaxUserListPage() {
   const closeLogs = () => {
     setLogsFor(null);
     setLogs([]);
+    setExpandedLogs(new Set());
+  };
+
+  const toggleLogExpansion = (logId: number) => {
+    setExpandedLogs(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(logId)) {
+        newSet.delete(logId);
+      } else {
+        newSet.add(logId);
+      }
+      return newSet;
+    });
+  };
+
+  // Fetch user names/details for given ids (per-id endpoint, resilient)
+  const fetchUserNames = async (userIds: number[]) => {
+    const uniqueIds = Array.from(new Set(userIds.filter((v): v is number => typeof v === 'number')));
+    if (uniqueIds.length === 0) return;
+    // Skip ids we already have
+    const missing = uniqueIds.filter((id) => !userDetails[id] && !userNames[id]);
+    if (missing.length === 0) return;
+    console.log('Fetching user profiles for IDs (per-id):', missing);
+    const results = await Promise.all(
+      missing.map(async (id) => {
+        try {
+          const res = await fetch(`http://localhost:4000/api/admin/members/${id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            console.warn('Failed to fetch member by id', id, data);
+            return null;
+          }
+          const u = data?.data?.user || data?.data; // support both shapes
+          if (!u) return null;
+          const fullName = (u.full_name && String(u.full_name).trim()) || u.username || u.mobile || String(id);
+          return { id, name: fullName, username: u.username, mobile: u.mobile } as { id: number; name: string; username?: string; mobile?: string };
+        } catch (err) {
+          console.warn('Error fetching member id', id, err);
+          return null;
+        }
+      })
+    );
+    const nameMap: Record<number, string> = {};
+    const detailsMap: Record<number, { name: string; username?: string; mobile?: string }> = {};
+    results.forEach((r) => {
+      if (!r) return;
+      nameMap[r.id] = r.name;
+      detailsMap[r.id] = { name: r.name, username: r.username, mobile: r.mobile };
+    });
+    if (Object.keys(nameMap).length > 0) {
+      setUserNames((prev) => ({ ...prev, ...nameMap }));
+      setUserDetails((prev) => ({ ...prev, ...detailsMap }));
+      console.log('Updated user maps from per-id fetch:', { nameMap, detailsMap });
+    }
+  };
+
+  // Helper function to format amounts
+  const formatAmount = (amount: any) => {
+    const num = Number(amount);
+    return Number.isFinite(num) ? `₹${num.toFixed(2)}` : '-';
+  };
+
+  // Helper function to get amount info
+  const getAmountInfo = (details: any, compact = false) => {
+    // Check for amount fields in different possible locations
+    const taxAmount = details.tax_amount || details.taxAmount || details.total_tax || details.totalAmount;
+    const amountPaid = details.amount_paid || details.amountPaid || details.paid_amount || details.paidAmount;
+    const outstanding = details.outstanding_amount || details.outstandingAmount;
+    
+    // Only show if we have at least one amount field
+    if (!taxAmount && !amountPaid && outstanding === undefined) return null;
+    
+    if (compact) {
+      return (
+        <div className="text-xs text-gray-600">
+          <div>{t('Tax Amount', 'வரி தொகை')}: {formatAmount(taxAmount)}</div>
+          <div>{t('Amount Paid', 'செலுத்திய தொகை')}: {formatAmount(amountPaid)}</div>
+          {outstanding !== undefined && (
+            <div>{t('Outstanding', 'நிலுவை')}: {formatAmount(outstanding)}</div>
+          )}
+        </div>
+      );
+    }
+    
+    return (
+      <div className="bg-gray-50 p-2 rounded border text-xs">
+        <div className="font-medium text-gray-700 mb-1">{t('Amount Details', 'தொகை விவரங்கள்')}</div>
+        <div className="space-y-1">
+          <div>{t('Tax Amount', 'வரி தொகை')}: {formatAmount(taxAmount)}</div>
+          <div>{t('Amount Paid', 'செலுத்திய தொகை')}: {formatAmount(amountPaid)}</div>
+          {outstanding !== undefined && (
+            <div>{t('Outstanding', 'நிலுவை')}: {formatAmount(outstanding)}</div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Format log details for user-friendly display
+  const formatLogDetails = (action: string, details: any, createdBy?: number | null) => {
+    if (!details) return t('No details available', 'விவரங்கள் இல்லை');
+    
+    // Debug: Log the details to console for troubleshooting
+    console.log('Log details for action:', action, details);
+    
+    // Helper function to safely stringify objects
+    const safeStringify = (obj: any, maxDepth = 2, currentDepth = 0): string => {
+      if (currentDepth >= maxDepth) return '[Object]';
+      if (obj === null || obj === undefined) return String(obj);
+      if (typeof obj === 'string' || typeof obj === 'number' || typeof obj === 'boolean') return String(obj);
+      if (Array.isArray(obj)) {
+        return `[${obj.map(item => safeStringify(item, maxDepth, currentDepth + 1)).join(', ')}]`;
+      }
+      if (typeof obj === 'object') {
+        const entries = Object.entries(obj).slice(0, 5); // Limit to first 5 properties
+        const pairs = entries.map(([key, value]) => `${key}: ${safeStringify(value, maxDepth, currentDepth + 1)}`);
+        return `{${pairs.join(', ')}${Object.keys(obj).length > 5 ? '...' : ''}}`;
+      }
+      return String(obj);
+    };
+    
+    switch (action) {
+      case 'create':
+        return (
+          <div className="space-y-2">
+            <div className="text-xs text-green-700 font-medium">{t('New Tax Registration Created', 'புதிய வரி பதிவு உருவாக்கப்பட்டது')}</div>
+            <div className="text-xs text-gray-600 space-y-1">
+              {details.name && <div><span className="font-medium">{t('Name', 'பெயர்')}:</span> {details.name}</div>}
+              {details.reference_number && <div><span className="font-medium">{t('Reference', 'குறிப்பு')}:</span> {details.reference_number}</div>}
+              {details.mobile_number && <div><span className="font-medium">{t('Mobile', 'தொலைபேசி')}:</span> {details.mobile_number}</div>}
+              {details.village && <div><span className="font-medium">{t('Village', 'கிராமம்')}:</span> {details.village}</div>}
+            </div>
+            {(details.tax_amount || details.amount_paid) && getAmountInfo(details)}
+          </div>
+        );
+      
+      case 'update':
+        const changes: string[] = [];
+        if (details.name) changes.push(`${t('Name', 'பெயர்')}: ${details.name}`);
+        if (details.mobile_number) changes.push(`${t('Mobile', 'தொலைபேசி')}: ${details.mobile_number}`);
+        if (details.aadhaar_number) changes.push(`${t('Aadhaar', 'ஆதார்')}: ${details.aadhaar_number}`);
+        if (details.village) changes.push(`${t('Village', 'கிராமம்')}: ${details.village}`);
+        if (details.reference_number) changes.push(`${t('Reference', 'குறிப்பு')}: ${details.reference_number}`);
+        
+        // Handle before/after comparison
+        const hasBeforeAfter = details.before && details.after;
+        
+        return (
+          <div className="space-y-2">
+            <div className="text-xs text-blue-700 font-medium">{t('Tax Registration Updated', 'வரி பதிவு புதுப்பிக்கப்பட்டது')}</div>
+            <div className="text-xs text-gray-600 space-y-1">
+              {hasBeforeAfter ? (
+                <div className="space-y-2">
+                  {/* Reference ID */}
+                  {(details.before.reference_number || details.after.reference_number) && (
+                    <div className="text-xs text-gray-600 mb-2">
+                      <span className="font-medium">{t('Reference', 'குறிப்பு')}:</span> {details.after.reference_number || details.before.reference_number}
+                    </div>
+                  )}
+                  
+                  {/* Before Amount Details */}
+                  {(() => {
+                    const beforeAmounts = {
+                      tax_amount: details.before.tax_amount || details.before.taxAmount,
+                      amount_paid: details.before.amount_paid || details.before.amountPaid,
+                      outstanding_amount: details.before.outstanding_amount || details.before.outstandingAmount
+                    };
+                    if (beforeAmounts.tax_amount || beforeAmounts.amount_paid || beforeAmounts.outstanding_amount !== undefined) {
+                      return (
+                        <div className="bg-red-50 p-2 rounded border">
+                          <div className="font-medium text-red-700 mb-1">{t('Before Amount Details', 'முன் தொகை விவரங்கள்')}</div>
+                          <div className="space-y-1">
+                            <div>{t('Tax Amount', 'வரி தொகை')}: {formatAmount(beforeAmounts.tax_amount)}</div>
+                            <div>{t('Amount Paid', 'செலுத்திய தொகை')}: {formatAmount(beforeAmounts.amount_paid)}</div>
+                            {beforeAmounts.outstanding_amount !== undefined && (
+                              <div>{t('Outstanding', 'நிலுவை')}: {formatAmount(beforeAmounts.outstanding_amount)}</div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                  
+                  {/* After Amount Details */}
+                  {(() => {
+                    const afterAmounts = {
+                      tax_amount: details.after.tax_amount || details.after.taxAmount,
+                      amount_paid: details.after.amount_paid || details.after.amountPaid,
+                      outstanding_amount: details.after.outstanding_amount || details.after.outstandingAmount
+                    };
+                    if (afterAmounts.tax_amount || afterAmounts.amount_paid || afterAmounts.outstanding_amount !== undefined) {
+                      return (
+                        <div className="bg-green-50 p-2 rounded border">
+                          <div className="font-medium text-green-700 mb-1">{t('After Amount Details', 'பின் தொகை விவரங்கள்')}</div>
+                          <div className="space-y-1">
+                            <div>{t('Tax Amount', 'வரி தொகை')}: {formatAmount(afterAmounts.tax_amount)}</div>
+                            <div>{t('Amount Paid', 'செலுத்திய தொகை')}: {formatAmount(afterAmounts.amount_paid)}</div>
+                            {afterAmounts.outstanding_amount !== undefined && (
+                              <div>{t('Outstanding', 'நிலுவை')}: {formatAmount(afterAmounts.outstanding_amount)}</div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+              ) : changes.length > 0 ? (
+                changes.map((change, idx) => (
+                  <div key={idx}>{change}</div>
+                ))
+              ) : (
+                <div className="text-gray-500 italic">
+                  {t('Details updated', 'விவரங்கள் புதுப்பிக்கப்பட்டது')}
+                  {Object.keys(details).length > 0 && (
+                    <div className="mt-1 text-xs">
+                      {Object.entries(details).slice(0, 3).map(([key, value], idx) => (
+                        <div key={idx}>
+                          <span className="font-medium">{key}:</span> {safeStringify(value)}
+                        </div>
+                      ))}
+                      {Object.keys(details).length > 3 && (
+                        <div className="text-gray-400">...and {Object.keys(details).length - 3} more fields</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            {(details.tax_amount !== undefined || details.amount_paid !== undefined) && getAmountInfo(details)}
+          </div>
+        );
+      
+      case 'delete':
+        return (
+          <div className="space-y-2">
+            <div className="text-xs text-red-700 font-medium">{t('Tax Registration Deleted', 'வரி பதிவு நீக்கப்பட்டது')}</div>
+            <div className="text-xs text-gray-600 space-y-1">
+              {details.name && <div><span className="font-medium">{t('Name', 'பெயர்')}:</span> {details.name}</div>}
+              {details.reference_number && <div><span className="font-medium">{t('Reference', 'குறிப்பு')}:</span> {details.reference_number}</div>}
+            </div>
+            {(details.tax_amount || details.amount_paid) && getAmountInfo(details)}
+          </div>
+        );
+      
+      default:
+        return (
+          <div className="space-y-2">
+            <div className="text-xs text-gray-700 font-medium">{t('Action', 'செயல்')}: {action}</div>
+            <div className="text-xs text-gray-600 space-y-1">
+              {Object.keys(details).length > 0 ? (
+                Object.entries(details).map(([key, value], idx) => (
+                  <div key={idx}>
+                    <span className="font-medium">{key}:</span> {safeStringify(value)}
+                  </div>
+                ))
+              ) : (
+                <div className="text-gray-500 italic">{t('No additional details', 'கூடுதல் விவரங்கள் இல்லை')}</div>
+              )}
+            </div>
+            {(details.tax_amount !== undefined || details.amount_paid !== undefined) && getAmountInfo(details)}
+          </div>
+        );
+    }
   };
 
   const openAllLogs = async () => {
@@ -102,14 +385,29 @@ export default function TaxUserListPage() {
     setAllLogsLoading(true);
     try {
       const params = new URLSearchParams({ page: String(pageNum), pageSize: String(allLogsPageSize) });
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations/logs?${params.toString()}`, {
+      const res = await fetch(`http://localhost:4000/api/tax-registrations/logs?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
+      console.log('loadAllLogs - API response:', data);
       if (!res.ok) throw new Error(data.error || 'Failed to load logs');
-      setAllLogs(Array.isArray(data.data) ? data.data : []);
+      const logsData = Array.isArray(data.data) ? data.data : [];
+      console.log('loadAllLogs - logsData:', logsData);
+      setAllLogs(logsData);
       setAllLogsTotal(Number(data.total || 0));
       setAllLogsPage(Number(data.page || pageNum));
+      
+      // Fetch user names for the logs
+      const userIds = logsData
+        .map(log => log.created_by)
+        .filter((id): id is number => id !== null && id !== undefined);
+      console.log('loadAllLogs - Found userIds:', userIds);
+      if (userIds.length > 0) {
+        console.log('loadAllLogs - Calling fetchUserNames with:', userIds);
+        await fetchUserNames(userIds);
+      } else {
+        console.log('loadAllLogs - No userIds found, skipping fetchUserNames');
+      }
     } catch (e) {
       alert((e as Error).message);
     } finally {
@@ -120,6 +418,7 @@ export default function TaxUserListPage() {
   const closeAllLogs = () => {
     setAllLogsOpen(false);
     setAllLogs([]);
+    setExpandedLogs(new Set());
   };
 
   const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>(() => {
@@ -208,6 +507,9 @@ export default function TaxUserListPage() {
     created_by: number | null;
     details: any;
   }>>([]);
+  const [userNames, setUserNames] = useState<Record<number, string>>({});
+  const [userDetails, setUserDetails] = useState<Record<number, {name: string, username?: string, mobile?: string}>>({});
+  const [expandedLogs, setExpandedLogs] = useState<Set<number>>(new Set());
 
   // All Logs (temple scoped) modal state
   const [allLogsOpen, setAllLogsOpen] = useState(false);
@@ -335,7 +637,7 @@ export default function TaxUserListPage() {
       const paidN = editForm.amount_paid?.trim() ? Number(editForm.amount_paid) : undefined;
       if (typeof taxN === 'number' && Number.isFinite(taxN)) payload.tax_amount = taxN;
       if (typeof paidN === 'number' && Number.isFinite(paidN)) payload.amount_paid = paidN;
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations/${editing.id}`, {
+      const res = await fetch(`http://localhost:4000/api/tax-registrations/${editing.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -363,7 +665,7 @@ export default function TaxUserListPage() {
     const ok = window.confirm(t('Are you sure you want to delete this tax registration?', 'இந்த வரி பதிவை நிச்சயமாக நீக்க விரும்புகிறீர்களா?'));
     if (!ok) return;
     try {
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations/${row.id}`, {
+      const res = await fetch(`http://localhost:4000/api/tax-registrations/${row.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -382,7 +684,7 @@ export default function TaxUserListPage() {
     const year = new Date().getFullYear();
     (async () => {
       try {
-        const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-settings/year/${year}`, {
+        const res = await fetch(`http://localhost:4000/api/tax-settings/year/${year}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -403,7 +705,7 @@ export default function TaxUserListPage() {
     try {
       // Get current year's tax amount
       const currentYear = new Date().getFullYear();
-      const taxSettingsRes = await fetch(`https://tmsapi.xesstechlink.com/api/tax-settings/year/${currentYear}`, {
+      const taxSettingsRes = await fetch(`http://localhost:4000/api/tax-settings/year/${currentYear}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const taxSettings = await taxSettingsRes.json();
@@ -412,7 +714,7 @@ export default function TaxUserListPage() {
       // Always fetch all tax registrations matching search (no tab filter; we will filter client-side)
       const taxParams = new URLSearchParams({ page: '1', pageSize: '1000' });
       if (search) taxParams.set('search', search);
-      const taxRes = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations?${taxParams.toString()}`, {
+      const taxRes = await fetch(`http://localhost:4000/api/tax-registrations?${taxParams.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const taxData = await taxRes.json();
@@ -442,7 +744,7 @@ export default function TaxUserListPage() {
       // Fetch base registrations to include users without a tax registration yet
       const regParams = new URLSearchParams({ page: '1', pageSize: '1000' });
       if (search) regParams.set('search', search);
-      const regRes = await fetch(`https://tmsapi.xesstechlink.com/api/registrations?${regParams.toString()}`, {
+      const regRes = await fetch(`http://localhost:4000/api/registrations?${regParams.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const regData = await regRes.json();
@@ -586,7 +888,7 @@ export default function TaxUserListPage() {
 
   const handleDownloadPdf = async (id: number) => {
     try {
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations/${id}/pdf`, {
+      const res = await fetch(`http://localhost:4000/api/tax-registrations/${id}/pdf`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
@@ -609,7 +911,7 @@ export default function TaxUserListPage() {
       if (statusTab === 'paid') params.set('paid', '1');
 
       const res = await fetch(
-        `https://tmsapi.xesstechlink.com/api/tax-registrations/export/pdf?${params.toString()}`,
+        `http://localhost:4000/api/tax-registrations/export/pdf?${params.toString()}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -750,63 +1052,232 @@ export default function TaxUserListPage() {
       {allLogsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={closeAllLogs} />
-          <div className="relative bg-white rounded shadow-lg w-full max-w-5xl mx-2 p-3">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-sm font-semibold">{t('All Tax Registration Logs', 'அனைத்து வரி பதிவுகள் பதிவுகள்')}</h2>
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" className="text-xs py-1 px-2" onClick={closeAllLogs}>{t('Close', 'மூடு')}</Button>
+          <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-6xl mx-4">
+            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white py-6 px-6 rounded-t-lg">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold">{t('All Tax Registration Logs', 'அனைத்து வரி பதிவுகள் பதிவுகள்')}</h2>
+                <Button variant="ghost" className="text-white hover:bg-white/20" onClick={closeAllLogs}>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </Button>
               </div>
             </div>
-            {allLogsLoading ? (
-              <div className="p-3 text-xs text-gray-600">{t('Loading logs...', 'பதிவுகள் ஏற்றப்படுகிறது...')}</div>
-            ) : (
-              <>
-                <div className="max-h-[70vh] overflow-y-auto border rounded">
-                  <table className="min-w-full text-xs">
-                    <thead className="bg-gray-50 sticky top-0">
-                      <tr>
-                        <th className="text-left px-2 py-1">{t('Time', 'நேரம்')}</th>
-                        <th className="text-left px-2 py-1">{t('Action', 'செயல்')}</th>
-                        <th className="text-left px-2 py-1">{t('Reg ID', 'பதிவு ஐடி')}</th>
-                        <th className="text-left px-2 py-1">{t('Name', 'பெயர்')}</th>
-                        <th className="text-left px-2 py-1">{t('Ref No', 'குறிப்பு எண்')}</th>
-                        <th className="text-left px-2 py-1">{t('User', 'பயனர்')}</th>
-                        <th className="text-left px-2 py-1">{t('Details', 'விவரங்கள்')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {allLogs.length === 0 ? (
-                        <tr>
-                          <td className="px-2 py-2 text-center text-gray-500" colSpan={7}>{t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}</td>
-                        </tr>
-                      ) : allLogs.map((lg) => (
-                        <tr key={lg.id} className="border-t align-top">
-                          <td className="px-2 py-1 whitespace-nowrap">{lg.created_at ? new Date(lg.created_at).toLocaleString(language === 'tamil' ? 'ta-IN' : 'en-IN') : '-'}</td>
-                          <td className="px-2 py-1">{lg.action}</td>
-                          <td className="px-2 py-1">{lg.tax_registration_id}</td>
-                          <td className="px-2 py-1">{lg.registration_name ?? '-'}</td>
-                          <td className="px-2 py-1">{lg.registration_ref ?? '-'}</td>
-                          <td className="px-2 py-1">{lg.created_by ?? '-'}</td>
-                          <td className="px-2 py-1">
-                            <pre className="whitespace-pre-wrap break-words text-[10px] bg-gray-50 p-2 rounded border max-w-[40vw]">
-{JSON.stringify(lg.details, null, 2)}
-                            </pre>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="flex items-center justify-between mt-2 text-xs">
-                  <div className="text-gray-700">{t('Total', 'மொத்தம்')}: <span className="font-medium">{allLogsTotal}</span></div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" disabled={allLogsPage <= 1} onClick={() => loadAllLogs(allLogsPage - 1)} className="text-xs py-1 px-2">{t('Previous', 'முந்தைய')}</Button>
-                    <span>{t('Page', 'பக்கம்')} {allLogsPage}</span>
-                    <Button variant="outline" disabled={allLogsPage * allLogsPageSize >= allLogsTotal} onClick={() => loadAllLogs(allLogsPage + 1)} className="text-xs py-1 px-2">{t('Next', 'அடுத்தது')}</Button>
+            
+            <div className="p-6">
+              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                {allLogsLoading ? (
+                  <div className="flex items-center justify-center h-32">
+                    <div className="text-lg text-gray-600">{t('Loading logs...', 'பதிவுகள் ஏற்றப்படுகிறது...')}</div>
                   </div>
-                </div>
-              </>
-            )}
+                ) : (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                              {t('Action', 'செயல்')}
+                            </th>
+                            <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                              {t('Date & Time', 'தேதி மற்றும் நேரம்')}
+                            </th>
+                            <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                              {t('Reg ID', 'பதிவு ஐடி')}
+                            </th>
+                            <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                              {t('Name', 'பெயர்')}
+                            </th>
+                            <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                              {t('Ref No', 'குறிப்பு எண்')}
+                            </th>
+                            <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                              {t('User', 'பயனர்')}
+                            </th>
+                            <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                              {t('Details', 'விவரங்கள்')}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {allLogs.length === 0 ? (
+                            <tr>
+                              <td className="py-8 text-center text-gray-500" colSpan={7}>
+                                {t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}
+                              </td>
+                            </tr>
+                          ) : allLogs.map((lg, index) => (
+                            <tr key={lg.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50`}>
+                              <td className="py-3 px-4 border-b">
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                  lg.action === 'create' ? 'bg-green-100 text-green-800' :
+                                  lg.action === 'update' ? 'bg-blue-100 text-blue-800' :
+                                  lg.action === 'delete' ? 'bg-red-100 text-red-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {lg.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
+                                   lg.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
+                                   lg.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
+                                   lg.action}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-sm text-gray-700 border-b">
+                                {lg.created_at ? new Date(lg.created_at).toLocaleString('en-IN', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                }) : '-'}
+                              </td>
+                              <td className="py-3 px-4 text-sm text-gray-700 border-b">{lg.tax_registration_id}</td>
+                              <td className="py-3 px-4 text-sm text-gray-700 border-b">{lg.registration_name ?? '-'}</td>
+                              <td className="py-3 px-4 text-sm text-gray-700 border-b">{lg.registration_ref ?? '-'}</td>
+                              <td className="py-3 px-4 text-sm text-gray-700 border-b">
+                                {(() => {
+                                  const userId = lg.created_by;
+                                  if (!userId) return '-';
+                                  const user = userDetails[userId];
+                                  const name = userNames[userId];
+                                  
+                                  if (user?.username) {
+                                    return `@${user.username}`;
+                                  }
+                                  if (user?.name) {
+                                    return user.name;
+                                  }
+                                  if (name) {
+                                    return name;
+                                  }
+                                  return userId || '-';
+                                })()}
+                              </td>
+                              <td className="py-3 px-4 border-b">
+                                <div className="text-sm text-gray-600 max-w-md">
+                                  {(() => {
+                                    const isExpanded = expandedLogs.has(lg.id);
+                                    const hasAmountInfo = lg.details && (
+                                      lg.details.tax_amount || lg.details.taxAmount || 
+                                      lg.details.amount_paid || lg.details.amountPaid ||
+                                      lg.details.outstanding_amount || lg.details.outstandingAmount
+                                    );
+                                    
+                                    // Check for before/after amount details in update logs
+                                    const hasBeforeAfterAmounts = lg.action === 'update' && lg.details.before && lg.details.after && (
+                                      (lg.details.before.tax_amount || lg.details.before.taxAmount) ||
+                                      (lg.details.before.amount_paid || lg.details.before.amountPaid) ||
+                                      (lg.details.after.tax_amount || lg.details.after.taxAmount) ||
+                                      (lg.details.after.amount_paid || lg.details.after.amountPaid)
+                                    );
+                                    
+                                    return (
+                                      <div className="space-y-2">
+                                        {/* Compact amount display */}
+                                        {hasBeforeAfterAmounts ? (
+                                          <div className="space-y-2">
+                                            {/* Reference ID */}
+                                            {(lg.details.before.reference_number || lg.details.after.reference_number) && (
+                                              <div className="text-xs text-gray-600 mb-2">
+                                                <span className="font-medium">{t('Reference', 'குறிப்பு')}:</span> {lg.details.after.reference_number || lg.details.before.reference_number}
+                                              </div>
+                                            )}
+                                            
+                                            {/* Before Amount Details */}
+                                            {(() => {
+                                              const beforeAmounts = {
+                                                tax_amount: lg.details.before.tax_amount || lg.details.before.taxAmount,
+                                                amount_paid: lg.details.before.amount_paid || lg.details.before.amountPaid,
+                                                outstanding_amount: lg.details.before.outstanding_amount || lg.details.before.outstandingAmount
+                                              };
+                                              if (beforeAmounts.tax_amount || beforeAmounts.amount_paid || beforeAmounts.outstanding_amount !== undefined) {
+                                                return (
+                                                  <div className="bg-red-50 p-2 rounded border text-xs">
+                                                    <div className="font-medium text-red-700 mb-1">{t('Before Amount Details', 'முன் தொகை விவரங்கள்')}</div>
+                                                    <div className="space-y-1">
+                                                      <div>{t('Tax Amount', 'வரி தொகை')}: {formatAmount(beforeAmounts.tax_amount)}</div>
+                                                      <div>{t('Amount Paid', 'செலுத்திய தொகை')}: {formatAmount(beforeAmounts.amount_paid)}</div>
+                                                      {beforeAmounts.outstanding_amount !== undefined && (
+                                                        <div>{t('Outstanding', 'நிலுவை')}: {formatAmount(beforeAmounts.outstanding_amount)}</div>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                );
+                                              }
+                                              return null;
+                                            })()}
+                                            
+                                            {/* After Amount Details */}
+                                            {(() => {
+                                              const afterAmounts = {
+                                                tax_amount: lg.details.after.tax_amount || lg.details.after.taxAmount,
+                                                amount_paid: lg.details.after.amount_paid || lg.details.after.amountPaid,
+                                                outstanding_amount: lg.details.after.outstanding_amount || lg.details.after.outstandingAmount
+                                              };
+                                              if (afterAmounts.tax_amount || afterAmounts.amount_paid || afterAmounts.outstanding_amount !== undefined) {
+                                                return (
+                                                  <div className="bg-green-50 p-2 rounded border text-xs">
+                                                    <div className="font-medium text-green-700 mb-1">{t('After Amount Details', 'பின் தொகை விவரங்கள்')}</div>
+                                                    <div className="space-y-1">
+                                                      <div>{t('Tax Amount', 'வரி தொகை')}: {formatAmount(afterAmounts.tax_amount)}</div>
+                                                      <div>{t('Amount Paid', 'செலுத்திய தொகை')}: {formatAmount(afterAmounts.amount_paid)}</div>
+                                                      {afterAmounts.outstanding_amount !== undefined && (
+                                                        <div>{t('Outstanding', 'நிலுவை')}: {formatAmount(afterAmounts.outstanding_amount)}</div>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                );
+                                              }
+                                              return null;
+                                            })()}
+                                          </div>
+                                        ) : hasAmountInfo && (
+                                          <div className="text-xs text-gray-600">
+                                            {getAmountInfo(lg.details, true)}
+                                          </div>
+                                        )}
+                                        
+                                        {/* View All button */}
+                                        <button
+                                          onClick={() => toggleLogExpansion(lg.id)}
+                                          className="text-xs text-blue-600 hover:text-blue-800 underline"
+                                        >
+                                          {isExpanded ? t('Hide Details', 'விவரங்களை மறை') : t('View All', 'அனைத்தையும் பார்')}
+                                        </button>
+                                        
+                                        {/* Expanded details */}
+                                        {isExpanded && (
+                                          <div className="mt-2 p-2 bg-gray-50 rounded border text-xs">
+                                            {formatLogDetails(lg.action, lg.details, lg.created_by)}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="flex items-center justify-between mt-4 px-4 py-3 bg-gray-50 border-t">
+                      <div className="text-sm text-gray-700">
+                        {t('Total', 'மொத்தம்')}: <span className="font-medium">{allLogsTotal}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" disabled={allLogsPage <= 1} onClick={() => loadAllLogs(allLogsPage - 1)} className="text-sm py-1 px-3">
+                          {t('Previous', 'முந்தைய')}
+                        </Button>
+                        <span className="text-sm text-gray-600">{t('Page', 'பக்கம்')} {allLogsPage}</span>
+                        <Button variant="outline" disabled={allLogsPage * allLogsPageSize >= allLogsTotal} onClick={() => loadAllLogs(allLogsPage + 1)} className="text-sm py-1 px-3">
+                          {t('Next', 'அடுத்தது')}
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1067,43 +1538,202 @@ export default function TaxUserListPage() {
       {logsFor !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={closeLogs} />
-          <div className="relative bg-white rounded shadow-lg w-full max-w-2xl mx-2 p-3">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-sm font-semibold">{t('Change Logs', 'மாற்றுப் பதிவுகள்')} #{logsFor}</h2>
-              <Button variant="ghost" className="text-xs py-1 px-2" onClick={closeLogs}>{t('Close', 'மூடு')}</Button>
-            </div>
-            {logsLoading ? (
-              <div className="p-3 text-xs text-gray-600">{t('Loading logs...', 'பதிவுகள் ஏற்றப்படுகிறது...')}</div>
-            ) : logs.length === 0 ? (
-              <div className="p-3 text-xs text-gray-600">{t('No logs found for this registration.', 'இந்த பதிவுக்கான பதிவுகள் கிடைக்கவில்லை.')}</div>
-            ) : (
-              <div className="max-h-[60vh] overflow-y-auto border rounded">
-                <table className="min-w-full text-xs">
-                  <thead className="bg-gray-50 sticky top-0">
-                    <tr>
-                      <th className="text-left px-2 py-1">{t('Time', 'நேரம்')}</th>
-                      <th className="text-left px-2 py-1">{t('Action', 'செயல்')}</th>
-                      <th className="text-left px-2 py-1">{t('User', 'பயனர்')}</th>
-                      <th className="text-left px-2 py-1">{t('Details', 'விவரங்கள்')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {logs.map((lg) => (
-                      <tr key={lg.id} className="border-t">
-                        <td className="px-2 py-1 whitespace-nowrap">{lg.created_at ? new Date(lg.created_at).toLocaleString(language === 'tamil' ? 'ta-IN' : 'en-IN') : '-'}</td>
-                        <td className="px-2 py-1">{lg.action}</td>
-                        <td className="px-2 py-1">{lg.created_by ?? '-'}</td>
-                        <td className="px-2 py-1">
-                          <pre className="whitespace-pre-wrap break-words text-[10px] bg-gray-50 p-2 rounded border">
-{JSON.stringify(lg.details, null, 2)}
-                          </pre>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-4xl mx-4">
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-6 px-6 rounded-t-lg">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold">{t('Activity Log', 'செயல்பாட்டு பதிவு')} #{logsFor}</h2>
+                <Button variant="ghost" className="text-white hover:bg-white/20" onClick={closeLogs}>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </Button>
               </div>
-            )}
+            </div>
+            
+            <div className="p-6">
+              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                {logsLoading ? (
+                  <div className="flex items-center justify-center h-32">
+                    <div className="text-lg text-gray-600">{t('Loading logs...', 'பதிவுகள் ஏற்றப்படுகிறது...')}</div>
+                  </div>
+                ) : logs.length === 0 ? (
+                  <div className="flex items-center justify-center h-32">
+                    <div className="text-lg text-gray-500">{t('No logs found for this registration.', 'இந்த பதிவுக்கான பதிவுகள் கிடைக்கவில்லை.')}</div>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                            {t('Action', 'செயல்')}
+                          </th>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                            {t('Date & Time', 'தேதி மற்றும் நேரம்')}
+                          </th>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                            {t('User', 'பயனர்')}
+                          </th>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                            {t('Details', 'விவரங்கள்')}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {logs.map((lg, index) => (
+                          <tr key={lg.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50`}>
+                            <td className="py-3 px-4 border-b">
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                lg.action === 'create' ? 'bg-green-100 text-green-800' :
+                                lg.action === 'update' ? 'bg-blue-100 text-blue-800' :
+                                lg.action === 'delete' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {lg.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
+                                 lg.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
+                                 lg.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
+                                 lg.action}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-700 border-b">
+                              {lg.created_at ? new Date(lg.created_at).toLocaleString('en-IN', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              }) : '-'}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-700 border-b">
+                              {(() => {
+                                const userId = lg.created_by;
+                                if (!userId) return '-';
+                                const user = userDetails[userId];
+                                const name = userNames[userId];
+                                
+                                if (user?.username) {
+                                  return `@${user.username}`;
+                                }
+                                if (user?.name) {
+                                  return user.name;
+                                }
+                                if (name) {
+                                  return name;
+                                }
+                                return userId || '-';
+                              })()}
+                            </td>
+                            <td className="py-3 px-4 border-b">
+                              <div className="text-sm text-gray-600 max-w-md">
+                                {(() => {
+                                  const isExpanded = expandedLogs.has(lg.id);
+                                  const hasAmountInfo = lg.details && (
+                                    lg.details.tax_amount || lg.details.taxAmount || 
+                                    lg.details.amount_paid || lg.details.amountPaid ||
+                                    lg.details.outstanding_amount || lg.details.outstandingAmount
+                                  );
+                                  
+                                  // Check for before/after amount details in update logs
+                                  const hasBeforeAfterAmounts = lg.action === 'update' && lg.details.before && lg.details.after && (
+                                    (lg.details.before.tax_amount || lg.details.before.taxAmount) ||
+                                    (lg.details.before.amount_paid || lg.details.before.amountPaid) ||
+                                    (lg.details.after.tax_amount || lg.details.after.taxAmount) ||
+                                    (lg.details.after.amount_paid || lg.details.after.amountPaid)
+                                  );
+                                  
+                                  return (
+                                    <div className="space-y-2">
+                                      {/* Compact amount display */}
+                                      {hasBeforeAfterAmounts ? (
+                                        <div className="space-y-2">
+                                          {/* Reference ID */}
+                                          {(lg.details.before.reference_number || lg.details.after.reference_number) && (
+                                            <div className="text-xs text-gray-600 mb-2">
+                                              <span className="font-medium">{t('Reference', 'குறிப்பு')}:</span> {lg.details.after.reference_number || lg.details.before.reference_number}
+                                            </div>
+                                          )}
+                                          
+                                          {/* Before Amount Details */}
+                                          {(() => {
+                                            const beforeAmounts = {
+                                              tax_amount: lg.details.before.tax_amount || lg.details.before.taxAmount,
+                                              amount_paid: lg.details.before.amount_paid || lg.details.before.amountPaid,
+                                              outstanding_amount: lg.details.before.outstanding_amount || lg.details.before.outstandingAmount
+                                            };
+                                            if (beforeAmounts.tax_amount || beforeAmounts.amount_paid || beforeAmounts.outstanding_amount !== undefined) {
+                                              return (
+                                                <div className="bg-red-50 p-2 rounded border text-xs">
+                                                  <div className="font-medium text-red-700 mb-1">{t('Before Amount Details', 'முன் தொகை விவரங்கள்')}</div>
+                                                  <div className="space-y-1">
+                                                    <div>{t('Tax Amount', 'வரி தொகை')}: {formatAmount(beforeAmounts.tax_amount)}</div>
+                                                    <div>{t('Amount Paid', 'செலுத்திய தொகை')}: {formatAmount(beforeAmounts.amount_paid)}</div>
+                                                    {beforeAmounts.outstanding_amount !== undefined && (
+                                                      <div>{t('Outstanding', 'நிலுவை')}: {formatAmount(beforeAmounts.outstanding_amount)}</div>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              );
+                                            }
+                                            return null;
+                                          })()}
+                                          
+                                          {/* After Amount Details */}
+                                          {(() => {
+                                            const afterAmounts = {
+                                              tax_amount: lg.details.after.tax_amount || lg.details.after.taxAmount,
+                                              amount_paid: lg.details.after.amount_paid || lg.details.after.amountPaid,
+                                              outstanding_amount: lg.details.after.outstanding_amount || lg.details.after.outstandingAmount
+                                            };
+                                            if (afterAmounts.tax_amount || afterAmounts.amount_paid || afterAmounts.outstanding_amount !== undefined) {
+                                              return (
+                                                <div className="bg-green-50 p-2 rounded border text-xs">
+                                                  <div className="font-medium text-green-700 mb-1">{t('After Amount Details', 'பின் தொகை விவரங்கள்')}</div>
+                                                  <div className="space-y-1">
+                                                    <div>{t('Tax Amount', 'வரி தொகை')}: {formatAmount(afterAmounts.tax_amount)}</div>
+                                                    <div>{t('Amount Paid', 'செலுத்திய தொகை')}: {formatAmount(afterAmounts.amount_paid)}</div>
+                                                    {afterAmounts.outstanding_amount !== undefined && (
+                                                      <div>{t('Outstanding', 'நிலுவை')}: {formatAmount(afterAmounts.outstanding_amount)}</div>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              );
+                                            }
+                                            return null;
+                                          })()}
+                                        </div>
+                                      ) : hasAmountInfo && (
+                                        <div className="text-xs text-gray-600">
+                                          {getAmountInfo(lg.details, true)}
+                                        </div>
+                                      )}
+                                      
+                                      {/* View All button */}
+                                      <button
+                                        onClick={() => toggleLogExpansion(lg.id)}
+                                        className="text-xs text-blue-600 hover:text-blue-800 underline"
+                                      >
+                                        {isExpanded ? t('Hide Details', 'விவரங்களை மறை') : t('View All', 'அனைத்தையும் பார்')}
+                                      </button>
+                                      
+                                      {/* Expanded details */}
+                                      {isExpanded && (
+                                        <div className="mt-2 p-2 bg-gray-50 rounded border text-xs">
+                                          {formatLogDetails(lg.action, lg.details, lg.created_by)}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

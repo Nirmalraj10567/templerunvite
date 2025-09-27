@@ -92,7 +92,7 @@ export default function MemberLogsView({ token, membersOptions }: MemberLogsView
         end.setHours(23, 59, 59, 999);
         params.set('to', end.toISOString());
       }
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/session-logs?${params.toString()}`, {
+      const res = await fetch(`http://localhost:4000/api/session-logs?${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -122,7 +122,7 @@ export default function MemberLogsView({ token, membersOptions }: MemberLogsView
     const fetchUsers = async () => {
       if (!token) return;
       try {
-        const res = await fetch('https://tmsapi.xesstechlink.com/api/admin/members?minimal=1', {
+        const res = await fetch('http://localhost:4000/api/admin/members?minimal=1', {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) return;

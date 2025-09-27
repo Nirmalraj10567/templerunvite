@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
 
 const today = new Date().toISOString().slice(0, 10);
 const initialState: DonationFormData = {
@@ -203,7 +204,7 @@ export default function DonationProductEntry() {
   // Centralized loader for next register number
   const fetchNextRegisterNo = async () => {
     try {
-      const resp = await axios.get<any>('https://tmsapi.xesstechlink.com/api/donations/next-register-no', {
+      const resp = await axios.get<any>('http://localhost:4000/api/donations/next-register-no', {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });
       const nextNo = resp.data?.nextRegisterNo || generateNextRegisterNo();
@@ -224,7 +225,7 @@ export default function DonationProductEntry() {
 
       try {
         const resp = await axios.get<{ data: DonationProduct[] }>(
-          `https://tmsapi.xesstechlink.com/api/donation-products/${user.templeId}`,
+          `http://localhost:4000/api/donation-products/${user.templeId}`,
           {
             headers: { Authorization: `Bearer ${getAuthToken()}` }
           }
@@ -301,38 +302,38 @@ export default function DonationProductEntry() {
     }
   }, [message, isError, isEdit, token]);
 
-  // Consistent field styling
-  const fieldStyles = "text-sm py-2 px-3 h-8 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200";
-  const labelStyles = "block text-sm font-medium mb-1 text-gray-700";
-  const textareaStyles = "text-sm py-2 px-3 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200 resize-none";
+  // Use centralized form styles
+  const fieldStyles = formFieldStyles.input;
+  const labelStyles = formFieldStyles.label;
+  const textareaStyles = formFieldStyles.textarea;
 
   // Error message component
   const ErrorMessage = ({ error }: { error?: string }) => {
     if (!error) return null;
     return (
-      <p className="text-red-500 text-sm mt-1 flex items-center">
-        <span className="mr-1">⚠</span>
+      <p className={cn(formFieldStyles.error, formFieldStyles.errorWithIcon)}>
+        <span className={formFieldStyles.errorIcon}>⚠</span>
         {error}
       </p>
     );
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-6 px-4 w-full">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <Card className="shadow-lg border-0 bg-white rounded-lg">
-          <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 rounded-t-lg">
-            <CardTitle className="text-2xl font-bold text-center">
+    <div className={pageContainerStyles.container}>
+      <div className={cn(pageContainerStyles.content, "space-y-6")}>
+        <Card className={formFieldStyles.card.container}>
+          <CardHeader className={cn(formFieldStyles.card.header, formFieldStyles.header.gradient)}>
+            <CardTitle className={formFieldStyles.header.title}>
               {t('Donation Entry','பொருள் நன்கொடைக் பதிவு')}
             </CardTitle>
           </CardHeader>
           
-          <CardContent className="p-4">
+          <CardContent className={formFieldStyles.card.content}>
             {/* Register Number and Product Manager */}
-            <div className="flex items-center justify-between mb-6 bg-gray-50 p-4 rounded-lg">
+            <div className={formFieldStyles.registerDisplay.container}>
               <div className="text-lg">
-                <span className="font-semibold text-gray-600">{t('Register No','பதிவு எண்')}:</span>
-                <span className="ml-2 text-gray-800 font-medium text-xl">{form.registerNo}</span>
+                <span className={formFieldStyles.registerDisplay.label}>{t('Register No','பதிவு எண்')}:</span>
+                <span className={formFieldStyles.registerDisplay.value}>{form.registerNo}</span>
               </div>
               {user?.templeId ? (
                 <DonationProductManager 
@@ -341,7 +342,7 @@ export default function DonationProductEntry() {
                   templeId={user.templeId} 
                 />
               ) : (
-                <div className="text-red-500 text-sm">
+                <div className={cn(formFieldStyles.error, "text-sm")}>
                   {t('Temple ID not found. Please login again.', 'கோயில் ID கிடைக்கவில்லை. மீண்டும் உள்நுழையவும்')}
                 </div>
               )}
@@ -349,22 +350,22 @@ export default function DonationProductEntry() {
 
             {/* Message Display */}
             {message && (
-              <div className={`mb-6 ${isError ? 'bg-red-50 text-red-700 border-red-200' : 'bg-green-50 text-green-700 border-green-200'} p-4 rounded-lg border flex items-center text-base`}>
-                <span className={`mr-3 text-lg ${isError ? 'text-red-500' : 'text-green-500'}`}>
+              <div className={cn(formFieldStyles.message.container, isError ? formFieldStyles.message.error : formFieldStyles.message.success)}>
+                <span className={cn(formFieldStyles.message.icon, isError ? 'text-red-500' : 'text-green-500')}>
                   {isError ? '⚠' : '✓'}
                 </span>
                 {message}
               </div>
             )}
 
-            <form onSubmit={onSubmit} className="space-y-4">
+            <form onSubmit={onSubmit} className={formFieldStyles.form.container}>
               {/* Enhanced Grid Layout - All fields same size */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className={formFieldStyles.form.grid}>
                 
                 {/* Date */}
                 <div>
                   <Label className={labelStyles} htmlFor="date">
-                    {t('Date','தேதி')} <span className="text-red-500">*</span>
+                    {t('Date','தேதி')} <span className={formFieldStyles.required}>*</span>
                   </Label>
                   <Input
                     ref={dateRef}
@@ -381,7 +382,7 @@ export default function DonationProductEntry() {
                 {/* Name */}
                 <div className="md:col-span-2">
                   <Label className={labelStyles} htmlFor="name">
-                    {t('Name','பெயர்')} <span className="text-red-500">*</span>
+                    {t('Name','பெயர்')} <span className={formFieldStyles.required}>*</span>
                   </Label>
                   <Input
                     ref={nameRef}
@@ -391,7 +392,7 @@ export default function DonationProductEntry() {
                     onChange={onChange}
                     onBlur={onBlur}
                     onKeyDown={(e) => handleKeyDown(e, 1)}
-                    className={`${fieldStyles} ${errors.name ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
+                    className={cn(fieldStyles, errors.name ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
                     placeholder={t('Enter name','பெயரை உள்ளிடவும்')}
                   />
                   <ErrorMessage error={errors.name} />
@@ -400,7 +401,7 @@ export default function DonationProductEntry() {
                 {/* Phone */}
                 <div>
                   <Label className={labelStyles} htmlFor="phone">
-                    {t('Phone','கைபேசி')} <span className="text-red-500">*</span>
+                    {t('Phone','கைபேசி')} <span className={formFieldStyles.required}>*</span>
                   </Label>
                   <Input
                     ref={phoneRef}
@@ -421,7 +422,7 @@ export default function DonationProductEntry() {
                         setForm(prev => ({ ...prev, phone: cleaned }));
                       }
                     }}
-                    className={`${fieldStyles} ${errors.phone ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
+                    className={cn(fieldStyles, errors.phone ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
                     placeholder={t('10 digits','10 இலக்கம்')}
                   />
                   <ErrorMessage error={errors.phone} />
@@ -482,9 +483,9 @@ export default function DonationProductEntry() {
                 {/* Product */}
                 <div>
                   <Label className={labelStyles} htmlFor="product">
-                    {t('Product','பொருள்')} <span className="text-red-500">*</span>
+                    {t('Product','பொருள்')} <span className={formFieldStyles.required}>*</span>
                   </Label>
-                  <div className="relative">
+                  <div className={formFieldStyles.selectDropdown.container}>
                     <select
                       ref={productRef}
                       id="product"
@@ -500,15 +501,15 @@ export default function DonationProductEntry() {
                       }}
                       onBlur={onBlur}
                       onKeyDown={(e) => handleKeyDown(e, 6)}
-                      className={`text-sm py-2 px-3 h-10 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200 appearance-none pr-10 bg-white ${errors.product ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
+                      className={cn(formFieldStyles.select, "appearance-none pr-10 bg-white", errors.product ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
                     >
                       <option value="">{t('Select Product','பொருள் தேர்வு')}</option>
                       {products.filter(p => p && p.id && p.label).map(p => 
                         <option key={p.id} value={p.value || p.label}>{p.label}</option>
                       )}
                     </select>
-                    <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className={formFieldStyles.selectDropdown.dropdown}>
+                      <svg className={formFieldStyles.selectDropdown.icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
                     </div>
@@ -519,7 +520,7 @@ export default function DonationProductEntry() {
                 {/* Unit */}
                 <div>
                   <Label className={labelStyles} htmlFor="unit">
-                    {t('Unit','அளவு')} <span className="text-red-500">*</span>
+                    {t('Unit','அளவு')} <span className={formFieldStyles.required}>*</span>
                   </Label>
                   <Input
                     ref={unitRef}
@@ -529,7 +530,7 @@ export default function DonationProductEntry() {
                     onChange={onChange}
                     onBlur={onBlur}
                     onKeyDown={(e) => handleKeyDown(e, 7)}
-                    className={`${fieldStyles} ${errors.unit ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
+                    className={cn(fieldStyles, errors.unit ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
                     placeholder={t('Enter unit','அளவை உள்ளிடவும்')}
                   />
                   <ErrorMessage error={errors.unit} />
@@ -555,37 +556,18 @@ export default function DonationProductEntry() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-wrap gap-4 justify-between items-center pt-4 border-t border-gray-200">
-                <div className="flex gap-3">
+              <div className={formFieldStyles.actions.container}>
+                <div className={formFieldStyles.actions.buttonGroup}>
                   {/* Keyboard shortcut hint */}
-                  <div className="text-sm text-gray-500 hidden md:flex items-center">
-                    <kbd className="px-2 py-1 text-xs bg-gray-100 border border-gray-300 rounded">Enter</kbd>
-                    <span className="ml-2">{t('to navigate', 'என்று நகர்ந்து செல்ல')}</span>
-                  </div>
+                 
                 </div>
                 
-                <div className="flex gap-3">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="default"
-                    className="px-6 py-2 text-sm border hover:bg-gray-50 rounded-md"
-                    onClick={async () => {
-                      const nextNo = await fetchNextRegisterNo();
-                      setNextRegisterNo(nextNo);
-                      setForm({ ...initialState, registerNo: nextNo });
-                      setErrors({});
-                      setTouched({});
-                      setTimeout(() => dateRef.current?.focus(), 100);
-                    }}
-                    disabled={saving}
-                  >
-                    {t('Clear','அழி')}
-                  </Button>
+                <div className={formFieldStyles.actions.buttonGroup}>
+          
                   <Button 
                     type="submit" 
                     size="default"
-                    className="px-6 py-2 text-sm bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-md"
+                    className={formFieldStyles.button.primary}
                     disabled={saving}
                   >
                     {saving ? t('Saving...','சேமிக்கிறது...') : t('Save','சேமி')}

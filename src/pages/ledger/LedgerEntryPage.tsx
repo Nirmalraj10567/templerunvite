@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/popover';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formFieldStyles, pageContainerStyles, formatINR, formatAmount } from '@/styles/formStyles';
 import { CategoryManager } from '@/components/ledger/CategoryManager';
 import { Modal } from '@/components/ui/modal';
 import { Pencil, Trash2 } from 'lucide-react';
@@ -105,11 +106,27 @@ export default function LedgerEntryPage() {
     }
   };
 
-  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
+  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
   // Watch common fields
   const watchedValues = watch();
   const watchType = watch('type');
+  
+  // Use centralized form styles
+  const fieldStyles = cn(formFieldStyles.input, "text-base h-11 py-2.5");
+  const labelStyles = formFieldStyles.label;
+  
+  // Button variants
+  const buttonVariants = {
+    primary: cn(
+      formFieldStyles.button.primary,
+      "bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
+    ),
+    outline: cn(
+      formFieldStyles.button.outline,
+      "border-gray-300 hover:bg-gray-50"
+    )
+  };
 
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
@@ -138,7 +155,7 @@ export default function LedgerEntryPage() {
       setIsLoadingCategories(true);
       try {
         // Pass templeId as a query parameter
-        const resp1 = await axios.get<any>(`https://tmsapi.xesstechlink.com/api/ledger/categories?templeId=${templeId}`, {
+        const resp1 = await axios.get<any>(`http://localhost:4000/api/ledger/categories?templeId=${templeId}`, {
           headers: { Authorization: `Bearer ${getAuthToken()}` }
         });
         const data1 = (resp1?.data && Array.isArray(resp1.data.data)) ? resp1.data.data : (Array.isArray(resp1?.data) ? resp1.data : []);
@@ -147,7 +164,7 @@ export default function LedgerEntryPage() {
         if (!combined || combined.length === 0) {
           try {
             // Pass templeId as a query parameter
-            const resp2 = await axios.get<any>(`https://tmsapi.xesstechlink.com/api/ledger/categories-used?templeId=${templeId}`, {
+            const resp2 = await axios.get<any>(`http://localhost:4000/api/ledger/categories-used?templeId=${templeId}`, {
               headers: { Authorization: `Bearer ${getAuthToken()}` }
             });
             const data2: any[] = (resp2?.data && Array.isArray(resp2.data.data)) ? resp2.data.data : (Array.isArray(resp2?.data) ? resp2.data : []);
@@ -222,7 +239,7 @@ export default function LedgerEntryPage() {
         templeId: templeId || undefined,
       } as const;
 
-      await axios.post('https://tmsapi.xesstechlink.com/api/ledger/entries', payload, {
+      await axios.post('http://localhost:4000/api/ledger/entries', payload, {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });
 
@@ -298,7 +315,7 @@ export default function LedgerEntryPage() {
     }
     try {
       setIsLoadingCategories(true);
-      const response = await axios.post<Category>('https://tmsapi.xesstechlink.com/api/ledger/categories/find-or-create', {
+      const response = await axios.post<Category>('http://localhost:4000/api/ledger/categories/find-or-create', {
         value: cleanVal,
         label: searchValue,
         templeId: templeId
@@ -364,7 +381,7 @@ export default function LedgerEntryPage() {
     }
     
     try {
-      await axios.delete(`https://tmsapi.xesstechlink.com/api/ledger/categories/${id}?templeId=${templeId}`, {
+      await axios.delete(`http://localhost:4000/api/ledger/categories/${id}?templeId=${templeId}`, {
         headers: {
           Authorization: `Bearer ${getAuthToken()}`
         }
@@ -414,12 +431,8 @@ export default function LedgerEntryPage() {
     console.log('Exporting to PDF...');
   };
 
-  // Helpers: Indian currency formatting and debit display without minus sign
-  const formatINR = (val: number) =>
-    new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val || 0);
-
-  const displayAmount = (val: number, type: 'credit' | 'debit') =>
-    type === 'debit' ? formatINR(Math.abs(val || 0)) : formatINR(val || 0);
+  // Use centralized formatting functions
+  const displayAmount = formatAmount;
 
   const calculatedBalance = useMemo(() => {
     const amount = Number(watch('amount')) || 0;
@@ -431,26 +444,22 @@ export default function LedgerEntryPage() {
     }
   }, [currentBalance, watch('amount'), watch('type')]);
 
-  // Consistent field styling with orange color scheme
-  const fieldStyles = "text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200";
-  const labelStyles = "block text-sm font-medium mb-1.5 text-gray-700";
-  const buttonStyles = "px-4 py-2 text-sm font-medium rounded-md transition-all duration-200";
 
   return (
-    <div className="min-h-screen bg-gray-50 py-6 px-4">
-      <div className="max-w-7xl mx-auto">
-        <Card className="shadow-lg border-0 bg-white rounded-lg overflow-hidden">
-          <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 py-6 px-6">
-            <CardTitle className="text-2xl font-bold text-center text-white">
+    <div className={pageContainerStyles.container}>
+      <div className={pageContainerStyles.content}>
+        <Card className={formFieldStyles.card.container}>
+          <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-6 px-6", formFieldStyles.card.header)}>
+            <CardTitle className={cn(formFieldStyles.card.title, "text-2xl")}>
               {t('Ledger Entry', 'பதிவேடு பதிவு')}
             </CardTitle>
           </CardHeader>
           
-          <CardContent className="p-6">
-            <div className="mb-4 flex justify-between items-center">
-              <div className="text-sm text-gray-600">
-                {t('Balance', 'இருப்பு')}: <span className="font-semibold text-lg">₹{formatINR(currentBalance)}</span>
-              </div>
+          <CardContent className={formFieldStyles.card.content}>
+            <div className="mb-6 flex justify-between items-center">
+                <div className={formFieldStyles.ledgerForm.balanceText}>
+                  {t('Balance', 'இருப்பு')}: <span className={formFieldStyles.ledgerForm.balanceAmount}>₹{formatINR(currentBalance)}</span>
+                </div>
               <CategoryManager categories={categories} setCategories={setCategories} />
             </div>
 
@@ -458,10 +467,10 @@ export default function LedgerEntryPage() {
               ref={formRef} 
               onSubmit={handleSubmit(onSubmit)} 
               onKeyDown={handleKeyDown}
-              className="space-y-6"
+              className={formFieldStyles.form.container}
             >
               {/* Main Form Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className={formFieldStyles.form.grid}>
                 {/* Name */}
                 <div>
                   <Label className={labelStyles}>
@@ -551,16 +560,14 @@ export default function LedgerEntryPage() {
                   <Label className={labelStyles}>
                     {t('Type', 'வகை')} <span className="text-red-500">*</span>
                   </Label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className={formFieldStyles.ledgerForm.grid}>
                     <Button
                       type="button"
                       variant={watch('type') === 'credit' ? 'default' : 'outline'}
                       onClick={() => setValue('type', 'credit')}
                       className={cn(
-                        buttonStyles,
-                        watch('type') === 'credit' 
-                          ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700' 
-                          : 'border-gray-300 hover:bg-gray-50'
+                        watch('type') === 'credit' ? buttonVariants.primary : buttonVariants.outline,
+                        "w-full"
                       )}
                     >
                       {t('Credit', 'கடன்')}
@@ -570,10 +577,8 @@ export default function LedgerEntryPage() {
                       variant={watch('type') === 'debit' ? 'default' : 'outline'}
                       onClick={() => setValue('type', 'debit')}
                       className={cn(
-                        buttonStyles,
-                        watch('type') === 'debit' 
-                          ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700' 
-                          : 'border-gray-300 hover:bg-gray-50'
+                        watch('type') === 'debit' ? buttonVariants.primary : buttonVariants.outline,
+                        "w-full"
                       )}
                     >
                       {t('Debit', 'பற்று')}
@@ -587,11 +592,13 @@ export default function LedgerEntryPage() {
                     {t('Amount', 'தொகை')} <span className="text-red-500">*</span>
                   </Label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 flex items-center">
+                      <span className="mr-1">₹</span>
+                    </span>
                     <Input
                       type="number"
                       id="amount"
-                      className={cn(fieldStyles, "pl-8")}
+                      className={cn(buttonVariants.outline, "pl-9 pr-4 py-2")}
                       {...register('amount', { 
                         min: { 
                           value: 0, 
@@ -608,17 +615,22 @@ export default function LedgerEntryPage() {
                   {errors.amount && <p className="text-red-500 text-sm mt-1">{errors.amount.message}</p>}
                   
                   {watch('amount') && (
-                    <div className="mt-2 text-sm text-gray-600">
-                      {t('New Balance', 'புதிய இருப்பு')}: <span className={cn("font-semibold", calculatedBalance >= 0 ? "text-green-600" : "text-red-600")}>₹{displayAmount(calculatedBalance, watch('type'))}</span>
+                    <div className={cn(
+                      formFieldStyles.ledgerForm.newBalance,
+                      calculatedBalance >= 0 
+                        ? formFieldStyles.ledgerForm.newBalancePositive 
+                        : formFieldStyles.ledgerForm.newBalanceNegative
+                    )}>
+                      {t('New Balance', 'புதிய இருப்பு')}: <span className="font-semibold">₹{displayAmount(calculatedBalance, watch('type'))}</span>
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Advanced Fields */}
-              <div className="border-t border-gray-200 pt-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium text-gray-800">
+              <div className={formFieldStyles.ledgerForm.advancedSection}>
+                <div className={formFieldStyles.ledgerForm.advancedHeader}>
+                  <h3 className={formFieldStyles.ledgerForm.advancedTitle}>
                     {t('Additional Details', 'கூடுதல் விவரங்கள்')}
                   </h3>
                   <Button
@@ -632,7 +644,7 @@ export default function LedgerEntryPage() {
                 </div>
 
                 {showAdvanced && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+                  <div className={formFieldStyles.ledgerForm.advancedGrid}>
                     <div>
                       <Label className={labelStyles}>
                         {t('Phone', 'தொலைபேசி')}
@@ -707,96 +719,55 @@ export default function LedgerEntryPage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-wrap gap-4 justify-end pt-6 border-t border-gray-200">
-                <Button
+              <div className="flex justify-end w-full">
+                <div className={formFieldStyles.actions.buttonGroup}>
+                <Button 
                   type="button"
-                  variant="outline"
-                  className="px-5 py-2.5 text-base border-gray-300 hover:bg-gray-50 rounded-md"
-                  onClick={() => navigate(-1)}
-                  disabled={isSubmitting}
-                >
-                  <X className="h-4 w-4 mr-2" />
-                  {t('Cancel', 'ரத்து')}
-                </Button>
-                
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="px-5 py-2.5 text-base border-gray-300 hover:bg-gray-50 rounded-md"
-                  onClick={handleExportPdf}
-                >
-                  <FileDown className="h-4 w-4 mr-2" />
-                  {t('Export', 'ஏற்றுமதி')}
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="px-5 py-2.5 text-base border-gray-300 hover:bg-gray-50 rounded-md"
-                  onClick={handleReset}
-                  disabled={!isDirty || isSubmitting}
-                >
-                  {t('Clear', 'அழி')}
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="px-5 py-2.5 text-base border-gray-300 hover:bg-gray-50 rounded-md"
+                  size="default"
+                  className={formFieldStyles.button.primary}
                   onClick={handleSubmit(handleSaveAndNew)}
                   disabled={isSubmitting || !isDirty}
                 >
                   {isSubmitting ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Plus className="h-4 w-4 mr-2" />
-                  )}
-                  {t('Save & New', 'சேமித்து புதியது')}
-                </Button>
-                
-                <Button 
-                  type="submit"
-                  className="px-5 py-2.5 text-base bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-md"
-                  disabled={isSubmitting || !isDirty}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <span className="flex items-center">
+                      <svg className="animate-spin -ml-1 mr-1 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
                       {t('Saving...', 'சேமிக்கிறது...')}
-                    </>
+                    </span>
                   ) : (
-                    <>
-                      <Save className="h-4 w-4 mr-2" />
-                      {t('Save', 'சேமி')}
-                    </>
+                    t('Save', 'சேமிக்கவும்')
                   )}
                 </Button>
+                </div>
               </div>
+
+              {showSavedModal && (
+                <Modal
+                  title={t('Saved Successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது')}
+                  onClose={() => setShowSavedModal(false)}
+                >
+                  <div className="p-6">
+                    <p className="mb-6 text-base text-gray-700">
+                      {t('Ledger entry has been saved successfully.', 'பதிவேடு பதிவு வெற்றிகரமாக சேமிக்கப்பட்டது.')}
+                    </p>
+                    <div className="flex justify-end gap-3">
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowSavedModal(false)}
+                        className={cn(buttonVariants.outline, "px-5 py-2.5 text-base")}
+                      >
+                        {t('OK', 'சரி')}
+                      </Button>
+                    </div>
+                  </div>
+                </Modal>
+              )}
             </form>
           </CardContent>
         </Card>
       </div>
-
-      {showSavedModal && (
-        <Modal
-          title={t('Saved Successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது')}
-          onClose={() => setShowSavedModal(false)}
-        >
-          <div className="p-6">
-            <p className="mb-6 text-base text-gray-700">
-              {t('Ledger entry has been saved successfully.', 'பதிவேடு பதிவு வெற்றிகரமாக சேமிக்கப்பட்டது.')}
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                className="px-4 py-2 rounded-md border text-sm hover:bg-gray-50"
-                onClick={() => setShowSavedModal(false)}
-              >
-                {t('OK', 'சரி')}
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 }

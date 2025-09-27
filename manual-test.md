@@ -14,7 +14,7 @@ node backend.js
 
 ### Option A: Using curl (if available)
 ```bash
-curl -X POST "https://tmsapi.xesstechlink.com/api/hall-bookings" \
+curl -X POST "http://localhost:4000/api/hall-bookings" \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwibW9iaWxlIjoiOTk5OTk5OTk4OSIsInVzZXJuYW1lIjoibXVydWdhbjkiLCJ0ZW1wbGVJZCI6Miwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzU4NDM2MDQ3LCJleHAiOjE3ODk5NzIwNDd9.ZwTcS5KTF-w2E4oL0dpInnKE7kmy8AlgoTPClJQWGTA" \
   -H "Content-Type: application/json" \
   -d '{
@@ -73,7 +73,7 @@ curl -X POST "https://tmsapi.xesstechlink.com/api/hall-bookings" \
 
 ### Option A: Using curl
 ```bash
-curl "https://tmsapi.xesstechlink.com/api/journal/entries?startDate=2025-09-21&endDate=2025-09-21&excludeZero=1" \
+curl "http://localhost:4000/api/journal/entries?startDate=2025-09-21&endDate=2025-09-21&excludeZero=1" \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwibW9iaWxlIjoiOTk5OTk5OTk4OSIsInVzZXJuYW1lIjoibXVydWdhbjkiLCJ0ZW1wbGVJZCI6Miwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzU4NDM2MDQ3LCJleHAiOjE3ODk5NzIwNDd9.ZwTcS5KTF-w2E4oL0dpInnKE7kmy8AlgoTPClJQWGTA"
 ```
 
@@ -96,7 +96,7 @@ curl "https://tmsapi.xesstechlink.com/api/journal/entries?startDate=2025-09-21&e
 
 ### If no debug messages appear:
 - The request might not be reaching the backend
-- Check if the URL is correct (https://tmsapi.xesstechlink.com)
+- Check if the URL is correct (http://localhost:4000)
 - Verify the Authorization token is valid
 
 ### If debug shows "No valid amount":

@@ -36,10 +36,40 @@ export default function DashboardLayout() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [lastScrollY, setLastScrollY] = useState(0);
+  const [headerVisible, setHeaderVisible] = useState(true);
 
-  // Handle click outside to close mobile menu
+  // Refs and scroll handling
   const mainContentRef = React.useRef<HTMLDivElement>(null);
   const mainScrollRef = React.useRef<HTMLDivElement>(null);
+  const headerRef = React.useRef<HTMLElement>(null);
+
+  // Handle scroll to show/hide header
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!mainScrollRef.current) return;
+      
+      const currentScrollY = mainScrollRef.current.scrollTop;
+      const scrollingDown = currentScrollY > lastScrollY;
+      
+      // Only trigger if scrolled more than 10px to prevent jitter
+      if (Math.abs(currentScrollY - lastScrollY) > 10) {
+        setHeaderVisible(!scrollingDown || currentScrollY < 10);
+        setLastScrollY(currentScrollY);
+      }
+    };
+
+    const scrollContainer = mainScrollRef.current;
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+    }
+
+    return () => {
+      if (scrollContainer) {
+        scrollContainer.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, [lastScrollY]);
 
   // Sidebar items and permissions
   const sidebarItems = useMemo(() => getSidebarItems(lang), [lang]);
@@ -315,7 +345,7 @@ export default function DashboardLayout() {
 
   useEffect(() => {
     let mounted = true;
-    fetch('https://tmsapi.xesstechlink.com/api/system/year-end-status', { headers: { Authorization: `Bearer ${token}` } })
+    fetch('http://localhost:4000/api/system/year-end-status', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(d => {
         if (!mounted) return;
@@ -421,7 +451,7 @@ export default function DashboardLayout() {
           ${isMobile ? 'fixed' : 'hidden md:flex'} 
           inset-y-0 left-0 z-40 flex-col bg-gradient-to-b from-slate-900 via-blue-950 to-slate-900 
           text-white transition-all duration-300 shadow-2xl border-r border-blue-800/20
-          ${isSidebarCollapsed ? 'w-20' : 'w-72'}
+          ${isSidebarCollapsed ? 'w-20' : 'w-72'} h-screen flex-shrink-0
           ${isMobile ? (isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full') : ''}
         `}
         onMouseEnter={() => setIsHoveringSidebar(true)}
@@ -453,8 +483,10 @@ export default function DashboardLayout() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-3 overflow-y-auto scrollbar-thin scrollbar-thumb-blue-600 
-                       scrollbar-track-transparent hover:scrollbar-thumb-blue-500 transition-colors duration-200">
+        <nav className="flex-1 p-4 space-y-3 overflow-y-auto 
+          scrollbar-thin scrollbar-thumb-blue-600 scrollbar-track-transparent 
+          scrollbar-track-blue-950/10 hover:scrollbar-thumb-blue-400 
+          transition-colors duration-200">
           {allowedSidebarItems.map((item, index) => {
             if (item.children) {
               const isExpanded = expandedItems.includes(item.label);
@@ -619,7 +651,7 @@ export default function DashboardLayout() {
   };
 
   return (
-    <div className="relative min-h-screen md:flex bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="relative h-screen w-full flex overflow-hidden bg-gradient-to-br from-slate-50 to-blue-50">
       {/* Mobile menu button */}
       <div className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white flex justify-between md:hidden shadow-lg">
         <button 
@@ -635,9 +667,18 @@ export default function DashboardLayout() {
       {isMobileMenuOpen && <Sidebar isMobile />}
 
       {/* Main content */}
-      <div ref={mainContentRef} className={`flex-1 flex flex-col transition-all duration-300`}>
-        <header className="flex items-center justify-between h-20 bg-white/80 backdrop-blur-lg border-b 
-                         border-blue-200/50 px-6 shadow-sm">
+      <div ref={mainContentRef} className="flex-1 flex flex-col overflow-hidden">
+        <header 
+          ref={headerRef}
+          className={`flex items-center justify-between h-20 bg-white/80 backdrop-blur-lg border-b 
+                     border-blue-200/50 px-6 shadow-sm transition-transform duration-300 ease-in-out
+                     ${headerVisible ? 'translate-y-0' : '-translate-y-full'}`}
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 20,
+            transitionProperty: 'transform',
+          }}>
           {/* Left side: optional view-only badge */}
           <div className="flex items-center gap-3">
             {isViewOnlyForRoute && (
@@ -649,12 +690,17 @@ export default function DashboardLayout() {
           <Header />
         </header>
         
-        <main ref={mainScrollRef} className={`flex-1 p-8 overflow-y-auto bg-gradient-to-br from-slate-50 to-blue-50 
-                       scrollbar-thin scrollbar-thumb-blue-400 scrollbar-track-transparent 
-                       hover:scrollbar-thumb-blue-500 transition-colors duration-200`} 
-               data-view-only={isViewOnlyForRoute ? 'true' : 'false'}>
+        <main 
+          ref={mainScrollRef} 
+          className={`flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 to-blue-50 
+                     scrollbar-thin scrollbar-thumb-blue-400 scrollbar-track-transparent 
+                     hover:scrollbar-thumb-blue-500 transition-colors duration-200`} 
+          data-view-only={isViewOnlyForRoute ? 'true' : 'false'}
+          style={{ WebkitOverflowScrolling: 'touch' }}>
+          <div className="pt-2 pb-8 px-8">
           <div className="max-w-7xl mx-auto">
-            <Outlet />
+              <Outlet />
+            </div>
           </div>
         </main>
       </div>

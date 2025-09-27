@@ -187,7 +187,7 @@ export default function PoojaListView() {
     setLogsFor(item.id);
     setLogsLoading(true);
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/pooja/${item.id}/logs`, {
+      const response = await fetch(`http://localhost:4000/api/pooja/${item.id}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch logs');
@@ -216,7 +216,7 @@ export default function PoojaListView() {
 
   const loadAllPoojaLogs = async () => {
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/pooja/logs?page=${allLogsPage}&pageSize=${allLogsPageSize}`, {
+      const response = await fetch(`http://localhost:4000/api/pooja/logs?page=${allLogsPage}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch logs');
@@ -432,7 +432,7 @@ export default function PoojaListView() {
     const load = async () => {
       try {
         if (!token) return;
-        const resp = await fetch('https://tmsapi.xesstechlink.com/api/ledger/categories', { headers: { Authorization: `Bearer ${token}` } });
+        const resp = await fetch('http://localhost:4000/api/ledger/categories', { headers: { Authorization: `Bearer ${token}` } });
         const body = await resp.json().catch(() => ({}));
         const raw = Array.isArray(body?.data) ? body.data : (Array.isArray(body) ? body : []);
         const mapped = (raw || []).map((item: any, idx: number) => {

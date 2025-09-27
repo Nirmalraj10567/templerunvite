@@ -6,7 +6,7 @@ async function testAnnadhanamLogs() {
   // Test 1: Check if annadhanam_logs table exists
   console.log('1. Testing table existence...');
   try {
-    const response = await fetch('https://tmsapi.xesstechlink.com/api/annadhanam/logs', {
+    const response = await fetch('http://localhost:4000/api/annadhanam/logs', {
       headers: {
         'Authorization': 'Bearer your-test-token-here' // Replace with actual token
       }
@@ -21,7 +21,7 @@ async function testAnnadhanamLogs() {
 
   console.log('\n2. Testing specific annadhanam logs...');
   try {
-    const response = await fetch('https://tmsapi.xesstechlink.com/api/annadhanam/1/logs', {
+    const response = await fetch('http://localhost:4000/api/annadhanam/1/logs', {
       headers: {
         'Authorization': 'Bearer your-test-token-here' // Replace with actual token
       }
@@ -36,7 +36,7 @@ async function testAnnadhanamLogs() {
 
   console.log('\n3. Testing annadhanam creation (to generate logs)...');
   try {
-    const response = await fetch('https://tmsapi.xesstechlink.com/api/annadhanam', {
+    const response = await fetch('http://localhost:4000/api/annadhanam', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -60,7 +60,7 @@ async function testAnnadhanamLogs() {
     
     if (result.success && result.data?.id) {
       console.log('\n4. Testing logs for newly created entry...');
-      const logsResponse = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${result.data.id}/logs`, {
+      const logsResponse = await fetch(`http://localhost:4000/api/annadhanam/${result.data.id}/logs`, {
         headers: {
           'Authorization': 'Bearer your-test-token-here' // Replace with actual token
         }

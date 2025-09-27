@@ -11,6 +11,7 @@ import eventService from '@/services/eventService';
 import { Event, EventImage } from '@/types/event';
 import { toast } from '@/components/ui/use-toast';
 import { useLanguage } from '@/lib/language';
+import { cn, formFieldStyles, pageContainerStyles } from '../../styles/formStyles';
 
 // Translation object
 const translations = {
@@ -172,17 +173,17 @@ export default function EventRegistrationForm() {
     }
   };
 
-  // Consistent field styling
-  const fieldStyles = "text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200";
-  const labelStyles = "block text-sm font-medium mb-1.5 text-gray-700";
-  const textareaStyles = "text-base py-2.5 px-3 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200 min-h-[100px]";
+  // Use styles from formStyles
+  const fieldStyles = formFieldStyles.input;
+  const labelStyles = formFieldStyles.label;
+  const textareaStyles = formFieldStyles.textarea;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-6 px-4">
-      <div className="max-w-6xl mx-auto">
-        <Card className="shadow-lg border-0 bg-white rounded-lg">
-          <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white py-6 px-6 rounded-t-lg">
-            <CardTitle className="text-2xl font-bold text-center">
+  <div className={pageContainerStyles.container}>
+        <div className={pageContainerStyles.content}>
+          <Card className={formFieldStyles.card.container}>
+            <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white", formFieldStyles.card.header)}>
+              <CardTitle className="text-lg font-bold text-center">
               {id ? t.editEvent : t.createEvent}
             </CardTitle>
           </CardHeader>
@@ -195,7 +196,7 @@ export default function EventRegistrationForm() {
             ) : (
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
                 {/* Main Form Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className={formFieldStyles.eventForm.formGrid}>
                   
                   {/* Event Details Section */}
                   <div className="space-y-6">
@@ -225,7 +226,7 @@ export default function EventRegistrationForm() {
                       {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description.message}</p>}
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className={formFieldStyles.eventForm.dateTimeGrid}>
                       <div>
                         <Label className={labelStyles} htmlFor="date">
                           {t.date} <span className="text-red-500">*</span>
@@ -274,7 +275,7 @@ export default function EventRegistrationForm() {
                         {t.eventImages}
                       </Label>
                       
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-orange-400 transition-colors">
+                      <div className={formFieldStyles.eventForm.imageUpload.container}>
                         <input 
                           type="file" 
                           multiple 
@@ -286,26 +287,26 @@ export default function EventRegistrationForm() {
                         <Button 
                           type="button" 
                           variant="outline" 
-                          className="px-4 py-2 text-sm border-orange-500 text-orange-600 hover:bg-orange-50 hover:text-orange-700"
+                          className={formFieldStyles.eventForm.imageUpload.button}
                           onClick={() => imageInputRef.current?.click()}
                         >
                           <ImagePlus className="mr-2 h-4 w-4" /> {t.uploadImages}
                         </Button>
-                        <p className="text-xs text-gray-500 mt-2">
+                        <p className={formFieldStyles.eventForm.imageUpload.helpText}>
                           {t.imageFormats}
                         </p>
                       </div>
                     </div>
                     
                     {imageFields.length > 0 && (
-                      <div className="grid grid-cols-1 gap-4">
+                      <div className={formFieldStyles.eventForm.imagePreview.grid}>
                         {imageFields.map((field, index) => (
-                          <div key={field.id} className="relative border border-gray-200 rounded-lg p-4 bg-gray-50">
+                          <div key={field.id} className={formFieldStyles.eventForm.imagePreview.item}>
                             <Button 
                               type="button" 
                               variant="ghost" 
                               size="sm" 
-                              className="absolute top-2 right-2 h-8 w-8 bg-white hover:bg-red-50 hover:text-red-600"
+                              className={formFieldStyles.eventForm.imagePreview.deleteButton}
                               onClick={() => remove(index)}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -320,7 +321,7 @@ export default function EventRegistrationForm() {
                                   <img 
                                     src={src}
                                     alt={`Preview ${index}`}
-                                    className="w-full h-40 object-cover rounded-md"
+                                    className={formFieldStyles.eventForm.imagePreview.image}
                                     onLoad={() => {
                                       if (anyField.file instanceof File) {
                                         URL.revokeObjectURL(src);
@@ -331,7 +332,7 @@ export default function EventRegistrationForm() {
                               ) : null;
                             })()}
                             
-                            <div className="space-y-3">
+                            <div className={formFieldStyles.eventForm.imagePreview.form}>
                               <div>
                                 <Label className="text-xs text-gray-600 mb-1 block">
                                   {t.imageTitle}
@@ -361,18 +362,11 @@ export default function EventRegistrationForm() {
                 </div>
                 
                 {/* Action Buttons */}
-                <div className="flex flex-wrap gap-4 justify-end pt-6 border-t border-gray-200">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    className="px-5 py-2.5 text-base border hover:bg-gray-50 rounded-md"
-                    onClick={() => navigate('/dashboard/events')}
-                  >
-                    {t.cancel}
-                  </Button>
+                <div className={formFieldStyles.eventForm.actionButtons}>
+                 
                   <Button 
                     type="submit" 
-                    className="px-5 py-2.5 text-base bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-md"
+                    className={formFieldStyles.eventForm.submitButton}
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? t.saving : (id ? t.updateEvent : t.createEvent)}

@@ -9,9 +9,11 @@ module.exports = function(deps = {}) {
     try {
       const { page = 1, pageSize = 10, search = '' } = req.query;
       const offset = (page - 1) * pageSize;
+      const templeId = req.user?.templeId || req.user?.temple_id || 1; // Get temple ID from user context
 
       let query = db('annadhanam')
         .where('status', 'pending')
+        .where('temple_id', templeId) // Filter by temple ID
         .select(
           'id',
           'receipt_number',
@@ -23,7 +25,8 @@ module.exports = function(deps = {}) {
           'remarks',
           'submitted_by_mobile',
           'submitted_at',
-          'created_at'
+          'created_at',
+          'status'
         );
 
       if (search) {
@@ -41,6 +44,7 @@ module.exports = function(deps = {}) {
 
       const total = await db('annadhanam')
         .where('status', 'pending')
+        .where('temple_id', templeId) // Filter by temple ID
         .count('* as count')
         .first();
 
@@ -68,9 +72,11 @@ module.exports = function(deps = {}) {
   router.get('/request/:id', async (req, res) => {
     try {
       const { id } = req.params;
+      const templeId = req.user?.templeId || req.user?.temple_id || 1; // Get temple ID from user context
 
       const request = await db('annadhanam')
         .where('id', id)
+        .where('temple_id', templeId) // Filter by temple ID
         .first();
 
       if (!request) {
@@ -119,10 +125,12 @@ module.exports = function(deps = {}) {
       const { id } = req.params;
       const { admin_notes } = req.body;
       const approvedBy = req.user.id;
+      const templeId = req.user?.templeId || req.user?.temple_id || 1; // Get temple ID from user context
 
       const request = await db('annadhanam')
         .where('id', id)
         .where('status', 'pending')
+        .where('temple_id', templeId) // Filter by temple ID
         .first();
 
       if (!request) {
@@ -175,6 +183,7 @@ module.exports = function(deps = {}) {
       const { id } = req.params;
       const { rejection_reason, admin_notes } = req.body;
       const rejectedBy = req.user.id;
+      const templeId = req.user?.templeId || req.user?.temple_id || 1; // Get temple ID from user context
 
       if (!rejection_reason) {
         return res.status(400).json({ 
@@ -186,6 +195,7 @@ module.exports = function(deps = {}) {
       const request = await db('annadhanam')
         .where('id', id)
         .where('status', 'pending')
+        .where('temple_id', templeId) // Filter by temple ID
         .first();
 
       if (!request) {
@@ -281,6 +291,7 @@ module.exports = function(deps = {}) {
     try {
       const { action, request_ids, reason, admin_notes } = req.body;
       const performedBy = req.user.id;
+      const templeId = req.user?.templeId || req.user?.temple_id || 1; // Get temple ID from user context
 
       if (!action || !request_ids || !Array.isArray(request_ids) || request_ids.length === 0) {
         return res.status(400).json({ 
@@ -307,6 +318,7 @@ module.exports = function(deps = {}) {
           const request = await db('annadhanam')
             .where('id', requestId)
             .where('status', 'pending')
+            .where('temple_id', templeId) // Filter by temple ID
             .first();
 
           if (!request) {
@@ -370,6 +382,101 @@ module.exports = function(deps = {}) {
       res.status(500).json({ 
         success: false, 
         error: 'Internal server error' 
+      });
+    }
+  });
+
+  // Get approval statistics
+  router.get('/stats', async (req, res) => {
+    try {
+      const templeId = req.user?.templeId || req.user?.temple_id || 1; // Get temple ID from user context
+
+      // Get status counts
+      const statusCounts = await db('annadhanam')
+        .where('temple_id', templeId)
+        .select('status')
+        .count('* as count')
+        .groupBy('status');
+
+      // Convert to object format
+      const counts = {
+        pending: 0,
+        approved: 0,
+        rejected: 0,
+        cancelled: 0
+      };
+
+      statusCounts.forEach(row => {
+        if (row.status in counts) {
+          counts[row.status] = parseInt(row.count);
+        }
+      });
+
+      // Get total requests
+      const totalResult = await db('annadhanam')
+        .where('temple_id', templeId)
+        .count('* as total')
+        .first();
+
+      const totalRequests = parseInt(totalResult.total);
+
+      // Get recent activity (last 7 days)
+      const recentActivity = await db('annadhanam_approval_logs as l')
+        .leftJoin('annadhanam as a', 'l.annadhanam_id', 'a.id')
+        .where('a.temple_id', templeId)
+        .where('l.performed_at', '>=', db.raw('DATE_SUB(NOW(), INTERVAL 7 DAY)'))
+        .select('l.action')
+        .count('* as count')
+        .groupBy('l.action');
+
+      res.json({
+        success: true,
+        data: {
+          status_counts: counts,
+          total_requests: totalRequests,
+          recent_activity: recentActivity.map(row => ({
+            action: row.action,
+            count: parseInt(row.count)
+          }))
+        }
+      });
+
+    } catch (err) {
+      console.error('GET /api/annadhanam-approval/stats error:', err);
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error'
+      });
+    }
+  });
+
+  // Update stats endpoint (for manual stats editing)
+  router.post('/update-stats', async (req, res) => {
+    try {
+      const { pending, approved, rejected, log_action, log_notes } = req.body;
+      const performedBy = req.user.id;
+
+      // Log the stats update
+      await db('annadhanam_approval_logs').insert({
+        annadhanam_id: null, // Stats update doesn't relate to specific annadhanam
+        action: log_action || 'stats_update',
+        performed_by: performedBy,
+        performed_at: new Date(),
+        notes: log_notes || 'Stats updated manually',
+        old_status: null,
+        new_status: null
+      });
+
+      res.json({
+        success: true,
+        message: 'Stats updated successfully'
+      });
+
+    } catch (err) {
+      console.error('POST /api/annadhanam-approval/update-stats error:', err);
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error'
       });
     }
   });

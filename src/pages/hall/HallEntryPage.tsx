@@ -11,10 +11,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import axios from 'axios';
 import { getAuthToken } from '@/lib/auth';
+import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
 
 const generateReceiptNo = async (token: string) => {
   try {
-    const response = await fetch('https://tmsapi.xesstechlink.com/api/hall-bookings/generate-receipt-number', {
+    const response = await fetch('http://localhost:4000/api/hall-bookings/generate-receipt-number', {
       headers: { Authorization: `Bearer ${token}` }
     });
     if (!response.ok) {
@@ -157,10 +158,10 @@ export default function HallEntryPage() {
 
   const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
-  // Consistent field styling
-  const fieldStyles = "text-lg py-3 px-4 h-12 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200";
-  const labelStyles = "block text-base font-medium mb-2 text-gray-700";
-  const textareaStyles = "text-lg py-3 px-4 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200 resize-none";
+  // Use centralized form styles
+  const fieldStyles = cn(formFieldStyles.input, "text-lg py-3 px-4 h-12");
+  const labelStyles = cn(formFieldStyles.label, "text-base mb-2");
+  const textareaStyles = cn(formFieldStyles.textarea, "text-lg py-3 px-4 resize-none");
 
   // Print PDF in same tab using hidden iframe
   const printPDF = (pdfUrl: string) => {
@@ -237,7 +238,7 @@ export default function HallEntryPage() {
       (async () => {
         setLoading(true);
         try {
-          const response = await fetch(`https://tmsapi.xesstechlink.com/api/hall-bookings/${idNum}`, { 
+          const response = await fetch(`http://localhost:4000/api/hall-bookings/${idNum}`, { 
             headers: { Authorization: `Bearer ${token}` } 
           });
           const data = await response.json();
@@ -283,10 +284,10 @@ export default function HallEntryPage() {
   useEffect(() => {
     (async () => {
       try {
-        const accountsResp = await axios.get('https://tmsapi.xesstechlink.com/api/ledger/accounts', { 
+        const accountsResp = await axios.get('http://localhost:4000/api/ledger/accounts', { 
           headers: { Authorization: `Bearer ${getAuthToken()}` } 
         });
-        const accs = accountsResp?.data?.data || accountsResp?.data || [];
+        const accs = (accountsResp?.data as any)?.data || accountsResp?.data || [];
         setAccounts(accs.map((a: any, i: number) => ({ 
           id: a.id ?? i + 1, 
           value: a.value || a.label, 
@@ -295,10 +296,10 @@ export default function HallEntryPage() {
         
         if (user?.templeId) {
           const [hallsResp, eventsResp] = await Promise.all([
-            axios.get(`https://tmsapi.xesstechlink.com/api/master/halls/${user.templeId}`, { 
+            axios.get(`http://localhost:4000/api/master/halls/${user.templeId}`, { 
               headers: { Authorization: `Bearer ${getAuthToken()}` } 
             }),
-            axios.get(`https://tmsapi.xesstechlink.com/api/master/hall-events/${user.templeId}`, { 
+            axios.get(`http://localhost:4000/api/master/hall-events/${user.templeId}`, { 
               headers: { Authorization: `Bearer ${getAuthToken()}` } 
             }),
           ]);
@@ -378,6 +379,28 @@ export default function HallEntryPage() {
         updated.balanceAmount = balance.toString();
       }
 
+      // Auto-calculate total when additional charges change
+      if (name === 'cleaning' || name === 'chair' || name === 'eb' || name === 'gas' || name === 'ac') {
+        const cleaning = Number(updated.cleaning || '0') || 0;
+        const chair = Number(updated.chair || '0') || 0;
+        const eb = Number(updated.eb || '0') || 0;
+        const gas = Number(updated.gas || '0') || 0;
+        const ac = Number(updated.ac || '0') || 0;
+        const extrasTotal = cleaning + chair + eb + gas + ac;
+        
+        // Get the base total (excluding any previously added extras)
+        const currentTotal = Number(updated.totalAmount || '0') || 0;
+        const baseTotal = Math.max(0, currentTotal - (Number(prev.cleaning || '0') + Number(prev.chair || '0') + Number(prev.eb || '0') + Number(prev.gas || '0') + Number(prev.ac || '0')));
+        
+        // Set new total as base total + new extras
+        updated.totalAmount = (baseTotal + extrasTotal).toString();
+        
+        // Recalculate balance
+        const advance = Number(updated.advanceAmount || '0') || 0;
+        const balance = Math.max(0, baseTotal + extrasTotal - advance);
+        updated.balanceAmount = balance.toString();
+      }
+
       return updated;
     });
   };
@@ -395,7 +418,7 @@ export default function HallEntryPage() {
     setSaving(true);
     try {
       // Validate id for edit
-      let endpoint = 'https://tmsapi.xesstechlink.com/api/hall-bookings';
+      let endpoint = 'http://localhost:4000/api/hall-bookings';
       if (isEdit) {
         const idNum = Number(id);
         if (Number.isNaN(idNum)) {
@@ -404,7 +427,7 @@ export default function HallEntryPage() {
           setSaving(false);
           return;
         }
-        endpoint = `https://tmsapi.xesstechlink.com/api/hall-bookings/${idNum}`;
+        endpoint = `http://localhost:4000/api/hall-bookings/${idNum}`;
       }
 
       const payload = {
@@ -470,7 +493,7 @@ export default function HallEntryPage() {
         return;
       }
 
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/hall-bookings/${idNum}`, {
+      const res = await fetch(`http://localhost:4000/api/hall-bookings/${idNum}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -498,14 +521,15 @@ export default function HallEntryPage() {
       </div>
     );
   }
+  
+  
 
   return (
-    <div className="min-h-screen bg-gray-50 py-6 px-4 w-full">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <Card className="shadow-lg border-0 bg-white rounded-lg">
-          <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white py-6 px-6 rounded-t-lg">
-            <div className="flex justify-between items-center">
-              <CardTitle className="text-2xl font-bold">
+    <div className={pageContainerStyles.container}>
+    <div className={pageContainerStyles.content}>
+      <Card className={formFieldStyles.card.container}>
+        <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white", formFieldStyles.card.header)}>
+          <CardTitle className="text-lg font-bold text-center">
                 {isEdit ? t('Edit Hall Booking', 'மண்டப பதிவு திருத்து') : t('Hall Booking Entry', 'மண்டப பதிவு')}
               </CardTitle>
               {isEdit && (
@@ -519,7 +543,7 @@ export default function HallEntryPage() {
                       const idNum = Number(id);
                       if (!Number.isNaN(idNum)) {
                         const q = token ? `?token=${encodeURIComponent(token)}` : '';
-                        const pdfUrl = `https://tmsapi.xesstechlink.com/api/hall-bookings/${idNum}/receipt.pdf${q}`;
+                        const pdfUrl = `http://localhost:4000/api/hall-bookings/${idNum}/receipt.pdf${q}`;
                         printPDF(pdfUrl);
                       }
                     }}
@@ -537,15 +561,15 @@ export default function HallEntryPage() {
                   </Button>
                 </div>
               )}
-            </div>
+            
           </CardHeader>
           
-          <CardContent className="p-6">
+          <CardContent className={formFieldStyles.card.content}>
             {/* Receipt Number Display */}
-            <div className="mb-6 bg-gray-50 p-4 rounded-lg">
+            <div className={cn(formFieldStyles.registerDisplay.container, "mb-6 p-4")}>
               <div className="text-lg">
-                <span className="font-semibold text-gray-600">{t('Receipt No','ரசீது எண்')}:</span>
-                <span className="ml-2 text-gray-800 font-medium text-xl">{form.registerNo}</span>
+                <span className={formFieldStyles.registerDisplay.label}>{t('Receipt No','ரசீது எண்')}:</span>
+                <span className={cn(formFieldStyles.registerDisplay.value, "text-xl")}>{form.registerNo}</span>
               </div>
             </div>
 
@@ -557,14 +581,14 @@ export default function HallEntryPage() {
               </Alert>
             )}
 
-            <form ref={formRef} onSubmit={onSubmit} onKeyDown={handleKeyDown} className="space-y-6">
+            <form ref={formRef} onSubmit={onSubmit} onKeyDown={handleKeyDown} className={formFieldStyles.form.container}>
               {/* Enhanced Grid Layout - All fields same size */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className={cn(formFieldStyles.form.grid, "gap-6")}>
                 
                 {/* Date */}
                 <div>
                   <Label className={labelStyles} htmlFor="date">
-                    {t('Date','தேதி')} <span className="text-red-500">*</span>
+                    {t('Date','தேதி')} <span className={formFieldStyles.required}>*</span>
                   </Label>
                   <Input
                     id="date"
@@ -595,7 +619,7 @@ export default function HallEntryPage() {
                 {/* Name */}
                 <div className="md:col-span-2">
                   <Label className={labelStyles} htmlFor="name">
-                    {t('Name','பெயர்')} <span className="text-red-500">*</span>
+                    {t('Name','பெயர்')} <span className={formFieldStyles.required}>*</span>
                   </Label>
                   <Input
                     id="name"
@@ -611,7 +635,7 @@ export default function HallEntryPage() {
                 {/* Mobile */}
                 <div>
                   <Label className={labelStyles} htmlFor="mobile">
-                    {t('Phone','தொலைபேசி')} <span className="text-red-500">*</span>
+                    {t('Phone','தொலைபேசி')} <span className={formFieldStyles.required}>*</span>
                   </Label>
                   <Input
                     id="mobile"
@@ -655,13 +679,13 @@ export default function HallEntryPage() {
                   <Label className={labelStyles} htmlFor="hallId">
                     {t('Select Hall','மண்டபத்தைத் தேர்வு')}
                   </Label>
-                  <div className="relative">
+                  <div className={formFieldStyles.selectDropdown.container}>
                     <select
                       id="hallId"
                       name="hallId"
                       value={form.hallId ?? ''}
                       onChange={onChange}
-                      className={`${fieldStyles} appearance-none pr-10 bg-white`}
+                      className={cn(fieldStyles, formFieldStyles.select)}
                     >
                       <option value="">{t('Select hall','மண்டபத்தைத் தேர்வு')}</option>
                       {halls.length > 0 ? halls.map(h => (
@@ -672,8 +696,8 @@ export default function HallEntryPage() {
                         <option disabled>{t('No halls available', 'மண்டபங்கள் இல்லை')}</option>
                       )}
                     </select>
-                    <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className={formFieldStyles.selectDropdown.dropdown}>
+                      <svg className={formFieldStyles.selectDropdown.icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
                     </div>
@@ -685,13 +709,13 @@ export default function HallEntryPage() {
                   <Label className={labelStyles} htmlFor="eventId">
                     {t('Event','நிகழ்வு')}
                   </Label>
-                  <div className="relative">
+                  <div className={formFieldStyles.selectDropdown.container}>
                     <select
                       id="eventId"
                       name="eventId"
                       value={form.eventId ?? ''}
                       onChange={onChange}
-                      className={`${fieldStyles} appearance-none pr-10 bg-white`}
+                      className={cn(fieldStyles, formFieldStyles.select)}
                     >
                       <option value="">{t('Select event','நிகழ்வு தேர்வு')}</option>
                       {hallEvents.length > 0 ? hallEvents.map(ev => (
@@ -700,8 +724,8 @@ export default function HallEntryPage() {
                         <option disabled>{t('No events available', 'நிகழ்வுகள் இல்லை')}</option>
                       )}
                     </select>
-                    <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className={formFieldStyles.selectDropdown.dropdown}>
+                      <svg className={formFieldStyles.selectDropdown.icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
                     </div>
@@ -949,8 +973,8 @@ export default function HallEntryPage() {
                     </div>
                     <div className="md:col-span-2 lg:col-span-3 xl:col-span-5 text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
                       {t(
-                        'Tip: These are optional. You can keep Total editable above.',
-                        'குறிப்பு: இவை விருப்பமானவை. மேலே மொத்தத்தை மாற்றலாம்.'
+                        'Tip: Additional charges are automatically added to the total amount. You can also manually adjust the total above.',
+                        'குறிப்பு: கூடுதல் கட்டணங்கள் தானாக மொத்த தொகையில் சேர்க்கப்படும். மேலே மொத்தத்தை கைமுறையாக மாற்றலாம்.'
                       )}
                     </div>
                   </div>
@@ -974,38 +998,12 @@ export default function HallEntryPage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-wrap gap-4 justify-between items-center pt-6 border-t border-gray-200">
-                <div className="flex gap-3">
-                  {/* Keyboard shortcut hint */}
-                  <div className="text-sm text-gray-500 hidden md:flex items-center">
-                    <kbd className="px-2 py-1 text-xs bg-gray-100 border border-gray-300 rounded">Enter</kbd>
-                    <span className="ml-2">{t('to navigate', 'என்று நகர்ந்து செல்ல')}</span>
-                  </div>
-                </div>
-                
-                <div className="flex gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="default"
-                    className="px-6 py-2 text-sm border hover:bg-gray-50 rounded-md"
-                    onClick={() => navigate('/dashboard/hall/list')}
-                  >
-                    {t('View List','பட்டியல்')}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="default"
-                    className="px-6 py-2 text-sm border hover:bg-gray-50 rounded-md"
-                    onClick={() => setForm({...initialState, registerNo: ''})}
-                  >
-                    {t('Clear','அழி')}
-                  </Button>
+              <div className={formFieldStyles.actions.container}>
+                <div className={formFieldStyles.actions.buttonGroup}>
                   <Button
                     type="submit"
                     size="default"
-                    className="px-6 py-2 text-sm bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-md"
+                    className={formFieldStyles.moneyDonationButton.primary}
                     disabled={saving}
                   >
                     {saving ? t('Saving...','சேமிக்கிறது...') : t(isEdit?'Update':'Save', isEdit?'புதுப்பி':'சேமி')}
@@ -1020,25 +1018,25 @@ export default function HallEntryPage() {
       {/* Print Modal */}
       {showPrintPrompt && lastCreatedId && (
         <Modal title={t('Print Receipt','ரசீது அச்சிடு')} onClose={() => setShowPrintPrompt(false)}>
-          <div className="p-6">
-            <p className="mb-6 text-base text-gray-700">
+          <div className={formFieldStyles.modal.container}>
+            <p className={formFieldStyles.modal.content}>
               {t(
                 'Receipt saved successfully! Would you like to print it now?',
                 'ரசீது வெற்றிகரமாக சேமிக்கப்பட்டது! இப்போது அச்சிட வேண்டுமா?'
               )}
             </p>
-            <div className="flex justify-end gap-3">
+            <div className={formFieldStyles.modal.actions}>
               <button 
-                className="px-4 py-2 rounded-md border text-sm hover:bg-gray-50" 
+                className={formFieldStyles.modal.button.cancel} 
                 onClick={() => setShowPrintPrompt(false)}
               >
                 {t('Skip','தவிர்')}
               </button>
               <button 
-                className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700" 
+                className={formFieldStyles.modal.button.confirm} 
                 onClick={() => {
                   const q = token ? `?token=${encodeURIComponent(token)}` : '';
-                  const pdfUrl = `https://tmsapi.xesstechlink.com/api/hall-bookings/${lastCreatedId}/receipt.pdf${q}`;
+                  const pdfUrl = `http://localhost:4000/api/hall-bookings/${lastCreatedId}/receipt.pdf${q}`;
                   printPDF(pdfUrl);
                   setShowPrintPrompt(false);
                 }}
@@ -1053,16 +1051,16 @@ export default function HallEntryPage() {
       {/* Delete modal */}
       {showDeleteModal && (
         <Modal title={t('Confirm Delete','நீக்குவதை உறுதிப்படுத்தவும்')} onClose={() => setShowDeleteModal(false)}>
-          <div className="p-6">
-            <p className="mb-6 text-base text-gray-700">
+          <div className={formFieldStyles.modal.container}>
+            <p className={formFieldStyles.modal.content}>
               {t(
                 'Are you sure you want to delete this booking? This action cannot be undone.',
                 'இந்த பதிவை நீக்க விரும்புகிறீர்களா? இந்த நடவடிக்கையை மாற்ற முடியாது.'
               )}
             </p>
-            <div className="flex justify-end gap-3">
+            <div className={formFieldStyles.modal.actions}>
               <button 
-                className="px-4 py-2 rounded-md border text-sm hover:bg-gray-50" 
+                className={formFieldStyles.modal.button.cancel} 
                 onClick={() => setShowDeleteModal(false)}
               >
                 {t('Cancel','ரத்து')}
@@ -1097,21 +1095,33 @@ function ExtrasSummary({ form, setForm, t, fieldStyles }: {
 
   return (
     <div className="space-y-2">
-      <Label className="block text-base font-medium mb-2 text-gray-700">
+      <Label className={cn(formFieldStyles.label, "text-base mb-2")}>
         {t('Extras Total','கூடுதல் மொத்தம்')}
       </Label>
       <div className="flex items-center gap-2">
-        <div className={`${fieldStyles} bg-gray-100 font-medium`}>
+        <div className={cn(fieldStyles, "bg-gray-100 font-medium")}>
           ₹{sum.toFixed(2)}
         </div>
         <Button
           type="button"
           variant="outline"
           size="sm"
-          className="px-3 py-2 text-sm whitespace-nowrap"
-          onClick={() => setForm(prev => ({ ...prev, totalAmount: String(sum) }))}
+          className={cn(formFieldStyles.button.sm, "whitespace-nowrap")}
+          onClick={() => {
+            // Get current base total (excluding extras)
+            const currentTotal = Number(form.totalAmount || '0') || 0;
+            const currentExtras = (Number(form.cleaning || '0') + Number(form.chair || '0') + Number(form.eb || '0') + Number(form.gas || '0') + Number(form.ac || '0'));
+            const baseTotal = Math.max(0, currentTotal - currentExtras);
+            
+            // Set total to base + new extras
+            setForm(prev => ({ 
+              ...prev, 
+              totalAmount: String(baseTotal + sum),
+              balanceAmount: String(Math.max(0, (baseTotal + sum) - Number(prev.advanceAmount || '0')))
+            }));
+          }}
         >
-          {t('Set Total = Extras','மொத்தம் = கூடுதல்')}
+          {t('Add to Total','மொத்தத்தில் சேர்')}
         </Button>
       </div>
     </div>

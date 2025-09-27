@@ -1,6 +1,6 @@
 import fetch from 'node-fetch';
 
-const BASE_URL = 'https://tmsapi.xesstechlink.com/api/pooja-mobile';
+const BASE_URL = 'http://localhost:4000/api/pooja-mobile';
 
 async function testMobileAPI() {
   console.log('🧪 Testing Pooja Mobile API Endpoints\n');
@@ -93,7 +93,7 @@ async function testAdminAPI() {
     // Example of how to test with token:
     /*
     const token = 'YOUR_JWT_TOKEN_HERE';
-    const adminResponse = await fetch('https://tmsapi.xesstechlink.com/api/pooja-approval/pending', {
+    const adminResponse = await fetch('http://localhost:4000/api/pooja-approval/pending', {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'

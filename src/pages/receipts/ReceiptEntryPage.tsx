@@ -12,6 +12,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import { ledgerService } from '@/services/ledgerService';
 import { journalService } from '@/services/journalService';
+import { cn } from "@/lib/utils";
+import { formFieldStyles, pageContainerStyles } from '../../styles/formStyles';
 
 interface ReceiptFormData {
   receiptNumber: string;
@@ -58,10 +60,10 @@ export default function ReceiptEntryPage() {
   const { formRef, handleKeyDown } = useEnterKeyNavigation();
 
   // Consistent field styling
-  const fieldStyles = "text-lg py-3 px-4 h-12 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200";
-  const labelStyles = "block text-base font-medium mb-2 text-gray-700";
-  const selectStyles = "text-lg py-3 px-4 h-12 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200 bg-white appearance-none pr-10";
-  const textareaStyles = "text-lg py-3 px-4 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200 resize-none";
+  const fieldStyles = formFieldStyles.input;
+  const labelStyles = formFieldStyles.label;
+  const selectStyles = formFieldStyles.select;
+  const textareaStyles = formFieldStyles.textarea;
 
   // Unified translation object
   const translations = {
@@ -190,7 +192,7 @@ export default function ReceiptEntryPage() {
   const fetchNextReceiptNumber = useCallback(async () => {
     try {
       if (id) return;
-      const res = await fetch('https://tmsapi.xesstechlink.com/api/receipts/next-number', {
+      const res = await fetch('http://localhost:4000/api/receipts/next-number', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -219,7 +221,7 @@ export default function ReceiptEntryPage() {
       const fetchReceipt = async () => {
         try {
           setIsLoading(true);
-          const res = await fetch(`https://tmsapi.xesstechlink.com/api/receipts/${id}`, {
+          const res = await fetch(`http://localhost:4000/api/receipts/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           if (!res.ok) throw new Error('Failed to fetch receipt');
@@ -368,7 +370,7 @@ export default function ReceiptEntryPage() {
         remarks: data.remarks || '',
       };
 
-      const url = id ? `https://tmsapi.xesstechlink.com/api/receipts/${id}` : 'https://tmsapi.xesstechlink.com/api/receipts';
+      const url = id ? `http://localhost:4000/api/receipts/${id}` : 'http://localhost:4000/api/receipts';
       const method = id ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,
@@ -496,11 +498,11 @@ export default function ReceiptEntryPage() {
   };
 
   return (
-    <div className="min-h-screen py-6 px-4 w-full">
-      <div className="max-w-5xl mx-auto space-y-6">
-        <Card className="shadow-lg border-0 bg-white rounded-lg">
-          <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white py-6 px-6 rounded-t-lg">
-            <CardTitle className="text-2xl font-bold">
+    <div className={pageContainerStyles.container}>
+      <div className={pageContainerStyles.content}>
+        <Card className={formFieldStyles.card.container}>
+          <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white", formFieldStyles.card.header)}>
+            <CardTitle className="text-2xl font-bold text-center">
               {t('title')}
             </CardTitle>
           </CardHeader>
@@ -743,8 +745,6 @@ export default function ReceiptEntryPage() {
             </form>
           </CardContent>
         </Card>
-
- 
       </div>
     </div>
   );

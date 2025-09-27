@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Modal } from '@/components/ui/modal';
 import { ledgerService } from '@/services/ledgerService';
 import { journalService } from '@/services/journalService';
+import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
 
 const createInitialState = (): MoneyDonationFormData => ({
   registerNo: '',
@@ -81,7 +82,7 @@ export default function MoneyDonationEntry() {
   // Function to refresh journal after money donation operations
   const refreshJournal = async () => {
     try {
-      await fetch('https://tmsapi.xesstechlink.com/api/journal/sync-pooja', {
+      await fetch('http://localhost:4000/api/journal/sync-pooja', {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -144,7 +145,7 @@ export default function MoneyDonationEntry() {
     const loadLogs = async () => {
       try {
         if (!lastCreatedId || !token) return;
-        const res = await fetch(`https://tmsapi.xesstechlink.com/api/donations-approval/request/${lastCreatedId}`, {
+        const res = await fetch(`http://localhost:4000/api/donations-approval/request/${lastCreatedId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!res.ok) return;
@@ -293,7 +294,7 @@ export default function MoneyDonationEntry() {
 
         try {
           if (token) {
-            const res = await fetch(`https://tmsapi.xesstechlink.com/api/donations-approval/request/${editId}`, {
+            const res = await fetch(`http://localhost:4000/api/donations-approval/request/${editId}`, {
               headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
@@ -388,21 +389,21 @@ export default function MoneyDonationEntry() {
     loadExisting();
   }, [isEdit, editId, token, language]);
 
-  // Consistent field styling with orange color scheme
-  const fieldStyles = "text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200";
-  const labelStyles = "block text-sm font-medium mb-1.5 text-gray-700";
+  // Use centralized form styles
+  const fieldStyles = formFieldStyles.input;
+  const labelStyles = formFieldStyles.label;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-6 px-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <div className="bg-gradient-to-r from-orange-500 to-orange-600 py-6 px-6">
-            <h1 className="text-2xl font-bold text-center text-white">
+    <div className={pageContainerStyles.container}>
+      <div className={cn(pageContainerStyles.content, "max-w-6xl")}>
+        <div className={formFieldStyles.card.container}>
+          <div className={cn(formFieldStyles.card.header, formFieldStyles.header.gradient)}>
+            <h1 className={formFieldStyles.header.title}>
               {isEdit ? t('Edit Money Donation', 'பண நன்கொடைக் திருத்து') : t('Money Donation Entry', 'பண நன்கொடைக் பதிவு')}
             </h1>
           </div>
           
-          <div className="p-6">
+          <div className={formFieldStyles.card.content}>
             {message && (
               <div className="mb-6">
                 <Alert variant={isError ? 'destructive' : 'default'}>
@@ -416,7 +417,7 @@ export default function MoneyDonationEntry() {
               ref={formRef} 
               onSubmit={onSubmit} 
               onKeyDown={handleKeyDown}
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+              className={formFieldStyles.moneyDonationForm.container}
             >
               {/* Register No */}
               <div>
@@ -431,7 +432,7 @@ export default function MoneyDonationEntry() {
               
               {/* Date */}
               <div>
-                <label className={labelStyles}>{t('Date', 'தேதி')} <span className="text-red-500">*</span></label>
+                <label className={labelStyles}>{t('Date', 'தேதி')} <span className={formFieldStyles.required}>*</span></label>
                 <input 
                   type="date" 
                   className={fieldStyles}
@@ -443,7 +444,7 @@ export default function MoneyDonationEntry() {
               
               {/* Name */}
               <div>
-                <label className={labelStyles}>{t('Name', 'பெயர்')} <span className="text-red-500">*</span></label>
+                <label className={labelStyles}>{t('Name', 'பெயர்')} <span className={formFieldStyles.required}>*</span></label>
                 <input 
                   className={fieldStyles}
                   name="name" 
@@ -513,7 +514,7 @@ export default function MoneyDonationEntry() {
               
               {/* Amount */}
               <div>
-                <label className={labelStyles}>{t('Amount', 'தொகை')} <span className="text-red-500">*</span></label>
+                <label className={labelStyles}>{t('Amount', 'தொகை')} <span className={formFieldStyles.required}>*</span></label>
                 <input 
                   className={fieldStyles}
                   name="amount" 
@@ -538,33 +539,18 @@ export default function MoneyDonationEntry() {
               </div>
               
               {/* Action Buttons - Full width */}
-              <div className="md:col-span-3 flex flex-wrap gap-3 justify-center pt-4 border-t border-gray-200">
+              <div className={formFieldStyles.moneyDonationForm.actions}>
                 <button 
                   disabled={saving} 
-                  className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-md text-base transition-all duration-200"
+                  className={formFieldStyles.moneyDonationButton.primary}
                   type="submit"
                 >
                   {saving ? (isEdit ? t('Updating...', 'புதுப்பிக்கிறது...') : t('Saving...', 'சேமிக்கிறது...')) : (isEdit ? t('Update', 'புதுப்பிக்க') : t('Save', 'சேமிக்க'))}
                 </button>
                 
-                <button
-                  type="button"
-                  className="px-6 py-2.5 border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium rounded-md text-base transition-all duration-200"
-                  onClick={() => {
-                    const d = form.date || new Date().toISOString().slice(0,10);
-                    navigate(`/dashboard/reports/daily?date=${d}`);
-                  }}
-                >
-                  {t('Daily Report', 'தினசரி அறிக்கை')}
-                </button>
+               
                 
-                <button 
-                  type="button" 
-                  className="px-6 py-2.5 border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium rounded-md text-base transition-all duration-200"
-                  onClick={clearForm}
-                >
-                  {t('Clear', 'வெளியே')}
-                </button>
+              
               </div>
             </form>
           </div>
@@ -575,19 +561,19 @@ export default function MoneyDonationEntry() {
             title={t('Print Receipt', 'ரசீதை அச்சிடவா?')}
             onClose={() => setShowPrintPrompt(false)}
           >
-            <div className="p-6">
-              <p className="mb-6 text-base text-gray-700">
+            <div className={formFieldStyles.modal.container}>
+              <p className={formFieldStyles.modal.content}>
                 {t('Do you want to open the PDF receipt for printing?', 'PDF ரசீதை அச்சிட திறக்க விரும்புகிறீர்களா?')}
               </p>
-              <div className="flex justify-end gap-3">
+              <div className={formFieldStyles.modal.actions}>
                 <button 
-                  className="px-4 py-2 rounded-md border text-sm hover:bg-gray-50" 
+                  className={formFieldStyles.modal.button.cancel} 
                   onClick={() => setShowPrintPrompt(false)}
                 >
                   {t('No', 'இல்லை')}
                 </button>
                 <button
-                  className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
+                  className={formFieldStyles.modal.button.confirm}
                   onClick={() => {
                     const url = moneyDonationService.receiptUrl(lastCreatedId!, token);
                     const iframe = document.createElement('iframe');

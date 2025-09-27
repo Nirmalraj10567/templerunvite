@@ -1,0 +1,388 @@
+// Form field styles
+export const formFieldStyles = {
+  // Tax form specific styles
+  taxForm: {
+    container: 'min-h-screen bg-gray-50 py-0.5 px-3',
+    header: 'max-w-7xl mx-auto',
+    mainContainer: 'bg-white rounded-lg shadow-md border border-gray-200 p-2',
+    section: 'bg-gray-50 rounded-lg p-1.5 mb-2',
+    sectionHeader: 'flex items-center justify-between mb-1',
+    sectionTitle: 'text-sm font-semibold text-gray-900',
+    grid: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-1.5',
+    input: 'w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent',
+    select: 'w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent',
+    label: 'block text-xs font-medium text-gray-900 mb-1',
+    error: 'border-red-500 bg-red-50',
+    errorText: 'text-red-500 text-xs mt-1',
+    button: {
+      clear: 'px-2 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600',
+      lock: 'text-xs px-2 py-0.5 rounded border',
+      lockActive: 'text-orange-700 border-orange-300 bg-orange-50',
+      lockInactive: 'text-gray-600 border-gray-300 bg-white',
+      action: 'px-4 py-2 bg-blue-600 text-white font-medium rounded shadow hover:bg-blue-700 disabled:opacity-50 text-sm',
+      secondary: 'w-full px-4 py-2 bg-gray-200 text-gray-800 font-medium rounded shadow hover:bg-gray-300 text-sm',
+      add: 'px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700',
+      delete: 'text-red-600 hover:text-red-800 text-sm',
+      print: 'px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded',
+      cancel: 'px-4 py-2 rounded border',
+    },
+    card: {
+      header: 'bg-gradient-to-r from-orange-500 to-orange-600 text-white py-6 px-6 rounded-t-lg',
+      title: 'text-2xl font-bold text-center',
+    },
+    modal: {
+      content: 'mb-4 text-sm',
+      actions: 'flex justify-end gap-2',
+    },
+    table: {
+      container: 'overflow-x-auto',
+      table: 'min-w-full bg-white border border-gray-300 rounded text-xs',
+      thead: 'bg-gray-100',
+      th: 'px-2 py-1 text-left font-medium text-gray-900 border-b',
+      td: 'px-2 py-1 border-b',
+    },
+    alert: 'mb-3',
+    loading: 'min-h-screen bg-gray-50 flex items-center justify-center',
+    loadingSpinner: 'animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4',
+    loadingText: 'text-gray-600',
+  },
+  // Input fields
+  input: "text-sm py-2 px-3 h-10 border border-gray-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-200 rounded-md w-full transition-all duration-200",
+  
+  // Textarea
+  textarea: "text-sm py-1.5 px-3 border border-gray-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-200 rounded-md w-full transition-all duration-200 min-h-[36px]",
+  
+  // Select
+  select: "text-sm py-2 px-3 h-10 border border-gray-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-200 rounded-md w-full bg-white pr-8 appearance-none",
+  
+  // Label
+  label: "block text-sm font-medium mb-1 text-gray-700",
+  
+  // Error message
+  error: "mt-1 text-xs text-red-600",
+  
+  // Buttons
+  button: {
+    // Sizes
+    sm: "px-3 py-1.5 text-xs h-8",
+    md: "px-4 py-2 text-sm h-10",
+    lg: "px-6 py-3 text-base h-12",
+    // Variants
+    primary: "bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 text-sm font-medium rounded-md transition-colors",
+    primarySm: "bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+    outline: "px-4 py-2 text-sm font-medium rounded-md border border-gray-300 hover:bg-gray-50 text-gray-700 transition-colors",
+    // Ledger specific buttons
+    ledger: {
+      primary: "bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700",
+      outline: "border-gray-300 hover:bg-gray-50"
+    }
+  },
+  
+  // Card
+  card: {
+    container: "shadow-lg border-0 bg-white rounded-lg",
+    header: "py-3 px-6 rounded-t-lg",
+    content: "p-3",
+    title: "text-xl font-semibold text-center",
+    // Event-specific card styles
+    event: {
+      container: "w-full max-w-4xl",
+      header: "bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6"
+    }
+  },
+  
+  // Form layout
+  form: {
+    container: "space-y-3",
+    grid: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"
+  },
+  
+  // Colors
+  colors: {
+    primary: "bg-orange-500 hover:bg-orange-600 text-white",
+    secondary: "bg-blue-500 hover:bg-blue-600 text-white",
+    outline: "border border-gray-300 bg-white hover:bg-gray-50 text-gray-700"
+  },
+
+  // Header styles
+  header: {
+    title: "text-2xl font-bold text-center",
+    gradient: "bg-gradient-to-r from-orange-500 to-orange-600 text-white"
+  },
+
+  // Register number display
+  registerDisplay: {
+    container: "flex items-center justify-between mb-4 bg-gray-50 py-1 px-3 rounded-lg",
+    label: "text-sm font-semibold text-gray-600",
+    value: "ml-1 text-gray-800 font-medium text-lg"
+  },
+
+  // Message display
+  message: {
+    success: "bg-green-50 text-green-700 border-green-200",
+    error: "bg-red-50 text-red-700 border-red-200",
+    container: "mb-6 p-4 rounded-lg border flex items-center text-base",
+    icon: "mr-3 text-lg"
+  },
+
+  // Required field indicator
+  required: "text-red-500",
+
+  // Select dropdown
+  selectDropdown: {
+    container: "relative",
+    dropdown: "absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none",
+    icon: "w-5 h-5 text-gray-400"
+  },
+
+  // Action buttons container
+  actions: {
+    container: "flex flex-wrap gap-4 justify-end items-center pt-4 border-t border-gray-200 w-full",
+    buttonGroup: "flex gap-3"
+  },
+
+  // Keyboard shortcut hint
+  keyboardHint: {
+    container: "text-sm text-gray-500 hidden md:flex items-center",
+    key: "px-2 py-1 text-xs bg-gray-100 border border-gray-300 rounded",
+    text: "ml-2"
+  },
+
+  // Error message with icon
+  errorWithIcon: "flex items-center",
+  errorIcon: "mr-1",
+
+  // Modal styles
+  modal: {
+    container: "p-6",
+    content: "mb-6 text-base text-gray-700",
+    actions: "flex justify-end gap-3",
+    button: {
+      cancel: "px-4 py-2 rounded-md border text-sm hover:bg-gray-50",
+      confirm: "px-4 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
+    }
+  },
+
+  // Button styles for money donation
+  moneyDonationButton: {
+    primary: "px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-md text-base transition-all duration-200",
+    secondary: "px-6 py-2.5 border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium rounded-md text-base transition-all duration-200"
+  },
+
+  // Form layout for money donation
+  moneyDonationForm: {
+    container: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
+    actions: "md:col-span-3 flex flex-wrap gap-3 justify-end pt-4 border-t border-gray-200"
+  },
+  
+  // Ledger Form
+  ledgerForm: {
+    container: "space-y-6",
+    grid: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
+    actions: "flex flex-wrap gap-4 justify-end pt-6 border-t border-gray-200",
+    advancedSection: "border-t border-gray-200 pt-6",
+    advancedGrid: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6",
+    advancedHeader: "flex items-center justify-between mb-4",
+    advancedTitle: "text-lg font-medium text-gray-800",
+    balanceText: "text-sm text-gray-600",
+    balanceAmount: "font-semibold text-lg",
+    newBalance: "mt-2 text-sm",
+    newBalancePositive: "text-green-600",
+    newBalanceNegative: "text-red-600"
+  },
+
+  // Event Form Styles
+  eventForm: {
+    // Layout
+    container: "min-h-screen bg-gray-50 pt-0 pb-6 px-4",
+    content: "max-w-6xl mx-auto",
+    formGrid: "grid grid-cols-1 lg:grid-cols-2 gap-8",
+    dateTimeGrid: "grid grid-cols-1 md:grid-cols-2 gap-6",
+    
+    // Card
+    card: {
+      container: "shadow-lg border-0 bg-white rounded-lg",
+      header: "py-3 px-6 rounded-t-lg",
+      content: "p-3",
+      title: "text-xl font-semibold text-center",
+      event: {
+        container: "w-full max-w-4xl",
+        header: "bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6"
+      }
+    },
+    cardContent: "p-6",
+    
+    // Image Upload
+    imageUpload: {
+      container: "border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-orange-400 transition-colors",
+      button: "px-4 py-2 text-sm border-orange-500 text-orange-600 hover:bg-orange-50 hover:text-orange-700",
+      helpText: "text-xs text-gray-500 mt-2"
+    },
+    
+    // Image Preview
+    imagePreview: {
+      grid: "grid grid-cols-1 gap-4",
+      item: "relative border border-gray-200 rounded-lg p-4 bg-gray-50",
+      deleteButton: "absolute top-2 right-2 h-8 w-8 bg-white hover:bg-red-50 hover:text-red-600",
+      image: "w-full h-40 object-cover rounded-md",
+      form: "space-y-3"
+    },
+    
+    // Action Buttons
+    actionButtons: "flex flex-wrap gap-4 justify-end pt-6 border-t border-gray-200",
+    cancelButton: "px-5 py-2.5 text-base border hover:bg-gray-50 rounded-md",
+    submitButton: "px-5 py-2.5 text-base bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-md"
+  }
+};
+
+// Page container styles
+export const pageContainerStyles = {
+  container: "bg-gray-50 w-full min-h-screen p-4",
+  content: "max-w-7xl mx-auto space-y-4"
+};
+
+// Utility functions namespace
+export const utils = {
+  // Combine class names
+  cn: (...classes: (string | undefined)[]) => {
+    return classes.filter(Boolean).join(' ');
+  },
+  
+  // Format currency in INR format
+  formatINR: (val: number) =>
+    new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val || 0),
+    
+  // Format amount based on type (credit/debit)
+  formatAmount: (val: number, type: 'credit' | 'debit') =>
+    type === 'debit' 
+      ? new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(val || 0))
+      : new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val || 0)
+};
+
+// Calendar and Moon Phase styles
+export const calendarStyles = {
+  // Main container
+  container: 'space-y-6',
+  
+  // Calendar header
+  header: {
+    container: 'bg-white rounded-xl shadow-sm border border-gray-200 p-6',
+    nav: 'flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4',
+    monthNav: 'flex items-center gap-2',
+    navButton: 'p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors',
+    monthText: 'text-xl font-semibold text-gray-800',
+    actions: 'flex flex-wrap items-center gap-3',
+    todayButton: 'px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors',
+    jumpContainer: 'flex items-center gap-2',
+    jumpInput: 'px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+    jumpButton: 'px-4 py-2 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600 transition-colors disabled:opacity-50'
+  },
+  
+  // Calendar content
+  content: 'mt-4',
+  
+  // Selected date info
+  selectedDate: {
+    container: 'mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg',
+    date: 'text-gray-900',
+    time: 'text-gray-700',
+    phase: 'mt-2 inline-flex items-center gap-1 px-3 py-1 bg-gray-100 rounded-full text-xs font-medium'
+  },
+  
+  // Time picker - consolidated
+  timePicker: {
+    container: 'mt-6',
+    label: 'block text-sm font-medium text-gray-700 mb-2',
+    input: 'block w-full rounded-lg border-gray-300 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+    // Additional time picker styles
+    timeInput: 'w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500'
+  },
+  
+  // Saved dates section
+  savedDates: {
+    container: 'bg-white rounded-xl shadow-sm border border-gray-200 p-6',
+    header: 'flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4',
+    title: 'text-lg font-semibold text-gray-800',
+    actions: 'flex flex-wrap gap-2',
+    saveButton: 'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+    exportButton: 'px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors disabled:opacity-50',
+    rangeButton: 'px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors',
+    deleteButton: 'px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors',
+    list: 'border-t border-gray-200 pt-4',
+    emptyState: 'text-center py-12 border-2 border-dashed border-gray-300 rounded-lg',
+    emptyIcon: 'mx-auto h-12 w-12 text-gray-400',
+    emptyText: 'mt-4 text-gray-500',
+    emptySubtext: 'text-sm text-gray-400 mt-1'
+  },
+  
+  // Moon phases section
+  moonPhases: {
+    container: 'bg-white rounded-xl shadow-sm border border-gray-200 p-6',
+    title: 'text-lg font-semibold text-gray-800 mb-4',
+    list: 'space-y-2',
+    phaseItem: 'flex items-center gap-3',
+    phaseColor: 'w-4 h-4 rounded-full',
+    phaseName: 'text-sm text-gray-700',
+    phaseIcon: 'text-xs text-gray-500 ml-auto'
+  },
+  
+  // Tips section
+  tips: 'bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200',
+  tipsTitle: 'font-medium text-blue-900 mb-2',
+  tipsText: 'text-sm text-blue-800',
+  
+  // Modal
+  modal: {
+    container: 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4',
+    content: 'bg-white rounded-xl shadow-2xl w-full max-w-md p-6',
+    title: 'text-lg font-semibold text-gray-900 mb-4',
+    input: 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-6',
+    actions: 'flex gap-3',
+    cancelButton: 'flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors',
+    saveButton: 'flex-1 py-3 px-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors'
+  },
+  
+  // Moon phase indicators
+  moonPhase: {
+    new: 'bg-red-100 text-red-800',
+    firstQuarter: 'bg-blue-100 text-blue-800',
+    full: 'bg-purple-100 text-purple-800',
+    lastQuarter: 'bg-green-100 text-green-800',
+    icon: 'text-lg mr-1',
+    label: 'text-xs font-medium'
+  },
+  
+  // Calendar day picker
+  dayPicker: {
+    container: 'w-full',
+    caption: 'flex justify-between items-center py-2 px-4',
+    button: 'p-1 rounded hover:bg-gray-100',
+    table: 'w-full border-collapse',
+    head: 'border-b',
+    headCell: 'text-gray-500 font-medium py-2 text-center text-xs',
+    cell: 'p-0 border',
+    day: 'w-10 h-10 mx-auto flex items-center justify-center rounded-full hover:bg-gray-100',
+    selected: 'bg-orange-500 text-white hover:bg-orange-600',
+    today: 'font-bold border-2 border-blue-500',
+    disabled: 'text-gray-300',
+    outside: 'text-gray-300',
+    range: {
+      start: 'rounded-l-full',
+      end: 'rounded-r-full',
+      middle: 'bg-blue-50',
+    },
+  },
+  
+  // Modifiers - consolidated
+  modifiers: {
+    today: 'font-bold border-2 border-blue-500',
+    selected: 'relative bg-orange-500 text-white',
+    saved: 'bg-green-50 border border-green-200',
+    range: 'bg-blue-100',
+    rangeStart: 'rounded-l-full',
+    rangeEnd: 'rounded-r-full',
+  }
+};
+
+// Re-export for backward compatibility
+export const { cn, formatINR, formatAmount } = utils;

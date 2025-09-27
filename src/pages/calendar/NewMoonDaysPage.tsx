@@ -1,10 +1,21 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { addMonths, endOfMonth, format, isSameDay, startOfMonth, eachDayOfInterval, isWithinInterval } from 'date-fns';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { 
+  addMonths, 
+  endOfMonth, 
+  format, 
+  isSameDay, 
+  startOfMonth, 
+  eachDayOfInterval, 
+  isWithinInterval,
+  parseISO 
+} from 'date-fns';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../lib/language';
+import { calendarStyles, formFieldStyles, pageContainerStyles, cn } from '../../styles/formStyles';
+import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/card';
 
 interface MoonPhase {
   date: string;
@@ -33,7 +44,7 @@ const MOON_ICONS = {
 
 async function fetchMoonPhases(startDate: Date, endDate: Date, token: string | null): Promise<MoonPhase[]> {
   try {
-    const response = await axios.get<MoonPhase[]>('https://tmsapi.xesstechlink.com/api/moon-phases', {
+    const response = await axios.get<MoonPhase[]>('http://localhost:4000/api/moon-phases', {
       params: {
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString()
@@ -48,27 +59,6 @@ async function fetchMoonPhases(startDate: Date, endDate: Date, token: string | n
     console.error('Failed to fetch moon phases:', error);
     return [];
   }
-}
-
-function generateMockMoonPhases(start: Date, end: Date): MoonPhase[] {
-  const phases: MoonPhase[] = [];
-  let current = new Date(start);
-  
-  while (current <= end) {
-    const phaseType = Object.keys(MOON_PHASES)[
-      Math.floor(Math.random() * Object.keys(MOON_PHASES).length)
-    ] as keyof typeof MOON_PHASES;
-    
-    phases.push({
-      date: current.toISOString(),
-      phase: phaseType,
-      label: MOON_PHASES[phaseType].label
-    });
-    
-    current = new Date(current.setDate(current.getDate() + Math.floor(Math.random() * 3) + 1));
-  }
-  
-  return phases;
 }
 
 // Storage utilities
@@ -125,8 +115,10 @@ const deleteDateFromStorage = async (date: string, token: string | null) => {
 export default function NewMoonDaysPage() {
   const { token } = useAuth();
   const { language } = useLanguage();
-  const t = {
-    english: {
+  
+  // Fixed translation object (Tamil/English labels were swapped)
+  const translations = {
+    tamil: {
       title: 'அமாவாசை நாட்கள்',
       previous: 'முந்தையது',
       today: 'இன்று',
@@ -161,7 +153,7 @@ export default function NewMoonDaysPage() {
         LAST_QUARTER: 'கடைசி காலம்',
       },
     },
-    tamil: {
+    english: {
       title: 'New Moon Days',
       previous: 'Previous',
       today: 'Today',
@@ -198,9 +190,11 @@ export default function NewMoonDaysPage() {
     },
   } as const;
 
-  // Helper to get localized phase label
-  const getPhaseLabel = (phase: keyof typeof MOON_PHASES) =>
-    (t[language as 'tamil' | 'english'] as any).phaseLabels[phase] as string;
+  const t = translations[language as 'tamil' | 'english'];
+
+  const getPhaseLabel = useCallback((phase: keyof typeof MOON_PHASES) => {
+    return t.phaseLabels[phase];
+  }, [t]);
 
   const [month, setMonth] = useState<Date>(() => {
     const now = new Date();
@@ -222,10 +216,12 @@ export default function NewMoonDaysPage() {
     rangeEnd: endOfMonth(addMonths(month, 1)),
   }), [month]);
 
+  // Fetch moon phases when range changes
   useEffect(() => {
     fetchMoonPhases(rangeStart, rangeEnd, token).then(setMoonPhases);
   }, [rangeStart, rangeEnd, token]);
 
+  // Load saved dates on mount and when month changes
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -237,62 +233,62 @@ export default function NewMoonDaysPage() {
     };
     
     loadData();
-  }, [month, token]);
+  }, [token]);
 
-  const modifiers = useMemo(() => ({
-    today: new Date(),
-    selected: selectedDate,
-    saved: savedDates.map(d => new Date(d.date)),
-    ...Object.fromEntries(
-      savedDates
-        .filter(d => d.label)
-        .map((date, i) => [
-          `saved-${i}`,
-          {
-            date: new Date(date.date),
-            label: date.label
-          }
-        ])
-    ),
-    ...Object.fromEntries(
-      Object.entries(MOON_PHASES).flatMap(([phase]) => {
-        const phaseDates = moonPhases
-          .filter(p => p.phase === phase)
-          .map(p => new Date(p.date));
-        return [
-          [phase.toLowerCase(), phaseDates],
-          ...phaseDates.map((date, i) => [`${phase.toLowerCase()}-${i}`, date])
-        ];
-      })
-    ),
-    range: rangeSelection.from && rangeSelection.to 
-      ? { from: rangeSelection.from, to: rangeSelection.to }
-      : undefined,
-    rangeStart: rangeSelection.from,
-    rangeEnd: rangeSelection.to
-  }), [moonPhases, selectedDate, rangeSelection, savedDates]);
+  // Helper to check if a date is saved
+  const isDateSaved = useCallback((date: Date) => {
+    return savedDates.some(d => isSameDay(parseISO(d.date), date));
+  }, [savedDates]);
+
+  const modifiers = useMemo(() => {
+    const mods: Record<string, Date | Date[] | { from: Date; to: Date }> = {
+      today: new Date(),
+      selected: selectedDate,
+      saved: savedDates.map(d => parseISO(d.date)),
+    };
+
+    // Add moon phase modifiers
+    Object.entries(MOON_PHASES).forEach(([phase]) => {
+      const phaseDates = moonPhases
+        .filter(p => p.phase === phase)
+        .map(p => parseISO(p.date));
+      mods[phase.toLowerCase()] = phaseDates;
+    });
+
+    // Add range selection
+    if (rangeSelection.from && rangeSelection.to) {
+      mods.range = { from: rangeSelection.from, to: rangeSelection.to };
+      mods.rangeStart = rangeSelection.from;
+      mods.rangeEnd = rangeSelection.to;
+    }
+
+    return mods;
+  }, [moonPhases, selectedDate, rangeSelection, savedDates]);
 
   const modifiersStyles = useMemo(() => ({
-    today: {
-      fontWeight: 'bold' as const,
-      border: '2px solid #3b82f6'
-    },
-    selected: {
-      position: 'relative' as const,
-      '&::before': {
-        content: '""',
-        position: 'absolute' as const,
-        top: 0,
-        right: 0,
-        width: 8,
-        height: 8,
-        backgroundColor: '#3b82f6',
-        borderRadius: '50%'
+    today: { border: '2px solid #3b82f6' },
+    selected: { 
+      backgroundColor: '#f97316',
+      color: 'white',
+      '&:hover': {
+        backgroundColor: '#ea580c'
       }
     },
-    saved: {
+    saved: { 
       backgroundColor: '#f0fdf4',
       border: '1px solid #10b981'
+    },
+    range: { 
+      backgroundColor: '#e0f2fe',
+      color: '#0369a1'
+    },
+    rangeStart: {
+      borderTopLeftRadius: '50%',
+      borderBottomLeftRadius: '50%'
+    },
+    rangeEnd: {
+      borderTopRightRadius: '50%',
+      borderBottomRightRadius: '50%'
     },
     ...Object.fromEntries(
       Object.entries(MOON_PHASES).map(([phase, { color }]) => [
@@ -314,20 +310,8 @@ export default function NewMoonDaysPage() {
           }
         }
       ])
-    ),
-    range: {
-      backgroundColor: '#e0f2fe',
-      color: '#0369a1'
-    },
-    rangeStart: {
-      borderTopLeftRadius: '50%',
-      borderBottomLeftRadius: '50%'
-    },
-    rangeEnd: {
-      borderTopRightRadius: '50%',
-      borderBottomRightRadius: '50%'
-    }
-  }), [selectedDate, savedDates, rangeSelection, language]);
+    )
+  }), [getPhaseLabel]);
 
   const handleDateSelect = (date: Date) => {
     const newDate = new Date(date);
@@ -376,7 +360,7 @@ export default function NewMoonDaysPage() {
   };
 
   const handleSaveDate = () => {
-    if (selectedDate && !savedDates.some(d => isSameDay(new Date(d.date), selectedDate))) {
+    if (selectedDate && !isDateSaved(selectedDate)) {
       const updatedDates = [...savedDates, { date: selectedDate.toISOString(), label: '' }].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
       setSavedDates(updatedDates);
       saveDatesToStorage(updatedDates, token);
@@ -410,9 +394,9 @@ export default function NewMoonDaysPage() {
 
   const handleExportDates = () => {
     const data = {
-      savedDates: savedDates.map(date => format(new Date(date.date), 'yyyy-MM-dd HH:mm')),
+      savedDates: savedDates.map(date => format(parseISO(date.date), 'yyyy-MM-dd HH:mm')),
       moonPhases: savedDates.map(date => {
-        const phase = moonPhases.find(p => isSameDay(new Date(p.date), new Date(date.date)));
+        const phase = moonPhases.find(p => isSameDay(parseISO(p.date), parseISO(date.date)));
         return phase ? MOON_PHASES[phase.phase].label : 'No moon phase data';
       })
     };
@@ -437,7 +421,7 @@ export default function NewMoonDaysPage() {
       });
       
       const newDates = datesInRange.filter(date => 
-        !savedDates.some(d => isSameDay(d.date, date))
+        !isDateSaved(date)
       );
       
       if (newDates.length > 0) {
@@ -452,7 +436,7 @@ export default function NewMoonDaysPage() {
   const handleBulkDelete = () => {
     if (rangeSelection.from && rangeSelection.to) {
       const updatedDates = savedDates.filter(date => 
-        !isWithinInterval(new Date(date.date), {
+        !isWithinInterval(parseISO(date.date), {
           start: rangeSelection.from!,
           end: rangeSelection.to!
         })
@@ -464,305 +448,297 @@ export default function NewMoonDaysPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-1 px-4 sm:px-6 lg:px-1">
-      {isLoading && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-40">
-          <div className="bg-white p-6 rounded-lg shadow-xl animate-pulse">
-            <div className="h-4 w-32 bg-gray-300 rounded mb-4"></div>
-            <div className="h-4 w-24 bg-gray-300 rounded"></div>
-          </div>
-        </div>
-      )}
-      
-      {error && (
-        <div className="fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50">
-          {error}
-        </div>
-      )}
-
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">{t[language as 'tamil' | 'english'].title}</h1>
-          <p className="mt-2 text-lg text-gray-600">
-            {t[language as 'tamil' | 'english'].note}
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* Main Calendar & Controls (Left Column) */}
-          <div className="lg:col-span-2 space-y-6">
-            
-            {/* Calendar Header */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setMonth(prev => addMonths(prev, -1))}
-                    className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-                    aria-label={t[language as 'tamil' | 'english'].previous}
-                  >
-                    ←
-                  </button>
-                  <span className="text-xl font-semibold text-gray-800">
-                    {format(month, 'MMMM yyyy')}
-                  </span>
-                  <button
-                    onClick={() => setMonth(prev => addMonths(prev, 1))}
-                    className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-                    aria-label={t[language as 'tamil' | 'english'].next}
-                  >
-                    →
-                  </button>
+    <div className={pageContainerStyles.container}>
+      <div className={pageContainerStyles.content}>
+        <Card className={formFieldStyles.card.container}>
+          <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white", formFieldStyles.card.header)}>
+            <CardTitle className="text-lg font-bold text-center">
+              {t.title}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            {isLoading && (
+              <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-40">
+                <div className="bg-white p-6 rounded-lg shadow-xl animate-pulse">
+                  <div className="h-4 w-32 bg-gray-300 rounded mb-4"></div>
+                  <div className="h-4 w-24 bg-gray-300 rounded"></div>
                 </div>
-                
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    onClick={() => setMonth(startOfMonth(new Date()))}
-                    className="px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                  >
-                    {t[language as 'tamil' | 'english'].today}
-                  </button>
-                  
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="date"
-                      value={quickJumpDate}
-                      onChange={(e) => setQuickJumpDate(e.target.value)}
-                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder={t[language as 'tamil' | 'english'].jumpPlaceholder}
+              </div>
+            )}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Main Calendar & Controls (Left Column) */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* Calendar Header */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setMonth(prev => addMonths(prev, -1))}
+                        className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                        aria-label={t.previous}
+                      >
+                        ←
+                      </button>
+                      <span className="text-xl font-semibold text-gray-800">
+                        {format(month, 'MMMM yyyy')}
+                      </span>
+                      <button
+                        onClick={() => setMonth(prev => addMonths(prev, 1))}
+                        className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                        aria-label={t.next}
+                      >
+                        →
+                      </button>
+                    </div>
+                    
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        onClick={() => setMonth(startOfMonth(new Date()))}
+                        className="px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                      >
+                        {t.today}
+                      </button>
+                      
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="date"
+                          value={quickJumpDate}
+                          onChange={(e) => setQuickJumpDate(e.target.value)}
+                          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder={t.jumpPlaceholder}
+                        />
+                        <button
+                          onClick={handleQuickJump}
+                          className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600 transition-colors disabled:opacity-50"
+                          disabled={!quickJumpDate}
+                        >
+                          {t.jump}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Calendar */}
+                  <div className="mt-4">
+                    <DayPicker
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={handleDateSelect}
+                      modifiers={modifiers}
+                      modifiersStyles={modifiersStyles}
+                      month={month}
+                      onMonthChange={setMonth}
+                      captionLayout="dropdown-buttons"
+                      fromMonth={new Date(1900, 0, 1)}
+                      toMonth={new Date(2100, 11, 31)}
+                      className="w-full"
                     />
-                    <button
-                      onClick={handleQuickJump}
-                      className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600 transition-colors disabled:opacity-50"
-                      disabled={!quickJumpDate}
-                    >
-                      {t[language as 'tamil' | 'english'].jump}
-                    </button>
+                  </div>
+
+                  {/* Selected Date Info */}
+                  {selectedDate && (
+                    <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <h3 className="font-medium text-gray-800 mb-2">{t.selected}</h3>
+                      <p className="text-gray-900">{format(selectedDate, 'EEEE, MMMM do yyyy')}</p>
+                      <p className="text-gray-700">{format(selectedDate, 'h:mm a')}</p>
+                      
+                      {moonPhases.some(p => isSameDay(parseISO(p.date), selectedDate)) && (
+                        <div className="mt-2 inline-flex items-center gap-1 px-3 py-1 bg-gray-100 rounded-full text-xs font-medium">
+                          <span>{MOON_ICONS[moonPhases.find(p => isSameDay(parseISO(p.date), selectedDate))!.phase]}</span>
+                          <span>{MOON_PHASES[moonPhases.find(p => isSameDay(parseISO(p.date), selectedDate))!.phase].label}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Time Picker */}
+                  <div className="mt-6">
+                    <label htmlFor="time" className="block text-sm font-medium text-gray-700 mb-2">
+                      {t.selectTime}
+                    </label>
+                    <input
+                      type="time"
+                      id="time"
+                      value={selectedTime}
+                      onChange={(e) => setSelectedTime(e.target.value)}
+                      className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
                   </div>
                 </div>
-              </div>
 
-              {/* Calendar */}
-              <div className="mt-4">
-                <DayPicker
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={handleDateSelect}
-                  modifiers={modifiers}
-                  modifiersStyles={modifiersStyles}
-                  month={month}
-                  onMonthChange={setMonth}
-                  captionLayout="dropdown-buttons"
-                  fromMonth={new Date(1900, 0, 1)}
-                  toMonth={new Date(2100, 11, 31)}
-                  className="w-full"
-                />
-              </div>
+                {/* Save / Export Actions */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+                    <h2 className="text-lg font-semibold text-gray-800">
+                      {t.savedDates}
+                    </h2>
+                    
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={handleSaveDate}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          !selectedDate || isDateSaved(selectedDate)
+                            ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                            : 'bg-blue-500 text-white hover:bg-blue-600'
+                        }`}
+                        disabled={!selectedDate || isDateSaved(selectedDate)}
+                      >
+                        {isDateSaved(selectedDate) 
+                          ? t.alreadySaved 
+                          : t.saveDate}
+                      </button>
 
-              {/* Selected Date Info */}
-              {selectedDate && (
-                <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <h3 className="font-medium text-gray-800 mb-2">{t[language as 'tamil' | 'english'].selected}</h3>
-                  <p className="text-gray-900">{format(selectedDate, 'EEEE, MMMM do yyyy')}</p>
-                  <p className="text-gray-700">{format(selectedDate, 'h:mm a')}</p>
-                  
-                  {moonPhases.some(p => isSameDay(new Date(p.date), selectedDate)) && (
-                    <div className="mt-2 inline-flex items-center gap-1 px-3 py-1 bg-gray-100 rounded-full text-xs font-medium">
-                      <span>{MOON_ICONS[moonPhases.find(p => isSameDay(new Date(p.date), selectedDate))!.phase]}</span>
-                      <span>{MOON_PHASES[moonPhases.find(p => isSameDay(new Date(p.date), selectedDate))!.phase].label}</span>
+                      <button
+                        onClick={handleExportDates}
+                        className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors disabled:opacity-50"
+                        disabled={savedDates.length === 0}
+                      >
+                        {t.exportDates}
+                      </button>
+
+                      {rangeSelection.from && (
+                        <>
+                          <button
+                            onClick={handleBulkSave}
+                            className="px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors"
+                          >
+                            {t.saveRange}
+                          </button>
+                          <button
+                            onClick={handleBulkDelete}
+                            className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors"
+                          >
+                            {t.deleteRange}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Saved Dates List */}
+                  {savedDates.length > 0 ? (
+                    <div className="border-t border-gray-200 pt-4">
+                      <ul className="space-y-3">
+                        {savedDates.map((date, i) => (
+                          <li
+                            key={i}
+                            className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                          >
+                            <div className="flex-1">
+                              <div className="font-medium text-gray-900">{format(parseISO(date.date), 'EEEE, MMMM do yyyy')}</div>
+                              <div className="text-sm text-gray-600">{format(parseISO(date.date), 'h:mm a')}</div>
+                              
+                              {date.label && (
+                                <div className="mt-1 flex items-center gap-1">
+                                  <span className="text-xs bg-gray-200 px-2 py-1 rounded-full text-gray-800">
+                                    {t.label} {date.label}
+                                  </span>
+                                </div>
+                              )}
+                              
+                              {moonPhases.some(p => isSameDay(parseISO(p.date), parseISO(date.date))) && (
+                                <span className="inline-block mt-2 text-xs px-2 py-1 rounded-full" 
+                                  style={{ 
+                                    backgroundColor: `${MOON_PHASES[moonPhases.find(p => isSameDay(parseISO(p.date), parseISO(date.date)))!.phase].color}20`,
+                                    color: MOON_PHASES[moonPhases.find(p => isSameDay(parseISO(p.date), parseISO(date.date)))!.phase].color,
+                                    border: `1px solid ${MOON_PHASES[moonPhases.find(p => isSameDay(parseISO(p.date), parseISO(date.date)))!.phase].color}`
+                                  }}>
+                                  {getPhaseLabel(moonPhases.find(p => isSameDay(parseISO(p.date), parseISO(date.date)))!.phase)}
+                                </span>
+                              )}
+                            </div>
+                            
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteDate(parseISO(date.date));
+                              }}
+                              className="text-red-500 hover:text-red-700 p-1.5 rounded-full hover:bg-red-50 transition-colors"
+                              title="Remove date"
+                              aria-label="Delete date"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className="mt-4 text-gray-500">{t.noSaved}</p>
+                      <p className="text-sm text-gray-400 mt-1">{t.saveDateCta}</p>
                     </div>
                   )}
                 </div>
-              )}
-
-              {/* Time Picker */}
-              <div className="mt-6">
-                <label htmlFor="time" className="block text-sm font-medium text-gray-700 mb-2">
-                  {t[language as 'tamil' | 'english'].selectTime}
-                </label>
-                <input
-                  type="time"
-                  id="time"
-                  value={selectedTime}
-                  onChange={(e) => setSelectedTime(e.target.value)}
-                  className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
               </div>
-            </div>
 
-            {/* Save / Export Actions */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
-                <h2 className="text-lg font-semibold text-gray-800">
-                  {t[language as 'tamil' | 'english'].savedDates}
-                </h2>
+              {/* Right Sidebar - Moon Phases & Upcoming */}
+              <div className="space-y-6">
                 
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={handleSaveDate}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      !selectedDate || savedDates.some(d => isSameDay(new Date(d.date), selectedDate))
-                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                        : 'bg-blue-500 text-white hover:bg-blue-600'
-                    }`}
-                    disabled={!selectedDate || savedDates.some(d => isSameDay(new Date(d.date), selectedDate))}
-                  >
-                    {savedDates.some(d => selectedDate && isSameDay(new Date(d.date), selectedDate)) 
-                      ? t[language as 'tamil' | 'english'].alreadySaved 
-                      : t[language as 'tamil' | 'english'].saveDate}
-                  </button>
+                {/* Moon Phase Legend */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <h2 className="text-lg font-semibold text-gray-800 mb-4">{t.moonPhases}</h2>
+                  <div className="space-y-2">
+                    {Object.entries(MOON_PHASES).map(([phase, { color }]) => (
+                      <div key={phase} className="flex items-center gap-3">
+                        <div 
+                          className="w-4 h-4 rounded-full" 
+                          style={{ backgroundColor: color }} 
+                        ></div>
+                        <span className="text-sm text-gray-700">{getPhaseLabel(phase as keyof typeof MOON_PHASES)}</span>
+                        <span className="text-xs text-gray-500 ml-auto">{MOON_ICONS[phase as keyof typeof MOON_ICONS]}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
-                  <button
-                    onClick={handleExportDates}
-                    className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors disabled:opacity-50"
-                    disabled={savedDates.length === 0}
-                  >
-                    {t[language as 'tamil' | 'english'].exportDates}
-                  </button>
+                {/* Upcoming New Moons */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <h2 className="text-lg font-semibold text-gray-800 mb-4">
+                    {t.upcomingNewMoons}
+                  </h2>
+                  
+                  <ul className="space-y-2">
+                    {moonPhases
+                      .filter(phase => phase.phase === 'NEW' && parseISO(phase.date) >= startOfMonth(month))
+                      .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime())
+                      .slice(0, 6)
+                      .map((phase) => (
+                        <li 
+                          key={phase.date}
+                          className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg"
+                        >
+                          <span className="text-lg">{MOON_ICONS.NEW}</span>
+                          <span className="text-sm text-gray-800">
+                            {format(parseISO(phase.date), 'EEE, MMM dd')}
+                          </span>
+                        </li>
+                      ))}
+                  </ul>
 
-                  {rangeSelection.from && (
-                    <>
-                      <button
-                        onClick={handleBulkSave}
-                        className="px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors"
-                      >
-                        {t[language as 'tamil' | 'english'].saveRange}
-                      </button>
-                      <button
-                        onClick={handleBulkDelete}
-                        className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors"
-                      >
-                        {t[language as 'tamil' | 'english'].deleteRange}
-                      </button>
-                    </>
+                  {moonPhases.filter(p => p.phase === 'NEW').length === 0 && (
+                    <p className="text-sm text-gray-500 italic mt-4">
+                      {t.noPhaseData}
+                    </p>
                   )}
                 </div>
-              </div>
 
-              {/* Saved Dates List */}
-              {savedDates.length > 0 ? (
-                <div className="border-t border-gray-200 pt-4">
-                  <ul className="space-y-3">
-                    {savedDates.map((date, i) => (
-                      <li
-                        key={i}
-                        className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                      >
-                        <div className="flex-1">
-                          <div className="font-medium text-gray-900">{format(new Date(date.date), 'EEEE, MMMM do yyyy')}</div>
-                          <div className="text-sm text-gray-600">{format(new Date(date.date), 'h:mm a')}</div>
-                          
-                          {date.label && (
-                            <div className="mt-1 flex items-center gap-1">
-                              <span className="text-xs bg-gray-200 px-2 py-1 rounded-full text-gray-800">
-                                {t[language as 'tamil' | 'english'].label} {date.label}
-                              </span>
-                            </div>
-                          )}
-                          
-                          {moonPhases.some(p => isSameDay(new Date(p.date), new Date(date.date))) && (
-                            <span className="inline-block mt-2 text-xs px-2 py-1 rounded-full" 
-                              style={{ 
-                                backgroundColor: `${MOON_PHASES[moonPhases.find(p => isSameDay(new Date(p.date), new Date(date.date)))!.phase].color}20`,
-                                color: MOON_PHASES[moonPhases.find(p => isSameDay(new Date(p.date), new Date(date.date)))!.phase].color,
-                                border: `1px solid ${MOON_PHASES[moonPhases.find(p => isSameDay(new Date(p.date), new Date(date.date)))!.phase].color}`
-                              }}>
-                              {getPhaseLabel(moonPhases.find(p => isSameDay(new Date(p.date), new Date(date.date)))!.phase)}
-                            </span>
-                          )}
-                        </div>
-                        
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteDate(new Date(date.date));
-                          }}
-                          className="text-red-500 hover:text-red-700 p-1.5 rounded-full hover:bg-red-50 transition-colors"
-                          title="Remove date"
-                          aria-label="Delete date"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                {/* Quick Tips */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
+                  <h3 className="font-medium text-blue-900 mb-2">{t.tipTitle}</h3>
+                  <p className="text-sm text-blue-800">
+                    {t.tipText}
+                  </p>
                 </div>
-              ) : (
-                <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <p className="mt-4 text-gray-500">{t[language as 'tamil' | 'english'].noSaved}</p>
-                  <p className="text-sm text-gray-400 mt-1">{t[language as 'tamil' | 'english'].saveDateCta}</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right Sidebar - Moon Phases & Upcoming */}
-          <div className="space-y-6">
-            
-            {/* Moon Phase Legend */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">{t[language as 'tamil' | 'english'].moonPhases}</h2>
-              <div className="space-y-2">
-                {Object.entries(MOON_PHASES).map(([phase, { color }]) => (
-                  <div key={phase} className="flex items-center gap-3">
-                    <div 
-                      className="w-4 h-4 rounded-full" 
-                      style={{ backgroundColor: color }} 
-                    ></div>
-                    <span className="text-sm text-gray-700">{getPhaseLabel(phase as keyof typeof MOON_PHASES)}</span>
-                    <span className="text-xs text-gray-500 ml-auto">{MOON_ICONS[phase as keyof typeof MOON_ICONS]}</span>
-                  </div>
-                ))}
               </div>
             </div>
-
-            {/* Upcoming New Moons */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">
-                {t[language as 'tamil' | 'english'].upcomingNewMoons}
-              </h2>
-              
-              <ul className="space-y-2">
-                {moonPhases
-                  .filter(phase => phase.phase === 'NEW' && new Date(phase.date) >= startOfMonth(month))
-                  .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                  .slice(0, 6)
-                  .map((phase) => (
-                    <li 
-                      key={phase.date}
-                      className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg"
-                    >
-                      <span className="text-lg">{MOON_ICONS.NEW}</span>
-                      <span className="text-sm text-gray-800">
-                        {format(new Date(phase.date), 'EEE, MMM dd')}
-                      </span>
-                    </li>
-                  ))}
-              </ul>
-
-              {moonPhases.filter(p => p.phase === 'NEW').length === 0 && (
-                <p className="text-sm text-gray-500 italic mt-4">
-                  {t[language as 'tamil' | 'english'].noPhaseData}
-                </p>
-              )}
-            </div>
-
-            {/* Quick Tips */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
-              <h3 className="font-medium text-blue-900 mb-2">{t[language as 'tamil' | 'english'].tipTitle}</h3>
-              <p className="text-sm text-blue-800">
-                {t[language as 'tamil' | 'english'].tipText}
-              </p>
-            </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Label Modal */}
@@ -770,14 +746,14 @@ export default function NewMoonDaysPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              {t[language as 'tamil' | 'english'].addLabelFor} {selectedDate && format(selectedDate, 'MMM dd, yyyy')}
+              {t.addLabelFor} {selectedDate && format(selectedDate, 'MMM dd, yyyy')}
             </h3>
             
             <input
               type="text"
               value={labelInput}
               onChange={(e) => setLabelInput(e.target.value)}
-              placeholder={t[language as 'tamil' | 'english'].enterLabel}
+              placeholder={t.enterLabel}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-6"
               autoFocus
             />
@@ -787,13 +763,13 @@ export default function NewMoonDaysPage() {
                 onClick={() => setShowLabelModal(false)}
                 className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
               >
-                {t[language as 'tamil' | 'english'].cancel}
+                {t.cancel}
               </button>
               <button
                 onClick={handleSaveWithLabel}
                 className="flex-1 py-3 px-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
               >
-                {t[language as 'tamil' | 'english'].save}
+                {t.save}
               </button>
             </div>
           </div>

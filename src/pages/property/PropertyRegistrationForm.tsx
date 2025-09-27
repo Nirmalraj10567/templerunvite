@@ -10,11 +10,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import propertyService from '@/services/propertyService';
 import { toast } from '@/components/ui/use-toast';
+import { cn } from '@/lib/utils';
+import { formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
 
 interface PropertyFormData {
+  id?: number;
   name: string;
   details: string;
   value: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 // Custom hook for Enter key navigation
@@ -53,15 +58,16 @@ export default function PropertyRegistrationForm() {
   const { register, handleSubmit, reset, formState: { errors } } = useForm<PropertyFormData>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { formRef, handleKeyDown } = useEnterKeyNavigation();
+
   const { language } = useLanguage();
+
+  // Field styles
+  const fieldStyles = formFieldStyles.input;
+  const labelStyles = formFieldStyles.label;
+  const textareaStyles = formFieldStyles.textarea;
 
   // Translation function
   const t = (en: string, ta: string) => (language === 'english' ? ta : en);
-
-  // Consistent field styling
-  const fieldStyles = "text-lg py-3 px-4 h-12 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200";
-  const labelStyles = "block text-base font-medium mb-2 text-gray-700";
-  const textareaStyles = "text-lg py-3 px-4 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200 resize-none";
 
   const isEdit = Boolean(id);
 
@@ -121,12 +127,25 @@ export default function PropertyRegistrationForm() {
       };
 
       if (id) {
-        await propertyService.updateProperty(id, payload);
+        const propertyId = parseInt(id, 10);
+        const propertyData = {
+          ...payload,
+          id: propertyId,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        await propertyService.updateProperty(propertyId.toString(), propertyData);
         const successMsg = t('Property updated successfully', 'சொத்து வெற்றிகரமாக புதுப்பிக்கப்பட்டது');
         setMessage(successMsg);
         toast({ title: successMsg });
       } else {
-        await propertyService.createProperty(payload);
+        const propertyData = {
+          ...payload,
+          id: Date.now(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        await propertyService.createProperty(propertyData);
         const successMsg = t('Property registered successfully', 'சொத்து வெற்றிகரமாக பதிவு செய்யப்பட்டது');
         setMessage(successMsg);
         toast({ title: successMsg });
@@ -195,10 +214,10 @@ export default function PropertyRegistrationForm() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-6 px-4 w-full">
-      <div className="max-w-5xl mx-auto space-y-6">
-        <Card className="shadow-lg border-0 bg-white rounded-lg">
-          <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white py-6 px-6 rounded-t-lg">
+    <div className={pageContainerStyles.container}>
+      <div className={pageContainerStyles.content}>
+        <Card className={formFieldStyles.card.container}>
+          <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white", formFieldStyles.card.header)}>
             <CardTitle className="text-2xl font-bold">
               {isEdit 
                 ? t('Edit Property', 'சொத்து திருத்தம்') 
@@ -323,7 +342,7 @@ export default function PropertyRegistrationForm() {
                     type="button"
                     variant="outline"
                     size="default"
-                    className="px-6 py-2 text-sm border hover:bg-gray-50 rounded-md"
+                    className={cn(formFieldStyles.button.outline, "px-6 py-2")}
                     onClick={handleCancel}
                     disabled={isSubmitting}
                   >
@@ -335,7 +354,7 @@ export default function PropertyRegistrationForm() {
                       type="button"
                       variant="outline"
                       size="default"
-                      className="px-6 py-2 text-sm border hover:bg-gray-50 rounded-md"
+                      className={cn(formFieldStyles.button.outline, "px-6 py-2")}
                       onClick={handleClear}
                       disabled={isSubmitting}
                     >
@@ -346,7 +365,7 @@ export default function PropertyRegistrationForm() {
                   <Button
                     type="submit"
                     size="default"
-                    className="px-8 py-2 text-sm bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-md min-w-[140px]"
+                    className={cn("bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white", "px-8 py-2 min-w-[140px] rounded-md")}
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? (

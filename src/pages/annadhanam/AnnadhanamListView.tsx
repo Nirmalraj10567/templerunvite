@@ -116,14 +116,61 @@ export default function AnnadhanamListView() {
   const [allLogsPage, setAllLogsPage] = useState(1);
   const allLogsPageSize = 50;
 
+  // User names and details for logs
+  const [userNames, setUserNames] = useState<Record<number, string>>({});
+  const [userDetails, setUserDetails] = useState<Record<number, {name: string, username?: string, mobile?: string}>>({});
+
   // Permissions disabled for this view; always show actions
+
+  // Fetch user names/details for given ids (per-id endpoint, resilient)
+  const fetchUserNames = async (userIds: number[]) => {
+    const uniqueIds = Array.from(new Set(userIds.filter((v): v is number => typeof v === 'number')));
+    if (uniqueIds.length === 0) return;
+    // Skip ids we already have
+    const missing = uniqueIds.filter((id) => !userDetails[id] && !userNames[id]);
+    if (missing.length === 0) return;
+    console.log('Fetching user profiles for IDs (per-id):', missing);
+    const results = await Promise.all(
+      missing.map(async (id) => {
+        try {
+          const res = await fetch(`http://localhost:4000/api/admin/members/${id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            console.warn('Failed to fetch member by id', id, data);
+            return null;
+          }
+          const u = data?.data?.user || data?.data; // support both shapes
+          if (!u) return null;
+          const fullName = (u.full_name && String(u.full_name).trim()) || u.username || u.mobile || String(id);
+          return { id, name: fullName, username: u.username, mobile: u.mobile } as { id: number; name: string; username?: string; mobile?: string };
+        } catch (err) {
+          console.warn('Error fetching member id', id, err);
+          return null;
+        }
+      })
+    );
+    const nameMap: Record<number, string> = {};
+    const detailsMap: Record<number, { name: string; username?: string; mobile?: string }> = {};
+    results.forEach((r) => {
+      if (!r) return;
+      nameMap[r.id] = r.name;
+      detailsMap[r.id] = { name: r.name, username: r.username, mobile: r.mobile };
+    });
+    if (Object.keys(nameMap).length > 0) {
+      setUserNames((prev) => ({ ...prev, ...nameMap }));
+      setUserDetails((prev) => ({ ...prev, ...detailsMap }));
+      console.log('Updated user maps from per-id fetch:', { nameMap, detailsMap });
+    }
+  };
 
   const openLogs = async (annadhanamId: number) => {
     setLogsFor(annadhanamId);
     setLogs([]);
     setLogsLoading(true);
     try {
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${annadhanamId}/logs`, {
+      const res = await fetch(`http://localhost:4000/api/annadhanam/${annadhanamId}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -134,7 +181,20 @@ export default function AnnadhanamListView() {
       const result = await res.json();
       console.log('Logs API Response:', result); // Debug log
       if (result.success) {
-        setLogs(Array.isArray(result.data) ? result.data : []);
+        const logsData = Array.isArray(result.data) ? result.data : [];
+        setLogs(logsData);
+        
+        // Fetch user names for the logs
+        const userIds = logsData
+          .map(log => log.created_by)
+          .filter((id): id is number => id !== null && id !== undefined);
+        console.log('openLogs - Found userIds:', userIds);
+        if (userIds.length > 0) {
+          console.log('openLogs - Calling fetchUserNames with:', userIds);
+          await fetchUserNames(userIds);
+        } else {
+          console.log('openLogs - No userIds found, skipping fetchUserNames');
+        }
       } else {
         console.error('API returned error:', result.error);
         setLogs([]);
@@ -162,7 +222,7 @@ export default function AnnadhanamListView() {
   const loadAllAnnadhanamLogs = async (pageNum: number) => {
     setAllLogsLoading(true);
     try {
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
+      const res = await fetch(`http://localhost:4000/api/annadhanam/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -173,9 +233,22 @@ export default function AnnadhanamListView() {
       const result = await res.json();
       console.log('All Logs API Response:', result); // Debug log
       if (result.success) {
-        setAllLogs(Array.isArray(result.data) ? result.data : []);
+        const logsData = Array.isArray(result.data) ? result.data : [];
+        setAllLogs(logsData);
         setAllLogsTotal(Number(result.total || 0));
         setAllLogsPage(pageNum);
+        
+        // Fetch user names for the logs
+        const userIds = logsData
+          .map(log => log.created_by)
+          .filter((id): id is number => id !== null && id !== undefined);
+        console.log('loadAllLogs - Found userIds:', userIds);
+        if (userIds.length > 0) {
+          console.log('loadAllLogs - Calling fetchUserNames with:', userIds);
+          await fetchUserNames(userIds);
+        } else {
+          console.log('loadAllLogs - No userIds found, skipping fetchUserNames');
+        }
       } else {
         console.error('API returned error:', result.error);
         throw new Error(result.error || 'Failed to load logs');
@@ -201,7 +274,7 @@ export default function AnnadhanamListView() {
     try {
       setLoading(true);
 
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam?page=${pagination.pageIndex + 1}&per_page=${pagination.pageSize}&search=${encodeURIComponent(searchTerm)}&sort=receipt_number&order=desc`, {
+      const response = await fetch(`http://localhost:4000/api/annadhanam?page=${pagination.pageIndex + 1}&per_page=${pagination.pageSize}&search=${encodeURIComponent(searchTerm)}&sort=receipt_number&order=desc`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -434,7 +507,7 @@ export default function AnnadhanamListView() {
     if (!deleteId) return;
 
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${deleteId}`, {
+      const response = await fetch(`http://localhost:4000/api/annadhanam/${deleteId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -852,69 +925,191 @@ export default function AnnadhanamListView() {
         {allLogsOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div className="absolute inset-0 bg-black/40" onClick={closeAllLogs} />
-            <div className="relative bg-white rounded shadow-lg w-full max-w-5xl mx-2 p-3">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-sm font-semibold">{t('All Annadhanam Logs', 'அனைத்து அன்னதானம் பதிவுகள்')}</h2>
-                <button onClick={closeAllLogs} className="text-xs px-2 py-1 border rounded">{t('Close', 'மூடு')}</button>
+            <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-7xl mx-4 max-h-[90vh] flex flex-col">
+              <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white py-6 px-6 rounded-t-lg flex-shrink-0">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold">{t('All Annadhanam Logs', 'அனைத்து அன்னதானம் பதிவுகள்')}</h2>
+                  <button onClick={closeAllLogs} className="text-white hover:bg-white/20 p-2 rounded">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
               </div>
-              {allLogsLoading ? (
-                <div className="p-3 text-xs text-gray-600">{t('Loading logs...', 'பதிவுகள் ஏற்றப்படுகிறது...')}</div>
-              ) : (
-                <>
-                  <div className="max-h-[70vh] overflow-y-auto border rounded">
-                    <table className="min-w-full text-xs">
-                      <thead className="bg-gray-50 sticky top-0">
-                        <tr>
-                          <th className="text-left px-2 py-1">{t('Time', 'நேரம்')}</th>
-                          <th className="text-left px-2 py-1">{t('Action', 'செயல்')}</th>
-                          <th className="text-left px-2 py-1">{t('Annadhanam ID', 'அன்னதானம் ஐடி')}</th>
-                          <th className="text-left px-2 py-1">{t('Name', 'பெயர்')}</th>
-                          <th className="text-left px-2 py-1">{t('Receipt No', 'ரசீது எண்')}</th>
-                          <th className="text-left px-2 py-1">{t('User', 'பயனர்')}</th>
-                          <th className="text-left px-2 py-1">{t('Details', 'விவரங்கள்')}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {allLogs.length === 0 ? (
-                          <tr>
-                            <td className="px-2 py-2 text-center text-gray-500" colSpan={7}>{t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}</td>
-                          </tr>
-                        ) : allLogs.map((lg) => (
-                          <tr key={lg.id} className="border-t align-top">
-                            <td className="px-2 py-1 whitespace-nowrap">{lg.created_at ? new Date(lg.created_at).toLocaleString(language === 'tamil' ? 'ta-IN' : 'en-IN') : '-'}</td>
-                            <td className="px-2 py-1">{lg.action}</td>
-                            <td className="px-2 py-1">{lg.annadhanam_id}</td>
-                            <td className="px-2 py-1">{lg.annadhanam_name ?? '-'}</td>
-                            <td className="px-2 py-1">{lg.receipt_number ?? '-'}</td>
-                            <td className="px-2 py-1">{lg.created_by ?? '-'}</td>
-                            <td className="px-2 py-1"><pre className="whitespace-pre-wrap break-words text-[10px] bg-gray-50 p-2 rounded border max-w-[40vw]">{JSON.stringify(lg.details, null, 2)}</pre></td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div className="flex items-center justify-between mt-2 text-xs">
-                    <div className="text-gray-700">{t('Total', 'மொத்தம்')}: <span className="font-medium">{allLogsTotal}</span></div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        className="px-2 py-1 border border-gray-300 rounded shadow-sm text-xs bg-white hover:bg-gray-50"
-                        disabled={allLogsPage <= 1}
-                        onClick={() => loadAllAnnadhanamLogs(allLogsPage - 1)}
-                      >
-                        {t('Previous', 'முந்தைய')}
-                      </button>
-                      <span>{t('Page', 'பக்கம்')} {allLogsPage}</span>
-                      <button
-                        className="px-2 py-1 border border-gray-300 rounded shadow-sm text-xs bg-white hover:bg-gray-50"
-                        disabled={allLogsPage * allLogsPageSize >= allLogsTotal}
-                        onClick={() => loadAllAnnadhanamLogs(allLogsPage + 1)}
-                      >
-                        {t('Next', 'அடுத்தது')}
-                      </button>
+              
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex-1 overflow-hidden">
+                  {allLogsLoading ? (
+                    <div className="flex items-center justify-center h-32">
+                      <div className="text-lg text-gray-600">{t('Loading logs...', 'பதிவுகள் ஏற்றப்படுகிறது...')}</div>
                     </div>
-                  </div>
-                </>
-              )}
+                  ) : (
+                    <div className="h-full flex flex-col">
+                      <div className="flex-1 overflow-auto">
+                        <div className="bg-white border border-gray-200">
+                          <table className="w-full text-sm">
+                            <thead className="bg-gray-50 sticky top-0 z-10">
+                              <tr>
+                                <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                                  {t('Action', 'செயல்')}
+                                </th>
+                                <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                                  {t('Date & Time', 'தேதி மற்றும் நேரம்')}
+                                </th>
+                                <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                                  {t('Annadhanam ID', 'அன்னதானம் ஐடி')}
+                                </th>
+                                <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                                  {t('Name', 'பெயர்')}
+                                </th>
+                                <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                                  {t('Receipt No', 'ரசீது எண்')}
+                                </th>
+                                <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                                  {t('User', 'பயனர்')}
+                                </th>
+                                <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                                  {t('Details', 'விவரங்கள்')}
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {allLogs.length === 0 ? (
+                                <tr>
+                                  <td className="py-8 text-center text-gray-500" colSpan={7}>
+                                    {t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}
+                                  </td>
+                                </tr>
+                              ) : allLogs.map((lg, index) => (
+                                <tr key={lg.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50`}>
+                                  <td className="py-3 px-4 border-b">
+                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                      lg.action === 'create' ? 'bg-green-100 text-green-800' :
+                                      lg.action === 'update' ? 'bg-blue-100 text-blue-800' :
+                                      lg.action === 'delete' ? 'bg-red-100 text-red-800' :
+                                      'bg-gray-100 text-gray-800'
+                                    }`}>
+                                      {lg.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
+                                       lg.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
+                                       lg.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
+                                       lg.action}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-4 text-sm text-gray-700 border-b">
+                                    {lg.created_at ? new Date(lg.created_at).toLocaleString('en-IN', {
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    }) : '-'}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm text-gray-700 border-b">{lg.annadhanam_id}</td>
+                                  <td className="py-3 px-4 text-sm text-gray-700 border-b">{lg.annadhanam_name ?? '-'}</td>
+                                  <td className="py-3 px-4 text-sm text-gray-700 border-b">{lg.receipt_number ?? '-'}</td>
+                                  <td className="py-3 px-4 text-sm text-gray-700 border-b">
+                                    {(() => {
+                                      const userId = lg.created_by;
+                                      if (!userId) return '-';
+                                      const user = userDetails[userId];
+                                      const name = userNames[userId];
+                                      
+                                      if (user?.username) {
+                                        return `@${user.username}`;
+                                      }
+                                      if (user?.name) {
+                                        return user.name;
+                                      }
+                                      if (name) {
+                                        return name;
+                                      }
+                                      return `User ${userId}`;
+                                    })()}
+                                  </td>
+                                  <td className="py-3 px-4 border-b">
+                                    <div className="text-sm text-gray-600 max-w-md">
+                                      {(() => {
+                                        // Parse donation details from the log data
+                                        const details = lg.details;
+                                        if (!details) return <span className="text-gray-400">-</span>;
+                                        
+                                        // Check if this is an annadhanam entry with food field
+                                        const food = details.food || details.after?.food || details.before?.food;
+                                        if (!food) return <span className="text-gray-400">-</span>;
+                                        
+                                        // Parse different donation types
+                                        if (food.startsWith('Money:')) {
+                                          const amount = food.replace('Money:', '').trim();
+                                          return (
+                                            <div className="space-y-2">
+                                              <div className="bg-green-50 p-2 rounded border text-xs">
+                                                <div className="font-medium text-green-700 mb-1">{t('Money Donation', 'பண தானம்')}</div>
+                                                <div className="text-gray-600">₹{amount}</div>
+                                              </div>
+                                            </div>
+                                          );
+                                        } else if (food.startsWith('Product:')) {
+                                          const productInfo = food.replace('Product:', '').trim();
+                                          const parts = productInfo.split('|').map(p => p.trim());
+                                          const productName = parts[0];
+                                          const qtyPart = parts.find(p => /qty/i.test(p));
+                                          const quantity = qtyPart ? qtyPart.replace(/qty\s*[:]?/i, '').trim() : '';
+                                          
+                                          return (
+                                            <div className="space-y-2">
+                                              <div className="bg-blue-50 p-2 rounded border text-xs">
+                                                <div className="font-medium text-blue-700 mb-1">{t('Product Donation', 'பொருள் தானம்')}</div>
+                                                <div className="text-gray-600">{productName}</div>
+                                                {quantity && <div className="text-gray-500">Qty: {quantity}</div>}
+                                              </div>
+                                            </div>
+                                          );
+                                        } else {
+                                          // Regular food donation
+                                          return (
+                                            <div className="space-y-2">
+                                              <div className="bg-orange-50 p-2 rounded border text-xs">
+                                                <div className="font-medium text-orange-700 mb-1">{t('Food Donation', 'உணவு தானம்')}</div>
+                                                <div className="text-gray-600">{food}</div>
+                                              </div>
+                                            </div>
+                                          );
+                                        }
+                                      })()}
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-t flex-shrink-0">
+                        <div className="text-sm text-gray-700">
+                          {t('Total', 'மொத்தம்')}: <span className="font-medium">{allLogsTotal}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            className="px-3 py-1 border border-gray-300 rounded shadow-sm text-sm bg-white hover:bg-gray-50"
+                            disabled={allLogsPage <= 1}
+                            onClick={() => loadAllAnnadhanamLogs(allLogsPage - 1)}
+                          >
+                            {t('Previous', 'முந்தைய')}
+                          </button>
+                          <span className="text-sm text-gray-600">{t('Page', 'பக்கம்')} {allLogsPage}</span>
+                          <button
+                            className="px-3 py-1 border border-gray-300 rounded shadow-sm text-sm bg-white hover:bg-gray-50"
+                            disabled={allLogsPage * allLogsPageSize >= allLogsTotal}
+                            onClick={() => loadAllAnnadhanamLogs(allLogsPage + 1)}
+                          >
+                            {t('Next', 'அடுத்தது')}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -923,41 +1118,151 @@ export default function AnnadhanamListView() {
         {logsFor !== null && (
           <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div className="absolute inset-0 bg-black/40" onClick={closeLogs} />
-            <div className="relative bg-white rounded shadow-lg w-full max-w-4xl mx-2 p-3">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-sm font-semibold">{t('Annadhanam Logs', 'அன்னதானம் பதிவுகள்')} #{logsFor}</h2>
-                <button onClick={closeLogs} className="text-xs px-2 py-1 border rounded">{t('Close', 'மூடு')}</button>
-              </div>
-              {logsLoading ? (
-                <div className="p-3 text-xs text-gray-600">{t('Loading logs...', 'பதிவுகள் ஏறுகிறது...')}</div>
-              ) : (
-                <div className="max-h-[70vh] overflow-y-auto border rounded">
-                  <table className="min-w-full text-xs">
-                    <thead className="bg-gray-50 sticky top-0">
-                      <tr>
-                        <th className="text-left px-2 py-1">{t('Time', 'நேரம்')}</th>
-                        <th className="text-left px-2 py-1">{t('Action', 'செயல்')}</th>
-                        <th className="text-left px-2 py-1">{t('User', 'பயனர்')}</th>
-                        <th className="text-left px-2 py-1">{t('Details', 'விவரங்கள்')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {logs.length === 0 ? (
-                        <tr><td colSpan={4} className="px-2 py-2 text-center text-gray-500">{t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}</td></tr>
-                      ) : logs.map(lg => (
-                        <tr key={lg.id} className="border-t align-top">
-                          <td className="px-2 py-1 whitespace-nowrap">{lg.created_at ? new Date(lg.created_at).toLocaleString(language === 'tamil' ? 'ta-IN' : 'en-IN') : '-'}</td>
-                          <td className="px-2 py-1">{lg.action}</td>
-                          <td className="px-2 py-1">{lg.created_by ?? '-'}</td>
-                          <td className="px-2 py-1">
-                            <pre className="whitespace-pre-wrap break-words text-[10px] bg-gray-50 p-2 rounded border max-w-[40vw]">{JSON.stringify(lg.details, null, 2)}</pre>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+            <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-4xl mx-4">
+              <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-6 px-6 rounded-t-lg">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold">{t('Activity Log', 'செயல்பாட்டு பதிவு')} #{logsFor}</h2>
+                  <button onClick={closeLogs} className="text-white hover:bg-white/20 p-2 rounded">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
-              )}
+              </div>
+              
+              <div className="p-6">
+                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                  {logsLoading ? (
+                    <div className="flex items-center justify-center h-32">
+                      <div className="text-lg text-gray-600">{t('Loading logs...', 'பதிவுகள் ஏறுகிறது...')}</div>
+                    </div>
+                  ) : logs.length === 0 ? (
+                    <div className="flex items-center justify-center h-32">
+                      <div className="text-lg text-gray-500">{t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}</div>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                              {t('Action', 'செயல்')}
+                            </th>
+                            <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                              {t('Date & Time', 'தேதி மற்றும் நேரம்')}
+                            </th>
+                            <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                              {t('User', 'பயனர்')}
+                            </th>
+                            <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                              {t('Details', 'விவரங்கள்')}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {logs.map((lg, index) => (
+                            <tr key={lg.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50`}>
+                              <td className="py-3 px-4 border-b">
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                  lg.action === 'create' ? 'bg-green-100 text-green-800' :
+                                  lg.action === 'update' ? 'bg-blue-100 text-blue-800' :
+                                  lg.action === 'delete' ? 'bg-red-100 text-red-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {lg.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
+                                   lg.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
+                                   lg.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
+                                   lg.action}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-sm text-gray-700 border-b">
+                                {lg.created_at ? new Date(lg.created_at).toLocaleString('en-IN', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                }) : '-'}
+                              </td>
+                              <td className="py-3 px-4 text-sm text-gray-700 border-b">
+                                {(() => {
+                                  const userId = lg.created_by;
+                                  if (!userId) return '-';
+                                  const user = userDetails[userId];
+                                  const name = userNames[userId];
+                                  
+                                  if (user?.username) {
+                                    return `@${user.username}`;
+                                  }
+                                  if (user?.name) {
+                                    return user.name;
+                                  }
+                                  if (name) {
+                                    return name;
+                                  }
+                                  return `User ${userId}`;
+                                })()}
+                              </td>
+                              <td className="py-3 px-4 border-b">
+                                <div className="text-sm text-gray-600 max-w-md">
+                                  {(() => {
+                                    // Parse donation details from the log data
+                                    const details = lg.details;
+                                    if (!details) return <span className="text-gray-400">-</span>;
+                                    
+                                    // Check if this is an annadhanam entry with food field
+                                    const food = details.food || details.after?.food || details.before?.food;
+                                    if (!food) return <span className="text-gray-400">-</span>;
+                                    
+                                    // Parse different donation types
+                                    if (food.startsWith('Money:')) {
+                                      const amount = food.replace('Money:', '').trim();
+                                      return (
+                                        <div className="space-y-2">
+                                          <div className="bg-green-50 p-2 rounded border text-xs">
+                                            <div className="font-medium text-green-700 mb-1">{t('Money Donation', 'பண தானம்')}</div>
+                                            <div className="text-gray-600">₹{amount}</div>
+                                          </div>
+                                        </div>
+                                      );
+                                    } else if (food.startsWith('Product:')) {
+                                      const productInfo = food.replace('Product:', '').trim();
+                                      const parts = productInfo.split('|').map(p => p.trim());
+                                      const productName = parts[0];
+                                      const qtyPart = parts.find(p => /qty/i.test(p));
+                                      const quantity = qtyPart ? qtyPart.replace(/qty\s*[:]?/i, '').trim() : '';
+                                      
+                                      return (
+                                        <div className="space-y-2">
+                                          <div className="bg-blue-50 p-2 rounded border text-xs">
+                                            <div className="font-medium text-blue-700 mb-1">{t('Product Donation', 'பொருள் தானம்')}</div>
+                                            <div className="text-gray-600">{productName}</div>
+                                            {quantity && <div className="text-gray-500">Qty: {quantity}</div>}
+                                          </div>
+                                        </div>
+                                      );
+                                    } else {
+                                      // Regular food donation
+                                      return (
+                                        <div className="space-y-2">
+                                          <div className="bg-orange-50 p-2 rounded border text-xs">
+                                            <div className="font-medium text-orange-700 mb-1">{t('Food Donation', 'உணவு தானம்')}</div>
+                                            <div className="text-gray-600">{food}</div>
+                                          </div>
+                                        </div>
+                                      );
+                                    }
+                                  })()}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}

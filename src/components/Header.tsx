@@ -32,60 +32,58 @@ export function Header({ children }: HeaderProps) {
 
   return (
     <header className="bg-white/80 backdrop-blur-sm shadow-sm">
-      <div className="w-full px-4 sm:px-6 lg:px-8">
+      <div className="w-full">
         {children ? (
-          <div className="py-4">{children}</div>
+          <div>{children}</div>
         ) : (
-          <div className="flex justify-between items-center py-4">
-            <Link to="/" className="flex items-center space-x-3 mr-4 sm:mr-6">
-              <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-xl font-bold">🕉️</span>
+          <div className="flex justify-between items-center py-2">
+            <Link to="/" className="flex items-center space-x-2 ml-2">
+              <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-lg font-bold">🕉️</span>
               </div>
-              <h1 className="text-2xl font-bold text-black">Temple Trust</h1>
+              <h1 className="text-xl font-bold text-black">Temple Trust</h1>
             </Link>
 
             {!user ? (
-              <div className="flex items-center gap-3">
-                <Link to="/" className="text-black hover:text-orange-600 transition-colors">
+              <div className="flex items-center gap-2 pr-2">
+                <Link to="/" className="text-black hover:text-orange-600 transition-colors text-sm">
                   {t.home}
                 </Link>
-                <Link to="/login" className="text-black hover:text-orange-600 transition-colors">
+                <Link to="/login" className="text-black hover:text-orange-600 transition-colors text-sm">
                   {t.login}
                 </Link>
-                <Link to="/register" className="text-black hover:text-orange-600 transition-colors">
+                <Link to="/register" className="text-black hover:text-orange-600 transition-colors text-sm">
                   {t.register}
                 </Link>
                 <button 
                   onClick={toggleLanguage}
-                  className="px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm min-w-[60px]"
+                  className="px-2 py-0.5 rounded-md bg-gray-100 hover:bg-gray-200 text-xs min-w-[50px]"
                 >
                   {LANGUAGES.find(lang => lang.code !== language)?.nativeLabel}
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-3">
-               
-              
+              <div className="flex items-center gap-2 pr-2">
                 <button 
                   onClick={toggleLanguage}
-                  className="px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm min-w-[60px]"
+                  className="px-2 py-0.5 rounded-md bg-gray-100 hover:bg-gray-200 text-xs min-w-[50px]"
                 >
                   {LANGUAGES.find(lang => lang.code !== language)?.nativeLabel}
                 </button>
-                <div className="px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-sm text-orange-900 flex items-center gap-1">
-                  <span className="font-semibold">{user.name}</span>
+                <div className="px-2 py-0.5 rounded-full bg-orange-50 border border-orange-200 text-xs text-orange-900 flex items-center gap-1">
+                  <span className="font-medium">{user.name}</span>
                   <span className="opacity-60">·</span>
                   <span className="capitalize opacity-80">{user.role}</span>
                   {isSuperAdmin && (
-                    <span className="flex items-center gap-1 text-xs text-amber-500">
-                      <ShieldIcon className="h-3 w-3" />
+                    <span className="flex items-center gap-1 text-2xs text-amber-500">
+                      <ShieldIcon className="h-2.5 w-2.5" />
                       SUPERADMIN
                     </span>
                   )}
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="px-3 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-600"
+                  className="px-2.5 py-1 rounded-md bg-orange-500 text-white hover:bg-orange-600 text-sm"
                 >
                   {t.logout}
                 </button>
