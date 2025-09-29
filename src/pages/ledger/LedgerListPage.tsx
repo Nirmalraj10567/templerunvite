@@ -1,19 +1,53 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/lib/language';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
 import { ledgerService, LedgerEntry } from '@/services/ledgerService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
-import { FileDown, Search, RefreshCw, Edit, Trash2, Printer } from 'lucide-react';
+import { FileDown, Search, RefreshCw, Edit, Trash2, Printer, Plus } from 'lucide-react';
+import { formFieldStyles, cn, pageContainerStyles } from '@/styles/formStyles';
+
+// Define styles using formFieldStyles
+const styles = {
+  ...formFieldStyles,
+  pageContainer: 'min-h-screen bg-gray-50 p-4',
+  header: 'flex justify-between items-center mb-6',
+  title: 'text-2xl font-bold text-gray-800',
+  filterCard: 'bg-white rounded-lg shadow-md p-4 mb-6',
+  filterGrid: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4',
+  filterGroup: 'space-y-1',
+  actionButtons: 'flex flex-wrap gap-2 mt-4',
+  tableContainer: 'bg-white rounded-lg shadow-md overflow-hidden',
+  table: 'min-w-full divide-y divide-gray-200',
+  tableHeader: 'bg-gray-50',
+  tableHeaderCell: 'px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider',
+  tableRow: 'hover:bg-gray-50',
+  tableCell: 'px-4 py-3 text-sm text-gray-900',
+  pagination: 'flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200',
+  paginationInfo: 'text-sm text-gray-700',
+  paginationButtons: 'flex space-x-2',
+  modalContent: 'max-w-4xl',
+  modalHeader: 'bg-gradient-to-r from-orange-500 to-orange-600 text-white',
+  modalTitle: 'text-white',
+  modalBody: 'max-h-[70vh] overflow-y-auto p-6',
+  modalFooter: 'bg-gray-50 px-6 py-4 flex justify-end space-x-3',
+  logItem: 'border-b border-gray-200 py-2 last:border-0',
+  logHeader: 'flex justify-between items-center',
+  logAction: 'font-medium',
+  logDate: 'text-xs text-gray-500',
+  logDetails: 'mt-1 text-sm text-gray-600 bg-gray-50 p-2 rounded',
+};
 
 export default function LedgerListPage() {
   const { language } = useLanguage();
+  const { token } = useAuth();
   const navigate = useNavigate();
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -30,10 +64,75 @@ export default function LedgerListPage() {
   const [categories, setCategories] = useState<string[]>([]);
   const [currentBalance, setCurrentBalance] = useState(0);
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [editEntry, setEditEntry] = useState<LedgerEntry | null>(null);
+
+  // Logs state
+  const [logsFor, setLogsFor] = useState<number | null>(null);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logs, setLogs] = useState<Array<{ id: number; action: string; created_at: string; created_by: number | null; details: any }>>([]);
+  const [allLogsOpen, setAllLogsOpen] = useState(false);
+  const [allLogsLoading, setAllLogsLoading] = useState(false);
+  const [allLogs, setAllLogs] = useState<Array<{
+    id: number;
+    ledger_entry_id: number;
+    action: string;
+    created_at: string;
+    created_by: number | null;
+    entry_name: string | null;
+    details: any;
+  }>>([]);
+  const [allLogsTotal, setAllLogsTotal] = useState(0);
+  const [allLogsPage, setAllLogsPage] = useState(1);
+  const allLogsPageSize = 50;
+
+  // User names and details for logs
+  const [userNames, setUserNames] = useState<Record<number, string>>({});
+  const [userDetails, setUserDetails] = useState<Record<number, {name: string, username?: string, mobile?: string}>>({});
 
   const t = (en: string, ta: string) => language === 'english' ? ta : en;
   const itemsPerPage = 10;
+
+  // Fetch user names/details for given ids (per-id endpoint, resilient)
+  const fetchUserNames = async (userIds: number[]) => {
+    const uniqueIds = Array.from(new Set(userIds.filter((v): v is number => typeof v === 'number')));
+    if (uniqueIds.length === 0) return;
+    // Skip ids we already have
+    const missing = uniqueIds.filter((id) => !userDetails[id] && !userNames[id]);
+    if (missing.length === 0) return;
+    console.log('Fetching user profiles for IDs (per-id):', missing);
+    const results = await Promise.all(
+      missing.map(async (id) => {
+        try {
+          const res = await fetch(`https://tmsapi.xesstechlink.com/api/admin/members/${id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            console.warn('Failed to fetch member by id', id, data);
+            return null;
+          }
+          const u = data?.data?.user || data?.data; // support both shapes
+          if (!u) return null;
+          const fullName = (u.full_name && String(u.full_name).trim()) || u.username || u.mobile || String(id);
+          return { id, name: fullName, username: u.username, mobile: u.mobile } as { id: number; name: string; username?: string; mobile?: string };
+        } catch (err) {
+          console.warn('Error fetching member id', id, err);
+          return null;
+        }
+      })
+    );
+    const nameMap: Record<number, string> = {};
+    const detailsMap: Record<number, { name: string; username?: string; mobile?: string }> = {};
+    results.forEach((r) => {
+      if (!r) return;
+      nameMap[r.id] = r.name;
+      detailsMap[r.id] = { name: r.name, username: r.username, mobile: r.mobile };
+    });
+    if (Object.keys(nameMap).length > 0) {
+      setUserNames((prev) => ({ ...prev, ...nameMap }));
+      setUserDetails((prev) => ({ ...prev, ...detailsMap }));
+      console.log('Updated user maps from per-id fetch:', { nameMap, detailsMap });
+    }
+  };
 
   // Column Keys
   type ColKey = 'date' | 'name' | 'category' | 'credit' | 'debit' | 'balance' | 'actions';
@@ -163,13 +262,100 @@ export default function LedgerListPage() {
     }
   };
 
+  // Logs functions
+  const openLogs = async (entry: LedgerEntry) => {
+    setLogsFor(entry.id!);
+    setLogsLoading(true);
+    try {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/ledger-entries/${entry.id}/logs`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Failed to fetch logs');
+      const result = await response.json();
+      if (result.success) {
+        const logsData = result.data || [];
+        setLogs(logsData);
+        
+        // Fetch user names for the logs
+        const userIds = logsData
+          .map(log => log.created_by)
+          .filter((id): id is number => id !== null && id !== undefined);
+        console.log('openLogs - Found userIds:', userIds);
+        if (userIds.length > 0) {
+          console.log('openLogs - Calling fetchUserNames with:', userIds);
+          await fetchUserNames(userIds);
+        } else {
+          console.log('openLogs - No userIds found, skipping fetchUserNames');
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load logs:', e);
+      setLogs([]);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  const closeLogs = () => {
+    setLogsFor(null);
+    setLogs([]);
+  };
+
+  const openAllLogs = async () => {
+    setAllLogsOpen(true);
+    setAllLogsLoading(true);
+    await loadAllLedgerLogs();
+  };
+
+  const loadAllLedgerLogs = async (pageNum?: number) => {
+    const pageToLoad = pageNum || allLogsPage;
+    setAllLogsLoading(true);
+    try {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/ledger-entries/logs?page=${pageToLoad}&pageSize=${allLogsPageSize}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Failed to fetch logs');
+      const result = await response.json();
+      if (result.success) {
+        const logsData = result.data || [];
+        setAllLogs(logsData);
+        setAllLogsTotal(result.total || 0);
+        setAllLogsPage(pageToLoad);
+        
+        // Fetch user names for the logs
+        const userIds = logsData
+          .map(log => log.created_by)
+          .filter((id): id is number => id !== null && id !== undefined);
+        console.log('loadAllLogs - Found userIds:', userIds);
+        if (userIds.length > 0) {
+          console.log('loadAllLogs - Calling fetchUserNames with:', userIds);
+          await fetchUserNames(userIds);
+        } else {
+          console.log('loadAllLogs - No userIds found, skipping fetchUserNames');
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load all logs:', e);
+      setAllLogs([]);
+    } finally {
+      setAllLogsLoading(false);
+    }
+  };
+
+  const closeAllLogs = () => {
+    setAllLogsOpen(false);
+    setAllLogs([]);
+    setAllLogsPage(1);
+  };
+
   const handleFilterChange = (field: string, value: string) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
     setCurrentPage(1);
   };
 
   const handleEdit = (entry: LedgerEntry) => {
-    setEditEntry(entry);
+    console.log('Navigating to edit page for entry:', entry.id);
+    navigate(`/dashboard/ledger/edit/${entry.id}`);
   };
 
   const handleDelete = async (id: number) => {
@@ -254,43 +440,17 @@ export default function LedgerListPage() {
     });
   };
 
-  const validateForm = () => {
-    if (!editEntry?.date) {
-      showToast(t('Date is required', 'தேதி தேவை'), true);
-      return false;
-    }
-    if (!editEntry?.name) {
-      showToast(t('Name is required', 'பெயர் தேவை'), true);
-      return false;
-    }
-    if (!editEntry?.amount || isNaN(editEntry.amount) || editEntry.amount <= 0) {
-      showToast(t('Valid amount is required', 'சரியான தொகை தேவை'), true);
-      return false;
-    }
-    return true;
-  };
-
-  const handleSave = async () => {
-    try {
-      if (!editEntry) return;
-      if (!validateForm()) return;
-      
-      const updatedEntry = await ledgerService.updateEntry(editEntry);
-      showToast(t('Entry updated successfully', 'உள்ளீடு வெற்றிகரமாக புதுப்பிக்கப்பட்டது'));
-      
-      await loadData();
-      setEditEntry(null);
-    } catch (error) {
-      console.error('Save error:', error);
-      showToast(t('Failed to update entry', 'உள்ளீட்டை புதுப்பிக்க முடியவில்லை'), true);
-    }
-  };
 
   return (
-    <div className="p-2 bg-gray-50">
-      {/* Compact Header */}
-      <div className="flex justify-between items-center mb-2">
-        <h1 className="text-base font-bold text-gray-800">{t('Ledger', 'பதிவேடு')}</h1>
+  <div className={pageContainerStyles.container}>
+    <Card className={pageContainerStyles.content}>
+       <div className={pageContainerStyles.content}>
+         <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+           <CardTitle className="text-lg font-bold w-full">
+           {t('Ledger', 'பதிவேடு')}
+           </CardTitle>
+         </CardHeader>
+       
         <div className="text-xs text-gray-600">
           {t('Balance', 'இருப்பு')}:{' '}
           <span className={`font-medium ${currentBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -382,6 +542,10 @@ export default function LedgerListPage() {
             <Button variant="outline" size="sm" onClick={onExportPDF} className="text-xs h-7 px-2">
               <FileDown className="h-3 w-3 mr-1" />
               PDF
+            </Button>
+
+            <Button variant="outline" size="sm" onClick={openAllLogs} className="text-xs h-7 px-2">
+              {t('All Logs', 'அனைத்து பதிவுகள்')}
             </Button>
           </div>
         </CardContent>
@@ -484,6 +648,15 @@ export default function LedgerListPage() {
                               className="h-6 w-6 p-0"
                             >
                               <Edit className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openLogs(entry)}
+                              className="h-6 w-6 p-0 text-green-600"
+                              title={t('Logs', 'பதிவுகள்')}
+                            >
+                              📋
                             </Button>
                             <Button
                               variant="ghost"
@@ -631,76 +804,361 @@ export default function LedgerListPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Dialog */}
-      {editEntry && (
-        <Dialog open={!!editEntry} onOpenChange={(open) => !open && setEditEntry(null)}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-base">{t('Edit Entry', 'உள்ளீட்டை திருத்து')}</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-3 py-2">
-              <div className="grid grid-cols-3 items-center gap-2">
-                <Label className="text-xs">{t('Date', 'தேதி')}</Label>
-                <Input 
-                  type="date" 
-                  value={editEntry?.date?.split('T')[0] || ''}
-                  onChange={(e) => setEditEntry({...editEntry, date: e.target.value})}
-                  className="col-span-2 text-xs h-7"
-                />
+
+      {/* All Ledger Logs Modal */}
+      {allLogsOpen && (
+        <div className={formFieldStyles.moneyDonationList.modal.overlay}>
+          <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeAllLogs} />
+          <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-7xl mx-4 max-h-[90vh] flex flex-col">
+            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white py-6 px-6 rounded-t-lg flex-shrink-0">
+              <div className={formFieldStyles.moneyDonationList.modal.header}>
+                <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('All Ledger Logs', 'அனைத்து பதிவேடு பதிவுகள்')}</h2>
+                <button onClick={closeAllLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
-              <div className="grid grid-cols-3 items-center gap-2">
-                <Label className="text-xs">{t('Name', 'பெயர்')}</Label>
-                <Input 
-                  value={editEntry?.name || ''}
-                  onChange={(e) => setEditEntry({...editEntry, name: e.target.value})}
-                  className="col-span-2 text-xs h-7"
-                />
               </div>
-              <div className="grid grid-cols-3 items-center gap-2">
-                <Label className="text-xs">{t('Type', 'வகை')}</Label>
-                <Select 
-                  value={editEntry?.type || 'credit'}
-                  onValueChange={(value) => setEditEntry({...editEntry, type: value as any})}
-                >
-                  <SelectTrigger className="col-span-2 text-xs h-7">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="credit">{t('Credit', 'கடன்')}</SelectItem>
-                    <SelectItem value="debit">{t('Debit', 'பற்று')}</SelectItem>
-                  </SelectContent>
-                </Select>
+            
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex-1 overflow-hidden">
+                {allLogsLoading ? (
+                  <div className={formFieldStyles.moneyDonationList.modal.loading}>
+                    {t('Loading logs...', 'பதிவுகள் ஏற்றப்படுகிறது...')}
               </div>
-              <div className="grid grid-cols-3 items-center gap-2">
-                <Label className="text-xs">{t('Amount', 'தொகை')}</Label>
-                <Input 
-                  type="number"
-                  value={editEntry?.amount || ''}
-                  onChange={(e) => setEditEntry({...editEntry, amount: parseFloat(e.target.value)})}
-                  className="col-span-2 text-xs h-7"
-                />
+                ) : (
+                  <div className="h-full flex flex-col">
+                    <div className="flex-1 overflow-auto max-h-[60vh]">
+                      <div className="bg-white border border-gray-200">
+                        <table className={formFieldStyles.moneyDonationList.logsTable.table}>
+                          <thead className={formFieldStyles.moneyDonationList.logsTable.thead}>
+                            <tr>
+                              <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                                {t('Action', 'செயல்')}
+                              </th>
+                              <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                                {t('Date & Time', 'தேதி மற்றும் நேரம்')}
+                              </th>
+                              <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                                {t('Entry ID', 'உள்ளீடு ஐடி')}
+                              </th>
+                              <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                                {t('User', 'பயனர்')}
+                              </th>
+                              <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                                {t('Details', 'விவரங்கள்')}
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className={formFieldStyles.moneyDonationList.logsTable.tbody}>
+                            {allLogs.length === 0 ? (
+                              <tr>
+                                <td className={formFieldStyles.moneyDonationList.logsTable.tdCenter} colSpan={5}>
+                                  {t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}
+                                </td>
+                              </tr>
+                            ) : allLogs.map((lg, index) => (
+                              <tr key={lg.id} className={formFieldStyles.moneyDonationList.logsTable.tr}>
+                                <td className={formFieldStyles.moneyDonationList.logsTable.td}>
+                                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                    lg.action === 'create' ? 'bg-green-100 text-green-800' :
+                                    lg.action === 'update' ? 'bg-blue-100 text-blue-800' :
+                                    lg.action === 'delete' ? 'bg-red-100 text-red-800' :
+                                    'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    {lg.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
+                                     lg.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
+                                     lg.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
+                                     lg.action}
+                                  </span>
+                                </td>
+                                <td className={formFieldStyles.moneyDonationList.logsTable.tdNowrap}>
+                                  {lg.created_at ? new Date(lg.created_at).toLocaleString('en-IN', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  }) : '-'}
+                                </td>
+                                <td className={formFieldStyles.moneyDonationList.logsTable.td}>{lg.ledger_entry_id}</td>
+                                <td className={formFieldStyles.moneyDonationList.logsTable.td}>
+                                  {(() => {
+                                    const userId = lg.created_by;
+                                    if (!userId) return '-';
+                                    const user = userDetails[userId];
+                                    const name = userNames[userId];
+                                    
+                                    if (user?.username) {
+                                      return `@${user.username}`;
+                                    }
+                                    if (user?.name) {
+                                      return user.name;
+                                    }
+                                    if (name) {
+                                      return name;
+                                    }
+                                    return `User ${userId}`;
+                                  })()}
+                                </td>
+                                <td className="py-3 px-4 border-b">
+                                  <div className="text-sm text-gray-600 max-w-md">
+                                    {(() => {
+                                      // Parse ledger entry details from the log data
+                                      const details = lg.details;
+                                      if (!details) return <span className="text-gray-400">-</span>;
+                                      
+                                      // Extract specific fields from the details
+                                      const name = details.name || details.after?.name || details.before?.name;
+                                      const date = details.date || details.after?.date || details.before?.date;
+                                      const type = details.type || details.after?.type || details.before?.type;
+                                      const amount = details.amount || details.after?.amount || details.before?.amount;
+                                      const under = details.under || details.after?.under || details.before?.under;
+                                      
+                                      return (
+                                        <div className="space-y-2">
+                                          <div className="bg-purple-50 p-3 rounded border text-xs">
+                                            <div className="font-medium text-purple-700 mb-2">{t('Ledger Entry Details', 'பதிவேடு உள்ளீடு விவரங்கள்')}</div>
+                                            <div className="space-y-1 text-gray-600">
+                                              {name && (
+                                                <div className="flex justify-between">
+                                                  <span className="font-medium">{t('Name', 'பெயர்')}:</span>
+                                                  <span>{name}</span>
+              </div>
+                                              )}
+                                              {date && (
+                                                <div className="flex justify-between">
+                                                  <span className="font-medium">{t('Date', 'தேதி')}:</span>
+                                                  <span>{date}</span>
+            </div>
+                                              )}
+                                              {type && (
+                                                <div className="flex justify-between">
+                                                  <span className="font-medium">{t('Type', 'வகை')}:</span>
+                                                  <span>{type === 'credit' ? t('Credit', 'கடன்') : t('Debit', 'பற்று')}</span>
+                                                </div>
+                                              )}
+                                              {amount && (
+                                                <div className="flex justify-between">
+                                                  <span className="font-medium">{t('Amount', 'தொகை')}:</span>
+                                                  <span>₹{amount}</span>
+                                                </div>
+                                              )}
+                                              {under && (
+                                                <div className="flex justify-between">
+                                                  <span className="font-medium">{t('Category', 'வகை')}:</span>
+                                                  <span>{under}</span>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })()}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                    <div className={formFieldStyles.moneyDonationList.pagination.container}>
+                      <div className={formFieldStyles.moneyDonationList.pagination.info}>
+                        {t('Total', 'மொத்தம்')}: <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{allLogsTotal}</span>
+                      </div>
+                      <div className={formFieldStyles.moneyDonationList.pagination.controls}>
+                        <button
+                          className={formFieldStyles.moneyDonationList.pagination.button}
+                          disabled={allLogsPage <= 1}
+                          onClick={() => {
+                            const prevPage = Math.max(1, allLogsPage - 1);
+                            loadAllLedgerLogs(prevPage);
+                          }}
+                        >
+                          {t('Previous', 'முந்தைய')}
+                        </button>
+                        <span className="text-sm text-gray-600">
+                          {t('Page', 'பக்கம்')} {allLogsPage} {t('of', 'இல்')} {Math.ceil(allLogsTotal / allLogsPageSize)}
+                        </span>
+                        <button
+                          className={formFieldStyles.moneyDonationList.pagination.button}
+                          disabled={allLogsPage * allLogsPageSize >= allLogsTotal}
+                          onClick={() => {
+                            const nextPage = allLogsPage + 1;
+                            loadAllLedgerLogs(nextPage);
+                          }}
+                        >
+                          {t('Next', 'அடுத்தது')}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-            <DialogFooter>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setEditEntry(null)}
-                className="text-xs"
-              >
-                {t('Cancel', 'ரத்து செய்')}
-              </Button>
-              <Button 
-                size="sm"
-                onClick={handleSave}
-                className="text-xs"
-              >
-                {t('Save', 'சேமி')}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          </div>
+        </div>
       )}
+
+      {/* Individual Ledger Logs Modal */}
+      {logsFor && (
+        <div className={formFieldStyles.moneyDonationList.modal.overlay}>
+          <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeLogs} />
+          <div className={formFieldStyles.moneyDonationList.modal.container}>
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-6 px-6 rounded-t-lg">
+              <div className={formFieldStyles.moneyDonationList.modal.header}>
+                <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('Activity Log', 'செயல்பாட்டு பதிவு')} #{logsFor}</h2>
+                <button onClick={closeLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                {logsLoading ? (
+                  <div className={formFieldStyles.moneyDonationList.modal.loading}>
+                    {t('Loading logs...', 'பதிவுகள் ஏறுகிறது...')}
+                  </div>
+                ) : logs.length === 0 ? (
+                  <div className={formFieldStyles.moneyDonationList.modal.loading}>
+                    {t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className={formFieldStyles.moneyDonationList.logsTable.table}>
+                      <thead className={formFieldStyles.moneyDonationList.logsTable.thead}>
+                        <tr>
+                          <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                            {t('Action', 'செயல்')}
+                          </th>
+                          <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                            {t('Date & Time', 'தேதி மற்றும் நேரம்')}
+                          </th>
+                          <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                            {t('User', 'பயனர்')}
+                          </th>
+                          <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                            {t('Details', 'விவரங்கள்')}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className={formFieldStyles.moneyDonationList.logsTable.tbody}>
+                        {logs.map((lg, index) => (
+                          <tr key={lg.id} className={formFieldStyles.moneyDonationList.logsTable.tr}>
+                            <td className={formFieldStyles.moneyDonationList.logsTable.td}>
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                lg.action === 'create' ? 'bg-green-100 text-green-800' :
+                                lg.action === 'update' ? 'bg-blue-100 text-blue-800' :
+                                lg.action === 'delete' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {lg.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
+                                 lg.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
+                                 lg.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
+                                 lg.action}
+                              </span>
+                            </td>
+                            <td className={formFieldStyles.moneyDonationList.logsTable.tdNowrap}>
+                              {lg.created_at ? new Date(lg.created_at).toLocaleString('en-IN', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              }) : '-'}
+                            </td>
+                            <td className={formFieldStyles.moneyDonationList.logsTable.td}>
+                              {(() => {
+                                const userId = lg.created_by;
+                                if (!userId) return '-';
+                                const user = userDetails[userId];
+                                const name = userNames[userId];
+                                
+                                if (user?.username) {
+                                  return `@${user.username}`;
+                                }
+                                if (user?.name) {
+                                  return user.name;
+                                }
+                                if (name) {
+                                  return name;
+                                }
+                                return `User ${userId}`;
+                              })()}
+                            </td>
+                            <td className={formFieldStyles.moneyDonationList.logsTable.td}>
+                              <div className="text-sm text-gray-600 max-w-md">
+                                {(() => {
+                                  // Parse ledger entry details from the log data
+                                  const details = lg.details;
+                                  if (!details) return <span className="text-gray-400">-</span>;
+                                  
+                                  // Extract specific fields from the details
+                                  const name = details.name || details.after?.name || details.before?.name;
+                                  const date = details.date || details.after?.date || details.before?.date;
+                                  const type = details.type || details.after?.type || details.before?.type;
+                                  const amount = details.amount || details.after?.amount || details.before?.amount;
+                                  const under = details.under || details.after?.under || details.before?.under;
+                                  
+                                  return (
+                                    <div className="space-y-2">
+                                      <div className="bg-purple-50 p-3 rounded border text-xs">
+                                        <div className="font-medium text-purple-700 mb-2">{t('Ledger Entry Details', 'பதிவேடு உள்ளீடு விவரங்கள்')}</div>
+                                        <div className="space-y-1 text-gray-600">
+                                          {name && (
+                                            <div className="flex justify-between">
+                                              <span className="font-medium">{t('Name', 'பெயர்')}:</span>
+                                              <span>{name}</span>
+                                            </div>
+                                          )}
+                                          {date && (
+                                            <div className="flex justify-between">
+                                              <span className="font-medium">{t('Date', 'தேதி')}:</span>
+                                              <span>{date}</span>
+                                            </div>
+                                          )}
+                                          {type && (
+                                            <div className="flex justify-between">
+                                              <span className="font-medium">{t('Type', 'வகை')}:</span>
+                                              <span>{type === 'credit' ? t('Credit', 'கடன்') : t('Debit', 'பற்று')}</span>
+                                            </div>
+                                          )}
+                                          {amount && (
+                                            <div className="flex justify-between">
+                                              <span className="font-medium">{t('Amount', 'தொகை')}:</span>
+                                              <span>₹{amount}</span>
+                                            </div>
+                                          )}
+                                          {under && (
+                                            <div className="flex justify-between">
+                                              <span className="font-medium">{t('Category', 'வகை')}:</span>
+                                              <span>{under}</span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </Card>
     </div>
   );
 }

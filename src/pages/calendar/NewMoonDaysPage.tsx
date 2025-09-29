@@ -44,7 +44,7 @@ const MOON_ICONS = {
 
 async function fetchMoonPhases(startDate: Date, endDate: Date, token: string | null): Promise<MoonPhase[]> {
   try {
-    const response = await axios.get<MoonPhase[]>('http://localhost:4000/api/moon-phases', {
+    const response = await axios.get<MoonPhase[]>('https://tmsapi.xesstechlink.com/api/moon-phases', {
       params: {
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString()
@@ -189,8 +189,9 @@ export default function NewMoonDaysPage() {
       },
     },
   } as const;
+  const lang = (String(language).toLowerCase() === 'english' ? 'tamil' : 'english') as 'tamil' | 'english';
 
-  const t = translations[language as 'tamil' | 'english'];
+  const t = translations[lang];
 
   const getPhaseLabel = useCallback((phase: keyof typeof MOON_PHASES) => {
     return t.phaseLabels[phase];
@@ -244,7 +245,7 @@ export default function NewMoonDaysPage() {
     const mods: Record<string, Date | Date[] | { from: Date; to: Date }> = {
       today: new Date(),
       selected: selectedDate,
-      saved: savedDates.map(d => parseISO(d.date)),
+      saved: (savedDates ?? []).map(d => parseISO(d.date)),
     };
 
     // Add moon phase modifiers

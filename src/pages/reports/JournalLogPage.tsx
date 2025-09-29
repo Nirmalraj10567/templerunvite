@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Download, FileText } from 'lucide-react';
+import { formFieldStyles, cn, pageContainerStyles } from '@/styles/formStyles';
 
 const PAGE_SIZE = 20;
 
@@ -24,6 +25,40 @@ export default function JournalLogPage() {
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [hasSynced, setHasSynced] = useState(false);
+
+  // Auto-sync pooja entries on component mount
+  useEffect(() => {
+    const syncPoojaEntries = async () => {
+      if (!token || hasSynced) return;
+      
+      try {
+        const response = await fetch('https://tmsapi.xesstechlink.com/api/journal/sync-pooja', {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        const result = await response.json();
+        if (result.success) {
+          const message = result.details ? 
+            `Synced ${result.created} entries to journal (${result.skipped} already existed)\n- Pooja: ${result.details.pooja.created} new, ${result.details.pooja.skipped} existing\n- Money Donations: ${result.details.moneyDonations.created} new, ${result.details.moneyDonations.skipped} existing` :
+            `Synced ${result.created} entries to journal (${result.skipped} already existed)`;
+          console.log(message);
+          load(); // Refresh the list
+        } else {
+          console.error('Sync failed:', result.error);
+        }
+      } catch (e: any) {
+        console.error('Sync failed:', e.message);
+      } finally {
+        setHasSynced(true);
+      }
+    };
+
+    syncPoojaEntries();
+  }, [token, hasSynced]);
 
   const today = new Date();
   const thirtyDaysAgo = new Date();
@@ -217,11 +252,16 @@ export default function JournalLogPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-4">
+    <div className={pageContainerStyles.container}>
+       <Card className={pageContainerStyles.content}>
+         <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+           <CardTitle className="text-lg font-bold w-full">
+           {t('Journal Log', 'ஜர்னல் பதிவு')}
+           </CardTitle>
+         </CardHeader>
+       
       <Card>
-        <CardHeader>
-          <CardTitle className="text-xl font-semibold">{t('Journal Log', 'ஜர்னல் பதிவு')}</CardTitle>
-        </CardHeader>
+       
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
             <div className="space-y-1">
@@ -263,35 +303,7 @@ export default function JournalLogPage() {
               >
                 {t('Next', 'அடுத்து')}
               </Button>
-              <Button 
-                variant="outline" 
-                onClick={async () => {
-                  try {
-                    const response = await fetch('http://localhost:4000/api/journal/sync-pooja', {
-                      method: 'POST',
-                      headers: { 
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                      }
-                    });
-                    const result = await response.json();
-                    if (result.success) {
-                      const message = result.details ? 
-                        `Synced ${result.created} entries to journal (${result.skipped} already existed)\n- Pooja: ${result.details.pooja.created} new, ${result.details.pooja.skipped} existing\n- Money Donations: ${result.details.moneyDonations.created} new, ${result.details.moneyDonations.skipped} existing` :
-                        `Synced ${result.created} entries to journal (${result.skipped} already existed)`;
-                      alert(message);
-                      load(); // Refresh the list
-                    } else {
-                      alert('Sync failed: ' + result.error);
-                    }
-                  } catch (e: any) {
-                    alert('Sync failed: ' + e.message);
-                  }
-                }}
-                disabled={isLoading || !token}
-              >
-                {t('Sync Pooja', 'பூஜை ஒத்திசைவு')}
-              </Button>
+            
               <Button 
                 variant="outline" 
                 onClick={exportToCSV}
@@ -308,36 +320,7 @@ export default function JournalLogPage() {
                 <FileText className="h-4 w-4 mr-2" />
                 {t('Export PDF', 'PDF ஏற்றுமதி')}
               </Button>
-              <Button 
-                variant="outline" 
-                onClick={async () => {
-                  try {
-                    const response = await fetch('http://localhost:4000/api/journal/sync-pooja', {
-                      method: 'POST',
-                      headers: { 
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                      }
-                    });
-                    const result = await response.json();
-                    if (result.success) {
-                      const message = result.details ? 
-                        `Synced ${result.created} entries to journal (${result.skipped} already existed)\n- Pooja: ${result.details.pooja.created} new, ${result.details.pooja.skipped} existing\n- Money Donations: ${result.details.moneyDonations.created} new, ${result.details.moneyDonations.skipped} existing` :
-                        `Synced ${result.created} entries to journal (${result.skipped} already existed)`;
-                      alert(message);
-                      load(); // Refresh the list
-                    } else {
-                      alert('Sync failed: ' + result.error);
-                    }
-                  } catch (e: any) {
-                    alert('Sync failed: ' + e.message);
-                  }
-                }}
-                disabled={isLoading || !token}
-              >
-                {t('Sync Pooja', 'பூஜை ஒத்திசைவு')}
-              </Button>
-              <Button variant="outline" onClick={() => navigate(-1)}>{t('Back', 'பின் செல்ல')}</Button>
+<Button variant="outline" onClick={() => navigate(-1)}>{t('Back', 'பின் செல்ல')}</Button>
               <Button onClick={load} disabled={isLoading}>{t('Refresh', 'புதுப்பிக்க')}</Button>
             </div>
           </div>
@@ -383,6 +366,7 @@ export default function JournalLogPage() {
           </div>
         </CardContent>
       </Card>
+    </Card>
     </div>
   );
 }

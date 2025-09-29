@@ -588,6 +588,38 @@ module.exports = function (deps = {}) {
     }
   });
 
+  // Get the latest hall booking
+  router.get('/latest', async (req, res) => {
+    try {
+      const latestBooking = await db('marriage_hall_bookings')
+        .where('temple_id', req.user.templeId)
+        .whereNotNull('register_no')
+        .orderBy('id', 'desc')
+        .first();
+      
+      if (latestBooking) {
+        return res.json({
+          success: true,
+          register_no: latestBooking.register_no,
+          date: latestBooking.date,
+          name: latestBooking.name
+        });
+      }
+      
+      res.status(404).json({
+        success: false,
+        error: 'No bookings found'
+      });
+      
+    } catch (error) {
+      console.error('Error fetching latest booking:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch latest booking'
+      });
+    }
+  });
+
   // Generate sequential receipt number (MUST be before /:id route)
   router.get('/generate-receipt-number', async (req, res) => {
     try {

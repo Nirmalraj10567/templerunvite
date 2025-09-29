@@ -46,6 +46,11 @@ export const formFieldStyles = {
     loadingSpinner: 'animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4',
     loadingText: 'text-gray-600',
   },
+  // Table header
+  tableHeader: {
+    container: 'bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center',
+    title: 'text-lg font-bold w-full'
+  },
   // Input fields
   input: "text-sm py-2 px-3 h-10 border border-gray-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-200 rounded-md w-full transition-all duration-200",
   
@@ -191,6 +196,31 @@ export const formFieldStyles = {
     newBalanceNegative: "text-red-600"
   },
 
+  // Donation Product List Styles
+  donationProductList: {
+    container: 'w-full p-4 bg-white rounded-lg shadow-sm border border-gray-200',
+    logBadge: {
+      base: 'px-2 py-1 rounded text-xs font-medium',
+      create: 'bg-green-100 text-green-800',
+      update: 'bg-blue-100 text-blue-800',
+      delete: 'bg-red-100 text-red-800',
+      default: 'bg-gray-100 text-gray-800'
+    },
+    modalActions: 'mt-4 flex justify-end gap-2',
+    modalButton: 'px-3 py-1 rounded text-xs',
+    modalButtonPrimary: 'bg-blue-600 text-white',
+    modalButtonSecondary: 'border',
+    logsContainer: 'max-h-96 overflow-y-auto',
+    loadingContainer: 'flex items-center justify-center h-32',
+    loadingText: 'text-sm text-muted-foreground',
+    logsTable: 'w-full text-sm',
+    logsTableHeader: 'border-b',
+    logsTableCell: 'p-2 text-left',
+    logsTableRow: 'border-b',
+    detailsButton: 'px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded',
+    deleteButton: 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+  },
+
   // Event Form Styles
   eventForm: {
     // Layout
@@ -232,12 +262,118 @@ export const formFieldStyles = {
     actionButtons: "flex flex-wrap gap-4 justify-end pt-6 border-t border-gray-200",
     cancelButton: "px-5 py-2.5 text-base border hover:bg-gray-50 rounded-md",
     submitButton: "px-5 py-2.5 text-base bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-md"
+  },
+
+  // Money Donation List Styles
+  moneyDonationList: {
+    // Filters section
+    filters: {
+      container: "bg-white rounded border border-gray-200 p-2 mb-4",
+      form: "flex flex-col md:flex-row gap-2 items-center",
+      searchContainer: "relative flex-1 w-full",
+      searchIcon: "absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none",
+      searchIconSvg: "h-4 w-4 text-gray-400",
+      searchInput: "block w-full pl-8 pr-2 py-1 border border-gray-300 rounded leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs",
+      dateContainer: "flex items-center gap-1 w-full md:w-auto",
+      dateInput: "px-2 py-1 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs",
+      dateLabel: "text-gray-600 text-xs",
+      buttonContainer: "flex flex-wrap gap-1 w-full md:w-auto",
+      button: "px-3 py-1 border border-gray-300 rounded shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
+    },
+
+    // Table section
+    table: {
+      container: "bg-white rounded border border-gray-200 overflow-hidden",
+      scrollContainer: "overflow-x-auto",
+      table: "min-w-full divide-y divide-gray-200",
+      thead: "bg-gray-50",
+      th: "px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider align-middle",
+      thActions: "px-2 w-16",
+      thRight: "text-right",
+      thCenter: "text-center",
+      thLeft: "text-left",
+      tbody: "bg-white divide-y divide-gray-200",
+      tr: "hover:bg-gray-50",
+      td: "px-3 py-2 whitespace-nowrap text-xs text-gray-900",
+      tdActions: "px-2 py-2 whitespace-nowrap text-center text-xs font-medium align-middle",
+      tdRight: "text-right",
+      tdCenter: "text-center",
+      loadingCell: "px-3 py-2 whitespace-nowrap text-xs text-gray-500 text-center",
+      emptyCell: "px-3 py-2 whitespace-nowrap text-xs text-gray-500 text-center"
+    },
+
+    // Action buttons
+    actionButtons: {
+      container: "inline-flex gap-1",
+      print: "px-2 py-1 border border-gray-300 rounded shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50",
+      logs: "px-2 py-1 border border-gray-300 rounded shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50",
+      edit: "px-2 py-1 border border-gray-300 rounded shadow-sm text-xs font-medium text-blue-700 bg-white hover:bg-gray-50",
+      delete: "p-1 rounded text-red-600 hover:bg-red-50",
+      deleteDisabled: "p-1 rounded text-gray-400 cursor-not-allowed",
+      deleteIcon: "h-4 w-4"
+    },
+
+    // Summary section
+    summary: {
+      container: "px-3 py-2 flex items-center justify-between border-t border-gray-200",
+      info: "text-xs text-gray-700",
+      total: "flex gap-2 text-xs text-gray-700",
+      fontMedium: "font-medium"
+    },
+
+    // Context menu
+    contextMenu: {
+      container: "fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 w-64",
+      header: "px-4 py-3 border-b border-gray-200",
+      title: "text-sm font-medium text-gray-900",
+      subtitle: "text-xs text-gray-500",
+      content: "max-h-60 overflow-y-auto p-2",
+      item: "flex items-center px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer select-none",
+      checkbox: "h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500",
+      label: "ml-2 text-sm text-gray-700",
+      actions: "flex flex-wrap gap-2 p-2 border-t border-gray-200",
+      actionButton: "px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50",
+      closeButton: "ml-auto px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50"
+    },
+
+    // Modals
+    modal: {
+      overlay: "fixed inset-0 z-50 flex items-center justify-center",
+      backdrop: "absolute inset-0 bg-black/40",
+      container: "relative bg-white rounded shadow-lg w-full max-w-5xl mx-2 p-3",
+      header: "flex items-center justify-between mb-2",
+      title: "text-sm font-semibold",
+      closeButton: "text-xs px-2 py-1 border rounded",
+      content: "max-h-[70vh] overflow-y-auto border rounded",
+      loading: "p-3 text-xs text-gray-600"
+    },
+
+    // Logs table
+    logsTable: {
+      table: "min-w-full text-xs",
+      thead: "bg-gray-50 sticky top-0",
+      th: "text-left px-2 py-1",
+      tbody: "",
+      tr: "border-t align-top",
+      td: "px-2 py-1",
+      tdCenter: "px-2 py-2 text-center text-gray-500",
+      tdNowrap: "px-2 py-1 whitespace-nowrap",
+      details: "whitespace-pre-wrap break-words text-[10px] bg-gray-50 p-2 rounded border max-w-[40vw]"
+    },
+
+    // Pagination
+    pagination: {
+      container: "flex items-center justify-between mt-2 text-xs",
+      info: "text-gray-700",
+      controls: "flex items-center gap-2",
+      button: "px-2 py-1 border border-gray-300 rounded shadow-sm text-xs bg-white hover:bg-gray-50"
+    }
   }
 };
 
 // Page container styles
 export const pageContainerStyles = {
-  container: "bg-gray-50 w-full min-h-screen p-4",
+  container: "w-full min-h-screen ",
   content: "max-w-7xl mx-auto space-y-4"
 };
 

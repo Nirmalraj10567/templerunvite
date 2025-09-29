@@ -256,10 +256,10 @@ export default function TempleUserEntryPage() {
       (async () => {
         try {
           const [clansRes, groupsRes, occupationsRes, educationsRes] = await Promise.all([
-            fetch(`http://localhost:4000/api/master/clans/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
-            fetch(`http://localhost:4000/api/master/groups/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
-            fetch(`http://localhost:4000/api/master/occupations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
-            fetch(`http://localhost:4000/api/master/educations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } })
+            fetch(`https://tmsapi.xesstechlink.com/api/master/clans/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`https://tmsapi.xesstechlink.com/api/master/groups/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`https://tmsapi.xesstechlink.com/api/master/occupations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`https://tmsapi.xesstechlink.com/api/master/educations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } })
           ]);
           if (clansRes.ok) {
             const clans = (await clansRes.json()).map((x: any) => x.name);
@@ -298,7 +298,7 @@ export default function TempleUserEntryPage() {
     if (!token) return;
     (async () => {
       try {
-        const resp = await fetch('http://localhost:4000/api/ledger/categories', {
+        const resp = await fetch('https://tmsapi.xesstechlink.com/api/ledger/categories', {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = await resp.json();
@@ -318,7 +318,7 @@ export default function TempleUserEntryPage() {
     const loadForEdit = async () => {
       if (!editId || !token) return;
       try {
-        const res = await fetch(`http://localhost:4000/api/registrations/${editId}`, {
+        const res = await fetch(`https://tmsapi.xesstechlink.com/api/registrations/${editId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
@@ -356,7 +356,10 @@ export default function TempleUserEntryPage() {
         }));
         // Debug: Log the photo path
         console.log('Photo path from API:', r.photo_path);
-        const photoUrl = r.photo_path ? `/public${r.photo_path}` : null;
+        const baseUrl = 'https://tmsapi.xesstechlink.com/public';
+        const photoUrl = r.photo_path ? 
+          (r.photo_path.startsWith('http') ? r.photo_path : `${baseUrl}${r.photo_path.startsWith('/') ? '' : '/'}${r.photo_path}`) : 
+          null;
         console.log('Constructed photo URL:', photoUrl);
         
         // Test if the photo URL is accessible
@@ -485,7 +488,7 @@ export default function TempleUserEntryPage() {
   const fetchNextRef = async () => {
     if (!token || !user?.templeId) return;
     try {
-      const res = await fetch(`http://localhost:4000/api/registrations/next-reference?templeId=${user.templeId}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/registrations/next-reference?templeId=${user.templeId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -588,7 +591,7 @@ export default function TempleUserEntryPage() {
     setMsg(null);
     try {
       const isEdit = !!editId;
-      const url = isEdit ? `http://localhost:4000/api/registrations/${editId}` : 'http://localhost:4000/api/registrations';
+      const url = isEdit ? `https://tmsapi.xesstechlink.com/api/registrations/${editId}` : 'https://tmsapi.xesstechlink.com/api/registrations';
       const method = isEdit ? 'PUT' : 'POST';
       
       // Check if we have a photo to upload

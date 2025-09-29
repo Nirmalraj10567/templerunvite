@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { getAuthToken } from '@/lib/auth';
 import { useLanguage } from '@/lib/language';
+import { formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
+
 import { 
   Loader2, 
   RefreshCw, 
@@ -26,7 +28,7 @@ import { cn } from '@/lib/utils';
 
 // Translation object
 const t = {
-  english: {
+  tamil: {
     dateFrom: 'Date From',
     dateTo: 'Date To',
     search: 'Search',
@@ -84,7 +86,7 @@ const t = {
     ascending: 'Ascending',
     descending: 'Descending',
   },
-  tamil: {
+  english: {
     dateFrom: 'தேதி இருந்து',
     dateTo: 'தேதி வரை',
     search: 'தேடு',
@@ -178,6 +180,7 @@ export default function TrialBalancePage() {
 
 function TrialBalanceContent() {
   const { language } = useLanguage();
+ 
   const [params, setParams] = useSearchParams();
   const persisted = useMemo(() => {
     try {
@@ -278,7 +281,7 @@ function TrialBalanceContent() {
       setIsLoading(true);
       setError(null);
       const token = getAuthToken();
-      const resp = await fetch(`http://localhost:4000/api/journal/trial-balance?from=${query.startDate}&to=${query.endDate}`, {
+      const resp = await fetch(`https://tmsapi.xesstechlink.com/api/journal/trial-balance?from=${query.startDate}&to=${query.endDate}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
 
@@ -533,11 +536,22 @@ function TrialBalanceContent() {
   ));
 
   return (
+
+
+
+    <div className={pageContainerStyles.container}>
+       <Card className={pageContainerStyles.content}>
+         <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+           <CardTitle className="text-lg font-bold w-full">
+           {t[language].trialBalance}
+           </CardTitle>
+         </CardHeader>
+       
     <div className="space-y-6">
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">{t[language].trialBalance}</h1>
+          <h1 className="text-2xl font-bold"></h1>
           <p className="text-sm text-muted-foreground mt-1">
             {t[language].trialBalanceData}
           </p>
@@ -1069,6 +1083,8 @@ function TrialBalanceContent() {
           )}
         </CardContent>
       </Card>
+    </div>
+    </Card>
     </div>
   );
 }

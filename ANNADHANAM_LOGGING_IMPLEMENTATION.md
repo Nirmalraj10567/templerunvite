@@ -78,13 +78,13 @@ Each log entry contains:
 
 ### Get Logs for Specific Entry
 ```bash
-curl -X GET "http://localhost:4000/api/annadhanam/123/logs" \
+curl -X GET "https://tmsapi.xesstechlink.com/api/annadhanam/123/logs" \
   -H "Authorization: Bearer your-token"
 ```
 
 ### Get All Logs with Pagination
 ```bash
-curl -X GET "http://localhost:4000/api/annadhanam/logs?page=1&pageSize=20" \
+curl -X GET "https://tmsapi.xesstechlink.com/api/annadhanam/logs?page=1&pageSize=20" \
   -H "Authorization: Bearer your-token"
 ```
 
@@ -110,12 +110,12 @@ Use the following curl commands to test:
 
 ```bash
 # Create an annadhanam entry (will be logged)
-curl -X POST http://localhost:4000/api/annadhanam \
+curl -X POST https://tmsapi.xesstechlink.com/api/annadhanam \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-token" \
   -d '{"name": "Test User", "mobileNumber": "9876543210", "time": "10:00", "fromDate": "2025-09-28", "toDate": "2025-09-28"}'
 
 # Check logs for the created entry
-curl -X GET "http://localhost:4000/api/annadhanam/logs" \
+curl -X GET "https://tmsapi.xesstechlink.com/api/annadhanam/logs" \
   -H "Authorization: Bearer your-token"
 ```

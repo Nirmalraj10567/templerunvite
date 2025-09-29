@@ -9,6 +9,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { getAuthToken } from '@/lib/auth';
 import { Loader2, RefreshCw, IndianRupee } from 'lucide-react';
 import { useLanguage } from '@/lib/language'; // 👈 Import useLanguage
+import { formFieldStyles, cn, pageContainerStyles } from '@/styles/formStyles';
 
 interface Item {
   account: string;
@@ -43,6 +44,7 @@ export default function BalanceSheetPage() {
     fiscalYear: string;
     loading: string;
     errorLoading: string;
+    balanceSheet: string;
   };
 
   const t: Record<'english' | 'tamil', Labels> = {
@@ -70,8 +72,10 @@ export default function BalanceSheetPage() {
       fiscalYear: 'Fiscal Year',
       loading: 'Loading...',
       errorLoading: 'Failed to load',
+      balanceSheet: 'Balance Sheet',
     },
     english: {
+      balanceSheet: 'இருப்புநிலை',
       title: 'சமநிலை அறிக்கை',
       from: 'இருந்து',
       to: 'வரை',
@@ -120,14 +124,14 @@ export default function BalanceSheetPage() {
       const token = getAuthToken();
 
       // Fetch balance sheet data
-      const balanceResp = await fetch(`http://localhost:4000/api/journal/balance-sheet?from=${query.startDate}&to=${query.endDate}`, {
+      const balanceResp = await fetch(`https://tmsapi.xesstechlink.com/api/journal/balance-sheet?from=${query.startDate}&to=${query.endDate}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!balanceResp.ok) throw new Error(t[language].errorLoading);
       const balanceData = await balanceResp.json();
 
       // Fetch debit transactions from ledger entries (already typed credit/debit)
-      const debitResp = await fetch(`http://localhost:4000/api/ledger/entries?startDate=${query.startDate}&endDate=${query.endDate}&type=debit&limit=1000&page=1`, {
+      const debitResp = await fetch(`https://tmsapi.xesstechlink.com/api/ledger/entries?startDate=${query.startDate}&endDate=${query.endDate}&type=debit&limit=1000&page=1`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       let debitItems: Item[] = [];
@@ -394,18 +398,18 @@ export default function BalanceSheetPage() {
   );
 
   return (
-    <div className="max-w-7xl mx-auto p-2">
+    <div className={pageContainerStyles.container}>
+       <Card className={pageContainerStyles.content}>
+         <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+           <CardTitle className="text-lg font-bold w-full">
+           {t[language].balanceSheet}
+           </CardTitle>
+         </CardHeader>
+       
       <Card className="shadow-lg">
         <CardHeader className="py-3 px-4 border-b">
-          <div className="flex justify-between items-center">
-            <div className="flex gap-2">
-              <Button variant="secondary" size="sm" onClick={exportCSV} disabled={!assets.length && !liabilities.length}>
-                {t[language].csv}
-              </Button>
-              <Button variant="secondary" size="sm" onClick={() => window.print()} disabled={!assets.length && !liabilities.length}>
-                {t[language].print}
-              </Button>
-            </div>
+          <div className="flex justify-start items-left">
+            
           </div>
         </CardHeader>
         <CardContent className="p-3">
@@ -457,6 +461,7 @@ export default function BalanceSheetPage() {
           </div>
         </CardContent>
       </Card>
+    </Card>
     </div>
   );
 }

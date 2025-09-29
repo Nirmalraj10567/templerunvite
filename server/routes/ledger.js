@@ -66,6 +66,27 @@ router.post('/entries', authenticateToken, async (req, res) => {
       updated_at: db.fn.now()
     });
 
+    // Create log entry
+    await db('ledger_entry_logs').insert({
+      ledger_entry_id: entryId,
+      action: 'create',
+      created_by: req.user?.id || null,
+      details: JSON.stringify({
+        date,
+        name,
+        under: under || null,
+        type,
+        amount: parseFloat(amount),
+        address: address || null,
+        city: city || null,
+        phone: phone || null,
+        mobile: mobile || null,
+        email: email || null,
+        note: note || null
+      }),
+      created_at: db.fn.now()
+    });
+
     const newEntry = await db('ledger_entries').where('id', entryId).first();
     res.status(201).json(newEntry);
   } catch (error) {
@@ -174,6 +195,16 @@ router.put('/entries/:id', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Amount must be a positive number' });
     }
 
+    // Get the current entry for logging
+    const currentEntry = await db('ledger_entries')
+      .where({ id })
+      .andWhere('temple_id', req.user?.templeId || 1)
+      .first();
+
+    if (!currentEntry) {
+      return res.status(404).json({ error: 'Ledger entry not found' });
+    }
+
     const updated = await db('ledger_entries')
       .where({ id })
       .andWhere('temple_id', req.user?.templeId || 1)
@@ -196,6 +227,42 @@ router.put('/entries/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Ledger entry not found' });
     }
 
+    // Create log entry for update
+    await db('ledger_entry_logs').insert({
+      ledger_entry_id: id,
+      action: 'update',
+      created_by: req.user?.id || null,
+      details: JSON.stringify({
+        before: {
+          date: currentEntry.date,
+          name: currentEntry.name,
+          under: currentEntry.under,
+          type: currentEntry.type,
+          amount: currentEntry.amount,
+          address: currentEntry.address,
+          city: currentEntry.city,
+          phone: currentEntry.phone,
+          mobile: currentEntry.mobile,
+          email: currentEntry.email,
+          note: currentEntry.note
+        },
+        after: {
+          date,
+          name,
+          under: under || null,
+          type,
+          amount: parseFloat(amount),
+          address: address || null,
+          city: city || null,
+          phone: phone || null,
+          mobile: mobile || null,
+          email: email || null,
+          note: note || null
+        }
+      }),
+      created_at: db.fn.now()
+    });
+
     const updatedEntry = await db('ledger_entries')
       .where({ id })
       .andWhere('temple_id', req.user?.templeId || 1)
@@ -212,6 +279,16 @@ router.delete('/entries/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     
+    // Get the current entry for logging before deletion
+    const currentEntry = await db('ledger_entries')
+      .where({ id })
+      .andWhere('temple_id', req.user?.templeId || 1)
+      .first();
+
+    if (!currentEntry) {
+      return res.status(404).json({ error: 'Ledger entry not found' });
+    }
+    
     const deleted = await db('ledger_entries')
       .where({ id })
       .andWhere('temple_id', req.user?.templeId || 1)
@@ -220,6 +297,27 @@ router.delete('/entries/:id', authenticateToken, async (req, res) => {
     if (deleted === 0) {
       return res.status(404).json({ error: 'Ledger entry not found' });
     }
+
+    // Create log entry for deletion
+    await db('ledger_entry_logs').insert({
+      ledger_entry_id: id,
+      action: 'delete',
+      created_by: req.user?.id || null,
+      details: JSON.stringify({
+        date: currentEntry.date,
+        name: currentEntry.name,
+        under: currentEntry.under,
+        type: currentEntry.type,
+        amount: currentEntry.amount,
+        address: currentEntry.address,
+        city: currentEntry.city,
+        phone: currentEntry.phone,
+        mobile: currentEntry.mobile,
+        email: currentEntry.email,
+        note: currentEntry.note
+      }),
+      created_at: db.fn.now()
+    });
     
     res.json({ message: 'Ledger entry deleted successfully' });
   } catch (error) {
@@ -515,6 +613,54 @@ router.get('/cashflow/statement', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error generating category statement:', error);
     res.status(500).json({ error: 'Failed to generate category statement' });
+  }
+});
+
+// Get logs for a specific ledger entry
+router.get('/entries/:id/logs', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const logs = await db('ledger_entry_logs')
+      .where('ledger_entry_id', id)
+      .orderBy('created_at', 'desc');
+    
+    res.json({ success: true, data: logs });
+  } catch (error) {
+    console.error('Error fetching ledger entry logs:', error);
+    res.status(500).json({ error: 'Failed to fetch logs' });
+  }
+});
+
+// Get all ledger entry logs with pagination
+router.get('/entries/logs', authenticateToken, async (req, res) => {
+  try {
+    const { page = 1, pageSize = 50 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(pageSize);
+    
+    // Get total count
+    const totalResult = await db('ledger_entry_logs')
+      .count('* as count')
+      .first();
+    const total = totalResult.count;
+    
+    // Get paginated logs
+    const logs = await db('ledger_entry_logs')
+      .select('*')
+      .orderBy('created_at', 'desc')
+      .limit(parseInt(pageSize))
+      .offset(offset);
+    
+    res.json({ 
+      success: true, 
+      data: logs,
+      total: total,
+      page: parseInt(page),
+      pageSize: parseInt(pageSize)
+    });
+  } catch (error) {
+    console.error('Error fetching all ledger logs:', error);
+    res.status(500).json({ error: 'Failed to fetch logs' });
   }
 });
 

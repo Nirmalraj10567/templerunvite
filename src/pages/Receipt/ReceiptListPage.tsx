@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
+import { cn } from '@/lib/utils';
+import { formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface ReceiptItem {
   id: number;
@@ -146,12 +149,21 @@ export default function ReceiptListPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto bg-white p-3 rounded-md shadow text-sm">
-      <h1 className="text-lg font-semibold mb-3 text-center">
-        {t('Receipt List', 'பதிவு பார்வைக்கும்')}
-      </h1>
+    <div className={cn(pageContainerStyles.container, 'max-w-7xl mx-auto')}>
+      <Card className={pageContainerStyles.content}>
+        <CardHeader className={cn(
+          "bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center",
+          formFieldStyles.donationProductList.logBadge.create
+        )}>
+          <CardTitle className={cn(
+            "text-lg font-bold w-full",
+            formFieldStyles.donationProductList.logBadge.base
+          )}>
+            {t('Receipt List', 'பதிவு பார்வைக்கும்')}
+          </CardTitle>
+        </CardHeader>
 
-      <div className="flex flex-wrap gap-3 mb-3 items-end">
+        <div className="flex flex-wrap gap-3 mb-3 items-end justify-center">
         <div>
           <label className="block text-xs mb-1">{t('From Date', 'தேதி இருந்து')}</label>
           <input
@@ -328,6 +340,8 @@ export default function ReceiptListPage() {
           </div>
         </div>
       )}
+    </Card>
     </div>
+   
   );
 }

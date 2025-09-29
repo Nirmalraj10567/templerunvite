@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLanguage } from '@/lib/language'; 
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent } from '@/components/ui/card';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle, XCircle, Eye, Clock, User, Phone, Calendar, FileText, Search, RefreshCw } from 'lucide-react';
 
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn, pageContainerStyles, formFieldStyles } from "@/styles/formStyles";
 interface PoojaRequest {
   id: number;
   receipt_number: string;
@@ -187,7 +189,7 @@ export default function PoojaApprovalPage() {
     setLogs([]);
     setLogsLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/pooja-approval/${poojaId}/logs`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/pooja-approval/${poojaId}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -226,7 +228,7 @@ export default function PoojaApprovalPage() {
   const loadAllPoojaLogs = async (pageNum: number) => {
     setAllLogsLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/pooja-approval/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/pooja-approval/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -263,7 +265,7 @@ export default function PoojaApprovalPage() {
   const fetchRequests = async (page = pagination.page, pageSize = pagination.pageSize) => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:4000/api/pooja', {
+      const response = await axios.get('https://tmsapi.xesstechlink.com/api/pooja', {
         params: {
           q: searchTerm,
           status: statusFilter || undefined,
@@ -311,7 +313,7 @@ export default function PoojaApprovalPage() {
 
   const fetchStats = async () => {
     try {
-      const response = await axios.get('http://localhost:4000/api/pooja/stats/summary', {
+      const response = await axios.get('https://tmsapi.xesstechlink.com/api/pooja/stats/summary', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -334,7 +336,7 @@ export default function PoojaApprovalPage() {
 
   const handleApprove = async (requestId: number) => {
     try {
-      const response = await fetch(`http://localhost:4000/api/pooja-approval/approve/${requestId}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/pooja-approval/approve/${requestId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -372,7 +374,7 @@ export default function PoojaApprovalPage() {
 
   const handleReject = async (requestId: number) => {
     try {
-      const response = await fetch(`http://localhost:4000/api/pooja-approval/reject/${requestId}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/pooja-approval/reject/${requestId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -412,7 +414,7 @@ export default function PoojaApprovalPage() {
 
   const handleBulkAction = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/pooja-approval/bulk-action', {
+      const response = await fetch('https://tmsapi.xesstechlink.com/api/pooja-approval/bulk-action', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -498,7 +500,7 @@ export default function PoojaApprovalPage() {
     const loadDetails = async () => {
       try {
         if (!isViewDialogOpen || !selectedRequest) return;
-        const res = await fetch(`http://localhost:4000/api/pooja-approval/request/${selectedRequest.id}`, {
+        const res = await fetch(`https://tmsapi.xesstechlink.com/api/pooja-approval/request/${selectedRequest.id}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!res.ok) return;
@@ -513,14 +515,17 @@ export default function PoojaApprovalPage() {
   }, [isViewDialogOpen, selectedRequest, token]);
 
   return (
-    <div className="p-2 bg-gray-50">
-      {/* Compact Header */}
-      <div className="flex justify-between items-center mb-2">
-        <h1 className="text-base font-bold text-gray-800">{t('Pooja Approval', 'பூஜை அனுமதி')}</h1>
-        <div className="text-xs text-gray-500">
+    <div className={pageContainerStyles.container}>
+   <Card className={pageContainerStyles.content}>  
+        <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+          <CardTitle className="text-lg font-bold w-full">
+            {t("Pooja List Approval", "பூஜை பதிவு அனுமதி")}
+          </CardTitle>
+        </CardHeader>
+        <div className="flex flex-col md:flex-row gap-3 mb-4">
           {requests.length} {t('requests', 'கோரிக்கைகள்')}
         </div>
-      </div>
+      
 
       {/* Compact Statistics */}
       {stats && (
@@ -1354,6 +1359,7 @@ export default function PoojaApprovalPage() {
           </div>
         </div>
       )}
+     </Card >
     </div>
   );
 }

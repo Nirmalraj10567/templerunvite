@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { setGlobalLogoutCallback, isTokenExpired } from '@/lib/apiClient';
 
 interface User {
   id: number;
@@ -81,7 +82,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const savedToken = localStorage.getItem('authToken');
     const savedUser = localStorage.getItem('userInfo');
     const savedPermissions = localStorage.getItem('userPermissions');
+    
     if (savedToken && savedUser) {
+      // Check if token is expired before restoring session
+      if (isTokenExpired(savedToken)) {
+        console.warn('Saved token is expired, clearing session');
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('userInfo');
+        localStorage.removeItem('userPermissions');
+        setState(prev => ({ ...prev, isLoading: false }));
+        return;
+      }
+      
       const parsedUser = JSON.parse(savedUser);
       const parsedPermissions: UserPermission[] = savedPermissions
         ? JSON.parse(savedPermissions)
@@ -113,7 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, isLoading: true, error: '' }));
     
     try {
-      const response = await fetch('http://localhost:4000/api/login', {
+      const response = await fetch('https://tmsapi.xesstechlink.com/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mobile: identifier, username: identifier, password }),
@@ -159,7 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, isLoading: true, error: '' }));
     
     try {
-      const response = await fetch('http://localhost:4000/api/register', {
+      const response = await fetch('https://tmsapi.xesstechlink.com/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -218,6 +230,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('userInfo');
     localStorage.removeItem('userPermissions');
   };
+
+  // Set up global logout callback for API client
+  useEffect(() => {
+    setGlobalLogoutCallback(logout);
+  }, []);
+
+  // Periodic token expiration check
+  useEffect(() => {
+    if (!state.token) return;
+
+    const checkTokenExpiration = () => {
+      if (state.token && isTokenExpired(state.token)) {
+        console.warn('Token expired during session, logging out automatically');
+        logout();
+      }
+    };
+
+    // Check token expiration every 5 minutes
+    const interval = setInterval(checkTokenExpiration, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [state.token]);
 
   return (
     <AuthContext.Provider value={{

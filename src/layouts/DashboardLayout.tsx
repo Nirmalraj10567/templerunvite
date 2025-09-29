@@ -345,7 +345,7 @@ export default function DashboardLayout() {
 
   useEffect(() => {
     let mounted = true;
-    fetch('http://localhost:4000/api/system/year-end-status', { headers: { Authorization: `Bearer ${token}` } })
+    fetch('https://tmsapi.xesstechlink.com/api/system/year-end-status', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(d => {
         if (!mounted) return;
@@ -671,13 +671,14 @@ export default function DashboardLayout() {
         <header 
           ref={headerRef}
           className={`flex items-center justify-between h-20 bg-white/80 backdrop-blur-lg border-b 
-                     border-blue-200/50 px-6 shadow-sm transition-transform duration-300 ease-in-out
-                     ${headerVisible ? 'translate-y-0' : '-translate-y-full'}`}
+                     border-blue-200/50 px-6 shadow-sm transition-all duration-300 ease-in-out
+                     ${headerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full'}`}
           style={{
             position: 'sticky',
             top: 0,
             zIndex: 20,
-            transitionProperty: 'transform',
+            height: headerVisible ? '5rem' : '0',
+            overflow: headerVisible ? 'visible' : 'hidden',
           }}>
           {/* Left side: optional view-only badge */}
           <div className="flex items-center gap-3">
@@ -694,11 +695,12 @@ export default function DashboardLayout() {
           ref={mainScrollRef} 
           className={`flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 to-blue-50 
                      scrollbar-thin scrollbar-thumb-blue-400 scrollbar-track-transparent 
-                     hover:scrollbar-thumb-blue-500 transition-colors duration-200`} 
+                     hover:scrollbar-thumb-blue-500 transition-all duration-300 
+                     ${headerVisible ? 'pt-2' : 'pt-0'}`} 
           data-view-only={isViewOnlyForRoute ? 'true' : 'false'}
           style={{ WebkitOverflowScrolling: 'touch' }}>
-          <div className="pt-2 pb-8 px-8">
-          <div className="max-w-7xl mx-auto">
+          <div className={`${headerVisible ? 'pb-8' : 'py-8'} px-8`}>
+            <div className="max-w-7xl mx-auto">
               <Outlet />
             </div>
           </div>

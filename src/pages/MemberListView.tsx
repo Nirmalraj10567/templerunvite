@@ -5,9 +5,10 @@ import { Member } from '@/types/member';
 import { useLanguage } from '@/lib/language';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { formFieldStyles, cn, pageContainerStyles } from '@/styles/formStyles';
 
 interface Props {
   members: Member[];
@@ -236,7 +237,7 @@ export default function MemberListView({
       // preload existing permissions
       setPermLoading(true);
       const targetId = (member as any).userId ?? member.id;
-      const res = await fetch(`http://localhost:4000/api/admin/members/${targetId}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/admin/members/${targetId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -278,7 +279,7 @@ export default function MemberListView({
     setPermError(null);
     try {
       const body = { customPermissions: permItems.filter(r => r.id && r.access) };
-      const res = await fetch(`http://localhost:4000/api/admin/members/${permMember.userId ?? permMember.id}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/admin/members/${permMember.userId ?? permMember.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -301,7 +302,13 @@ export default function MemberListView({
   };
 
   return (
-    <div className="p-1 bg-gray-50 min-h-screen">
+    <div className={pageContainerStyles.container}>
+      <Card className={pageContainerStyles.content}>
+        <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+          <CardTitle className="text-lg font-bold w-full">
+            {t("Members List", "உறுப்பினர் பதிவு")}
+          </CardTitle>
+        </CardHeader>
       {/* Header */}
       <div className="flex justify-between items-center mb-2 px-1">
         <div className="text-sm text-gray-500">
@@ -727,6 +734,8 @@ export default function MemberListView({
           </div>
         </div>
       )}
+    </Card>
     </div>
+    
   );
 }

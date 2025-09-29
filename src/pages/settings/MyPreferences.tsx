@@ -5,6 +5,10 @@ import { useLanguage } from '../../lib/language';
 import { UsersIcon, BarChartIcon, CreditCardIcon, CalendarIcon } from '../../components/icons';
 import { sidebarItems, NavItem } from '../../config/navigation';
 import { Modal } from '../../components/Modal';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import { formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
+
 
 const MyPreferences: React.FC = () => {
   const { settings, updateSettings } = useSettings();
@@ -116,7 +120,9 @@ const MyPreferences: React.FC = () => {
   };
 
   return (
-    <div className="w-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <div className={pageContainerStyles.container}>
+   <Card className={pageContainerStyles.content}>
+   
       {/* Success Modal */}
       <Modal open={showSuccess} onClose={() => setShowSuccess(false)}>
         <div className="p-6 text-center">
@@ -136,8 +142,14 @@ const MyPreferences: React.FC = () => {
         {/* Header Section */}
         <div className="mb-6">
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-slate-900 mb-2">{t[language].title}</h1>
-            <p className="text-lg text-slate-600">{t[language].subtitle}</p>
+
+
+            <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+            <CardTitle className="text-lg font-bold w-full">
+            {t[language].title}
+            </CardTitle>
+            </CardHeader> 
+          
           </div>
         </div>
 
@@ -299,6 +311,7 @@ const MyPreferences: React.FC = () => {
           </div>
         </div>
       </div>
+      </Card>
     </div>
   );
 };

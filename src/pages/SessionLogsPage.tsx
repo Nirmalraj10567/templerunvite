@@ -3,11 +3,14 @@ import { useAuth } from '../contexts/AuthContext';
 import { DataTable } from '../components/ui/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { Button } from '@/components/ui/button';
-import { Input } from '../components/ui/Input';
+
 import { useLanguage } from '@/lib/language';
 import { FileDown } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn, pageContainerStyles, formFieldStyles } from "@/styles/formStyles";
+import { Input } from '@/components/ui/input';
 
 export interface SessionLog {
   id: number;
@@ -245,7 +248,7 @@ const SessionLogsPage = () => {
         ...(endDate && { endDate }),
       });
 
-      const response = await fetch(`http://localhost:4000/api/session-logs?${params.toString()}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/session-logs?${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -281,7 +284,7 @@ const SessionLogsPage = () => {
         ...(endDate && { endDate }),
       });
 
-      const response = await fetch(`http://localhost:4000/api/session-logs/export?${params.toString()}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/session-logs/export?${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -323,7 +326,7 @@ const SessionLogsPage = () => {
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
       
-      const response = await fetch(`http://localhost:4000/api/session-logs/export-pdf?${params.toString()}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/session-logs/export-pdf?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -367,11 +370,17 @@ const SessionLogsPage = () => {
   }, [visibleCols, language]);
 
   return (
-    <div className="p-6 bg-white rounded-lg shadow" onContextMenu={onContextMenu}>
+    <div  className={pageContainerStyles.container} onContextMenu={onContextMenu}>
       {/* Header */}
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold text-gray-800">{translate('sessionLogs')}</h1>
-      </div>
+
+     
+      <Card className={pageContainerStyles.content}>
+        <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+          <CardTitle className="text-lg font-bold w-full">
+          <h1 className="text-2xl font-bold text-white-800">{translate('sessionLogs')}</h1>
+          </CardTitle>
+        </CardHeader>
+
 
       {/* Filters */}
       <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
@@ -597,6 +606,7 @@ const SessionLogsPage = () => {
           </div>
         </div>
       )}
+      </Card>
     </div>
   );
 };

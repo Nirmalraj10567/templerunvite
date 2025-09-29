@@ -2,7 +2,7 @@ import axios from 'axios';
 import { getAuthToken } from '@/lib/auth';
 
 // Using Vite environment variables
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://tmsapi.xesstechlink.com';
 
 // Create configured axios instance
 const api = axios.create({
@@ -99,16 +99,16 @@ export const ledgerService = {
 
   async updateEntry(entry: LedgerEntry): Promise<LedgerEntry> {
     const { id, ...updateData } = entry;
-    const response = await api.put<any>(`/api/journal/entries/${id}`, updateData as any);
+    const response = await api.put<any>(`/api/ledger/entries/${id}`, updateData as any);
     return (response.data?.data || response.data) as LedgerEntry;
   },
 
   async deleteEntry(id: number): Promise<void> {
-    await api.delete(`/api/journal/entries/${id}`);
+    await api.delete(`/api/ledger/entries/${id}`);
   },
 
   async getEntry(id: number): Promise<LedgerEntry> {
-    const response = await api.get<any>(`/api/journal/entries/${id}`);
+    const response = await api.get<any>(`/api/ledger/entries/${id}`);
     return (response.data?.data || response.data) as LedgerEntry;
   },
 
@@ -202,7 +202,7 @@ export const ledgerService = {
 
   async exportAsCSV(params: Record<string, any>): Promise<Blob> {
     const query = new URLSearchParams(params).toString();
-    const response = await fetch(`http://localhost:4000/api/ledger/export?${query}`, {
+    const response = await fetch(`https://tmsapi.xesstechlink.com/api/ledger/export?${query}`, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       }

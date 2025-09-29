@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useLanguage } from '@/lib/language';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,7 @@ export default function LedgerEditPage() {
   const [loading, setLoading] = useState(true);
   const [entry, setEntry] = useState<LedgerEntry | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
+  const hasLoaded = useRef(false);
   
   const [formData, setFormData] = useState<{
     date: string;
@@ -41,39 +42,46 @@ export default function LedgerEditPage() {
 
   useEffect(() => {
     const loadData = async () => {
+      if (!id || hasLoaded.current) return;
+      
       try {
         setLoading(true);
+        hasLoaded.current = true;
         
-        // Load entry data
-        if (id) {
-          const data = await ledgerService.getEntry(parseInt(id));
-          setEntry(data);
-          setFormData({
-            date: data.date.split('T')[0],
-            name: data.name,
-            type: data.type,
-            under: data.under || '',
-            amount: data.amount.toString(),
-            remarks: (data as any).remarks || '' // Temporary fix for missing remarks
-          });
-        }
+        // Load entry data and categories in parallel
+        const [data, cats] = await Promise.all([
+          ledgerService.getEntry(parseInt(id)),
+          ledgerService.getCategories()
+        ]);
         
-        // Load categories
-        const cats = await ledgerService.getCategories();
+        setEntry(data);
         setCategories(cats);
+        setFormData({
+          date: data.date.split('T')[0],
+          name: data.name || '',
+          type: data.type || 'credit',
+          under: data.under || '',
+          amount: data.amount.toString(),
+          remarks: (data as any).remarks || ''
+        });
       } catch (error) {
         console.error('Error loading data:', error);
         toast(t('Failed to load ledger entry', 'பதிவேட்டு உள்ளீட்டை ஏற்ற முடியவில்லை'), {
           variant: 'destructive'
         });
-        navigate('/ledger');
+        navigate('/dashboard/ledger/list');
       } finally {
         setLoading(false);
       }
     };
     
     loadData();
-  }, [id, navigate, t]);
+    
+    // Cleanup function to reset the ref when id changes
+    return () => {
+      hasLoaded.current = false;
+    };
+  }, [id]); // Only depend on id, remove other dependencies
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,7 +104,7 @@ export default function LedgerEditPage() {
         variant: 'success'
       });
       
-      navigate('/ledger');
+      navigate('/dashboard/ledger/list');
     } catch (error) {
       console.error('Error updating entry:', error);
       toast(t('Failed to update ledger entry', 'பதிவேட்டு உள்ளீட்டை புதுப்பிக்க முடியவில்லை'), {
@@ -105,19 +113,22 @@ export default function LedgerEditPage() {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  }, []);
 
-  const handleSelectChange = (name: string, value: string) => {
+  const handleSelectChange = useCallback((name: string, value: string) => {
     setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  }, []);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p>{t('Loading...', 'ஏற்றுகிறது...')}</p>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p>{t('Loading...', 'ஏற்றுகிறது...')}</p>
+        </div>
       </div>
     );
   }
@@ -222,7 +233,7 @@ export default function LedgerEditPage() {
               <Button 
                 variant="outline" 
                 type="button"
-                onClick={() => navigate('/ledger')}
+                onClick={() => navigate('/dashboard/ledger/list')}
               >
                 {t('Cancel', 'ரத்து செய்')}
               </Button>

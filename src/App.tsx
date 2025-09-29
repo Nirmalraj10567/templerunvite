@@ -62,6 +62,7 @@ import EventListView from './pages/events/EventListView';
 import NewMoonDaysPage from './pages/calendar/NewMoonDaysPage';
 import LedgerEntryPage from './pages/ledger/LedgerEntryPage';
 import LedgerListPage from './pages/ledger/LedgerListPage';
+import LedgerEditPage from './pages/ledger/LedgerEditPage';
 import ProfitAndLossPage from './pages/ledger/ProfitAndLossPage';
 import CashflowByCategoryPage from './pages/ledger/CashflowByCategoryPage';
 import CategoryStatementPage from './pages/ledger/CategoryStatementPage';
@@ -448,6 +449,14 @@ function App() {
                     }
                   />
                   {/* Ledger Routes */}
+                  <Route
+                    path="ledger/edit/:id"
+                    element={
+                      <PermissionGuard requiredPermission="ledger_management" accessLevel="edit">
+                        <LedgerEditPage />
+                      </PermissionGuard>
+                    }
+                  />
                   <Route
                     path="ledger/entry"
                     element={

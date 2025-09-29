@@ -7,7 +7,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
-
+import { cn, formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 interface HallRequest {
   id: number;
   register_no?: string | null;
@@ -80,7 +81,7 @@ export default function HallApprovalPage() {
     setLogs([]);
     setLogsLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/hall-approval/${hallId}/logs`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/hall-approval/${hallId}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -119,7 +120,7 @@ export default function HallApprovalPage() {
   const loadAllHallLogs = async (pageNum: number) => {
     setAllLogsLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/hall-approval/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/hall-approval/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -267,8 +268,15 @@ export default function HallApprovalPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto bg-white p-4 rounded shadow">
-      <h1 className="text-xl font-semibold mb-4">{t('Hall Booking Approvals', 'மண்டப முன்பதிவு அனுமதிகள்')}</h1>
+    <Card className={pageContainerStyles.container}>
+      
+     
+        <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+          <CardTitle className="text-lg font-bold w-full">
+          {t('Hall Booking Approvals', 'மண்டப முன்பதிவு அனுமதிகள்')}
+          </CardTitle>
+        </CardHeader>
+
 
       <div className="flex flex-col md:flex-row gap-3 mb-4">
         <select className="border p-2 rounded" value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -559,6 +567,6 @@ export default function HallApprovalPage() {
         </div>
       )}
 
-    </div>
+    </Card>
   );
 }

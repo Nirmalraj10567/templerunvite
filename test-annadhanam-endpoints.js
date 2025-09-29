@@ -6,7 +6,7 @@ async function testEndpoints() {
   // You'll need to replace this with a real token
   const token = 'your-test-token-here';
   
-  const baseUrl = 'http://localhost:4000/api/annadhanam';
+  const baseUrl = 'https://tmsapi.xesstechlink.com/api/annadhanam';
   const headers = {
     'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json'
@@ -15,7 +15,7 @@ async function testEndpoints() {
   try {
     // Test 1: Check if server is running
     console.log('1. Testing server connection...');
-    const healthCheck = await fetch('http://localhost:4000/api/annadhanam', {
+    const healthCheck = await fetch('https://tmsapi.xesstechlink.com/api/annadhanam', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     console.log('Server status:', healthCheck.status);

@@ -165,12 +165,223 @@ module.exports = function(deps = {}) {
 
       const result = await db('journal_entries').insert(entry);
 
+      // Create log entry
+      await db('journal_entry_logs').insert({
+        journal_entry_id: result[0],
+        action: 'create',
+        created_by: req.user.id,
+        details: JSON.stringify({
+          date,
+          from_account,
+          to_account,
+          amount: parseFloat(amount),
+          entry_type,
+          remarks,
+          reference_type,
+          reference_id
+        }),
+        created_at: db.fn.now()
+      });
+
       res.json({
         success: true,
         data: { id: result[0] }
       });
     } catch (err) {
       console.error('POST /api/journal/entries error:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Update journal entry
+  router.put('/entries/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const {
+        date,
+        from_account,
+        to_account,
+        amount,
+        entry_type = 'transfer',
+        remarks,
+        reference_type,
+        reference_id
+      } = req.body;
+
+      if (!date || !from_account || !to_account || !amount) {
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
+
+      // Get the current entry for logging
+      const currentEntry = await db('journal_entries')
+        .where({ id })
+        .andWhere('temple_id', req.user.templeId)
+        .first();
+
+      if (!currentEntry) {
+        return res.status(404).json({ error: 'Journal entry not found' });
+      }
+
+      const updated = await db('journal_entries')
+        .where({ id })
+        .andWhere('temple_id', req.user.templeId)
+        .update({
+          date,
+          from_account,
+          to_account,
+          amount: parseFloat(amount),
+          entry_type,
+          remarks,
+          reference_type,
+          reference_id,
+          updated_at: db.fn.now()
+        });
+
+      if (updated === 0) {
+        return res.status(404).json({ error: 'Journal entry not found' });
+      }
+
+      // Create log entry for update
+      await db('journal_entry_logs').insert({
+        journal_entry_id: id,
+        action: 'update',
+        created_by: req.user.id,
+        details: JSON.stringify({
+          before: {
+            date: currentEntry.date,
+            from_account: currentEntry.from_account,
+            to_account: currentEntry.to_account,
+            amount: currentEntry.amount,
+            entry_type: currentEntry.entry_type,
+            remarks: currentEntry.remarks,
+            reference_type: currentEntry.reference_type,
+            reference_id: currentEntry.reference_id
+          },
+          after: {
+            date,
+            from_account,
+            to_account,
+            amount: parseFloat(amount),
+            entry_type,
+            remarks,
+            reference_type,
+            reference_id
+          }
+        }),
+        created_at: db.fn.now()
+      });
+
+      const updatedEntry = await db('journal_entries')
+        .where({ id })
+        .andWhere('temple_id', req.user.templeId)
+        .first();
+
+      res.json({
+        success: true,
+        data: updatedEntry
+      });
+    } catch (err) {
+      console.error('PUT /api/journal/entries/:id error:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Delete journal entry
+  router.delete('/entries/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Get the current entry for logging before deletion
+      const currentEntry = await db('journal_entries')
+        .where({ id })
+        .andWhere('temple_id', req.user.templeId)
+        .first();
+
+      if (!currentEntry) {
+        return res.status(404).json({ error: 'Journal entry not found' });
+      }
+
+      const deleted = await db('journal_entries')
+        .where({ id })
+        .andWhere('temple_id', req.user.templeId)
+        .del();
+
+      if (deleted === 0) {
+        return res.status(404).json({ error: 'Journal entry not found' });
+      }
+
+      // Create log entry for deletion
+      await db('journal_entry_logs').insert({
+        journal_entry_id: id,
+        action: 'delete',
+        created_by: req.user.id,
+        details: JSON.stringify({
+          date: currentEntry.date,
+          from_account: currentEntry.from_account,
+          to_account: currentEntry.to_account,
+          amount: currentEntry.amount,
+          entry_type: currentEntry.entry_type,
+          remarks: currentEntry.remarks,
+          reference_type: currentEntry.reference_type,
+          reference_id: currentEntry.reference_id
+        }),
+        created_at: db.fn.now()
+      });
+
+      res.json({
+        success: true,
+        message: 'Journal entry deleted successfully'
+      });
+    } catch (err) {
+      console.error('DELETE /api/journal/entries/:id error:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Get logs for a specific journal entry
+  router.get('/entries/:id/logs', async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      const logs = await db('journal_entry_logs')
+        .where('journal_entry_id', id)
+        .orderBy('created_at', 'desc');
+      
+      res.json({ success: true, data: logs });
+    } catch (err) {
+      console.error('GET /api/journal/entries/:id/logs error:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Get all journal entry logs with pagination
+  router.get('/entries/logs', async (req, res) => {
+    try {
+      const { page = 1, pageSize = 50 } = req.query;
+      const offset = (parseInt(page) - 1) * parseInt(pageSize);
+      
+      // Get total count
+      const totalResult = await db('journal_entry_logs')
+        .count('* as count')
+        .first();
+      const total = totalResult.count;
+      
+      // Get paginated logs
+      const logs = await db('journal_entry_logs')
+        .select('*')
+        .orderBy('created_at', 'desc')
+        .limit(parseInt(pageSize))
+        .offset(offset);
+      
+      res.json({ 
+        success: true, 
+        data: logs,
+        total: total,
+        page: parseInt(page),
+        pageSize: parseInt(pageSize)
+      });
+    } catch (err) {
+      console.error('GET /api/journal/entries/logs error:', err);
       res.status(500).json({ error: 'Internal server error' });
     }
   });

@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/use-toast";
 import { FileDown, Printer } from "lucide-react";
 import propertyService from "@/services/propertyService";
+import { cn, formFieldStyles, pageContainerStyles } from "@/styles/formStyles";
 
 interface Property {
   id: number;
@@ -388,11 +389,14 @@ export default function PropertyListView() {
   };
 
   return (
-    <div className="p-6 bg-white rounded-lg shadow">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold text-gray-800">{t('Property List', 'சொத்து பட்டியல்')}</h1>
-      </div>
+    <div className={pageContainerStyles.container}>
+      <Card className={pageContainerStyles.content}>
+        <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+          <CardTitle className="text-lg font-bold w-full">
+            {t("Property List", "சொத்து பட்டியல்")}
+          </CardTitle>
+        </CardHeader>
+      
 
       {/* Filters */}
       <Card className="mb-6">
@@ -787,6 +791,6 @@ export default function PropertyListView() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+      </Card></div>
   );
 }

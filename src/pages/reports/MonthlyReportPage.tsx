@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from  "@/lib/language"
-
+import { formFieldStyles, cn, pageContainerStyles } from '@/styles/formStyles';
+import { CardTitle, CardHeader, Card } from '@/components/ui/card';
 type MonthlyReport = {
   breakdown: {
     income: Record<string, number>;
@@ -32,7 +33,7 @@ export default function MonthlyReportPage() {
     setError(null);
     try {
       const params = new URLSearchParams({ year: String(y), month: String(m) });
-      const res = await fetch(`http://localhost:4000/api/reports/monthly?${params.toString()}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/reports/monthly?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('Failed to load report');
@@ -57,8 +58,15 @@ export default function MonthlyReportPage() {
   const net = useMemo(() => data?.totals.net || 0, [data]);
 
   return (
-    <div className="max-w-6xl mx-auto bg-white p-4 rounded shadow">
-      <h1 className="text-2xl font-semibold mb-4 text-center">{t('Monthly Report', 'மாதாந்திர அறிக்கை')}</h1>
+    <div className={pageContainerStyles.container}>
+       <Card className={pageContainerStyles.content}>
+         <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+           <CardTitle className="text-lg font-bold w-full">
+           {t('Monthly Report', 'மாதாந்திர அறிக்கை')}
+           </CardTitle>
+         </CardHeader>
+       
+      
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-end mb-4">
@@ -135,6 +143,7 @@ export default function MonthlyReportPage() {
           </div>
         </div>
       )}
+    </Card>
     </div>
   );
 }

@@ -8,6 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import { toast } from '@/components/ui/use-toast';
+import { cn } from '@/lib/utils';
+import { formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
+import { CardHeader, CardTitle } from '@/components/ui/card';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -257,7 +260,7 @@ export default function ReceiptListView() {
       if (toDate) params.append('to', toDate);
       if (typeFilter !== 'all') params.append('type', typeFilter);
 
-      const res = await fetch(`http://localhost:4000/api/receipts?${params.toString()}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/receipts?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       
@@ -324,7 +327,7 @@ export default function ReceiptListView() {
         if (apiType) params.append('type', apiType);
       }
 
-      const res = await fetch(`http://localhost:4000/api/receipts/export?${params.toString()}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/receipts/export?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       
@@ -359,7 +362,7 @@ export default function ReceiptListView() {
       setLogsOpen(true);
       setLogsLoading(true);
       setLogsTitle(`${t('viewReceipt')} ${receiptNo ? `#${receiptNo}` : ''}`);
-      const res = await fetch(`http://localhost:4000/api/receipts/${id}/logs`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/receipts/${id}/logs`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const result = await res.json();
@@ -381,7 +384,7 @@ export default function ReceiptListView() {
       setLogsOpen(true);
       setLogsLoading(true);
       setLogsTitle(t('viewReceipt'));
-      const res = await fetch(`http://localhost:4000/api/receipts/logs?page=${page}&pageSize=${logsPageSize}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/receipts/logs?page=${page}&pageSize=${logsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const result = await res.json();
@@ -433,7 +436,7 @@ export default function ReceiptListView() {
       if (editedReceipt.donor != null) apiReceiptData.from_person = editedReceipt.donor;
       if (editedReceipt.receiver != null) apiReceiptData.to_person = editedReceipt.receiver;
 
-      const res = await fetch(`http://localhost:4000/api/receipts/${viewEditReceipt.id}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/receipts/${viewEditReceipt.id}`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json', 
@@ -482,7 +485,7 @@ export default function ReceiptListView() {
     if (!deleteId) return;
     
     try {
-      const res = await fetch(`http://localhost:4000/api/receipts/${deleteId}`, { 
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/receipts/${deleteId}`, { 
         method: 'DELETE', 
         headers: { Authorization: `Bearer ${token}` } 
       });
@@ -532,22 +535,28 @@ export default function ReceiptListView() {
   const lastReceiptId = data.length > 0 ? data[0].id : null;
 
   return (
-    <div className="container mx-auto py-6 px-4">
-      <div className="flex flex-col space-y-4">
+    <div className={cn(pageContainerStyles.container, 'max-w-7xl mx-auto')}>
+      <div className={pageContainerStyles.content}>
         {/* Header */}
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">{t('title')}</h1>
-          <Button onClick={() => navigate('/dashboard/receipts/entry')} className="bg-orange-600 hover:bg-orange-700">
-            <Plus className="h-4 w-4 mr-2" />
-            {t('addReceipt')}
-          </Button>
-        </div>
+        <CardHeader className={cn(
+          "bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center",
+          formFieldStyles.donationProductList.logBadge.create
+        )}>
+          <div className="flex justify-center items-center">
+            <CardTitle className={cn(
+              "text-[1rem] font-bold w-full text-center text-white",
+              formFieldStyles.donationProductList.logBadge.base
+            )} style={{ color: 'white', fontSize: 'calc(1.2rem * 1.02)' }}>
+              {t('title')}
+            </CardTitle>
+          </div>
+        </CardHeader>
 
         <Card>
           <CardContent className="pt-6">
-            {/* Filters */}
-            <div className="mb-4 flex flex-col gap-3">
-              <div className="relative max-w-md">
+            {/* Filters - Single Line */}
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+              <div className="relative flex-1 min-w-[200px] max-w-md">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="search"
@@ -559,47 +568,49 @@ export default function ReceiptListView() {
                 />
               </div>
               
-              <div className="flex flex-wrap items-end gap-3">
-                <div>
-                  <label className="block text-sm mb-1">{t('from')}</label>
-                  <Input 
-                    type="date" 
-                    value={fromDate} 
-                    onChange={(e) => setFromDate(e.target.value)} 
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm mb-1">{t('to')}</label>
-                  <Input 
-                    type="date" 
-                    value={toDate} 
-                    onChange={(e) => setToDate(e.target.value)} 
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm mb-1">{t('type')}</label>
-                  <select 
-                    className="border rounded h-10 px-3" 
-                    value={typeFilter} 
-                    onChange={(e) => setTypeFilter(e.target.value as any)}
-                  >
-                    <option value="all">{t('all')}</option>
-                    <option value="income">{t('income')}</option>
-                    <option value="expense">{t('expense')}</option>
-                  </select>
-                </div>
-                <div className="ml-auto flex gap-2">
-                  <Button variant="outline" onClick={handlePrint}>
-                    {t('print')}
-                  </Button>
-                  <Button variant="outline" onClick={() => openAllLogs(1)}>
-                    {/* Using existing translation key 'view' combined with 'all' */}
-                    {t('all')} {t('view')}
-                  </Button>
-                  <Button onClick={handleExportCSV}>
-                    {t('exportCsv')}
-                  </Button>
-                </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm whitespace-nowrap">{t('from')}:</span>
+                <Input 
+                  type="date" 
+                  value={fromDate} 
+                  onChange={(e) => setFromDate(e.target.value)}
+                  className="h-9"
+                />
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <span className="text-sm whitespace-nowrap">{t('to')}:</span>
+                <Input 
+                  type="date" 
+                  value={toDate} 
+                  onChange={(e) => setToDate(e.target.value)}
+                  className="h-9"
+                />
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <span className="text-sm whitespace-nowrap">{t('type')}:</span>
+                <select 
+                  className="border rounded h-9 px-2 text-sm" 
+                  value={typeFilter} 
+                  onChange={(e) => setTypeFilter(e.target.value as any)}
+                >
+                  <option value="all">{t('all')}</option>
+                  <option value="income">{t('income')}</option>
+                  <option value="expense">{t('expense')}</option>
+                </select>
+              </div>
+              
+              <div className="flex gap-2 ml-auto">
+                <Button variant="outline" onClick={handlePrint}>
+                  {t('print')}
+                </Button>
+                <Button variant="outline" onClick={() => openAllLogs(1)}>
+                  {t('all')} {t('view')}
+                </Button>
+                <Button onClick={handleExportCSV}>
+                  {t('exportCsv')}
+                </Button>
               </div>
             </div>
 
@@ -610,32 +621,32 @@ export default function ReceiptListView() {
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
               ) : (
-                <Table>
+                <Table className="w-full">
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('receiptNumber')}</TableHead>
-                      <TableHead>{t('date')}</TableHead>
-                      <TableHead>{t('type')}</TableHead>
-                      <TableHead>{t('donor')}</TableHead>
-                      <TableHead>{t('receiver')}</TableHead>
-                      <TableHead className="text-right">{t('amount')}</TableHead>
-                      <TableHead className="text-right">{t('actions')}</TableHead>
+                    <TableRow className="whitespace-nowrap">
+                      <TableHead className="w-[120px] px-3">{t('receiptNumber')}</TableHead>
+                      <TableHead className="w-[100px] px-3">{t('date')}</TableHead>
+                      <TableHead className="w-[100px] px-3">{t('type')}</TableHead>
+                      <TableHead className="px-3">{t('donor')}</TableHead>
+                      <TableHead className="px-3">{t('receiver')}</TableHead>
+                      <TableHead className="w-[120px] text-right px-3">{t('amount')}</TableHead>
+                      <TableHead className="w-[150px] text-right px-3">{t('actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {data.length > 0 ? (
                       data.map((rec) => (
-                        <TableRow key={rec.id}>
-                          <TableCell className="font-medium">
+                        <TableRow key={rec.id} className="hover:bg-gray-50">
+                          <TableCell className="px-3 py-3 font-medium">
                             {rec.receipt_number}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="px-3 py-3 whitespace-nowrap">
                             <div className="flex items-center">
-                              <Calendar className="h-4 w-4 mr-1" />
+                              <Calendar className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
                               {formatDate(rec.date)}
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="px-3 py-3">
                             <div className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
                               rec.type === 'income' 
                                 ? 'bg-green-100 text-green-700' 
@@ -649,30 +660,34 @@ export default function ReceiptListView() {
                               {rec.type === 'income' ? t('income') : t('expense')}
                             </div>
                           </TableCell>
-                          <TableCell className="max-w-xs truncate">
+                          <TableCell className="px-3 py-3 max-w-[200px] truncate">
                             {rec.donor || '-'}
                           </TableCell>
-                          <TableCell className="max-w-xs truncate">
+                          <TableCell className="px-3 py-3 max-w-[200px] truncate">
                             {rec.receiver || '-'}
                           </TableCell>
-                          <TableCell className="text-right">
-                            <div className="inline-flex items-center">
-                
+                          <TableCell className="px-3 py-3 text-right">
+                            <div className={`inline-flex items-center justify-end w-full font-medium ${
+                              rec.type === 'income' ? 'text-green-600' : 'text-red-600'
+                            }`}>
                               {formatAmount(rec.amount)}
                             </div>
                           </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end space-x-2">
+                          <TableCell className="px-3 py-3">
+                            <div className="flex justify-end space-x-1">
                               <Button 
                                 variant="ghost" 
-                                size="sm" 
+                                size="icon" 
+                                className="h-8 w-8 p-0 hover:bg-gray-100"
                                 onClick={() => handleViewClick(rec)}
+                                title={t('view')}
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
                               <Button 
                                 variant="ghost" 
-                                size="sm" 
+                                size="icon" 
+                                className="h-8 w-8 p-0 hover:bg-gray-100"
                                 onClick={() => handleEditClick(rec)}
                                 title={t('edit')}
                               >
@@ -680,7 +695,8 @@ export default function ReceiptListView() {
                               </Button>
                               <Button 
                                 variant="ghost" 
-                                size="sm" 
+                                size="icon" 
+                                className="h-8 w-8 p-0 hover:bg-gray-100"
                                 onClick={() => openReceiptLogs(rec.id, rec.receipt_number)}
                                 title="Logs"
                               >
@@ -689,15 +705,15 @@ export default function ReceiptListView() {
                               {/* Delete button enabled ONLY for the last (most recent) receipt */}
                               <Button 
                                 variant="ghost" 
-                                size="sm" 
+                                size="icon" 
+                                className={`h-8 w-8 p-0 ${
+                                  rec.id === lastReceiptId 
+                                    ? 'text-red-500 hover:bg-red-50 hover:text-red-700' 
+                                    : 'opacity-50 cursor-not-allowed'
+                                }`}
                                 onClick={() => handleDeleteClick(rec.id)}
                                 disabled={rec.id !== lastReceiptId}
                                 title={t('delete')}
-                                className={`${
-                                  rec.id === lastReceiptId 
-                                    ? 'text-red-500 hover:text-red-700' 
-                                    : 'opacity-50 cursor-not-allowed'
-                                }`}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -766,84 +782,83 @@ export default function ReceiptListView() {
                 {editMode ? t('editDescription') : t('viewDescription')}
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="date" className="text-right">{t('date')}</Label>
-                <Input 
-                  id="date" 
-                  type="date" 
-                  value={editedReceipt.date || ''} 
-                  onChange={(e) => setEditedReceipt({ ...editedReceipt, date: e.target.value })} 
-                  className="col-span-3" 
-                  disabled={!editMode} 
+            <div className={formFieldStyles.taxForm.grid}>
+              <div className="space-y-1">
+                <Label htmlFor="date" className={formFieldStyles.taxForm.label}>{t('date')}</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={editedReceipt.date || ''}
+                  onChange={(e) => setEditedReceipt({ ...editedReceipt, date: e.target.value })}
+                  className={formFieldStyles.taxForm.input}
+                  disabled={!editMode}
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="type" className="text-right">{t('type')}</Label>
-                <select 
-                  id="type" 
-                  className="col-span-3 border rounded h-10 px-3" 
-                  value={editedReceipt.type || 'income'} 
+              <div className="space-y-1">
+                <Label htmlFor="type" className={formFieldStyles.taxForm.label}>{t('type')}</Label>
+                <select
+                  id="type"
+                  value={editedReceipt.type || 'income'}
                   onChange={(e) => setEditedReceipt({ 
                     ...editedReceipt, 
                     type: e.target.value as 'income' | 'expense' 
-                  })} 
+                  })}
+                  className={cn(formFieldStyles.taxForm.select, !editMode && 'opacity-50 cursor-not-allowed')}
                   disabled={!editMode}
                 >
                   <option value="income">{t('income')}</option>
                   <option value="expense">{t('expense')}</option>
                 </select>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="donor" className="text-right">{t('donor')}</Label>
+              <div className="space-y-1">
+                <Label htmlFor="donor" className={formFieldStyles.taxForm.label}>{t('donor')}</Label>
                 <Input 
                   id="donor" 
                   value={editedReceipt.donor || ''} 
                   onChange={(e) => setEditedReceipt({ ...editedReceipt, donor: e.target.value })} 
-                  className="col-span-3" 
+                  className={formFieldStyles.taxForm.input}
                   disabled={!editMode} 
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="receiver" className="text-right">{t('receiver')}</Label>
+              <div className="space-y-1">
+                <Label htmlFor="receiver" className={formFieldStyles.taxForm.label}>{t('receiver')}</Label>
                 <Input 
                   id="receiver" 
                   value={editedReceipt.receiver || ''} 
                   onChange={(e) => setEditedReceipt({ ...editedReceipt, receiver: e.target.value })} 
-                  className="col-span-3" 
+                  className={formFieldStyles.taxForm.input}
                   disabled={!editMode} 
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="amount" className="text-right">{t('amount')}</Label>
-                <Input 
-                  id="amount" 
-                  type="number" 
-                  value={editedReceipt.amount || ''} 
-                  onChange={(e) => setEditedReceipt({ ...editedReceipt, amount: Number(e.target.value) || 0 })} 
-                  className="col-span-3" 
-                  disabled={!editMode} 
+              <div className="space-y-1">
+                <Label htmlFor="amount" className={formFieldStyles.taxForm.label}>{t('amount')}</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  value={editedReceipt.amount || ''}
+                  onChange={(e) => setEditedReceipt({ ...editedReceipt, amount: Number(e.target.value) || 0 })}
+                  className={formFieldStyles.taxForm.input}
+                  disabled={!editMode}
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="remarks" className="text-right">{t('remarks')}</Label>
-                <Textarea 
-                  id="remarks" 
-                  value={editedReceipt.remarks || ''} 
-                  onChange={(e) => setEditedReceipt({ ...editedReceipt, remarks: e.target.value })} 
-                  className="col-span-3" 
-                  disabled={!editMode} 
-                  rows={3} 
+              <div className="space-y-1 col-span-4">
+                <Label htmlFor="remarks" className={formFieldStyles.taxForm.label}>{t('remarks')}</Label>
+                <Input
+                  id="remarks"
+                  value={editedReceipt.remarks || ''}
+                  onChange={(e) => setEditedReceipt({ ...editedReceipt, remarks: e.target.value })}
+                  className={formFieldStyles.taxForm.input}
+                  disabled={!editMode}
                 />
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="mt-4">
               <Button 
                 variant="outline" 
-                onClick={() => { 
-                  setIsViewEditOpen(false); 
-                  setViewEditReceipt(null); 
-                  setEditedReceipt({}); 
+                onClick={() => {
+                  setIsViewEditOpen(false);
+                  setViewEditReceipt(null);
+                  setEditedReceipt({});
                 }}
               >
                 {t('cancel')}

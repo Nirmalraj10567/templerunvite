@@ -3,10 +3,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLanguage } from  "@/lib/language"
+import { useLanguage } from "@/lib/language";
 import { toast } from '@/hooks/use-toast';
 import { Modal } from '@/components/ui/modal';
+import { Button } from '@/components/ui/button';
+import { FileDown, Trash2, RefreshCw } from 'lucide-react';
 
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { formFieldStyles, cn, pageContainerStyles } from '@/styles/formStyles';
 type DailyReport = {
   breakdown: {
     income: Record<string, number>;
@@ -132,7 +136,7 @@ export default function DailyReportPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`http://localhost:4000/api/reports/daily?date=${encodeURIComponent(d)}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/reports/daily?date=${encodeURIComponent(d)}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('Failed to load report');
@@ -150,7 +154,7 @@ export default function DailyReportPage() {
   const resetReport = async () => {
     if (!token || !date) return;
     try {
-      const res = await fetch(`http://localhost:4000/api/reports/daily?date=${encodeURIComponent(date)}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/reports/daily?date=${encodeURIComponent(date)}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -270,9 +274,15 @@ export default function DailyReportPage() {
   const difference = manualNet - net;
 
   return (
-    <div className="max-w-7xl mx-auto bg-white p-3 md:p-4 print:p-2 print:shadow-none">
-      {/* Title */}
-      <h1 className="text-xl font-bold text-center mb-3 text-gray-800">{t[language].title}</h1>
+   <div className={pageContainerStyles.container}>
+          <Card className={pageContainerStyles.content}>
+            <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+              <CardTitle className="text-lg font-bold w-full">
+              {t[language].title}
+              </CardTitle>
+            </CardHeader>
+          
+  
 
       {/* Filters Row — Tight */}
       <div className="flex flex-wrap gap-2 mb-4">
@@ -537,6 +547,7 @@ export default function DailyReportPage() {
           </div>
         </Modal>
       )}
+    </Card>
     </div>
   );
 }

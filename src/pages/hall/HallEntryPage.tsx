@@ -13,21 +13,64 @@ import axios from 'axios';
 import { getAuthToken } from '@/lib/auth';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
 
-const generateReceiptNo = async (token: string) => {
+const generateReceiptNo = async (token: string): Promise<string> => {
   try {
-    const response = await fetch('http://localhost:4000/api/hall-bookings/generate-receipt-number', {
-      headers: { Authorization: `Bearer ${token}` }
+    console.log('Requesting new receipt number...');
+    const response = await fetch('https://tmsapi.xesstechlink.com/api/hall-bookings/generate-receipt-number', {
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
     });
+    
     if (!response.ok) {
-      console.error('Receipt number API failed:', response.status, response.statusText);
-      throw new Error('Failed to generate receipt number');
+      const errorText = await response.text();
+      console.error('Receipt number API failed:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText
+      });
+      throw new Error(`Failed to generate receipt number: ${response.status} ${response.statusText}`);
     }
+    
     const data = await response.json();
+    if (!data.receiptNo) {
+      throw new Error('Invalid response format from server');
+    }
+    
     console.log('Generated receipt number:', data.receiptNo);
     return data.receiptNo;
+    
   } catch (error) {
     console.error('Receipt number generation error:', error);
-    // Enhanced fallback: generate sequential number based on current date/time
+    
+    // Try to get the latest receipt number from the database as a fallback
+    try {
+      console.log('Attempting to get latest receipt from database...');
+      const latestResponse = await fetch('https://tmsapi.xesstechlink.com/api/hall-bookings/latest', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (latestResponse.ok) {
+        const latestData = await latestResponse.json();
+        if (latestData?.register_no) {
+          // Extract the number part and increment it
+          const match = latestData.register_no.match(/^(\d{4})-(\d+)$/);
+          if (match) {
+            const year = match[1];
+            const number = parseInt(match[2], 10) + 1;
+            const newNumber = `${year}-${String(number).padStart(4, '0')}`;
+            console.log('Generated receipt number from latest record:', newNumber);
+            return newNumber;
+          }
+        }
+      }
+    } catch (fallbackError) {
+      console.error('Fallback receipt number generation failed:', fallbackError);
+    }
+    
+    // Last resort: use timestamp-based number
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -36,9 +79,8 @@ const generateReceiptNo = async (token: string) => {
     const minutes = String(now.getMinutes()).padStart(2, '0');
     const seconds = String(now.getSeconds()).padStart(2, '0');
 
-    // Create a more unique fallback number
     const fallbackNo = `${year}-${month}${day}${hours}${minutes}${seconds}`;
-    console.log('Using enhanced fallback receipt number:', fallbackNo);
+    console.warn('Using timestamp-based fallback receipt number:', fallbackNo);
     return fallbackNo;
   }
 };
@@ -238,7 +280,7 @@ export default function HallEntryPage() {
       (async () => {
         setLoading(true);
         try {
-          const response = await fetch(`http://localhost:4000/api/hall-bookings/${idNum}`, { 
+          const response = await fetch(`https://tmsapi.xesstechlink.com/api/hall-bookings/${idNum}`, { 
             headers: { Authorization: `Bearer ${token}` } 
           });
           const data = await response.json();
@@ -284,7 +326,7 @@ export default function HallEntryPage() {
   useEffect(() => {
     (async () => {
       try {
-        const accountsResp = await axios.get('http://localhost:4000/api/ledger/accounts', { 
+        const accountsResp = await axios.get('https://tmsapi.xesstechlink.com/api/ledger/accounts', { 
           headers: { Authorization: `Bearer ${getAuthToken()}` } 
         });
         const accs = (accountsResp?.data as any)?.data || accountsResp?.data || [];
@@ -296,10 +338,10 @@ export default function HallEntryPage() {
         
         if (user?.templeId) {
           const [hallsResp, eventsResp] = await Promise.all([
-            axios.get(`http://localhost:4000/api/master/halls/${user.templeId}`, { 
+            axios.get(`https://tmsapi.xesstechlink.com/api/master/halls/${user.templeId}`, { 
               headers: { Authorization: `Bearer ${getAuthToken()}` } 
             }),
-            axios.get(`http://localhost:4000/api/master/hall-events/${user.templeId}`, { 
+            axios.get(`https://tmsapi.xesstechlink.com/api/master/hall-events/${user.templeId}`, { 
               headers: { Authorization: `Bearer ${getAuthToken()}` } 
             }),
           ]);
@@ -418,7 +460,7 @@ export default function HallEntryPage() {
     setSaving(true);
     try {
       // Validate id for edit
-      let endpoint = 'http://localhost:4000/api/hall-bookings';
+      let endpoint = 'https://tmsapi.xesstechlink.com/api/hall-bookings';
       if (isEdit) {
         const idNum = Number(id);
         if (Number.isNaN(idNum)) {
@@ -427,7 +469,7 @@ export default function HallEntryPage() {
           setSaving(false);
           return;
         }
-        endpoint = `http://localhost:4000/api/hall-bookings/${idNum}`;
+        endpoint = `https://tmsapi.xesstechlink.com/api/hall-bookings/${idNum}`;
       }
 
       const payload = {
@@ -493,7 +535,7 @@ export default function HallEntryPage() {
         return;
       }
 
-      const res = await fetch(`http://localhost:4000/api/hall-bookings/${idNum}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/hall-bookings/${idNum}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -543,7 +585,7 @@ export default function HallEntryPage() {
                       const idNum = Number(id);
                       if (!Number.isNaN(idNum)) {
                         const q = token ? `?token=${encodeURIComponent(token)}` : '';
-                        const pdfUrl = `http://localhost:4000/api/hall-bookings/${idNum}/receipt.pdf${q}`;
+                        const pdfUrl = `https://tmsapi.xesstechlink.com/api/hall-bookings/${idNum}/receipt.pdf${q}`;
                         printPDF(pdfUrl);
                       }
                     }}
@@ -1036,7 +1078,7 @@ export default function HallEntryPage() {
                 className={formFieldStyles.modal.button.confirm} 
                 onClick={() => {
                   const q = token ? `?token=${encodeURIComponent(token)}` : '';
-                  const pdfUrl = `http://localhost:4000/api/hall-bookings/${lastCreatedId}/receipt.pdf${q}`;
+                  const pdfUrl = `https://tmsapi.xesstechlink.com/api/hall-bookings/${lastCreatedId}/receipt.pdf${q}`;
                   printPDF(pdfUrl);
                   setShowPrintPrompt(false);
                 }}

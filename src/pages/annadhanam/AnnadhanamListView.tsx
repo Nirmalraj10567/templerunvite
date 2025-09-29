@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, PlusCircle, Loader2, Eye, Edit, Trash2, Calendar, Users, Clock, FileDown, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/lib/language";
 import {
   Table,
@@ -35,6 +35,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { cn, pageContainerStyles, formFieldStyles } from "@/styles/formStyles";
 
 interface Annadhanam {
   id: number;
@@ -133,7 +134,7 @@ export default function AnnadhanamListView() {
     const results = await Promise.all(
       missing.map(async (id) => {
         try {
-          const res = await fetch(`http://localhost:4000/api/admin/members/${id}`, {
+          const res = await fetch(`https://tmsapi.xesstechlink.com/api/admin/members/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data = await res.json().catch(() => ({}));
@@ -170,7 +171,7 @@ export default function AnnadhanamListView() {
     setLogs([]);
     setLogsLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/annadhanam/${annadhanamId}/logs`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${annadhanamId}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -222,7 +223,7 @@ export default function AnnadhanamListView() {
   const loadAllAnnadhanamLogs = async (pageNum: number) => {
     setAllLogsLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/annadhanam/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -274,7 +275,7 @@ export default function AnnadhanamListView() {
     try {
       setLoading(true);
 
-      const response = await fetch(`http://localhost:4000/api/annadhanam?page=${pagination.pageIndex + 1}&per_page=${pagination.pageSize}&search=${encodeURIComponent(searchTerm)}&sort=receipt_number&order=desc`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam?page=${pagination.pageIndex + 1}&per_page=${pagination.pageSize}&search=${encodeURIComponent(searchTerm)}&sort=receipt_number&order=desc`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -507,7 +508,7 @@ export default function AnnadhanamListView() {
     if (!deleteId) return;
 
     try {
-      const response = await fetch(`http://localhost:4000/api/annadhanam/${deleteId}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${deleteId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -560,87 +561,93 @@ export default function AnnadhanamListView() {
   };
 
   return (
-    <div className="container mx-auto py-6 px-4">
-      <div className="flex flex-col space-y-4">
-        {/* Header */}
-        <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between">
-          <div />
-
-        </div>
+    <div className={pageContainerStyles.container}>
+      <Card className={pageContainerStyles.content}>
+        <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+          <CardTitle className="text-lg font-bold w-full">
+            {t("Annadhanam List", "அன்னதானம் பதிவு")}
+          </CardTitle>
+        </CardHeader>
 
         {/* Table Card */}
         <Card>
           <CardContent className="pt-6">
             {/* Search + Export Toolbar */}
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="relative max-w-md">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  type="search"
-                  placeholder={t("Search by name, receipt number, or mobile...", "பெயர், ரசீது எண் அல்லது மொபைல் மூலம் தேடவும்...")}
-                  className="pl-9 w-full"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyDown={handleSearch}
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <Button 
-                  variant="outline" 
-                  onClick={openAllLogs}
-                >
-                  {t("All Logs", "அனைத்து பதிவுகள்")}
-                </Button>
-                <Button variant="outline" onClick={exportToCSV} disabled={loading || data.length === 0}>
-                  <FileSpreadsheet className="h-4 w-4 mr-2" />
-                  {t("Export CSV", "CSV ஏற்றுமதி")}
-                </Button>
-                <Button variant="outline" onClick={exportToPDF} disabled={loading || data.length === 0}>
-                  <FileDown className="h-4 w-4 mr-2" />
-                  {t("Export PDF", "PDF ஏற்றுமதி")}
-                </Button>
+            <div className={formFieldStyles.moneyDonationList.filters.container}>
+              <div className={formFieldStyles.moneyDonationList.filters.form}>
+                <div className={formFieldStyles.moneyDonationList.filters.searchContainer}>
+                  <div className={formFieldStyles.moneyDonationList.filters.searchIcon}>
+                    <Search className={formFieldStyles.moneyDonationList.filters.searchIconSvg} />
+                  </div>
+                  <Input
+                    type="search"
+                    placeholder={t("Search by name, receipt number, or mobile...", "பெயர், ரசீது எண் அல்லது மொபைல் மூலம் தேடவும்...")}
+                    className={formFieldStyles.moneyDonationList.filters.searchInput}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyDown={handleSearch}
+                  />
+                </div>
+                <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>
+                  <Button 
+                    variant="outline" 
+                    onClick={openAllLogs}
+                    className={formFieldStyles.moneyDonationList.filters.button}
+                  >
+                    {t("All Logs", "அனைத்து பதிவுகள்")}
+                  </Button>
+                  <Button variant="outline" onClick={exportToCSV} disabled={loading || data.length === 0} className={formFieldStyles.moneyDonationList.filters.button}>
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    {t("Export CSV", "CSV ஏற்றுமதி")}
+                  </Button>
+                  <Button variant="outline" onClick={exportToPDF} disabled={loading || data.length === 0} className={formFieldStyles.moneyDonationList.filters.button}>
+                    <FileDown className="h-4 w-4 mr-2" />
+                    {t("Export PDF", "PDF ஏற்றுமதி")}
+                  </Button>
+                </div>
               </div>
             </div>
 
             {/* Table */}
-            <div className="rounded-md border">
-              {loading ? (
-                <div className="flex items-center justify-center h-64">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("Receipt No", "ரசீது எண்")}</TableHead>
-                      <TableHead>{t("Name", "பெயர்")}</TableHead>
-                      <TableHead>{t("Mobile", "மொபைல்")}</TableHead>
-                      <TableHead>{t("Food Items", "உணவு பொருட்கள்")}</TableHead>
-                      <TableHead className="text-center">{t("People", "மக்கள்")}</TableHead>
-                      <TableHead>{t("Date Range", "தேதி வரம்பு")}</TableHead>
-                      <TableHead>{t("Time", "நேரம்")}</TableHead>
-                      <TableHead className="text-right">{t("Actions", "செயல்கள்")}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+            <div className={formFieldStyles.moneyDonationList.table.container}>
+              <div className={formFieldStyles.moneyDonationList.table.scrollContainer}>
+                {loading ? (
+                  <div className={formFieldStyles.moneyDonationList.table.loadingCell}>
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <Table className={formFieldStyles.moneyDonationList.table.table}>
+                    <TableHeader className={formFieldStyles.moneyDonationList.table.thead}>
+                      <TableRow className="border-b border-gray-200">
+                        <TableHead className={cn(formFieldStyles.moneyDonationList.table.th, formFieldStyles.moneyDonationList.table.thLeft)}>{t("Receipt No", "ரசீது எண்")}</TableHead>
+                        <TableHead className={formFieldStyles.moneyDonationList.table.th}>{t("Name", "பெயர்")}</TableHead>
+                        <TableHead className={formFieldStyles.moneyDonationList.table.th}>{t("Mobile", "மொபைல்")}</TableHead>
+                        <TableHead className={formFieldStyles.moneyDonationList.table.th}>{t("Food Items", "உணவு பொருட்கள்")}</TableHead>
+                        <TableHead className={cn(formFieldStyles.moneyDonationList.table.th, formFieldStyles.moneyDonationList.table.thCenter)}>{t("People", "மக்கள்")}</TableHead>
+                        <TableHead className={formFieldStyles.moneyDonationList.table.th}>{t("Date Range", "தேதி வரம்பு")}</TableHead>
+                        <TableHead className={formFieldStyles.moneyDonationList.table.th}>{t("Time", "நேரம்")}</TableHead>
+                        <TableHead className={cn(formFieldStyles.moneyDonationList.table.th, formFieldStyles.moneyDonationList.table.thRight)}>{t("Actions", "செயல்கள்")}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className={formFieldStyles.moneyDonationList.table.tbody}>
                     {data.length > 0 ? (
                       data.map((annadhanam) => (
-                        <TableRow key={annadhanam.id}>
-                          <TableCell className="font-medium">
+                        <TableRow key={annadhanam.id} className={formFieldStyles.moneyDonationList.table.tr}>
+                          <TableCell className={formFieldStyles.moneyDonationList.table.td}>
                             {annadhanam.receipt_number}
                           </TableCell>
-                          <TableCell>{annadhanam.name}</TableCell>
-                          <TableCell>{annadhanam.mobile_number}</TableCell>
-                          <TableCell className="max-w-xs truncate">
+                          <TableCell className={formFieldStyles.moneyDonationList.table.td}>{annadhanam.name}</TableCell>
+                          <TableCell className={formFieldStyles.moneyDonationList.table.td}>{annadhanam.mobile_number}</TableCell>
+                          <TableCell className={cn(formFieldStyles.moneyDonationList.table.td, "max-w-xs truncate")}>
                             {annadhanam.food}
                           </TableCell>
-                          <TableCell className="text-center">
+                          <TableCell className={cn(formFieldStyles.moneyDonationList.table.td, formFieldStyles.moneyDonationList.table.tdCenter)}>
                             <div className="flex items-center justify-center">
                               <Users className="h-4 w-4 mr-1" />
                               {annadhanam.peoples}
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className={formFieldStyles.moneyDonationList.table.td}>
                             <div className="flex items-center">
                               <Calendar className="h-4 w-4 mr-1" />
                               <div className="text-sm">
@@ -653,18 +660,19 @@ export default function AnnadhanamListView() {
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className={formFieldStyles.moneyDonationList.table.td}>
                             <div className="flex items-center">
                               <Clock className="h-4 w-4 mr-1" />
                               {formatTime(annadhanam.time)}
                             </div>
                           </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end space-x-2">
+                          <TableCell className={cn(formFieldStyles.moneyDonationList.table.td, formFieldStyles.moneyDonationList.table.tdRight)}>
+                            <div className={formFieldStyles.moneyDonationList.actionButtons.container}>
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleViewClick(annadhanam)}
+                                className={formFieldStyles.moneyDonationList.actionButtons.print}
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
@@ -673,6 +681,7 @@ export default function AnnadhanamListView() {
                                 size="sm"
                                 onClick={() => openLogs(annadhanam.id)}
                                 title={t("Logs", "பதிவுகள்")}
+                                className={formFieldStyles.moneyDonationList.actionButtons.logs}
                               >
                                 {t("Logs", "பதிவுகள்")}
                               </Button>
@@ -680,6 +689,7 @@ export default function AnnadhanamListView() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleEditClick(annadhanam)}
+                                className={formFieldStyles.moneyDonationList.actionButtons.edit}
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -689,6 +699,7 @@ export default function AnnadhanamListView() {
                                 onClick={() => handleDeleteClick(annadhanam.id)}
                                 disabled={!isLastReceipt(annadhanam)}
                                 title={!isLastReceipt(annadhanam) ? t("Only the last receipt can be deleted", "கடைசி ரசீதை மட்டுமே நீக்க முடியும்") : ""}
+                                className={!isLastReceipt(annadhanam) ? formFieldStyles.moneyDonationList.actionButtons.deleteDisabled : formFieldStyles.moneyDonationList.actionButtons.delete}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -698,7 +709,7 @@ export default function AnnadhanamListView() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={8} className="h-24 text-center">
+                        <TableCell colSpan={8} className={formFieldStyles.moneyDonationList.table.emptyCell}>
                           {t("No annadhanam entries found", "அன்னதானம் பதிவுகள் எதுவும் கிடைக்கவில்லை")}
                         </TableCell>
                       </TableRow>
@@ -706,14 +717,15 @@ export default function AnnadhanamListView() {
                   </TableBody>
                 </Table>
               )}
+              </div>
 
               {/* Pagination */}
-              <div className="flex items-center justify-between px-4 py-3 border-t">
-                <div className="text-sm text-muted-foreground">
+              <div className={formFieldStyles.moneyDonationList.summary.container}>
+                <div className={formFieldStyles.moneyDonationList.summary.info}>
                   {t("Showing", "காட்டப்படுகிறது")} {data.length} {t("of", "இல்")}{" "}
-                  <span className="font-medium">{pagination.total}</span> {t("items", "உருப்படிகள்")}
+                  <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{pagination.total}</span> {t("items", "உருப்படிகள்")}
                 </div>
-                <div className="flex space-x-2">
+                <div className={formFieldStyles.moneyDonationList.pagination.controls}>
                   <Button
                     variant="outline"
                     size="sm"
@@ -724,6 +736,7 @@ export default function AnnadhanamListView() {
                       }))
                     }
                     disabled={pagination.pageIndex === 0}
+                    className={formFieldStyles.moneyDonationList.pagination.button}
                   >
                     {t("Previous", "முந்தைய")}
                   </Button>
@@ -737,6 +750,7 @@ export default function AnnadhanamListView() {
                       }))
                     }
                     disabled={pagination.pageIndex >= pagination.totalPages - 1}
+                    className={formFieldStyles.moneyDonationList.pagination.button}
                   >
                     {t("Next", "அடுத்து")}
                   </Button>
@@ -923,13 +937,13 @@ export default function AnnadhanamListView() {
 
         {/* All Logs Modal */}
         {allLogsOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/40" onClick={closeAllLogs} />
+          <div className={formFieldStyles.moneyDonationList.modal.overlay}>
+            <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeAllLogs} />
             <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-7xl mx-4 max-h-[90vh] flex flex-col">
               <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white py-6 px-6 rounded-t-lg flex-shrink-0">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold">{t('All Annadhanam Logs', 'அனைத்து அன்னதானம் பதிவுகள்')}</h2>
-                  <button onClick={closeAllLogs} className="text-white hover:bg-white/20 p-2 rounded">
+                <div className={formFieldStyles.moneyDonationList.modal.header}>
+                  <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('All Annadhanam Logs', 'அனைத்து அன்னதானம் பதிவுகள்')}</h2>
+                  <button onClick={closeAllLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
@@ -940,49 +954,49 @@ export default function AnnadhanamListView() {
               <div className="flex-1 flex flex-col overflow-hidden">
                 <div className="flex-1 overflow-hidden">
                   {allLogsLoading ? (
-                    <div className="flex items-center justify-center h-32">
-                      <div className="text-lg text-gray-600">{t('Loading logs...', 'பதிவுகள் ஏற்றப்படுகிறது...')}</div>
+                    <div className={formFieldStyles.moneyDonationList.modal.loading}>
+                      {t('Loading logs...', 'பதிவுகள் ஏற்றப்படுகிறது...')}
                     </div>
                   ) : (
                     <div className="h-full flex flex-col">
                       <div className="flex-1 overflow-auto">
                         <div className="bg-white border border-gray-200">
-                          <table className="w-full text-sm">
-                            <thead className="bg-gray-50 sticky top-0 z-10">
+                          <table className={formFieldStyles.moneyDonationList.logsTable.table}>
+                            <thead className={formFieldStyles.moneyDonationList.logsTable.thead}>
                               <tr>
-                                <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                                <th className={formFieldStyles.moneyDonationList.logsTable.th}>
                                   {t('Action', 'செயல்')}
                                 </th>
-                                <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                                <th className={formFieldStyles.moneyDonationList.logsTable.th}>
                                   {t('Date & Time', 'தேதி மற்றும் நேரம்')}
                                 </th>
-                                <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                                <th className={formFieldStyles.moneyDonationList.logsTable.th}>
                                   {t('Annadhanam ID', 'அன்னதானம் ஐடி')}
                                 </th>
-                                <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                                <th className={formFieldStyles.moneyDonationList.logsTable.th}>
                                   {t('Name', 'பெயர்')}
                                 </th>
-                                <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                                <th className={formFieldStyles.moneyDonationList.logsTable.th}>
                                   {t('Receipt No', 'ரசீது எண்')}
                                 </th>
-                                <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                                <th className={formFieldStyles.moneyDonationList.logsTable.th}>
                                   {t('User', 'பயனர்')}
                                 </th>
-                                <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                                <th className={formFieldStyles.moneyDonationList.logsTable.th}>
                                   {t('Details', 'விவரங்கள்')}
                                 </th>
                               </tr>
                             </thead>
-                            <tbody>
+                            <tbody className={formFieldStyles.moneyDonationList.logsTable.tbody}>
                               {allLogs.length === 0 ? (
                                 <tr>
-                                  <td className="py-8 text-center text-gray-500" colSpan={7}>
+                                  <td className={formFieldStyles.moneyDonationList.logsTable.tdCenter} colSpan={7}>
                                     {t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}
                                   </td>
                                 </tr>
                               ) : allLogs.map((lg, index) => (
-                                <tr key={lg.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50`}>
-                                  <td className="py-3 px-4 border-b">
+                                <tr key={lg.id} className={formFieldStyles.moneyDonationList.logsTable.tr}>
+                                  <td className={formFieldStyles.moneyDonationList.logsTable.td}>
                                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                                       lg.action === 'create' ? 'bg-green-100 text-green-800' :
                                       lg.action === 'update' ? 'bg-blue-100 text-blue-800' :
@@ -995,7 +1009,7 @@ export default function AnnadhanamListView() {
                                        lg.action}
                                     </span>
                                   </td>
-                                  <td className="py-3 px-4 text-sm text-gray-700 border-b">
+                                  <td className={formFieldStyles.moneyDonationList.logsTable.tdNowrap}>
                                     {lg.created_at ? new Date(lg.created_at).toLocaleString('en-IN', {
                                       year: 'numeric',
                                       month: 'short',
@@ -1004,10 +1018,10 @@ export default function AnnadhanamListView() {
                                       minute: '2-digit'
                                     }) : '-'}
                                   </td>
-                                  <td className="py-3 px-4 text-sm text-gray-700 border-b">{lg.annadhanam_id}</td>
-                                  <td className="py-3 px-4 text-sm text-gray-700 border-b">{lg.annadhanam_name ?? '-'}</td>
-                                  <td className="py-3 px-4 text-sm text-gray-700 border-b">{lg.receipt_number ?? '-'}</td>
-                                  <td className="py-3 px-4 text-sm text-gray-700 border-b">
+                                  <td className={formFieldStyles.moneyDonationList.logsTable.td}>{lg.annadhanam_id}</td>
+                                  <td className={formFieldStyles.moneyDonationList.logsTable.td}>{lg.annadhanam_name ?? '-'}</td>
+                                  <td className={formFieldStyles.moneyDonationList.logsTable.td}>{lg.receipt_number ?? '-'}</td>
+                                  <td className={formFieldStyles.moneyDonationList.logsTable.td}>
                                     {(() => {
                                       const userId = lg.created_by;
                                       if (!userId) return '-';
@@ -1084,13 +1098,13 @@ export default function AnnadhanamListView() {
                           </table>
                         </div>
                       </div>
-                      <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-t flex-shrink-0">
-                        <div className="text-sm text-gray-700">
-                          {t('Total', 'மொத்தம்')}: <span className="font-medium">{allLogsTotal}</span>
+                      <div className={formFieldStyles.moneyDonationList.pagination.container}>
+                        <div className={formFieldStyles.moneyDonationList.pagination.info}>
+                          {t('Total', 'மொத்தம்')}: <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{allLogsTotal}</span>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className={formFieldStyles.moneyDonationList.pagination.controls}>
                           <button
-                            className="px-3 py-1 border border-gray-300 rounded shadow-sm text-sm bg-white hover:bg-gray-50"
+                            className={formFieldStyles.moneyDonationList.pagination.button}
                             disabled={allLogsPage <= 1}
                             onClick={() => loadAllAnnadhanamLogs(allLogsPage - 1)}
                           >
@@ -1098,7 +1112,7 @@ export default function AnnadhanamListView() {
                           </button>
                           <span className="text-sm text-gray-600">{t('Page', 'பக்கம்')} {allLogsPage}</span>
                           <button
-                            className="px-3 py-1 border border-gray-300 rounded shadow-sm text-sm bg-white hover:bg-gray-50"
+                            className={formFieldStyles.moneyDonationList.pagination.button}
                             disabled={allLogsPage * allLogsPageSize >= allLogsTotal}
                             onClick={() => loadAllAnnadhanamLogs(allLogsPage + 1)}
                           >
@@ -1116,13 +1130,13 @@ export default function AnnadhanamListView() {
 
         {/* Logs Modal */}
         {logsFor !== null && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/40" onClick={closeLogs} />
-            <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-4xl mx-4">
+          <div className={formFieldStyles.moneyDonationList.modal.overlay}>
+            <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeLogs} />
+            <div className={formFieldStyles.moneyDonationList.modal.container}>
               <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-6 px-6 rounded-t-lg">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold">{t('Activity Log', 'செயல்பாட்டு பதிவு')} #{logsFor}</h2>
-                  <button onClick={closeLogs} className="text-white hover:bg-white/20 p-2 rounded">
+                <div className={formFieldStyles.moneyDonationList.modal.header}>
+                  <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('Activity Log', 'செயல்பாட்டு பதிவு')} #{logsFor}</h2>
+                  <button onClick={closeLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
@@ -1133,36 +1147,36 @@ export default function AnnadhanamListView() {
               <div className="p-6">
                 <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                   {logsLoading ? (
-                    <div className="flex items-center justify-center h-32">
-                      <div className="text-lg text-gray-600">{t('Loading logs...', 'பதிவுகள் ஏறுகிறது...')}</div>
+                    <div className={formFieldStyles.moneyDonationList.modal.loading}>
+                      {t('Loading logs...', 'பதிவுகள் ஏறுகிறது...')}
                     </div>
                   ) : logs.length === 0 ? (
-                    <div className="flex items-center justify-center h-32">
-                      <div className="text-lg text-gray-500">{t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}</div>
+                    <div className={formFieldStyles.moneyDonationList.modal.loading}>
+                      {t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead className="bg-gray-50">
+                      <table className={formFieldStyles.moneyDonationList.logsTable.table}>
+                        <thead className={formFieldStyles.moneyDonationList.logsTable.thead}>
                           <tr>
-                            <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                            <th className={formFieldStyles.moneyDonationList.logsTable.th}>
                               {t('Action', 'செயல்')}
                             </th>
-                            <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                            <th className={formFieldStyles.moneyDonationList.logsTable.th}>
                               {t('Date & Time', 'தேதி மற்றும் நேரம்')}
                             </th>
-                            <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                            <th className={formFieldStyles.moneyDonationList.logsTable.th}>
                               {t('User', 'பயனர்')}
                             </th>
-                            <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">
+                            <th className={formFieldStyles.moneyDonationList.logsTable.th}>
                               {t('Details', 'விவரங்கள்')}
                             </th>
                           </tr>
                         </thead>
-                        <tbody>
+                        <tbody className={formFieldStyles.moneyDonationList.logsTable.tbody}>
                           {logs.map((lg, index) => (
-                            <tr key={lg.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50`}>
-                              <td className="py-3 px-4 border-b">
+                            <tr key={lg.id} className={formFieldStyles.moneyDonationList.logsTable.tr}>
+                              <td className={formFieldStyles.moneyDonationList.logsTable.td}>
                                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                                   lg.action === 'create' ? 'bg-green-100 text-green-800' :
                                   lg.action === 'update' ? 'bg-blue-100 text-blue-800' :
@@ -1175,7 +1189,7 @@ export default function AnnadhanamListView() {
                                    lg.action}
                                 </span>
                               </td>
-                              <td className="py-3 px-4 text-sm text-gray-700 border-b">
+                              <td className={formFieldStyles.moneyDonationList.logsTable.tdNowrap}>
                                 {lg.created_at ? new Date(lg.created_at).toLocaleString('en-IN', {
                                   year: 'numeric',
                                   month: 'short',
@@ -1184,7 +1198,7 @@ export default function AnnadhanamListView() {
                                   minute: '2-digit'
                                 }) : '-'}
                               </td>
-                              <td className="py-3 px-4 text-sm text-gray-700 border-b">
+                              <td className={formFieldStyles.moneyDonationList.logsTable.td}>
                                 {(() => {
                                   const userId = lg.created_by;
                                   if (!userId) return '-';
@@ -1203,7 +1217,7 @@ export default function AnnadhanamListView() {
                                   return `User ${userId}`;
                                 })()}
                               </td>
-                              <td className="py-3 px-4 border-b">
+                              <td className={formFieldStyles.moneyDonationList.logsTable.td}>
                                 <div className="text-sm text-gray-600 max-w-md">
                                   {(() => {
                                     // Parse donation details from the log data
@@ -1266,7 +1280,7 @@ export default function AnnadhanamListView() {
             </div>
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

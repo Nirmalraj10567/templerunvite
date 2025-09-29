@@ -187,7 +187,7 @@ export default function TaxUserEntryPage() {
     if (!token) return;
     (async () => {
       try {
-        const resp = await axios.get<any>('/api/ledger/categories', {
+        const resp =await axios.get<any>('https://tmsapi.xesstechlink.com/api/ledger/categories', {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = (resp?.data && Array.isArray(resp.data.data)) ? resp.data.data : (Array.isArray(resp?.data) ? resp.data : []);

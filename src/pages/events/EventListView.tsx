@@ -17,6 +17,9 @@ import { Event } from '@/types/event';
 import { toast } from '@/components/ui/use-toast';
 import { useLanguage } from '@/lib/language';
 
+//import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn, pageContainerStyles, formFieldStyles } from "@/styles/formStyles";
+
 // Translation object
 const translations = {
   tamil: {
@@ -102,25 +105,12 @@ export default function EventListView() {
   };
 
   return (
-    <div className="container mx-auto py-4 px-3 text-xs">
+
+
+    <div  className={pageContainerStyles.container}>
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between p-3">
+        <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
           <CardTitle className="text-sm font-semibold">{t.templeEvents}</CardTitle>
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground h-3 w-3" />
-              <Input 
-                placeholder={t.searchEvents} 
-                className="pl-8 w-48 h-7 text-xs"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              />
-            </div>
-            <Button size="sm" onClick={() => navigate('/dashboard/events/new')}>
-              <Plus className="mr-1 h-3 w-3" /> {t.create}
-            </Button>
-          </div>
         </CardHeader>
         <CardContent className="p-3">
           {loading ? (

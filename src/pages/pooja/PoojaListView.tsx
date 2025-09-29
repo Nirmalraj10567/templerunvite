@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, Loader2, Eye, Edit, Trash2, Calendar, Clock, Filter, X, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,6 +29,7 @@ import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/lib/language";
 import { poojaService, Pooja, PoojaFormData } from "@/services/poojaService";
+import { cn, pageContainerStyles, formFieldStyles } from "@/styles/formStyles";
 
 interface PoojaLog {
   id: number;
@@ -45,6 +46,8 @@ export default function PoojaListView() {
   const navigate = useNavigate();
   const { user, token } = useAuth();
   const { language } = useLanguage();
+  // State for expanded pooja details
+  const [expandedPoojas, setExpandedPoojas] = useState<Record<number, boolean>>({});
 
   // Translation object
   const t = {
@@ -104,6 +107,9 @@ export default function PoojaListView() {
       failedToDeletePooja: 'பூஜையை நீக்க முடியவில்லை',
       poojaUpdatedSuccessfully: 'பூஜை வெற்றிகரமாக புதுப்பிக்கப்பட்டது',
       poojaDeletedSuccessfully: 'பூஜை வெற்றிகரமாக நீக்கப்பட்டது',
+      viewAll: 'அனைத்தையும் பார்',
+      hideDetails: 'விவரங்களை மறை',
+      showDetails: 'விவரங்களை காட்டு',
     },
     tamil: {
       poojaList: 'Pooja List',
@@ -173,6 +179,9 @@ export default function PoojaListView() {
       updated: 'Updated',
       deleted: 'Deleted',
       noLogsFound: 'No logs found',
+      viewAll: 'View All',
+      hideDetails: 'Hide Details',
+      showDetails: 'Show Details',
     }
   };
 
@@ -187,13 +196,17 @@ export default function PoojaListView() {
     setLogsFor(item.id);
     setLogsLoading(true);
     try {
-      const response = await fetch(`http://localhost:4000/api/pooja/${item.id}/logs`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/pooja/${item.id}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch logs');
       const result = await response.json();
       if (result.success) {
         setLogs(result.data || []);
+        
+        // Fetch usernames for individual logs
+        const userIds = [...new Set(result.data?.map((log: PoojaLog) => log.created_by).filter(Boolean) || [])] as number[];
+        await fetchUserNames(userIds);
       }
     } catch (e) {
       console.error('Failed to load logs:', e);
@@ -216,7 +229,7 @@ export default function PoojaListView() {
 
   const loadAllPoojaLogs = async () => {
     try {
-      const response = await fetch(`http://localhost:4000/api/pooja/logs?page=${allLogsPage}&pageSize=${allLogsPageSize}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/pooja/logs?page=${allLogsPage}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch logs');
@@ -224,6 +237,10 @@ export default function PoojaListView() {
       if (result.success) {
         setAllLogs(result.data || []);
         setAllLogsTotal(result.total || 0);
+        
+        // Fetch usernames for all logs
+        const userIds = [...new Set(result.data?.map((log: PoojaLog) => log.created_by).filter(Boolean) || [])] as number[];
+        await fetchUserNames(userIds);
       }
     } catch (e) {
       console.error('Failed to load all logs:', e);
@@ -233,10 +250,190 @@ export default function PoojaListView() {
     }
   };
 
+  const fetchUserNames = async (userIds: number[]) => {
+    const uniqueIds = Array.from(new Set(userIds.filter((v): v is number => typeof v === 'number')));
+    if (uniqueIds.length === 0) return;
+    // Skip ids we already have
+    const missing = uniqueIds.filter((id) => !userDetails[id] && !userNames[id]);
+    if (missing.length === 0) return;
+    console.log('Fetching user profiles for IDs (per-id):', missing);
+    const results = await Promise.all(
+      missing.map(async (id) => {
+        try {
+          const res = await fetch(`https://tmsapi.xesstechlink.com/api/admin/members/${id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            console.warn('Failed to fetch member by id', id, data);
+            return null;
+          }
+          const u = data?.data?.user || data?.data; // support both shapes
+          if (!u) return null;
+          const fullName = (u.full_name && String(u.full_name).trim()) || u.username || u.mobile || String(id);
+          return { id, name: fullName, username: u.username, mobile: u.mobile } as { id: number; name: string; username?: string; mobile?: string };
+        } catch (err) {
+          console.warn('Error fetching member id', id, err);
+          return null;
+        }
+      })
+    );
+    const nameMap: Record<number, string> = {};
+    const detailsMap: Record<number, { name: string; username?: string; mobile?: string }> = {};
+    results.forEach((r) => {
+      if (!r) return;
+      nameMap[r.id] = r.name;
+      detailsMap[r.id] = { name: r.name, username: r.username, mobile: r.mobile };
+    });
+    if (Object.keys(nameMap).length > 0) {
+      setUserNames((prev) => ({ ...prev, ...nameMap }));
+      setUserDetails((prev) => ({ ...prev, ...detailsMap }));
+      console.log('Updated user maps from per-id fetch:', { nameMap, detailsMap });
+    }
+  };
+
   const closeAllLogs = () => {
     setAllLogsOpen(false);
     setAllLogs([]);
     setAllLogsPage(1);
+  };
+
+  // Helper functions for log details
+  const toggleLogExpansion = (logId: number) => {
+    setExpandedLogs(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(logId)) {
+        newSet.delete(logId);
+      } else {
+        newSet.add(logId);
+      }
+      return newSet;
+    });
+  };
+
+  const formatAmount = (amount: any) => {
+    if (!amount) return '₹0';
+    const num = parseFloat(amount);
+    return isNaN(num) ? '₹0' : `₹${num.toFixed(2)}`;
+  };
+
+  const formatLogDetails = (action: string, details: any, createdBy: number | null) => {
+    if (!details) return 'No details available';
+    
+    const user = createdBy ? userDetails[createdBy] : null;
+    const userName = createdBy ? userNames[createdBy] : null;
+    
+    const displayUser = (() => {
+      if (!createdBy) return null;
+      if (user?.username) return `@${user.username}`;
+      if (user?.name) return user.name;
+      if (userName) return userName;
+      return `User ${createdBy}`;
+    })();
+    
+    // Extract specific fields from details
+    const receiptNumber = details.receipt_number || details.after?.receipt_number || details.before?.receipt_number;
+    const name = details.name || details.after?.name || details.before?.name;
+    const mobileNumber = details.mobile_number || details.after?.mobile_number || details.before?.mobile_number;
+    const amount = details.amount || details.after?.amount || details.before?.amount;
+    
+    return (
+      <div className="space-y-2">
+        
+        {/* Display specific fields if available */}
+        {(receiptNumber || name || mobileNumber || amount) && (
+          <div className="text-xs space-y-1">
+            <strong>Pooja Details:</strong>
+            <div className="bg-gray-50 p-2 rounded border space-y-1">
+              {receiptNumber && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Receipt:</span>
+                  <span className="font-medium">{receiptNumber}</span>
+                </div>
+              )}
+              {name && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Name:</span>
+                  <span className="font-medium">{name}</span>
+                </div>
+              )}
+              {mobileNumber && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Mobile:</span>
+                  <span className="font-medium">{mobileNumber}</span>
+                </div>
+              )}
+              {amount && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Amount:</span>
+                  <span className="font-medium text-green-600">{formatAmount(amount)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        
+        {/* Show raw JSON as fallback if no specific fields */}
+        {!receiptNumber && !name && !mobileNumber && !amount && details && (
+          <div className="text-xs">
+            <strong>Details:</strong>
+            <pre className="mt-1 p-2 bg-gray-50 rounded text-xs overflow-auto max-h-32">
+              {JSON.stringify(details, null, 2)}
+            </pre>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const getAmountInfo = (details: any, compact: boolean = false) => {
+    if (!details) return null;
+    
+    // Extract specific fields from details (check both direct and nested properties)
+    const receiptNumber = details.receipt_number || details.after?.receipt_number || details.before?.receipt_number;
+    const name = details.name || details.after?.name || details.before?.name || details.pooja_name;
+    const mobile = details.mobile_number || details.after?.mobile_number || details.before?.mobile_number || details.mobile;
+    const amount = details.amount || details.after?.amount || details.before?.amount || details.amount_paid || details.tax_amount;
+    
+    if (compact) {
+      return (
+        <div className="text-xs space-y-1">
+          {receiptNumber && <div><strong>Receipt:</strong> {receiptNumber}</div>}
+          {name && <div><strong>Name:</strong> {name}</div>}
+          {mobile && <div><strong>Mobile:</strong> {mobile}</div>}
+          {amount && <div><strong>Amount:</strong> {formatAmount(amount)}</div>}
+        </div>
+      );
+    }
+    
+    return (
+      <div className="text-xs space-y-2">
+        {receiptNumber && (
+          <div className="bg-purple-50 p-2 rounded border">
+            <div className="font-medium text-purple-700">Receipt</div>
+            <div className="text-purple-900">{receiptNumber}</div>
+          </div>
+        )}
+        {name && (
+          <div className="bg-blue-50 p-2 rounded border">
+            <div className="font-medium text-blue-700">Name</div>
+            <div className="text-blue-900">{name}</div>
+          </div>
+        )}
+        {mobile && (
+          <div className="bg-green-50 p-2 rounded border">
+            <div className="font-medium text-green-700">Mobile</div>
+            <div className="text-green-900">{mobile}</div>
+          </div>
+        )}
+        {amount && (
+          <div className="bg-yellow-50 p-2 rounded border">
+            <div className="font-medium text-yellow-700">Amount</div>
+            <div className="text-yellow-900">{formatAmount(amount)}</div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   const [loading, setLoading] = useState(false);
@@ -263,6 +460,13 @@ export default function PoojaListView() {
   const [allLogsTotal, setAllLogsTotal] = useState(0);
   const [allLogsPage, setAllLogsPage] = useState(1);
   const [allLogsPageSize] = useState(50);
+  
+  // Username fetching state
+  const [userDetails, setUserDetails] = useState<Record<number, any>>({});
+  const [userNames, setUserNames] = useState<Record<number, string>>({});
+  
+  // Log details expansion state
+  const [expandedLogs, setExpandedLogs] = useState<Set<number>>(new Set());
   
   // Quick search filter
   const [quickSearch, setQuickSearch] = useState("");
@@ -432,7 +636,7 @@ export default function PoojaListView() {
     const load = async () => {
       try {
         if (!token) return;
-        const resp = await fetch('http://localhost:4000/api/ledger/categories', { headers: { Authorization: `Bearer ${token}` } });
+        const resp = await fetch('https://tmsapi.xesstechlink.com/api/ledger/categories', { headers: { Authorization: `Bearer ${token}` } });
         const body = await resp.json().catch(() => ({}));
         const raw = Array.isArray(body?.data) ? body.data : (Array.isArray(body) ? body : []);
         const mapped = (raw || []).map((item: any, idx: number) => {
@@ -450,6 +654,14 @@ export default function PoojaListView() {
   const handleViewClick = (pooja: Pooja) => {
     setViewPooja(pooja);
     setIsViewOpen(true);
+  };
+
+  // Toggle function for showing/hiding pooja details
+  const togglePoojaDetails = (poojaId: number) => {
+    setExpandedPoojas(prev => ({
+      ...prev,
+      [poojaId]: !prev[poojaId]
+    }));
   };
 
   const handleEditClick = (pooja: Pooja) => {
@@ -521,350 +733,383 @@ export default function PoojaListView() {
   const filteredData = data;
 
   return (
-    <div className="p-2 bg-gray-50">
-      {/* Compact Header */}
-      <div className="flex justify-between items-center mb-2">
-        <h1 className="text-base font-bold text-gray-800">{translate("poojaList")}</h1>
-        <div className="text-xs text-gray-500">
-          {filteredData.length} {translate("entries")}
-        </div>
-      </div>
+    <div className={pageContainerStyles.container}>
+      <Card className={pageContainerStyles.content}>
+        {/* Header */}
+        <CardHeader className={cn(formFieldStyles.tableHeader.container, formFieldStyles.card.header)}>
+          <div className="flex items-center justify-between">
+            <CardTitle className={formFieldStyles.tableHeader.title}>
+              {translate("poojaList")}
+            </CardTitle>
+           
+          </div>
+        </CardHeader>
 
-      {/* Compact Filters */}
-      <Card className="mb-2">
-        <CardContent className="p-2">
-          <div className="flex gap-2 items-center">
-            {/* Quick Search */}
-            <div className="relative flex-1">
-              <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400" />
+        {/* Filters */}
+        <div className={formFieldStyles.moneyDonationList.filters.container}>
+          <div className={formFieldStyles.moneyDonationList.filters.form}>
+            {/* Search */}
+            <div className={formFieldStyles.moneyDonationList.filters.searchContainer}>
+              <div className={formFieldStyles.moneyDonationList.filters.searchIcon}>
+                <Search className={formFieldStyles.moneyDonationList.filters.searchIconSvg} />
+              </div>
               <Input
                 type="search"
                 placeholder={translate("searchPlaceholder")}
-                className="pl-7 text-xs h-7"
+                className={formFieldStyles.moneyDonationList.filters.searchInput}
                 value={quickSearch}
                 onChange={(e) => setQuickSearch(e.target.value)}
               />
             </div>
 
-            {/* Action Buttons */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setQuickSearch("")}
-              disabled={!quickSearch}
-              className="text-xs h-7 px-2"
-            >
-              <X className="h-3 w-3 mr-1" />
-              {translate("clear")}
-            </Button>
-
-            <Button variant="outline" size="sm" onClick={handleExportPdf} className="text-xs h-7 px-2">
-              <FileDown className="h-3 w-3 mr-1" />
-              {translate("export")}
-            </Button>
-            <Button variant="outline" size="sm" onClick={openAllLogs} className="text-xs h-7 px-2">
-              <FileDown className="h-3 w-3 mr-1" />
-              {translate("allLogs")}
-            </Button>
+            {/* Actions */}
+            <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setQuickSearch("")}
+                disabled={!quickSearch}
+                className={formFieldStyles.moneyDonationList.filters.button}
+              >
+                <X className="h-3 w-3 mr-1" />
+                {translate("clear")}
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleExportPdf} className={formFieldStyles.moneyDonationList.filters.button}>
+                <FileDown className="h-3 w-3 mr-1" />
+                {translate("export")}
+              </Button>
+              <Button variant="outline" size="sm" onClick={openAllLogs} className={formFieldStyles.moneyDonationList.filters.button}>
+                <FileDown className="h-3 w-3 mr-1" />
+                {translate("allLogs")}
+              </Button>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Compact Table */}
-      <div
-        className="bg-white rounded border border-gray-200 overflow-hidden"
-        onContextMenu={onContextMenu}
-      >
-        <div className="overflow-x-auto text-xs max-h-[65vh]">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50 sticky top-0 z-10">
-              <tr>
-                {allColumns.map(
-                  (col) =>
-                    visibleCols[col.key] && (
-                      <th
-                        key={col.key}
-                        className={`px-2 py-1 text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                          col.align === 'right'
-                            ? 'text-right'
-                            : col.align === 'center'
-                            ? 'text-center'
-                            : 'text-left'
-                        }`}
-                      >
-                        {col.label}
-                      </th>
-                    )
-                )}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {loading ? (
+        {/* Table */}
+        <div
+          className={formFieldStyles.moneyDonationList.table.container}
+          onContextMenu={onContextMenu}
+        >
+          <div className={formFieldStyles.moneyDonationList.table.scrollContainer}>
+            <table className={formFieldStyles.moneyDonationList.table.table}>
+              <thead className={formFieldStyles.moneyDonationList.table.thead}>
                 <tr>
-                  <td colSpan={visibleColCount} className="px-2 py-4 text-center text-xs text-gray-500">
-                    <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
-                    {translate("loading")}
-                  </td>
+                  {allColumns.map(
+                    (col) =>
+                      visibleCols[col.key] && (
+                        <th
+                          key={col.key}
+                          className={cn(
+                            formFieldStyles.moneyDonationList.table.th,
+                            col.align === 'right' ? formFieldStyles.moneyDonationList.table.thRight :
+                            col.align === 'center' ? formFieldStyles.moneyDonationList.table.thCenter :
+                            formFieldStyles.moneyDonationList.table.thLeft
+                          )}
+                        >
+                          {col.label}
+                        </th>
+                      )
+                  )}
                 </tr>
-              ) : filteredData.length > 0 ? (
-                filteredData.map((pooja) => {
-                  // Calculate permissions for current row
-                  const canEdit = canEditPooja(pooja);
-                  const canDelete = canDeletePooja(pooja);
-                  
-                  return (
-                    <tr key={pooja.id} className="hover:bg-gray-50">
-                      {visibleCols.receipt && (
-                        <td className="px-2 py-1 whitespace-nowrap text-xs font-medium text-gray-900">
-                          {pooja.receipt_number}
-                        </td>
-                      )}
-                      {visibleCols.name && (
-                        <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900 max-w-32 truncate">
-                          {pooja.name}
-                        </td>
-                      )}
-                      {visibleCols.mobile && (
-                        <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
-                          {pooja.mobile_number}
-                        </td>
-                      )}
-                      {visibleCols.dateRange && (
-                        <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
-                          <div className="flex items-center">
-                            <Calendar className="h-3 w-3 mr-1 text-gray-400" />
-                            <div>
-                              <div>{formatDate(pooja.from_date)}</div>
-                              {pooja.from_date !== pooja.to_date && (
-                                <div className="text-gray-400">
-                                  - {formatDate(pooja.to_date)}
-                                </div>
-                              )}
+              </thead>
+              <tbody className={formFieldStyles.moneyDonationList.table.tbody}>
+                {loading ? (
+                  <tr>
+                    <td colSpan={visibleColCount} className={formFieldStyles.moneyDonationList.table.loadingCell}>
+                      <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
+                      {translate("loading")}
+                    </td>
+                  </tr>
+                ) : filteredData.length > 0 ? (
+                  filteredData.map((pooja) => {
+                    // Calculate permissions for current row
+                    const canEdit = canEditPooja(pooja);
+                    const canDelete = canDeletePooja(pooja);
+                    
+                    return (
+                      <tr key={pooja.id} className={formFieldStyles.moneyDonationList.table.tr}>
+                        {visibleCols.receipt && (
+                          <td className={formFieldStyles.moneyDonationList.table.td}>
+                            {pooja.receipt_number}
+                          </td>
+                        )}
+                        {visibleCols.name && (
+                          <td className={formFieldStyles.moneyDonationList.table.td}>
+                            <div className="max-w-32 truncate">
+                              {pooja.name}
                             </div>
-                          </div>
-                        </td>
-                      )}
-                      {visibleCols.time && (
-                        <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
-                          <div className="flex items-center">
-                            <Clock className="h-3 w-3 mr-1 text-gray-400" />
-                            {formatTime(pooja.time)}
-                          </div>
-                        </td>
-                      )}
-                      {visibleCols.actions && (
-                        <td className="px-2 py-1 whitespace-nowrap text-xs text-center">
-                          <div className="flex justify-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleViewClick(pooja)}
-                              className="h-6 w-6 p-0"
-                            >
-                              <Eye className="h-3 w-3" />
-                            </Button>
-                            {/* Fixed: Use calculated permissions */}
-                            {canEdit && (
+                          </td>
+                        )}
+                        {visibleCols.mobile && (
+                          <td className={formFieldStyles.moneyDonationList.table.td}>
+                            {pooja.mobile_number}
+                          </td>
+                        )}
+                        {visibleCols.dateRange && (
+                          <td className={formFieldStyles.moneyDonationList.table.td}>
+                            <div className="flex items-center">
+                              <Calendar className="h-3 w-3 mr-1 text-gray-400" />
+                              <div>
+                                <div>{formatDate(pooja.from_date)}</div>
+                                {pooja.from_date !== pooja.to_date && (
+                                  <div className="text-gray-400">
+                                    - {formatDate(pooja.to_date)}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        )}
+                        {visibleCols.time && (
+                          <td className={formFieldStyles.moneyDonationList.table.td}>
+                            <div className="flex items-center">
+                              <Clock className="h-3 w-3 mr-1 text-gray-400" />
+                              {formatTime(pooja.time)}
+                            </div>
+                          </td>
+                        )}
+                        {visibleCols.actions && (
+                          <td className={cn(formFieldStyles.moneyDonationList.table.td, formFieldStyles.moneyDonationList.table.tdCenter)}>
+                            <div className={formFieldStyles.moneyDonationList.actionButtons.container}>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleEditClick(pooja)}
-                                className="h-6 w-6 p-0"
-                                title={translate("edit")}
+                                onClick={() => togglePoojaDetails(pooja.id)}
+                                className="h-6 px-2 text-xs"
                               >
-                                <Edit className="h-3 w-3" />
+                                <Eye className="h-3 w-3 mr-1" />
+                                {expandedPoojas[pooja.id] ? translate("hideDetails") : translate("showDetails")}
                               </Button>
-                            )}
-                            {canDelete && (
+                              {/* Fixed: Use calculated permissions */}
+                              {canEdit && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditClick(pooja)}
+                                  className="h-6 w-6 p-0"
+                                  title={translate("edit")}
+                                >
+                                  <Edit className="h-3 w-3" />
+                                </Button>
+                              )}
+                              {canDelete && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteClick(pooja.id)}
+                                  className="h-6 w-6 p-0 text-red-600"
+                                  title={translate("delete")}
+                                  disabled={filteredData.indexOf(pooja) !== 0}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleDeleteClick(pooja.id)}
-                                className="h-6 w-6 p-0 text-red-600"
-                                title={translate("delete")}
+                                onClick={() => openLogs(pooja)}
+                                className="h-6 w-6 p-0 text-green-600"
+                                title={translate("logs")}
                               >
-                                <Trash2 className="h-3 w-3" />
+                                <FileDown className="h-3 w-3" />
                               </Button>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openLogs(pooja)}
-                              className="h-6 w-6 p-0 text-green-600"
-                              title={translate("logs")}
-                            >
-                              <FileDown className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan={visibleColCount} className="px-2 py-8 text-center text-xs text-gray-500">
-                    {translate("noPoojaEntriesFound")}
-                  </td>
-                </tr>
-              )}
+                            </div>
+                          </td>
+                        )}
+                        {/* Pooja Details Section */}
+                        {expandedPoojas[pooja.id] && (
+                          <tr className="bg-gray-50 dark:bg-gray-800">
+                            <td colSpan={Object.keys(visibleCols).length} className="px-6 py-4">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <h4 className="font-semibold mb-2">{translate("poojaDetails")}</h4>
+                                  <p><span className="font-medium">{translate("poojaName")}:</span> {pooja.pooja_name}</p>
+                                  <p><span className="font-medium">{translate("poojaDate")}:</span> {formatDate(pooja.from_date)} {pooja.from_date !== pooja.to_date ? `- ${formatDate(pooja.to_date)}` : ''}</p>
+                                  <p><span className="font-medium">{translate("poojaTime")}:</span> {formatTime(pooja.time)}</p>
+                                  <p><span className="font-medium">{translate("amount")}:</span> ₹{pooja.amount || '0'}</p>
+                                </div>
+                                <div>
+                                  <h4 className="font-semibold mb-2">{translate("devoteeInfo")}</h4>
+                                  <p><span className="font-medium">{translate("devoteeName")}:</span> {pooja.name}</p>
+                                  <p><span className="font-medium">{translate("devoteeMobile")}:</span> {pooja.mobile_number}</p>
+                                  {pooja.address && (
+                                    <p><span className="font-medium">{translate("address")}:</span> {pooja.address}</p>
+                                  )}
+                                  {pooja.notes && (
+                                    <p className="mt-2">
+                                      <span className="font-medium">{translate("notes")}:</span> {pooja.notes}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={visibleColCount} className={formFieldStyles.moneyDonationList.table.emptyCell}>
+                      {translate("noPoojaEntriesFound")}
+                    </td>
+                  </tr>
+                )}
             </tbody>
           </table>
         </div>
 
-        {/* Footer */}
-        <div className="px-2 py-1 flex items-center justify-between border-t border-gray-200 text-xs">
-          <div className="text-gray-700">
-            {translate("showing")} <span className="font-medium">
-              {pagination.pageIndex * pagination.pageSize + 1}-{
-                Math.min((pagination.pageIndex + 1) * pagination.pageSize, pagination.total)
-              }
-            </span> {translate("of")}{" "}
-            <span className="font-medium">{pagination.total}</span> {translate("items")}
+          {/* Footer */}
+          <div className={formFieldStyles.moneyDonationList.summary.container}>
+            <div className={formFieldStyles.moneyDonationList.summary.info}>
+              {translate("showing")} <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>
+                {pagination.pageIndex * pagination.pageSize + 1}-{
+                  Math.min((pagination.pageIndex + 1) * pagination.pageSize, pagination.total)
+                }
+              </span> {translate("of")}{" "}
+              <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{pagination.total}</span> {translate("items")}
+            </div>
+            <div className={formFieldStyles.moneyDonationList.summary.total}>
+              {translate("total")}: <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{pagination.total}</span>
+            </div>
           </div>
-          <div className="text-gray-700">
-            {translate("total")}: <span className="font-medium">{pagination.total}</span>
-          </div>
-        </div>
       </div>
 
-      {/* Pagination */}
-      {pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between mt-2 text-xs">
-          <div className="text-gray-500 text-xs">
-            {translate("showing")} {pagination.pageSize} {translate("rowsPerPage")}
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPagination(prev => ({ ...prev, pageIndex: 0 }))}
-              disabled={pagination.pageIndex === 0}
-              className="text-xs py-1 px-2 h-7"
-            >
-              {translate("first")}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPagination(prev => ({ ...prev, pageIndex: Math.max(0, prev.pageIndex - 1) }))}
-              disabled={pagination.pageIndex === 0}
-              className="text-xs py-1 px-2 h-7"
-            >
-              {translate("previous")}
-            </Button>
-            <span className="text-xs">
-              {translate("page")} {pagination.pageIndex + 1} {translate("of")} {pagination.totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPagination(prev => ({ ...prev, pageIndex: Math.min(prev.pageIndex + 1, pagination.totalPages - 1) }))}
-              disabled={pagination.pageIndex >= pagination.totalPages - 1}
-              className="text-xs py-1 px-2 h-7"
-            >
-              {translate("next")}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPagination(prev => ({ ...prev, pageIndex: pagination.totalPages - 1 }))}
-              disabled={pagination.pageIndex >= pagination.totalPages - 1}
-              className="text-xs py-1 px-2 h-7"
-            >
-              {translate("last")}
-            </Button>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">{translate("rowsPerPage")}: </span>
-            <Select
-              value={pagination.pageSize.toString()}
-              onValueChange={(value) => {
-                setPagination(prev => ({
-                  ...prev,
-                  pageSize: Number(value),
-                  pageIndex: 0 // Reset to first page
-                }));
-              }}
-            >
-              <SelectTrigger className="h-7 w-16 text-xs">
-                <SelectValue placeholder={pagination.pageSize} />
-              </SelectTrigger>
-              <SelectContent>
-                {[10, 15, 25, 50, 100].map((size) => (
-                  <SelectItem key={size} value={size.toString()} className="text-xs">
-                    {size}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      )}
-
-      {/* Context Menu */}
-      {menuOpen && (
-        <div
-          ref={menuRef}
-          className="fixed z-50 bg-white rounded shadow border border-gray-200 w-48 text-xs"
-          style={{ left: menuPos.x, top: menuPos.y }}
-        >
-          <div className="px-3 py-2 border-b border-gray-200">
-            <h3 className="text-xs font-medium text-gray-900">{translate('columns')}</h3>
-            <p className="text-xs text-gray-500">
-              {translate('visible')} {Object.values(visibleCols).filter(Boolean).length}/{allColumns.length}
-            </p>
-          </div>
-          <div className="max-h-48 overflow-y-auto p-1">
-            {allColumns.map((col) => (
-              <label
-                key={col.key}
-                className="flex items-center px-2 py-1 rounded hover:bg-gray-50 cursor-pointer select-none"
+        {/* Pagination */}
+        {pagination.totalPages > 1 && (
+          <div className={formFieldStyles.moneyDonationList.pagination.container}>
+            <div className={formFieldStyles.moneyDonationList.pagination.controls}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPagination(prev => ({ ...prev, pageIndex: 0 }))}
+                disabled={pagination.pageIndex === 0}
+                className={formFieldStyles.moneyDonationList.pagination.button}
               >
-                <input
-                  type="checkbox"
-                  checked={!!visibleCols[col.key]}
-                  onChange={() =>
-                    setVisibleCols((prev) => ({ ...prev, [col.key]: !prev[col.key] }))
-                  }
-                  className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <span className="ml-2 text-xs text-gray-700">{col.label}</span>
-              </label>
-            ))}
+                {translate("first")}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPagination(prev => ({ ...prev, pageIndex: Math.max(0, prev.pageIndex - 1) }))}
+                disabled={pagination.pageIndex === 0}
+                className={formFieldStyles.moneyDonationList.pagination.button}
+              >
+                {translate("previous")}
+              </Button>
+              <span className="text-xs">
+                {translate("page")} {pagination.pageIndex + 1} {translate("of")} {pagination.totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPagination(prev => ({ ...prev, pageIndex: Math.min(prev.pageIndex + 1, pagination.totalPages - 1) }))}
+                disabled={pagination.pageIndex >= pagination.totalPages - 1}
+                className={formFieldStyles.moneyDonationList.pagination.button}
+              >
+                {translate("next")}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPagination(prev => ({ ...prev, pageIndex: pagination.totalPages - 1 }))}
+                disabled={pagination.pageIndex >= pagination.totalPages - 1}
+                className={formFieldStyles.moneyDonationList.pagination.button}
+              >
+                {translate("last")}
+              </Button>
+              <div className="flex items-center gap-2 ml-auto">
+                <span className="text-xs text-gray-500">{translate("rowsPerPage")}: </span>
+                <Select
+                  value={pagination.pageSize.toString()}
+                  onValueChange={(value) => {
+                    setPagination(prev => ({
+                      ...prev,
+                      pageSize: Number(value),
+                      pageIndex: 0 // Reset to first page
+                    }));
+                  }}
+                >
+                  <SelectTrigger className="h-7 w-16 text-xs">
+                    <SelectValue placeholder={pagination.pageSize} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[10, 15, 25, 50, 100].map((size) => (
+                      <SelectItem key={size} value={size.toString()} className="text-xs">
+                        {size}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-1 p-1 border-t border-gray-200">
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs py-0.5 px-1.5 h-auto"
-              onClick={() =>
-                setVisibleCols(Object.fromEntries(allColumns.map((c) => [c.key, true])) as any)
-              }
-            >
-              {translate('selectAll')}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs py-0.5 px-1.5 h-auto"
-              onClick={() =>
-                setVisibleCols(Object.fromEntries(allColumns.map((c) => [c.key, false])) as any)
-              }
-            >
-              {translate('clearAll')}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs py-0.5 px-1.5 h-auto ml-auto"
-              onClick={() => setMenuOpen(false)}
-            >
-              {translate('close')}
-            </Button>
+        )}
+
+        {/* Context Menu */}
+        {menuOpen && (
+          <div
+            ref={menuRef}
+            className={formFieldStyles.moneyDonationList.contextMenu.container}
+            style={{ left: menuPos.x, top: menuPos.y }}
+          >
+            <div className={formFieldStyles.moneyDonationList.contextMenu.header}>
+              <h3 className={formFieldStyles.moneyDonationList.contextMenu.title}>{translate('columns')}</h3>
+              <p className={formFieldStyles.moneyDonationList.contextMenu.subtitle}>
+                {translate('visible')} {Object.values(visibleCols).filter(Boolean).length}/{allColumns.length}
+              </p>
+            </div>
+            <div className={formFieldStyles.moneyDonationList.contextMenu.content}>
+              {allColumns.map((col) => (
+                <label
+                  key={col.key}
+                  className={formFieldStyles.moneyDonationList.contextMenu.item}
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!visibleCols[col.key]}
+                    onChange={() =>
+                      setVisibleCols((prev) => ({ ...prev, [col.key]: !prev[col.key] }))
+                    }
+                    className={formFieldStyles.moneyDonationList.contextMenu.checkbox}
+                  />
+                  <span className={formFieldStyles.moneyDonationList.contextMenu.label}>{col.label}</span>
+                </label>
+              ))}
+            </div>
+            <div className={formFieldStyles.moneyDonationList.contextMenu.actions}>
+              <Button
+                variant="outline"
+                size="sm"
+                className={formFieldStyles.moneyDonationList.contextMenu.actionButton}
+                onClick={() =>
+                  setVisibleCols(Object.fromEntries(allColumns.map((c) => [c.key, true])) as any)
+                }
+              >
+                {translate('selectAll')}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className={formFieldStyles.moneyDonationList.contextMenu.actionButton}
+                onClick={() =>
+                  setVisibleCols(Object.fromEntries(allColumns.map((c) => [c.key, false])) as any)
+                }
+              >
+                {translate('clearAll')}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={formFieldStyles.moneyDonationList.contextMenu.closeButton}
+                onClick={() => setMenuOpen(false)}
+              >
+                {translate('close')}
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* View Modal */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
@@ -975,147 +1220,237 @@ export default function PoojaListView() {
 
       {/* All Pooja Logs Modal */}
       {allLogsOpen && (
-        <Dialog open={allLogsOpen} onOpenChange={setAllLogsOpen}>
-          <DialogContent className="sm:max-w-4xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-base">
-                {translate("allPoojaLogs")}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="max-h-96 overflow-y-auto">
-              {allLogsLoading ? (
-                <div className="flex items-center justify-center h-32">
-                  <div className="text-sm text-muted-foreground">Loading logs...</div>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left p-2">{translate("action")}</th>
-                        <th className="text-left p-2">{translate("pooja")}</th>
-                        <th className="text-left p-2">{translate("receipt")}</th>
-                        <th className="text-left p-2">{translate("date")}</th>
-                        <th className="text-left p-2">{translate("details")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {allLogs.length > 0 ? (
-                        allLogs.map((log) => (
-                          <tr key={log.id} className="border-b">
-                            <td className="p-2">
-                              <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                log.action === 'create' ? 'bg-green-100 text-green-800' :
-                                log.action === 'update' ? 'bg-blue-100 text-blue-800' :
-                                log.action === 'delete' ? 'bg-red-100 text-red-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>
-                                {log.action === 'create' ? translate("created") :
-                                 log.action === 'update' ? translate("updated") :
-                                 log.action === 'delete' ? translate("deleted") :
-                                 log.action}
-                              </span>
-                            </td>
-                            <td className="p-2">{log.pooja_name || '-'}</td>
-                            <td className="p-2">{log.receipt_number || '-'}</td>
-                            <td className="p-2">
-                              {new Date(log.created_at).toLocaleString()}
-                            </td>
-                            <td className="p-2 max-w-xs">
-                              <div className="text-xs text-muted-foreground">
-                                {log.details ? (
-                                  <pre className="whitespace-pre-wrap break-words">
-                                    {JSON.stringify(log.details, null, 2)}
-                                  </pre>
-                                ) : '-'}
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={5} className="h-24 text-center text-muted-foreground">
-                            {translate("noLogsFound")}
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-            {allLogsTotal > allLogsPageSize && (
-              <div className="mt-4 flex justify-between items-center">
-                <div className="text-sm text-muted-foreground">
-                  {translate("showing")} {((allLogsPage - 1) * allLogsPageSize) + 1} - {Math.min(allLogsPage * allLogsPageSize, allLogsTotal)} {translate("of")} {allLogsTotal}
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setAllLogsPage(prev => Math.max(1, prev - 1));
-                      loadAllPoojaLogs();
-                    }}
-                    disabled={allLogsPage <= 1}
-                    className="text-xs"
-                  >
-                    {translate("previous")}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setAllLogsPage(prev => prev + 1);
-                      loadAllPoojaLogs();
-                    }}
-                    disabled={allLogsPage * allLogsPageSize >= allLogsTotal}
-                    className="text-xs"
-                  >
-                    {translate("next")}
-                  </Button>
-                </div>
+        <div className={formFieldStyles.moneyDonationList.modal.overlay}>
+          <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeAllLogs} />
+          <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-6xl mx-4">
+            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white py-6 px-6 rounded-t-lg">
+              <div className={formFieldStyles.moneyDonationList.modal.header}>
+                <h2 className={formFieldStyles.moneyDonationList.modal.title}>{translate("allPoojaLogs")}</h2>
+                <Button variant="ghost" className={formFieldStyles.moneyDonationList.modal.closeButton} onClick={closeAllLogs}>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </Button>
               </div>
-            )}
-            <DialogFooter>
-              <Button variant="outline" size="sm" onClick={closeAllLogs} className="text-xs">
-                {translate("close")}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </div>
+
+            <div className="p-6">
+              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                {allLogsLoading ? (
+                  <div className={formFieldStyles.moneyDonationList.modal.loading}>
+                    {translate("loading")}...
+                  </div>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className={formFieldStyles.moneyDonationList.logsTable.table}>
+                        <thead className={formFieldStyles.moneyDonationList.logsTable.thead}>
+                          <tr>
+                            <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                              {translate("action")}
+                            </th>
+                            <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                              {translate("date")}
+                            </th>
+                            <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                              {translate("receipt")}
+                            </th>
+                            <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                              {translate("name")}
+                            </th>
+                            <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                              {translate("mobile")}
+                            </th>
+                            <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                              {translate("amount")}
+                            </th>
+                            <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                              {translate("user")}
+                            </th>
+                            <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                              {translate("details")}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className={formFieldStyles.moneyDonationList.logsTable.tbody}>
+                          {allLogs.length === 0 ? (
+                            <tr>
+                              <td className={formFieldStyles.moneyDonationList.logsTable.tdCenter} colSpan={8}>
+                                {translate("noLogsFound")}
+                              </td>
+                            </tr>
+                          ) : allLogs.map((log, index) => (
+                            <tr key={log.id} className={formFieldStyles.moneyDonationList.logsTable.tr}>
+                              <td className={formFieldStyles.moneyDonationList.logsTable.td}>
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                  log.action === 'create' ? 'bg-green-100 text-green-800' :
+                                  log.action === 'update' ? 'bg-blue-100 text-blue-800' :
+                                  log.action === 'delete' ? 'bg-red-100 text-red-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {log.action === 'create' ? translate("created") :
+                                   log.action === 'update' ? translate("updated") :
+                                   log.action === 'delete' ? translate("deleted") :
+                                   log.action}
+                                </span>
+                              </td>
+                              <td className={formFieldStyles.moneyDonationList.logsTable.tdNowrap}>
+                                {log.created_at ? new Date(log.created_at).toLocaleString('en-IN', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                }) : '-'}
+                              </td>
+                              <td className={formFieldStyles.moneyDonationList.logsTable.td}>{log.receipt_number || '-'}</td>
+                              <td className={formFieldStyles.moneyDonationList.logsTable.td}>{log.pooja_name || '-'}</td>
+                              <td className={formFieldStyles.moneyDonationList.logsTable.td}>
+                                {log.details?.mobile_number || log.details?.mobile || '-'}
+                              </td>
+                              <td className={formFieldStyles.moneyDonationList.logsTable.td}>
+                                {log.details?.amount ? `₹${log.details.amount}` : '-'}
+                              </td>
+                              <td className={formFieldStyles.moneyDonationList.logsTable.td}>
+                                {(() => {
+                                  const userId = log.created_by;
+                                  if (!userId) return '-';
+                                  const user = userDetails[userId];
+                                  const name = userNames[userId];
+                                  
+                                  if (user?.username) {
+                                    return `@${user.username}`;
+                                  }
+                                  if (user?.name) {
+                                    return user.name;
+                                  }
+                                  if (name) {
+                                    return name;
+                                  }
+                                  return `User ${userId}`;
+                                })()}
+                              </td>
+                              <td className={formFieldStyles.moneyDonationList.logsTable.td}>
+                                <div className="text-sm text-gray-600 max-w-md">
+                                  {(() => {
+                                    const isExpanded = expandedLogs.has(log.id);
+                                    const hasAmountInfo = log.details && (
+                                      log.details.amount || log.details.amount_paid ||
+                                      log.details.mobile_number || log.details.mobile ||
+                                      log.details.name || log.details.pooja_name
+                                    );
+
+                                    return (
+                                      <div className="space-y-2">
+                                        {/* Compact amount display */}
+                                        {hasAmountInfo && (
+                                          <div className="text-xs text-gray-600">
+                                            {getAmountInfo(log.details, true)}
+                                          </div>
+                                        )}
+
+                                        {/* View All button */}
+                                        <button
+                                          onClick={() => toggleLogExpansion(log.id)}
+                                          className="text-xs text-blue-600 hover:text-blue-800 underline"
+                                        >
+                                          {isExpanded ? translate('hideDetails') : translate('viewAll')}
+                                        </button>
+
+                                        {/* Expanded details */}
+                                        {isExpanded && (
+                                          <div className="mt-2 p-2 bg-gray-50 rounded border text-xs">
+                                            {formatLogDetails(log.action, log.details, log.created_by)}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className={formFieldStyles.moneyDonationList.pagination.container}>
+                      <div className={formFieldStyles.moneyDonationList.pagination.info}>
+                        {translate("total")}: <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{allLogsTotal}</span>
+                      </div>
+                      <div className={formFieldStyles.moneyDonationList.pagination.controls}>
+                        <Button variant="outline" disabled={allLogsPage <= 1} onClick={() => {
+                          setAllLogsPage(prev => Math.max(1, prev - 1));
+                          loadAllPoojaLogs();
+                        }} className={formFieldStyles.moneyDonationList.pagination.button}>
+                          {translate("previous")}
+                        </Button>
+                        <span className="text-sm text-gray-600">{translate("page")} {allLogsPage}</span>
+                        <Button variant="outline" disabled={allLogsPage * allLogsPageSize >= allLogsTotal} onClick={() => {
+                          setAllLogsPage(prev => prev + 1);
+                          loadAllPoojaLogs();
+                        }} className={formFieldStyles.moneyDonationList.pagination.button}>
+                          {translate("next")}
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Pooja Logs Modal */}
       {logsFor && (
-        <Dialog open={!!logsFor} onOpenChange={() => setLogsFor(null)}>
-          <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-base">
-                {translate("poojaLogs")}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="max-h-96 overflow-y-auto">
-              {logsLoading ? (
-                <div className="flex items-center justify-center h-32">
-                  <div className="text-sm text-muted-foreground">Loading logs...</div>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left p-2">{translate("action")}</th>
-                        <th className="text-left p-2">{translate("date")}</th>
-                        <th className="text-left p-2">{translate("details")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {logs.length > 0 ? (
-                        logs.map((log) => (
-                          <tr key={log.id} className="border-b">
-                            <td className="p-2">
-                              <span className={`px-2 py-1 rounded text-xs font-medium ${
+        <div className={formFieldStyles.moneyDonationList.modal.overlay}>
+          <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeLogs} />
+          <div className={formFieldStyles.moneyDonationList.modal.container}>
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-6 px-6 rounded-t-lg">
+              <div className={formFieldStyles.moneyDonationList.modal.header}>
+                <h2 className={formFieldStyles.moneyDonationList.modal.title}>{translate("poojaLogs")} #{logsFor}</h2>
+                <Button variant="ghost" className={formFieldStyles.moneyDonationList.modal.closeButton} onClick={closeLogs}>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </Button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                {logsLoading ? (
+                  <div className={formFieldStyles.moneyDonationList.modal.loading}>
+                    {translate("loading")}...
+                  </div>
+                ) : logs.length === 0 ? (
+                  <div className={formFieldStyles.moneyDonationList.modal.loading}>
+                    {translate("noLogsFound")}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className={formFieldStyles.moneyDonationList.logsTable.table}>
+                      <thead className={formFieldStyles.moneyDonationList.logsTable.thead}>
+                        <tr>
+                          <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                            {translate("action")}
+                          </th>
+                          <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                            {translate("date")}
+                          </th>
+                          <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                            {translate("user")}
+                          </th>
+                          <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                            {translate("details")}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className={formFieldStyles.moneyDonationList.logsTable.tbody}>
+                        {logs.map((log, index) => (
+                          <tr key={log.id} className={formFieldStyles.moneyDonationList.logsTable.tr}>
+                            <td className={formFieldStyles.moneyDonationList.logsTable.td}>
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                                 log.action === 'create' ? 'bg-green-100 text-green-800' :
                                 log.action === 'update' ? 'bg-blue-100 text-blue-800' :
                                 log.action === 'delete' ? 'bg-red-100 text-red-800' :
@@ -1127,40 +1462,84 @@ export default function PoojaListView() {
                                  log.action}
                               </span>
                             </td>
-                            <td className="p-2">
-                              {new Date(log.created_at).toLocaleString()}
+                            <td className={formFieldStyles.moneyDonationList.logsTable.tdNowrap}>
+                              {log.created_at ? new Date(log.created_at).toLocaleString('en-IN', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              }) : '-'}
                             </td>
-                            <td className="p-2 max-w-xs">
-                              <div className="text-xs text-muted-foreground">
-                                {log.details ? (
-                                  <pre className="whitespace-pre-wrap break-words">
-                                    {JSON.stringify(log.details, null, 2)}
-                                  </pre>
-                                ) : '-'}
+                            <td className={formFieldStyles.moneyDonationList.logsTable.td}>
+                              {(() => {
+                                const userId = log.created_by;
+                                if (!userId) return '-';
+                                const user = userDetails[userId];
+                                const name = userNames[userId];
+                                
+                                if (user?.username) {
+                                  return `@${user.username}`;
+                                }
+                                if (user?.name) {
+                                  return user.name;
+                                }
+                                if (name) {
+                                  return name;
+                                }
+                                return `User ${userId}`;
+                              })()}
+                            </td>
+                            <td className={formFieldStyles.moneyDonationList.logsTable.td}>
+                              <div className="text-sm text-gray-600 max-w-md">
+                                {(() => {
+                                  const isExpanded = expandedLogs.has(log.id);
+                                  const hasAmountInfo = log.details && (
+                                    log.details.amount || log.details.amount_paid ||
+                                    log.details.mobile_number || log.details.mobile ||
+                                    log.details.name || log.details.pooja_name
+                                  );
+
+                                  return (
+                                    <div className="space-y-2">
+                                      {/* Compact amount display */}
+                                      {hasAmountInfo && (
+                                        <div className="text-xs text-gray-600">
+                                          {getAmountInfo(log.details, true)}
+                                        </div>
+                                      )}
+
+                                      {/* View All button */}
+                                      <button
+                                        onClick={() => toggleLogExpansion(log.id)}
+                                        className="text-xs text-blue-600 hover:text-blue-800 underline"
+                                      >
+                                        {isExpanded ? translate('hideDetails') : translate('viewAll')}
+                                      </button>
+
+                                      {/* Expanded details */}
+                                      {isExpanded && (
+                                        <div className="mt-2 p-2 bg-gray-50 rounded border text-xs">
+                                          {formatLogDetails(log.action, log.details, log.created_by)}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             </td>
                           </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={3} className="h-24 text-center text-muted-foreground">
-                            {translate("noLogsFound")}
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" size="sm" onClick={closeLogs} className="text-xs">
-                {translate("close")}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          </div>
+        </div>
       )}
+      </Card>
     </div>
   );
 }
