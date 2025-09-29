@@ -298,7 +298,7 @@ export const formFieldStyles = {
       tdActions: "px-2 py-2 whitespace-nowrap text-center text-xs font-medium align-middle",
       tdRight: "text-right",
       tdCenter: "text-center",
-      loadingCell: "px-3 py-2 whitespace-nowrap text-xs text-gray-500 text-center",
+      loadingCell: "w-full flex items-center justify-center p-8",
       emptyCell: "px-3 py-2 whitespace-nowrap text-xs text-gray-500 text-center"
     },
 

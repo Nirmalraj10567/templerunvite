@@ -1,12 +1,11 @@
 // src/components/DonationProductList.tsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/lib/language';
-import { donationService, DonationItem } from '@/services/donationService';
-import { PrintButton } from '@/components/ui/print-button';
-import { Modal } from '@/components/ui/modal';
+import { donationProductService } from '@/services/donationProductService';
 import { Button } from '@/components/ui/button';
-import { FileDown, Trash2 } from 'lucide-react';
+import { Loader2, FileDown, Trash2 } from 'lucide-react';
+import { Modal } from '@/components/ui/modal';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,6 +19,14 @@ import {
 import jsPDF from 'jspdf';
 import { cn, formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface DonationProductItem {
   id: number;
@@ -589,92 +596,97 @@ export default function DonationProductList() {
 
       {/* Table with context menu for columns */}
       <div
-        className="bg-white rounded-lg border border-gray-200 overflow-hidden"
+        className={formFieldStyles.moneyDonationList.table.container}
         onContextMenu={onContextMenu}
       >
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
+        <div className={formFieldStyles.moneyDonationList.table.scrollContainer}>
+          <Table className={formFieldStyles.moneyDonationList.table.table}>
+            <TableHeader className={formFieldStyles.moneyDonationList.table.thead}>
+              <TableRow className={formFieldStyles.moneyDonationList.table.tr}>
                 {allColumns.map(
                   (col) =>
                     visibleCols[col.key] && (
-                      <th
+                      <TableHead
                         key={col.key}
-                        className={`${col.key === 'print' ? 'px-2 w-12' : 'px-3'} py-2 text-xs font-medium text-gray-500 uppercase tracking-wider align-middle ${
-                          col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'
-                        }`}
+                        className={cn(
+                          formFieldStyles.moneyDonationList.table.th,
+                          col.key === 'print' && formFieldStyles.moneyDonationList.table.thActions,
+                          col.key === '#' && formFieldStyles.moneyDonationList.table.thLeft,
+                          col.key === 'actions' && formFieldStyles.moneyDonationList.table.thRight,
+                          col.align === 'right' && formFieldStyles.moneyDonationList.thRight,
+                          col.align === 'center' && formFieldStyles.moneyDonationList.thCenter
+                        )}
                       >
                         {col.label}
-                      </th>
+                      </TableHead>
                     )
                 )}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+              </TableRow>
+            </TableHeader>
+            <TableBody className={formFieldStyles.moneyDonationList.table.tbody}>
               {loading ? (
-                <tr>
-                  <td
+                <TableRow>
+                  <TableCell
                     colSpan={visibleColCount}
-                    className="px-3 py-2 whitespace-nowrap text-xs text-gray-500 text-center"
+                    className={formFieldStyles.moneyDonationList.table.loadingCell}
                   >
-                    {t('Loading...', 'ஏற்றுகிறது...')}
-                  </td>
-                </tr>
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </TableCell>
+                </TableRow>
               ) : items.length === 0 ? (
-                <tr>
-                  <td
+                <TableRow>
+                  <TableCell
                     colSpan={visibleColCount}
-                    className="px-3 py-2 whitespace-nowrap text-xs text-gray-500 text-center"
+                    className={formFieldStyles.moneyDonationList.table.emptyCell}
                   >
                     {t('No data found', 'தரவு கிடைக்கவில்லை')}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ) : (
                 items.map((r, idx) => (
-                  <tr key={r.id} className="hover:bg-gray-50">
+                  <TableRow key={r.id} className={formFieldStyles.moneyDonationList.table.tr}>
                     {visibleCols['#'] && (
-                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">{idx + 1}</td>
+                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>{idx + 1}</TableCell>
                     )}
                     {visibleCols.receipt && (
-                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">{(r as any).register_no || '-'}</td>
+                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>{(r as any).register_no || '-'}</TableCell>
                     )}
                     {visibleCols.contact && (
-                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
+                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
                         {r.donor_contact || '-'}
-                      </td>
+                      </TableCell>
                     )}
                     {visibleCols.date && (
-                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
+                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
                         {(r.donation_date || '').slice(0,10) || '-'}
-                      </td>
+                      </TableCell>
                     )}
                     {visibleCols.donor && (
-                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">{r.donor_name || '-'}</td>
+                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>{r.donor_name || '-'}</TableCell>
                     )}
                     {visibleCols.category && (
-                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">{r.category || '-'}</td>
+                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>{r.category || '-'}</TableCell>
                     )}
                     {visibleCols.product && (
-                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">{r.product_name || '-'}</td>
+                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>{r.product_name || '-'}</TableCell>
                     )}
                     {visibleCols.qty && (
-                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900 text-right">
+                      <TableCell className={cn(formFieldStyles.moneyDonationList.table.td, formFieldStyles.moneyDonationList.table.tdRight)}>
                         {toNum((r as any).quantity).toLocaleString()}
-                      </td>
+                      </TableCell>
                     )}
                     {visibleCols.description && (
-                      <td className="px-3 py-2 text-xs text-gray-900">{r.description || '-'}</td>
+                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>{r.description || '-'}</TableCell>
                     )}
                     {visibleCols.print && (
-                      <td className="px-2 py-2 whitespace-nowrap text-center text-xs font-medium align-middle w-12">
+                      <TableCell className={formFieldStyles.moneyDonationList.table.tdActions}>
                         <div className="flex justify-center items-center gap-1">
                           <PrintButton onClick={() => onPrint(r)} />
                         </div>
-                      </td>
+                      </TableCell>
                     )}
                     {visibleCols.actions && (
-                      <td className="px-2 py-2 whitespace-nowrap text-center text-xs font-medium align-middle">
+                      <TableCell className={formFieldStyles.moneyDonationList.table.tdActions}>
                         <div className="flex justify-center items-center gap-2">
                           <button
                             type="button"
@@ -708,13 +720,13 @@ export default function DonationProductList() {
                             );
                           })()}
                         </div>
-                      </td>
+                      </TableCell>
                     )}
-                  </tr>
+                  </TableRow>
                 ))
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
 
         {/* Pagination and summary */}

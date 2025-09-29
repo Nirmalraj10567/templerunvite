@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Loader2 } from 'lucide-react';
 import { cn, pageContainerStyles, formFieldStyles } from '@/styles/formStyles';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -502,7 +502,7 @@ export default function MoneyDonationList() {
               {loading ? (
                 <tr>
                   <td colSpan={visibleColCount} className={formFieldStyles.moneyDonationList.table.loadingCell}>
-                    {t('Loading...', 'ஏற்றுகிறது...')}
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                   </td>
                 </tr>
               ) : items.length === 0 ? (

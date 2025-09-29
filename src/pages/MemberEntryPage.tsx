@@ -5,6 +5,15 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Member } from '@/types/member';
 import MemberEntryView from './MemberEntryView';
 import { toast } from '@/hooks/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 export default function MemberEntryPage() {
   const navigate = useNavigate();
@@ -25,6 +34,10 @@ export default function MemberEntryPage() {
   } as unknown as Member);
 
   const [editingMember] = useState<Member | null>(null);
+  const [error, setError] = useState<{ show: boolean; message: string }>({
+    show: false,
+    message: '',
+  });
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +66,7 @@ export default function MemberEntryPage() {
       if (!response.ok) {
         // Handle specific error cases
         if (response.status === 400 || response.status === 409) {
-          let errorMessage = responseData.message || responseData.details || 'Failed to add member';
+          let errorMessage = responseData.message || responseData.details || responseData.error || 'Failed to add member';
           
           // Handle duplicate email error
           if (errorMessage.includes('users_email_unique') || 
@@ -77,7 +90,7 @@ export default function MemberEntryPage() {
                    (errorMessage.includes('Duplicate entry') && errorMessage.includes('users_username_unique'))) {
             errorMessage = language === 'tamil'
               ? 'இந்த பயனர் பெயர் ஏற்கனவே பயன்பாட்டில் உள்ளது'
-              : 'This username is already taken';
+              : 'Username already exists';
           }
           
           throw new Error(errorMessage);
@@ -108,10 +121,9 @@ export default function MemberEntryPage() {
       navigate('/dashboard/members');
     } catch (err: any) {
       console.error('Error adding member:', err);
-      toast({ 
-        title: language === 'tamil' ? 'பிழை' : 'Error', 
-        description: err.message || (language === 'tamil' ? 'உறுப்பினரை உருவாக்க முடியவில்லை' : 'Failed to create member'), 
-        variant: 'destructive' 
+      setError({
+        show: true,
+        message: err.message || (language === 'tamil' ? 'உறுப்பினரை உருவாக்க முடியவில்லை' : 'Failed to create member'),
       });
     }
   };

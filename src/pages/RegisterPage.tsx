@@ -5,6 +5,7 @@ import { useLanguage } from '../lib/language';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
+import { Eye, EyeOff } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -43,6 +44,7 @@ export default function RegisterPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const t = {
     tamil: {
@@ -338,15 +340,25 @@ export default function RegisterPage() {
                 <label className="block text-sm font-medium text-black mb-2">
                   {t[lang].password} <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  placeholder={t[lang].passwordPlaceholder}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    name="password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    placeholder={t[lang].passwordPlaceholder}
+                    className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(prev => !prev)}
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 focus:outline-none z-20"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-black mb-2">
