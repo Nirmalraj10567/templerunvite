@@ -312,7 +312,7 @@ app.post('/api/journal/sync-pooja', authenticateToken, async (req, res) => {
           reference_type: 'pooja',
           reference_id: pooja.id,
           temple_id: pooja.temple_id,
-          created_by: pooja.created_by,
+          created_by: req.user.id,
           created_at: db.fn.now(),
         });
         poojaCreated++;
@@ -346,7 +346,7 @@ app.post('/api/journal/sync-pooja', authenticateToken, async (req, res) => {
           reference_type: 'money_donation',
           reference_id: donation.id,
           temple_id: donation.temple_id,
-          created_by: donation.created_by,
+          created_by: req.user.id,
           created_at: db.fn.now(),
         });
         donationCreated++;
@@ -1180,31 +1180,9 @@ app.get('/api/mobile/events', async (req, res) => {
         // Don't fail the request if logging fails, but log the error
       }
 
-      // Also record a journal entry: DONATION A/C -> INCOME A/C (or selected)
-      try {
-        const fromAccount = b.fromAccount || 'DONATION A/C';
-        const toAccount = row.transfer_to_account || b.transferTo || 'INCOME A/C';
-        const hasJournal = await db.schema.hasTable('journal_entries');
-        if (hasJournal) {
-          await db('journal_entries').insert({
-            date: row.date,
-            from_account: fromAccount,
-            to_account: toAccount,
-            amount: row.amount,
-            // Use 'transfer' to satisfy DB CHECK constraint reliably
-            entry_type: 'transfer',
-            remarks: row.reason || null,
-            reference_type: 'money_donation',
-            reference_id: row.id,
-            temple_id: req.user.templeId,
-            created_by: req.user.id,
-            created_at: db.fn.now(),
-          });
-        }
-      } catch (e) {
-        console.error('Failed to insert journal entry for donation:', e);
-        // Do not fail the main request
-      }
+      // Journal entry creation is now handled by the frontend integrated accounting service
+      // to ensure proper double-entry bookkeeping format
+      console.log('Money donation created - journal entry will be handled by frontend accounting service');
 
       res.json({ success: true, data: row });
     } catch (err) {
@@ -1296,47 +1274,9 @@ app.get('/api/mobile/events', async (req, res) => {
       if (!changed) return res.status(404).json({ error: 'Not found' });
       const row = await db('money_donations').where({ id }).first();
 
-      // Sync journal mirror on update (delete old and recreate - same pattern as hall bookings)
-      try {
-        const hasJournal = await db.schema.hasTable('journal_entries');
-        if (hasJournal) {
-          // First, delete existing journal entries for this donation
-          await db('journal_entries')
-            .where({ 
-              reference_type: 'money_donation', 
-              reference_id: Number(id),
-              temple_id: templeId 
-            })
-            .del();
-
-          // Create new journal entry with updated data
-          const amountNum = Number(row.amount || 0);
-          if (amountNum > 0) {
-            const entryData = {
-              date: row.date || new Date().toISOString().slice(0, 10),
-              from_account: 'DONATION A/C',
-              to_account: row.transfer_to_account || 'INCOME A/C',
-              amount: amountNum,
-              entry_type: 'transfer',
-              remarks: row.reason || `Updated money donation - ${row.name || 'Unknown'}`,
-              reference_type: 'money_donation',
-              reference_id: Number(id),
-              temple_id: templeId,
-              created_by: req.user.id,
-              created_at: db.fn.now()
-            };
-
-            console.log('🔍 Money donation journal mirror debug - Updating entry:', entryData);
-            await db('journal_entries').insert(entryData);
-            console.log(`✅ Journal entry updated for money donation ${id}`);
-          } else {
-            console.log(`⚠️ Skipping journal update for money donation ${id} due to zero amount`);
-          }
-        }
-      } catch (journalError) {
-        console.error('❌ Failed to sync money donation journal mirror on update:', journalError);
-        // Don't fail the main request, but log the error
-      }
+      // Journal entry updates are now handled by the frontend integrated accounting service
+      // to ensure proper double-entry bookkeeping format
+      console.log('Money donation updated - journal entry will be handled by frontend accounting service');
 
       // Log update with before/after
       try {
@@ -3826,6 +3766,10 @@ app.use('/api/hall-bookings', skipReceiptPdfAuth, authorizeRole(['admin','supera
 // Mount journal router
 const journalRouter = require('./routes/journal')({ db });
 app.use('/api/journal', authenticateToken, authorizeRole(['admin','superadmin']), journalRouter);
+
+// Mount accounting router
+const accountingRouter = require('./routes/accounting');
+app.use('/api/accounting', authenticateToken, authorizeRole(['admin','superadmin']), accountingRouter);
 
 // Mount donations router
 const donationsRouter = require('./donations')({ db });

@@ -4,7 +4,7 @@
 
 const fetch = require('node-fetch');
 
-const API_BASE = 'https://tmsapi.xesstechlink.com/api';
+const API_BASE = 'http://localhost:4000/api';
 
 // You'll need to replace this with a valid token
 const TEST_TOKEN = 'your-test-token-here';

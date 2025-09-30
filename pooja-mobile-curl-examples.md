@@ -2,7 +2,7 @@
 
 ## Base URL
 ```
-https://tmsapi.xesstechlink.com/api/pooja-mobile
+http://localhost:4000/api/pooja-mobile
 ```
 
 ## Authentication
@@ -14,7 +14,7 @@ The API requires a mobile token in the Authorization header. You can use either:
 
 ### Basic Example
 ```bash
-curl -X POST https://tmsapi.xesstechlink.com/api/pooja-mobile/submit \
+curl -X POST http://localhost:4000/api/pooja-mobile/submit \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer mobile_123" \
   -d '{
@@ -31,7 +31,7 @@ curl -X POST https://tmsapi.xesstechlink.com/api/pooja-mobile/submit \
 
 ### With Temple ID
 ```bash
-curl -X POST https://tmsapi.xesstechlink.com/api/pooja-mobile/submit \
+curl -X POST http://localhost:4000/api/pooja-mobile/submit \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer mobile_123" \
   -d '{
@@ -49,7 +49,7 @@ curl -X POST https://tmsapi.xesstechlink.com/api/pooja-mobile/submit \
 
 ### Using JWT Token
 ```bash
-curl -X POST https://tmsapi.xesstechlink.com/api/pooja-mobile/submit \
+curl -X POST http://localhost:4000/api/pooja-mobile/submit \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
   -d '{
@@ -67,19 +67,19 @@ curl -X POST https://tmsapi.xesstechlink.com/api/pooja-mobile/submit \
 
 ### Get All User's Requests
 ```bash
-curl -X GET https://tmsapi.xesstechlink.com/api/pooja-mobile/requests \
+curl -X GET http://localhost:4000/api/pooja-mobile/requests \
   -H "Authorization: Bearer mobile_123"
 ```
 
 ### Get Requests with Status Filter
 ```bash
-curl -X GET "https://tmsapi.xesstechlink.com/api/pooja-mobile/requests?status=pending" \
+curl -X GET "http://localhost:4000/api/pooja-mobile/requests?status=pending" \
   -H "Authorization: Bearer mobile_123"
 ```
 
 ### Get Requests with Date Range
 ```bash
-curl -X GET "https://tmsapi.xesstechlink.com/api/pooja-mobile/requests?from=2025-09-01&to=2025-09-30" \
+curl -X GET "http://localhost:4000/api/pooja-mobile/requests?from=2025-09-01&to=2025-09-30" \
   -H "Authorization: Bearer mobile_123"
 ```
 
@@ -87,13 +87,13 @@ curl -X GET "https://tmsapi.xesstechlink.com/api/pooja-mobile/requests?from=2025
 
 ### Get Available Slots for a Date
 ```bash
-curl -X GET "https://tmsapi.xesstechlink.com/api/pooja-mobile/available-slots?date=2025-09-28" \
+curl -X GET "http://localhost:4000/api/pooja-mobile/available-slots?date=2025-09-28" \
   -H "Authorization: Bearer mobile_123"
 ```
 
 ### Get Available Slots with Temple ID
 ```bash
-curl -X GET "https://tmsapi.xesstechlink.com/api/pooja-mobile/available-slots?date=2025-09-28&temple_id=1" \
+curl -X GET "http://localhost:4000/api/pooja-mobile/available-slots?date=2025-09-28&temple_id=1" \
   -H "Authorization: Bearer mobile_123"
 ```
 
@@ -101,7 +101,7 @@ curl -X GET "https://tmsapi.xesstechlink.com/api/pooja-mobile/available-slots?da
 
 ### Missing Required Fields
 ```bash
-curl -X POST https://tmsapi.xesstechlink.com/api/pooja-mobile/submit \
+curl -X POST http://localhost:4000/api/pooja-mobile/submit \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer mobile_123" \
   -d '{
@@ -120,7 +120,7 @@ curl -X POST https://tmsapi.xesstechlink.com/api/pooja-mobile/submit \
 
 ### Duplicate Receipt Number
 ```bash
-curl -X POST https://tmsapi.xesstechlink.com/api/pooja-mobile/submit \
+curl -X POST http://localhost:4000/api/pooja-mobile/submit \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer mobile_123" \
   -d '{
@@ -143,7 +143,7 @@ curl -X POST https://tmsapi.xesstechlink.com/api/pooja-mobile/submit \
 
 ### Time Slot Already Booked
 ```bash
-curl -X POST https://tmsapi.xesstechlink.com/api/pooja-mobile/submit \
+curl -X POST http://localhost:4000/api/pooja-mobile/submit \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer mobile_123" \
   -d '{
@@ -196,7 +196,7 @@ curl -X POST https://tmsapi.xesstechlink.com/api/pooja-mobile/submit \
 
 ### Multi-day Pooja
 ```bash
-curl -X POST https://tmsapi.xesstechlink.com/api/pooja-mobile/submit \
+curl -X POST http://localhost:4000/api/pooja-mobile/submit \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer mobile_123" \
   -d '{
@@ -212,7 +212,7 @@ curl -X POST https://tmsapi.xesstechlink.com/api/pooja-mobile/submit \
 
 ### Early Morning Pooja
 ```bash
-curl -X POST https://tmsapi.xesstechlink.com/api/pooja-mobile/submit \
+curl -X POST http://localhost:4000/api/pooja-mobile/submit \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer mobile_123" \
   -d '{
@@ -231,7 +231,7 @@ curl -X POST https://tmsapi.xesstechlink.com/api/pooja-mobile/submit \
 You can set these environment variables for easier testing:
 
 ```bash
-export API_BASE_URL="https://tmsapi.xesstechlink.com"
+export API_BASE_URL="http://localhost:4000"
 export MOBILE_TOKEN="mobile_123"
 export JWT_TOKEN="your_jwt_token_here"
 ```

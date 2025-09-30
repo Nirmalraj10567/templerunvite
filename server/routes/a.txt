@@ -1,4 +1,4 @@
-curl ^"https://tmsapi.xesstechlink.com/api/hall-mobile/submit^" ^
+curl ^"http://localhost:4000/api/hall-mobile/submit^" ^
   -H ^"accept: application/json^" ^
   -H ^"accept-language: en-US,en;q=0.9^" ^
   -H ^"authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjEsIm1vYmlsZSI6IjkwODc4NjMxODkiLCJuYW1lIjoiQVNSSCIsInR5cGUiOiJtZW1iZXIiLCJyZWZlcmVuY2VOdW1iZXIiOiIyMDI1LTAwMDIiLCJ0ZW1wbGVJZCI6MTIsImlhdCI6MTc1ODcxMzQ2OCwiZXhwIjoxNzkwMjQ5NDY4fQ.EvX4UWb_ezGR0sMgTGhe788J47nO6hfzHWMkmv30FW8^" ^

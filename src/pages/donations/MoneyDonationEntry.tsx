@@ -7,6 +7,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Modal } from '@/components/ui/modal';
 import { ledgerService } from '@/services/ledgerService';
 import { journalService } from '@/services/journalService';
+import { integratedAccountingService } from '@/services/integratedAccountingService';
+import { universalAccountingService } from '@/services/universalAccountingService';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
 
 const createInitialState = (): MoneyDonationFormData => ({
@@ -82,7 +84,7 @@ export default function MoneyDonationEntry() {
   // Function to refresh journal after money donation operations
   const refreshJournal = async () => {
     try {
-      await fetch('https://tmsapi.xesstechlink.com/api/journal/sync-pooja', {
+      await fetch('http://localhost:4000/api/journal/sync-pooja', {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -145,7 +147,7 @@ export default function MoneyDonationEntry() {
     const loadLogs = async () => {
       try {
         if (!lastCreatedId || !token) return;
-        const res = await fetch(`https://tmsapi.xesstechlink.com/api/donations-approval/request/${lastCreatedId}`, {
+        const res = await fetch(`http://localhost:4000/api/donations-approval/request/${lastCreatedId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!res.ok) return;
@@ -294,7 +296,7 @@ export default function MoneyDonationEntry() {
 
         try {
           if (token) {
-            const res = await fetch(`https://tmsapi.xesstechlink.com/api/donations-approval/request/${editId}`, {
+            const res = await fetch(`http://localhost:4000/api/donations-approval/request/${editId}`, {
               headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
@@ -304,6 +306,34 @@ export default function MoneyDonationEntry() {
           }
         } catch (e) {
           console.error('Failed to load approval logs after update:', e);
+        }
+
+        // Update accounting journal entry
+        try {
+          console.log('💰 Updating accounting entry for money donation:', {
+            id: editId,
+            amount: Number(form.amount),
+            name: form.name,
+            registerNo: form.registerNo
+          });
+          
+          const updatedEntry = await integratedAccountingService.updateMoneyDonationJournalEntry({
+            id: editId,
+            date: form.date,
+            amount: Number(form.amount),
+            name: form.name || 'Unknown',
+            reason: form.reason,
+            registerNo: form.registerNo || `${editId}`
+          });
+          
+          if (updatedEntry) {
+            console.log('✅ Accounting journal entry updated successfully');
+          } else {
+            console.warn('⚠️ Journal entry update returned null');
+          }
+        } catch (accountingError) {
+          console.error('❌ Failed to update accounting journal entry:', accountingError);
+          // Don't fail the main operation, but log the error
         }
 
         // Refresh journal after successful edit
@@ -336,14 +366,46 @@ export default function MoneyDonationEntry() {
         const createdId = typeof newId === 'number' ? newId : null;
         setLastCreatedId(createdId);
 
-        // Journal entry is now created by the backend in /api/money-donations to avoid duplicates
+        // Create proper accounting journal entry
+        if (createdId != null && resp?.data) {
+          try {
+            console.log('💰 Creating accounting entry for money donation:', {
+              id: createdId,
+              amount: resp.data.amount,
+              name: resp.data.name,
+              registerNo: resp.data.register_no
+            });
+            
+            const journalEntry = await universalAccountingService.createMoneyDonationEntry({
+              id: createdId,
+              date: resp.data.date,
+              amount: resp.data.amount,
+              name: resp.data.name || 'Unknown',
+              reason: resp.data.reason,
+              registerNo: resp.data.register_no || `${createdId}`
+            });
+            
+            if (journalEntry) {
+              console.log('✅ Accounting journal entry created successfully:', {
+                reference: journalEntry.reference_number,
+                amount: journalEntry.total_amount
+              });
+            } else {
+              console.warn('⚠️ Journal entry creation returned null');
+            }
+          } catch (accountingError) {
+            console.error('❌ Failed to create accounting journal entry:', accountingError);
+            // Don't fail the main operation, but log the error
+          }
+        }
+
         setForm(createInitialState());
         const newRegisterNo = await computeNextRegisterNo();
         if (newRegisterNo) {
           setForm(prev => ({ ...prev, registerNo: newRegisterNo }));
         }
         setIsError(false);
-        setMessage(t('Saved successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது'));
+        setMessage(t('Saved successfully', 'வெற்றிকரமாக சேமிக்கப்பட்டது'));
         
         // Refresh journal after successful create
         await refreshJournal();

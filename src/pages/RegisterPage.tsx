@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { accountingInitService } from '@/services/accountingInitService';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -45,6 +46,12 @@ export default function RegisterPage() {
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isInitializingAccounting, setIsInitializingAccounting] = useState(false);
+  const [accountingInitResult, setAccountingInitResult] = useState<{
+    success: boolean;
+    accountsCreated: number;
+    accountsSkipped: number;
+  } | null>(null);
 
   const t = {
     tamil: {
@@ -100,6 +107,10 @@ export default function RegisterPage() {
       goToLogin: 'உள்நுள்ளவும்',
       registrationFailed: 'பதிவு தோல்வியடைந்தது',
       close: 'மூடு',
+      initializingAccounting: 'கணக்கியல் அமைப்பை தொடங்குகிறது...',
+      accountingInitialized: 'கணக்கியல் அமைப்பு தயார்!',
+      accountingSetupComplete: 'உங்கள் கணக்கியல் அமைப்பு வெற்றிகரமாக உருவாக்கப்பட்டது',
+      accountsCreated: 'கணக்குகள் உருவாக்கப்பட்டன',
     },
     english: {
       createAccountTitle: 'Create Your Account',

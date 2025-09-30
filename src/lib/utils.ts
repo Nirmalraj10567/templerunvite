@@ -1,6 +1,7 @@
-import { type ClassValue, clsx } from "clsx"
-import { twMerge } from "tailwind-merge"
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+// Simple utility function to combine class names
+export function cn(...classes: (string | undefined | null | boolean)[]): string {
+  return classes
+    .filter(Boolean)
+    .join(' ')
+    .trim();
 }
