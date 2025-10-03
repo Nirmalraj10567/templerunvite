@@ -12,6 +12,7 @@ module.exports = function userSettingsRouterFactory({ db, authenticateToken }) {
     sidebar_collapsed_default: false,
     hidden_menu_keys: [],
     quick_actions: [],
+    shortcuts: {},
     language: null,
     theme: null,
   });
@@ -26,8 +27,10 @@ module.exports = function userSettingsRouterFactory({ db, authenticateToken }) {
       }
       let hidden = [];
       let actions = [];
+      let shortcuts = {};
       try { hidden = row.hidden_menu_keys ? JSON.parse(row.hidden_menu_keys) : []; } catch {}
       try { actions = row.quick_actions ? JSON.parse(row.quick_actions) : []; } catch {}
+      try { shortcuts = row.shortcuts ? JSON.parse(row.shortcuts) : {}; } catch {}
       return res.json({
         success: true,
         data: {
@@ -35,6 +38,7 @@ module.exports = function userSettingsRouterFactory({ db, authenticateToken }) {
           sidebar_collapsed_default: !!row.sidebar_collapsed_default,
           hidden_menu_keys: Array.isArray(hidden) ? hidden : [],
           quick_actions: Array.isArray(actions) ? actions : [],
+          shortcuts: shortcuts && typeof shortcuts === 'object' ? shortcuts : {},
           language: row.language || null,
           theme: row.theme || null,
         }
@@ -58,6 +62,10 @@ module.exports = function userSettingsRouterFactory({ db, authenticateToken }) {
       if (body.theme !== undefined) payload.theme = body.theme || null;
       if (body.hidden_menu_keys !== undefined) payload.hidden_menu_keys = JSON.stringify(Array.isArray(body.hidden_menu_keys) ? body.hidden_menu_keys : []);
       if (body.quick_actions !== undefined) payload.quick_actions = JSON.stringify(Array.isArray(body.quick_actions) ? body.quick_actions : []);
+      if (body.shortcuts !== undefined) {
+        const obj = body.shortcuts && typeof body.shortcuts === 'object' ? body.shortcuts : {};
+        payload.shortcuts = JSON.stringify(obj);
+      }
       payload.updated_at = db.fn.now();
 
       const exists = await db('user_settings').where({ user_id: userId }).first();

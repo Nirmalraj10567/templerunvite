@@ -331,6 +331,22 @@ export default function DashboardLayout() {
     );
   }, [flatRoutes, searchQuery]);
 
+  // Global keyboard shortcuts from user settings
+  const routeByShortcut = useMemo(() => {
+    const mapping: Record<string, string> = {};
+    const shortcuts = (settings as any)?.shortcuts || {};
+    // Only include allowed routes
+    const allowed = new Set(flatRoutes.map(r => r.to));
+    for (const [route, combo] of Object.entries(shortcuts)) {
+      if (!route || !combo) continue;
+      const normalizedRoute = route.startsWith('/') ? route : `/dashboard/${route}`;
+      if (allowed.has(normalizedRoute) || allowed.has(route)) {
+        mapping[String(combo).toLowerCase()] = allowed.has(normalizedRoute) ? normalizedRoute : route;
+      }
+    }
+    return mapping;
+  }, [settings, flatRoutes]);
+
   // Year-end window: entire March (month index 2) and April 1st
   const isYearEndWindow = useMemo(() => {
     const now = new Date();
@@ -345,7 +361,7 @@ export default function DashboardLayout() {
 
   useEffect(() => {
     let mounted = true;
-    fetch('https://tmsapi.xesstechlink.com/api/system/year-end-status', { headers: { Authorization: `Bearer ${token}` } })
+    fetch('http://localhost:4000/api/system/year-end-status', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(d => {
         if (!mounted) return;
@@ -368,6 +384,24 @@ export default function DashboardLayout() {
   // Open palette on Ctrl+F, navigate with Enter, arrows to move
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      // User-defined shortcuts (ignore when palette open to avoid conflicts)
+      if (!isSearchOpen) {
+        const key = String((e as any)?.key || '').toLowerCase();
+        const parts: string[] = [];
+        if (e.ctrlKey) parts.push('ctrl');
+        if (e.shiftKey) parts.push('shift');
+        if (e.altKey) parts.push('alt');
+        if ((e as any).metaKey) parts.push('meta');
+        const isModifierOnly = key === 'control' || key === 'shift' || key === 'alt' || key === 'meta';
+        if (!isModifierOnly) parts.push(key);
+        const combo = parts.join('+');
+        const dest = routeByShortcut[combo];
+        if (dest) {
+          e.preventDefault();
+          navigate(dest);
+          return;
+        }
+      }
       // Open with Ctrl/Cmd + F
       const key = String((e as any)?.key || '').toLowerCase();
       if (key === 'f' && (e.ctrlKey || (e as any)?.metaKey)) {
@@ -406,7 +440,7 @@ export default function DashboardLayout() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSearchOpen, selectedIndex, navigate, filteredResults]);
+  }, [isSearchOpen, selectedIndex, navigate, filteredResults, routeByShortcut]);
 
   const Sidebar = ({ isMobile = false }) => {
     // Compute which groups should be expanded based on current route

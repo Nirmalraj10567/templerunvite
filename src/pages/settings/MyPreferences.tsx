@@ -58,12 +58,15 @@ const MyPreferences: React.FC = () => {
   const [hiddenMenuRaw, setHiddenMenuRaw] = useState((settings.hidden_menu_keys || []).join(', '));
   const [selectedActions, setSelectedActions] = useState<string[]>(Array.isArray(settings.quick_actions) ? settings.quick_actions : []);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [shortcutMap, setShortcutMap] = useState<Record<string, string>>(settings.shortcuts || {});
+  const [capturingFor, setCapturingFor] = useState<string | null>(null);
 
   useEffect(() => {
     setLandingRoute(settings.landing_route || '/dashboard');
     setCollapsed(!!settings.sidebar_collapsed_default);
     setHiddenMenuRaw((settings.hidden_menu_keys || []).join(', '));
     setSelectedActions(Array.isArray(settings.quick_actions) ? settings.quick_actions : []);
+    setShortcutMap(settings.shortcuts || {});
   }, [settings]);
 
   const hiddenMenuKeys = useMemo(() => {
@@ -79,6 +82,7 @@ const MyPreferences: React.FC = () => {
       sidebar_collapsed_default: collapsed,
       hidden_menu_keys: hiddenMenuKeys,
       quick_actions: selectedActions,
+      shortcuts: shortcutMap,
     });
     setShowSuccess(true);
   };
@@ -117,6 +121,48 @@ const MyPreferences: React.FC = () => {
 
   const toggleAction = (to: string) => {
     setSelectedActions((prev) => (prev.includes(to) ? prev.filter((k) => k !== to) : [...prev, to]));
+  };
+
+  const normalizeShortcut = (e: KeyboardEvent | React.KeyboardEvent<HTMLInputElement>) => {
+    const key = String((e as any).key || '').toLowerCase();
+    const parts: string[] = [];
+    if (e.ctrlKey) parts.push('ctrl');
+    if (e.shiftKey) parts.push('shift');
+    if (e.altKey) parts.push('alt');
+    if ((e as any).metaKey) parts.push('meta');
+    // Ignore pure modifier presses
+    const isModifierOnly = key === 'control' || key === 'shift' || key === 'alt' || key === 'meta';
+    if (!isModifierOnly) {
+      parts.push(key);
+    }
+    return parts.join('+');
+  };
+
+  const onShortcutKeyDown = (route: string) => (e: React.KeyboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const combo = normalizeShortcut(e);
+    if (!combo || combo.length === 0) return;
+    setShortcutMap((prev) => {
+      // Remove existing assignment for this combo to avoid duplicates
+      const next: Record<string, string> = { ...prev };
+      for (const [r, c] of Object.entries(prev)) {
+        if (c === combo && r !== route) {
+          delete next[r];
+        }
+      }
+      next[route] = combo;
+      return next;
+    });
+    setCapturingFor(null);
+  };
+
+  const clearShortcut = (route: string) => {
+    setShortcutMap((prev) => {
+      const next = { ...prev };
+      delete next[route];
+      return next;
+    });
   };
 
   return (
@@ -307,6 +353,52 @@ const MyPreferences: React.FC = () => {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Shortcuts Config */}
+            <div className="rounded-2xl border border-slate-200 bg-white/80 backdrop-blur-sm shadow-lg p-6 mt-6">
+              <div className="mb-4">
+                <h3 className="text-2xl font-bold text-slate-900 mb-1 flex items-center gap-2">
+                  <CalendarIcon className="w-6 h-6 text-indigo-600" />
+                  Keyboard Shortcuts
+                </h3>
+                <p className="text-slate-600 text-sm">Click in a field, then press the desired key combination. Use Ctrl/Shift/Alt/Meta + key. Duplicates will be reassigned.</p>
+              </div>
+
+              <div className="max-h-96 overflow-y-auto divide-y">
+                {availableLeaves.map((action) => (
+                  <div key={`sc-${action.to}`} className="flex items-center gap-4 py-3">
+                    <div className="w-6 h-6 flex items-center justify-center">
+                      <action.Icon className="w-5 h-5 text-slate-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-slate-900 truncate">{action.label}</div>
+                      {action.section && <div className="text-xs text-slate-500">{action.section}</div>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={shortcutMap[action.to] || ''}
+                        placeholder={capturingFor === action.to ? 'Press keys…' : t[language].clickToSelect}
+                        onFocus={() => setCapturingFor(action.to)}
+                        onBlur={() => setCapturingFor((prev) => (prev === action.to ? null : prev))}
+                        onKeyDown={onShortcutKeyDown(action.to)}
+                        className="w-48 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                      {!!shortcutMap[action.to] && (
+                        <button
+                          type="button"
+                          onClick={() => clearShortcut(action.to)}
+                          className="px-3 py-2 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

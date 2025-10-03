@@ -1,10 +1,10 @@
 // src/components/DonationProductList.tsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
-import { donationProductService } from '@/services/donationProductService';
 import { Button } from '@/components/ui/button';
-import { Loader2, FileDown, Trash2 } from 'lucide-react';
+import { Loader2, FileDown, Trash2, Edit, Eye } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import {
   AlertDialog,
@@ -28,14 +28,19 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-interface DonationProductItem {
+// Interfaces
+interface DonationItem {
   id: number;
-  name: string | null;
+  product_name: string | null;
   description: string | null;
-  price: number | null;
   category: string | null;
-  is_active: boolean;
-  created_at: string | null;
+  donor_name: string | null;
+  donor_contact: string | null;
+  donation_date: string | null;
+  quantity?: number;
+  notes?: string;
+  status?: string;
+  register_no?: string;
 }
 
 interface DonationProductLog {
@@ -49,13 +54,122 @@ interface DonationProductLog {
   details: any;
 }
 
+interface User {
+  id: number;
+  name: string;
+  username?: string;
+  mobile?: string;
+  full_name?: string;
+}
+
+// Donation Service
+class DonationService {
+  private baseUrl = 'http://localhost:4000/api';
+
+  async getDonations(token: string, params: { q?: string } = {}) {
+    const url = new URL(`${this.baseUrl}/donations`);
+    if (params.q) url.searchParams.append('q', params.q);
+
+    const response = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!response.ok) throw new Error('Failed to fetch donations');
+    return await response.json();
+  }
+
+  async createDonation(token: string, data: {
+    product: string;
+    quantity?: number;
+    description?: string;
+    category?: string;
+    donorName?: string;
+    donorContact?: string;
+    donationDate?: string;
+    notes?: string;
+    status?: string;
+  }) {
+    const response = await fetch(`${this.baseUrl}/donations`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) throw new Error('Failed to create donation');
+    return await response.json();
+  }
+
+  async updateDonation(token: string, id: number, data: {
+    product?: string;
+    quantity?: number;
+    description?: string;
+    category?: string;
+    donorName?: string;
+    donorContact?: string;
+    donationDate?: string;
+    notes?: string;
+    status?: string;
+  }) {
+    const response = await fetch(`${this.baseUrl}/donations/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) throw new Error('Failed to update donation');
+    return await response.json();
+  }
+
+  async deleteDonation(token: string, id: number) {
+    const response = await fetch(`${this.baseUrl}/donations/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!response.ok) throw new Error('Failed to delete donation');
+    return await response.json();
+  }
+
+  async exportDonations(token: string): Promise<Blob> {
+    const response = await fetch(`${this.baseUrl}/donations/export`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!response.ok) throw new Error('Failed to export donations');
+    return await response.blob();
+  }
+}
+
+const donationService = new DonationService();
+
+// Print Button Component
+const PrintButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
+  <button
+    onClick={onClick}
+    className="p-1 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
+    title="Print Receipt"
+  >
+    <FileDown className="h-4 w-4" />
+  </button>
+);
+
+// Main Component
 export default function DonationProductList() {
+  const navigate = useNavigate();
   const { token } = useAuth();
   const { language } = useLanguage();
+
+  // State management
   const [items, setItems] = useState<DonationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState('');
-  
+
   // Logs state
   const [logsFor, setLogsFor] = useState<number | null>(null);
   const [logsLoading, setLogsLoading] = useState(false);
@@ -67,24 +181,96 @@ export default function DonationProductList() {
   const [allLogsPage, setAllLogsPage] = useState(1);
   const [allLogsPageSize] = useState(50);
 
-  // User names and details for logs
+  // User details for logs
   const [userNames, setUserNames] = useState<Record<number, string>>({});
-  const [userDetails, setUserDetails] = useState<Record<number, {name: string, username?: string, mobile?: string}>>({});
+  const [userDetails, setUserDetails] = useState<Record<number, User>>({});
 
+  // Translation helper
   const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
-  // Fetch user names/details for given ids (per-id endpoint, resilient)
+  // Edit modal state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editItemId, setEditItemId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({
+    product: '',
+    quantity: '' as number | '',
+    description: '',
+    category: 'General',
+    donorName: '',
+    donorContact: '',
+    donationDate: '',
+    notes: '',
+    status: 'available',
+  });
+
+  // Delete confirmation modal state
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteItemId, setDeleteItemId] = useState<number | null>(null);
+
+  // Column visibility state
+  type ColKey = '#' | 'receipt' | 'contact' | 'date' | 'donor' | 'category' | 'product' | 'qty' | 'description' | 'print' | 'actions';
+
+  const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>({
+    '#': true,
+    receipt: true,
+    contact: true,
+    date: true,
+    donor: true,
+    category: true,
+    product: true,
+    qty: true,
+    description: true,
+    print: true,
+    actions: true,
+  });
+
+  // Context menu state
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  // Column definitions
+  const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' | 'center' }> = [
+    { key: '#', label: '#' },
+    { key: 'receipt', label: t('Receipt No', 'ரசீது எண்') },
+    { key: 'contact', label: t('Contact', 'தொடர்பு') },
+    { key: 'date', label: t('Date', 'தேதி') },
+    { key: 'donor', label: t('Donor', 'நன்கொடையாளர்') },
+    { key: 'category', label: t('Category', 'வகை') },
+    { key: 'product', label: t('Product', 'பொருள்') },
+    { key: 'qty', label: t('Qty', 'அளவு'), align: 'right' },
+    { key: 'description', label: t('Description', 'விளக்கம்') },
+    { key: 'print', label: t('Print', 'அச்சிட'), align: 'center' },
+    { key: 'actions', label: t('Actions', 'நடவடிக்கைகள்'), align: 'center' },
+  ];
+
+  // Helper functions
+  const toNum = (v: any) => {
+    if (!v) return 0;
+    const n = parseInt(String(v).replace(/[^0-9-]/g, ''), 10);
+    return isNaN(n) ? 0 : n;
+  };
+
+  const receiptNum = (s: any) => parseInt(String(s || '').replace(/\D/g, '') || '0', 10);
+
+  const isLastReceipt = (item: DonationItem) => {
+    if (!items.length) return false;
+    const sorted = [...items].sort((a, b) => receiptNum(b.register_no) - receiptNum(a.register_no));
+    return sorted[0]?.id === item.id;
+  };
+
+  // Fetch user names for logs
   const fetchUserNames = async (userIds: number[]) => {
     const uniqueIds = Array.from(new Set(userIds.filter((v): v is number => typeof v === 'number')));
     if (uniqueIds.length === 0) return;
-    // Skip ids we already have
+
     const missing = uniqueIds.filter((id) => !userDetails[id] && !userNames[id]);
     if (missing.length === 0) return;
-    console.log('Fetching user profiles for IDs (per-id):', missing);
+
     const results = await Promise.all(
       missing.map(async (id) => {
         try {
-          const res = await fetch(`https://tmsapi.xesstechlink.com/api/admin/members/${id}`, {
+          const res = await fetch(`http://localhost:4000/api/admin/members/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data = await res.json().catch(() => ({}));
@@ -92,36 +278,53 @@ export default function DonationProductList() {
             console.warn('Failed to fetch member by id', id, data);
             return null;
           }
-          const u = data?.data?.user || data?.data; // support both shapes
+          const u = data?.data?.user || data?.data;
           if (!u) return null;
           const fullName = (u.full_name && String(u.full_name).trim()) || u.username || u.mobile || String(id);
-          return { id, name: fullName, username: u.username, mobile: u.mobile } as { id: number; name: string; username?: string; mobile?: string };
+          return { id, name: fullName, username: u.username, mobile: u.mobile };
         } catch (err) {
           console.warn('Error fetching member id', id, err);
           return null;
         }
       })
     );
+
     const nameMap: Record<number, string> = {};
-    const detailsMap: Record<number, { name: string; username?: string; mobile?: string }> = {};
+    const detailsMap: Record<number, User> = {};
+
     results.forEach((r) => {
       if (!r) return;
       nameMap[r.id] = r.name;
-      detailsMap[r.id] = { name: r.name, username: r.username, mobile: r.mobile };
+      detailsMap[r.id] = r;
     });
+
     if (Object.keys(nameMap).length > 0) {
       setUserNames((prev) => ({ ...prev, ...nameMap }));
       setUserDetails((prev) => ({ ...prev, ...detailsMap }));
-      console.log('Updated user maps from per-id fetch:', { nameMap, detailsMap });
     }
   };
 
-  // Logs functions
+  // Main data loading
+  const load = async () => {
+    setLoading(true);
+    try {
+      const params = { q };
+      const response = await donationService.getDonations(token, params);
+      setItems(response.data || []);
+    } catch (error) {
+      console.error('Failed to load donations:', error);
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Log operations
   const openLogs = async (item: DonationItem) => {
     setLogsFor(item.id);
     setLogsLoading(true);
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/donations/${item.id}/logs`, {
+      const response = await fetch(`http://localhost:4000/api/donations/${item.id}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch logs');
@@ -129,17 +332,13 @@ export default function DonationProductList() {
       if (result.success) {
         const logsData = result.data || [];
         setLogs(logsData);
-        
-        // Fetch user names for the logs
+
         const userIds = logsData
           .map(log => log.created_by)
           .filter((id): id is number => id !== null && id !== undefined);
-        console.log('openLogs - Found userIds:', userIds);
+
         if (userIds.length > 0) {
-          console.log('openLogs - Calling fetchUserNames with:', userIds);
           await fetchUserNames(userIds);
-        } else {
-          console.log('openLogs - No userIds found, skipping fetchUserNames');
         }
       }
     } catch (e) {
@@ -165,7 +364,7 @@ export default function DonationProductList() {
     const pageToLoad = pageNum || allLogsPage;
     setAllLogsLoading(true);
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/donations/logs?page=${pageToLoad}&pageSize=${allLogsPageSize}`, {
+      const response = await fetch(`http://localhost:4000/api/donations/logs?page=${pageToLoad}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch logs');
@@ -175,17 +374,13 @@ export default function DonationProductList() {
         setAllLogs(logsData);
         setAllLogsTotal(result.total || 0);
         setAllLogsPage(pageToLoad);
-        
-        // Fetch user names for the logs
+
         const userIds = logsData
           .map(log => log.created_by)
           .filter((id): id is number => id !== null && id !== undefined);
-        console.log('loadAllLogs - Found userIds:', userIds);
+
         if (userIds.length > 0) {
-          console.log('loadAllLogs - Calling fetchUserNames with:', userIds);
           await fetchUserNames(userIds);
-        } else {
-          console.log('loadAllLogs - No userIds found, skipping fetchUserNames');
         }
       }
     } catch (e) {
@@ -202,86 +397,19 @@ export default function DonationProductList() {
     setAllLogsPage(1);
   };
 
-  // Column keys and labels
-  type ColKey =
-    | '#'
-    | 'receipt'
-    | 'contact'
-    | 'date'
-    | 'donor'
-    | 'category'
-    | 'product'
-    | 'qty'
-    | 'description'
-    | 'print'
-    | 'actions';
-
-  const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' | 'center' }> = [
-    { key: '#', label: '#' },
-    { key: 'receipt', label: t('Receipt No', 'ரசீது எண்') },
-    { key: 'contact', label: t('Contact', 'தொடர்பு') },
-    { key: 'date', label: t('Date', 'தேதி') },
-    { key: 'donor', label: t('Donor', 'நன்கொடையாளர்') },
-    { key: 'category', label: t('Category', 'வகை') },
-    { key: 'product', label: t('Product', 'பொருள்') },
-    { key: 'qty', label: t('Qty', 'அளவு'), align: 'right' },
-    { key: 'description', label: t('Description', 'விளக்கம்') },
-    { key: 'print', label: t('Print', 'அச்சிட'), align: 'center' },
-    { key: 'actions', label: t('Actions', 'நடவடிக்கைகள்'), align: 'center' },
-  ];
-
-  const STORAGE_KEY = 'donation_list_visible_columns_v1';
-  const defaultVisible: Record<ColKey, boolean> = {
-    '#': true,
-    receipt: true,
-    contact: true,
-    date: true,
-    donor: true,
-    category: true,
-    product: true,
-    qty: true,
-    description: true,
-    print: true,
-    actions: true,
-  };
-
-  // Edit modal state
-  const [editOpen, setEditOpen] = useState(false);
-  const [editItemId, setEditItemId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<{ 
-    product: string; 
-    quantity: number | '';
-    description: string;
-    category: string;
-    donorName: string;
-    donorContact: string;
-    donationDate: string;
-    notes: string;
-    status: string;
-  }>({
-    product: '',
-    quantity: '',
-    description: '',
-    category: 'General',
-    donorName: '',
-    donorContact: '',
-    donationDate: '',
-    notes: '',
-    status: 'available',
-  });
-
+  // Edit operations
   const openEdit = (item: DonationItem) => {
     setEditItemId(item.id);
     setEditForm({
       product: item.product_name || '',
-      quantity: (item as any).quantity ?? '',
+      quantity: item.quantity ?? '',
       description: item.description || '',
       category: item.category || 'General',
       donorName: item.donor_name || '',
       donorContact: item.donor_contact || '',
       donationDate: (item.donation_date || '').slice(0,10),
-      notes: (item as any).notes || '',
-      status: (item as any).status || 'available',
+      notes: item.notes || '',
+      status: item.status || 'available',
     });
     setEditOpen(true);
   };
@@ -291,7 +419,7 @@ export default function DonationProductList() {
     try {
       await donationService.updateDonation(token, editItemId, {
         product: editForm.product,
-        quantity: editForm.quantity === '' ? (undefined as any) : Number(editForm.quantity),
+        quantity: editForm.quantity === '' ? undefined : Number(editForm.quantity),
         description: editForm.description,
         category: editForm.category,
         donorName: editForm.donorName,
@@ -309,10 +437,7 @@ export default function DonationProductList() {
     }
   };
 
-  // Delete confirmation modal state
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteItemId, setDeleteItemId] = useState<number | null>(null);
-
+  // Delete operations
   const openDelete = (item: DonationItem) => {
     if (!isLastReceipt(item)) {
       alert(t('Only the latest receipt can be deleted.', 'சமீபத்திய ரசீது மட்டுமே நீக்க இயலும்'));
@@ -335,55 +460,87 @@ export default function DonationProductList() {
     }
   };
 
-  // Quick edit for quantity/description using prompts
-  const onEdit = async (item: DonationItem) => {
+  // Export and print operations
+  const onExport = async () => {
     try {
-      const currentQty = (item as any).quantity ?? '';
-      const newQtyStr = window.prompt(t('Enter quantity', 'அளவை உள்ளிடுக'), String(currentQty));
-      if (newQtyStr === null) return;
-      const newQty = parseInt(newQtyStr, 10);
-      const newDesc = window.prompt(t('Enter description', 'விளக்கத்தை உள்ளிடுக'), item.description || '') ?? item.description;
-      await donationService.updateDonation(token, item.id, {
-        quantity: Number.isFinite(newQty) ? newQty : (item as any).quantity,
-        description: newDesc || '',
-      });
-      await load();
+      const blob = await donationService.exportDonations(token);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'donations.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
     } catch (e) {
-      console.error('Update failed', e);
-      alert(t('Update failed', 'புதுப்பிப்பு தோல்வியடைந்தது'));
+      console.error('Export failed', e);
     }
   };
 
-  // Print a donation receipt via backend PDF (opens in new tab)
-  const onPrintPdf = (item: DonationItem) => {
-    const q = token ? `?token=${encodeURIComponent(token)}` : '';
-    const url = `/api/money-donations/${item.id}/receipt.pdf${q}`;
-    window.open(url, '_blank');
+  const onPrint = (item?: DonationItem) => {
+    const printContent = document.createElement('div');
+    printContent.innerHTML = `
+      <div class="text-center mb-5">
+        <img src="/logo.png" alt="Logo" class="h-20 mx-auto" />
+        <h2 class="mt-2.5 text-xl font-bold">${t('Donation Receipt', 'நன்கொடை ரசீது')}</h2>
+      </div>
+      <div class="mx-5">
+        ${
+          item
+            ? `<table class="w-full border-collapse">
+              <tr><td class="p-2 border-b border-gray-300 font-bold">${t('Donor', 'நன்கொடையாளர்')}:</td><td class="p-2 border-b border-gray-300">${item.donor_name}</td></tr>
+              <tr><td class="p-2 border-b border-gray-300 font-bold">${t('Date', 'தேதி')}:</td><td class="p-2 border-b border-gray-300">${item.donation_date}</td></tr>
+              <tr><td class="p-2 border-b border-gray-300 font-bold">${t('Product', 'பொருள்')}:</td><td class="p-2 border-b border-gray-300">${item.product_name}</td></tr>
+              <tr><td class="p-2 border-b border-gray-300 font-bold">${t('Description', 'விளக்கம்')}:</td><td class="p-2 border-b border-gray-300">${item.description}</td></tr>
+              <tr><td class="p-2 border-b border-gray-300 font-bold">${t('Quantity', 'அளவு')}:</td><td class="p-2 border-b border-gray-300">${item.quantity}</td></tr>
+            </table>`
+            : ''
+        }
+      </div>
+    `;
+
+    const printWindow = window.open('', '', 'width=600,height=600');
+    if (printWindow) {
+      printWindow.document.write(printContent.innerHTML);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+    }
   };
 
-  // Context menu for columns toggling
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [visibleCols, setVisibleCols] = useState<Record<string, boolean>>({
-    '#': true,
-    receipt: true,
-    contact: true,
-    date: true,
-    donor: true,
-    category: true,
-    product: true,
-    qty: true,
-    description: true,
-    print: true,
-    actions: true,
-  });
-  const [menuPos, setMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const menuRef = useRef<HTMLDivElement | null>(null);
-
+  // Context menu handling
   const onContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     setMenuPos({ x: e.clientX, y: e.clientY });
     setMenuOpen(true);
   };
+
+  // Event handlers
+  const onKeyDownSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      load();
+    }
+  };
+
+  // Calculate totals
+  const totals = useMemo(() => {
+    return items.reduce(
+      (acc, r) => {
+        acc.qty += toNum(r.quantity);
+        return acc;
+      },
+      { qty: 0 }
+    );
+  }, [items]);
+
+  // Visible column count
+  const visibleColCount = useMemo(() => Object.values(visibleCols).filter(Boolean).length, [visibleCols]);
+
+  // Effects
+  useEffect(() => {
+    load();
+  }, []);
 
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
@@ -402,899 +559,647 @@ export default function DonationProductList() {
     };
   }, []);
 
-  const visibleColCount = useMemo(() => Object.values(visibleCols).filter(Boolean).length, [visibleCols]);
-
-  // Helper to parse numeric values safely
-  const toNum = (v: any) => {
-    if (!v) return 0;
-    const n = parseInt(String(v).replace(/[^0-9-]/g, ''), 10);
-    return isNaN(n) ? 0 : n;
-  };
-
-  // Calculate totals for quantity and price
-  const totals = useMemo(() => {
-    return items.reduce(
-      (acc, r) => {
-        acc.qty += toNum((r as any).quantity);
-        return acc;
-      },
-      { qty: 0 }
-    );
-  }, [items]);
-
-  // --- Helpers: enforce deletion only for the last receipt by numeric receipt number (descending) ---
-  const receiptNum = (s: any) => parseInt(String(s || '').replace(/\D/g, '') || '0', 10);
-
-  const isLastReceipt = (item: DonationItem) => {
-    if (!items.length) return false;
-    const sorted = [...items].sort((a, b) => receiptNum((b as any).register_no) - receiptNum((a as any).register_no));
-    return sorted[0]?.id === item.id;
-  };
-
-  // Load donations from the service
-  const load = async () => {
-    setLoading(true);
-    try {
-      const params = { q };
-      const response = await donationService.getDonations(token, params);
-      setItems(response.data);
-    } catch (error) {
-      console.error('Failed to load donations:', error);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Trigger search on Enter key
-  const onKeyDownSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      load();
-    }
-  };
-
-  // Export donations as CSV
-  const onExport = async () => {
-    try {
-      const blob = await donationService.exportDonations(token);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'donations.csv';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      console.error('Export failed', e);
-    }
-  };
-
-  // Print a donation receipt
-  const onPrint = (item?: DonationItem) => {
-    const printContent = document.createElement('div');
-    printContent.innerHTML = `
-      <div class="text-center mb-5">
-        <img src="/logo.png" alt="Logo" class="h-20 mx-auto" />
-        <h2 class="mt-2.5 text-xl font-bold">${t('Donation Receipt', 'நன்கொடை ரசீது')}</h2>
-      </div>
-      <div class="mx-5">
-        ${
-          item
-            ? `<table class="w-full border-collapse">
-              <tr><td class="p-2 border-b border-gray-300 font-bold">${t(
-                'Donor',
-                'நன்கொடையாளர்'
-              )}:</td><td class="p-2 border-b border-gray-300">${item.donor_name}</td></tr>
-              <tr><td class="p-2 border-b border-gray-300 font-bold">${t(
-                'Date',
-                'தேதி'
-              )}:</td><td class="p-2 border-b border-gray-300">${item.donation_date}</td></tr>
-              <tr><td class="p-2 border-b border-gray-300 font-bold">${t(
-                'Product',
-                'பொருள்'
-              )}:</td><td class="p-2 border-b border-gray-300">${item.product_name}</td></tr>
-              <tr><td class="p-2 border-b border-gray-300 font-bold">${t(
-                'Description',
-                'விளக்கம்'
-              )}:</td><td class="p-2 border-b border-gray-300">${item.description}</td></tr>
-              <tr><td class="p-2 border-b border-gray-300 font-bold">${t(
-                'Quantity',
-                'அளவு'
-              )}:</td><td class="p-2 border-b border-gray-300">${item.quantity}</td></tr>
-            </table>`
-            : ''
-        }
-      </div>
-    `;
-
-    const printWindow = window.open('', '', 'width=600,height=600');
-    printWindow?.document.write(printContent.innerHTML);
-    printWindow?.document.close();
-    printWindow?.focus();
-    printWindow?.print();
-  };
-
   return (
     <div className={pageContainerStyles.container}>
-        <Card className={pageContainerStyles.content}>
-          <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white flex items-center justify-center py-4 px-6", formFieldStyles.card.header)}>
-            <CardTitle className="text-lg font-bold text-center w-full">
-              {t('Donation List', 'பொருள் நன்கொடைக் பட்டியல்')}
-            </CardTitle>
-          </CardHeader>
+      <Card className={pageContainerStyles.content}>
+        <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white flex items-center justify-center py-4 px-6", formFieldStyles.card.header)}>
+          <CardTitle className="text-lg font-bold text-center w-full">
+            {t('Donation List', 'பொருள் நன்கொடைக் பட்டியல்')}
+          </CardTitle>
+        </CardHeader>
 
-      {/* Filters: single horizontal row with actions */}
-      <div className="bg-white rounded-lg border border-gray-200 p-2 mb-4">
-        <div className="flex flex-col md:flex-row gap-2 items-center">
-          {/* Search */}
-          <div className="relative flex-1 w-full">
-            <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-              <svg className="h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <input
-              type="text"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={onKeyDownSearch}
-              placeholder={t('Search by donor/product/category/phone', 'தானயாளர்/பொருள்/வகை/தொலைபேசி மூலம் தேடுக')}
-              className="block w-full pl-8 pr-2 py-1 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
-            />
-          </div>
-
-          {/* Actions */}
-          <div className="flex flex-wrap gap-1 w-full md:w-auto">
-            <button
-              onClick={load}
-              className="px-3 py-1 border border-gray-300 rounded-md shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              type="button"
-            >
-              {t('Search', 'தேடு')}
-            </button>
-            <button
-              onClick={() => {
-                setQ('');
-                load();
-              }}
-              className="px-3 py-1 border border-gray-300 rounded-md shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              type="button"
-            >
-              {t('Clear', 'அழி')}
-            </button>
-            <button
-              onClick={onExport}
-              className="px-3 py-1 border border-gray-300 rounded-md shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              type="button"
-            >
-              {t('Export CSV', 'CSV ஏற்றுமதி')}
-            </button>
-            <button
-              onClick={() => window.print()}
-              className="px-3 py-1 border border-gray-300 rounded-md shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              type="button"
-            >
-              {t('Export PDF', 'PDF ஏற்றுமதி')}
-            </button>
-            <button
-              onClick={openAllLogs}
-              className="px-3 py-1 border border-gray-300 rounded-md shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              type="button"
-            >
-              {t('All Logs', 'அனைத்து பதிவுகள்')}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Table with context menu for columns */}
-      <div
-        className={formFieldStyles.moneyDonationList.table.container}
-        onContextMenu={onContextMenu}
-      >
-        <div className={formFieldStyles.moneyDonationList.table.scrollContainer}>
-          <Table className={formFieldStyles.moneyDonationList.table.table}>
-            <TableHeader className={formFieldStyles.moneyDonationList.table.thead}>
-              <TableRow className={formFieldStyles.moneyDonationList.table.tr}>
-                {allColumns.map(
-                  (col) =>
-                    visibleCols[col.key] && (
-                      <TableHead
-                        key={col.key}
-                        className={cn(
-                          formFieldStyles.moneyDonationList.table.th,
-                          col.key === 'print' && formFieldStyles.moneyDonationList.table.thActions,
-                          col.key === '#' && formFieldStyles.moneyDonationList.table.thLeft,
-                          col.key === 'actions' && formFieldStyles.moneyDonationList.table.thRight,
-                          col.align === 'right' && formFieldStyles.moneyDonationList.thRight,
-                          col.align === 'center' && formFieldStyles.moneyDonationList.thCenter
-                        )}
-                      >
-                        {col.label}
-                      </TableHead>
-                    )
-                )}
-              </TableRow>
-            </TableHeader>
-            <TableBody className={formFieldStyles.moneyDonationList.table.tbody}>
-              {loading ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={visibleColCount}
-                    className={formFieldStyles.moneyDonationList.table.loadingCell}
-                  >
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                  </TableCell>
-                </TableRow>
-              ) : items.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={visibleColCount}
-                    className={formFieldStyles.moneyDonationList.table.emptyCell}
-                  >
-                    {t('No data found', 'தரவு கிடைக்கவில்லை')}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                items.map((r, idx) => (
-                  <TableRow key={r.id} className={formFieldStyles.moneyDonationList.table.tr}>
-                    {visibleCols['#'] && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>{idx + 1}</TableCell>
-                    )}
-                    {visibleCols.receipt && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>{(r as any).register_no || '-'}</TableCell>
-                    )}
-                    {visibleCols.contact && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
-                        {r.donor_contact || '-'}
-                      </TableCell>
-                    )}
-                    {visibleCols.date && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
-                        {(r.donation_date || '').slice(0,10) || '-'}
-                      </TableCell>
-                    )}
-                    {visibleCols.donor && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>{r.donor_name || '-'}</TableCell>
-                    )}
-                    {visibleCols.category && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>{r.category || '-'}</TableCell>
-                    )}
-                    {visibleCols.product && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>{r.product_name || '-'}</TableCell>
-                    )}
-                    {visibleCols.qty && (
-                      <TableCell className={cn(formFieldStyles.moneyDonationList.table.td, formFieldStyles.moneyDonationList.table.tdRight)}>
-                        {toNum((r as any).quantity).toLocaleString()}
-                      </TableCell>
-                    )}
-                    {visibleCols.description && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>{r.description || '-'}</TableCell>
-                    )}
-                    {visibleCols.print && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.tdActions}>
-                        <div className="flex justify-center items-center gap-1">
-                          <PrintButton onClick={() => onPrint(r)} />
-                        </div>
-                      </TableCell>
-                    )}
-                    {visibleCols.actions && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.tdActions}>
-                        <div className="flex justify-center items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => openEdit(r)}
-                            className="text-blue-600 hover:underline"
-                          >
-                            {t('Edit', 'திருத்த')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openLogs(r)}
-                            className="text-green-600 hover:underline"
-                          >
-                            {t('Logs', 'பதிவுகள்')}
-                          </button>
-                          {(() => {
-                            const canDelete = isLastReceipt(r);
-                            const title = canDelete
-                              ? undefined
-                              : t('Only the latest receipt can be deleted', 'சமீபத்திய ரசீது மட்டுமே நீக்க இயலும்');
-                            return (
-                              <button
-                                type="button"
-                                onClick={() => openDelete(r)}
-                                className={`p-1 rounded-md ${canDelete ? 'text-red-600 hover:bg-red-50' : 'text-gray-400 cursor-not-allowed'}`}
-                                title={title}
-                                disabled={!canDelete}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            );
-                          })()}
-                        </div>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        {/* Pagination and summary */}
-        <div className="px-3 py-2 flex items-center justify-between border-t border-gray-200">
-          <div className="text-xs text-gray-700">
-            {t('Showing', 'காட்டப்படுகிறது')}{' '}
-            <span className="font-medium">1</span> {t('to', 'இலிருந்து')}{' '}
-            <span className="font-medium">{items.length}</span> {t('of', 'மொத்தம்')}{' '}
-            <span className="font-medium">{items.length}</span> {t('results', 'முடிவுகள்')}
-          </div>
-          <div className="flex gap-2 text-xs text-gray-700">
-            <span>
-              {t('Total Qty', 'மொத்த அளவு')}: <span className="font-medium">{totals.qty.toLocaleString()}</span>
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Context Menu */}
-      {menuOpen && (
-        <div
-          ref={menuRef}
-          className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 w-64"
-          style={{ left: `${menuPos.x}px`, top: `${menuPos.y}px` }}
-        >
-          <div className="px-4 py-3 border-b border-gray-200">
-            <h3 className="text-sm font-medium text-gray-900">{t('Columns', 'நெடுவரிசைகள்')}</h3>
-            <p className="text-xs text-gray-500">
-              {t('Visible', 'காட்டப்படும்')} {Object.values(visibleCols).filter(Boolean).length}/{allColumns.length}
-            </p>
-          </div>
-          <div className="max-h-60 overflow-y-auto p-2">
-            {allColumns.map((col) => (
-              <label
-                key={col.key}
-                className="flex items-center px-2 py-1.5 rounded-md hover:bg-gray-50 cursor-pointer select-none"
-              >
-                <input
-                  type="checkbox"
-                  checked={!!visibleCols[col.key]}
-                  onChange={() => setVisibleCols((prev) => ({ ...prev, [col.key]: !prev[col.key] }))}
-                  className="h-4 w-4 text-blue-600 border-gray-300 rounded-md focus:ring-blue-500"
-                />
-                <span className="ml-2 text-sm text-gray-700">{col.label}</span>
-              </label>
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-2 p-2 border-t border-gray-200">
-            <button
-              onClick={() => {
-                const allOn: typeof visibleCols = {} as any;
-                allColumns.forEach((c) => {
-                  (allOn as any)[c.key] = true;
-                });
-                setVisibleCols(allOn);
-              }}
-              className="px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              type="button"
-            >
-              {t('Select all', 'அனைத்தையும் தேர்ந்தெடு')}
-            </button>
-            <button
-              onClick={() => {
-                const allOff: typeof visibleCols = {} as any;
-                allColumns.forEach((c) => {
-                  (allOff as any)[c.key] = false;
-                });
-                setVisibleCols(allOff);
-              }}
-              className="px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              type="button"
-            >
-              {t('Clear all', 'அனைத்தையும் அழி')}
-            </button>
-            <button
-              onClick={() => setMenuOpen(false)}
-              className="px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ml-auto"
-              type="button"
-            >
-              {t('Close', 'மூடு')}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Modal */}
-      {editOpen && (
-        <Modal title={t('Edit Donation', 'நன்கொடையை திருத்துக')} onClose={() => setEditOpen(false)}>
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <div className="col-span-2">
-              <label className="block text-xs text-gray-600 mb-1">{t('Product','பொருள்')}</label>
+        {/* Filters and Search */}
+        <div className="bg-white rounded-lg border border-gray-200 p-2 mb-4">
+          <div className="flex flex-col md:flex-row gap-2 items-center">
+            {/* Search */}
+            <div className="relative flex-1 w-full">
+              <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                <svg className="h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+                </svg>
+              </div>
               <input
-                className="w-full border border-gray-300 px-2 py-1 rounded-md"
-                value={editForm.product}
-                onChange={(e)=>setEditForm(prev=>({...prev, product: e.target.value}))}
+                type="text"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                onKeyDown={onKeyDownSearch}
+                placeholder={t('Search by donor/product/category/phone', 'தானகயாளர்/பொருள்/வகை/தொலைபேசி மூலம் தேடுக')}
+                className="block w-full pl-8 pr-2 py-1 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
               />
             </div>
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">{t('Quantity','அளவு')}</label>
-              <input
-                className="w-full border border-gray-300 px-2 py-1 rounded-md"
-                value={editForm.quantity}
-                onChange={(e)=>{
-                  const v = e.target.value;
-                  if (v === '') return setEditForm(prev=>({...prev, quantity: ''}));
-                  const n = parseInt(v,10);
-                  if (!isNaN(n)) setEditForm(prev=>({...prev, quantity: n}));
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-1 w-full md:w-auto">
+              <button
+                onClick={load}
+                className="px-3 py-1 border border-gray-300 rounded-md shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                type="button"
+              >
+                {t('Search', 'தேடு')}
+              </button>
+              <button
+                onClick={() => {
+                  setQ('');
+                  load();
                 }}
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">{t('Date','தேதி')}</label>
-              <input
-                type="date"
-                className="w-full border border-gray-300 px-2 py-1 rounded-md"
-                value={editForm.donationDate}
-                onChange={(e)=>setEditForm(prev=>({...prev, donationDate: e.target.value}))}
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">{t('Category','வகை')}</label>
-              <input
-                className="w-full border border-gray-300 px-2 py-1 rounded-md"
-                value={editForm.category}
-                onChange={(e)=>setEditForm(prev=>({...prev, category: e.target.value}))}
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">{t('Status','நிலை')}</label>
-              <select
-                className="w-full border border-gray-300 px-2 py-1 rounded-md"
-                value={editForm.status}
-                onChange={(e)=>setEditForm(prev=>({...prev, status: e.target.value}))}
+                className="px-3 py-1 border border-gray-300 rounded-md shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                type="button"
               >
-                <option value="available">{t('Available','கிடைக்கும்')}</option>
-                <option value="reserved">{t('Reserved','ஒதுக்கப்பட்டது')}</option>
-                <option value="distributed">{t('Distributed','விநியோகிக்கப்பட்டது')}</option>
-              </select>
-            </div>
-            <div className="col-span-2">
-              <label className="block text-xs text-gray-600 mb-1">{t('Donor','நன்கொடையாளர்')}</label>
-              <input
-                className="w-full border border-gray-300 px-2 py-1 rounded-md"
-                value={editForm.donorName}
-                onChange={(e)=>setEditForm(prev=>({...prev, donorName: e.target.value}))}
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">{t('Contact','தொடர்பு')}</label>
-              <input
-                className="w-full border border-gray-300 px-2 py-1 rounded-md"
-                value={editForm.donorContact}
-                onChange={(e)=>setEditForm(prev=>({...prev, donorContact: e.target.value}))}
-              />
-            </div>
-            <div className="col-span-2">
-              <label className="block text-xs text-gray-600 mb-1">{t('Description','விளக்கம்')}</label>
-              <textarea
-                className="w-full border border-gray-300 px-2 py-1 rounded-md"
-                rows={2}
-                value={editForm.description}
-                onChange={(e)=>setEditForm(prev=>({...prev, description: e.target.value}))}
-              />
-            </div>
-            <div className="col-span-2">
-              <label className="block text-xs text-gray-600 mb-1">{t('Notes','குறிப்புகள்')}</label>
-              <textarea
-                className="w-full border border-gray-300 px-2 py-1 rounded-md"
-                rows={2}
-                value={editForm.notes}
-                onChange={(e)=>setEditForm(prev=>({...prev, notes: e.target.value}))}
-              />
-            </div>
-          </div>
-          <div className="mt-4 flex justify-end gap-2">
-            <button onClick={()=>setEditOpen(false)} className="px-3 py-1 border border-gray-300 rounded-md text-xs">{t('Cancel','ரத்து செய்')}</button>
-            <button onClick={saveEdit} className="px-3 py-1 bg-blue-600 text-white rounded-md text-xs">{t('Save','சேமி')}</button>
-          </div>
-        </Modal>
-      )}
-
-      {/* Delete Confirmation Modal (AlertDialog) */}
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('Are you sure?', 'நீங்கள் உறுதியாகவா?')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('This action cannot be undone. This will permanently delete the donation record.', 'இந்த செயலை திரும்பப் பெற முடியாது. இது நன்கொடை பதிவை நிரந்தரமாக நீக்கும்.')}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('Cancel', 'ரத்து செய்')}</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 text-white hover:bg-red-700">
-              {t('Delete', 'நீக்கு')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* All Donation Product Logs Modal */}
-      {allLogsOpen && (
-        <div className={formFieldStyles.moneyDonationList.modal.overlay}>
-          <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeAllLogs} />
-          <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-7xl mx-4 max-h-[90vh] flex flex-col">
-            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white py-6 px-6 rounded-t-lg flex-shrink-0">
-              <div className={formFieldStyles.moneyDonationList.modal.header}>
-                <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('All Donation Product Logs', 'அனைத்து பொருள் நன்கொடை பதிவுகள்')}</h2>
-                <button onClick={closeAllLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex-1 overflow-hidden">
-            {allLogsLoading ? (
-                  <div className={formFieldStyles.moneyDonationList.modal.loading}>
-                    {t('Loading logs...', 'பதிவுகள் ஏற்றப்படுகிறது...')}
-              </div>
-            ) : (
-                  <div className="h-full flex flex-col">
-                    <div className="flex-1 overflow-auto max-h-[60vh]">
-                      <div className="bg-white border border-gray-200">
-                        <table className={formFieldStyles.moneyDonationList.logsTable.table}>
-                          <thead className={formFieldStyles.moneyDonationList.logsTable.thead}>
-                            <tr>
-                              <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                                {t('Action', 'செயல்')}
-                              </th>
-                              <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                                {t('Date & Time', 'தேதி மற்றும் நேரம்')}
-                              </th>
-                              <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                                {t('Receipt No', 'ரசீது எண்')}
-                              </th>
-                              <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                                {t('User', 'பயனர்')}
-                              </th>
-                              <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                                {t('Details', 'விவரங்கள்')}
-                              </th>
-                    </tr>
-                  </thead>
-                          <tbody className={formFieldStyles.moneyDonationList.logsTable.tbody}>
-                            {allLogs.length === 0 ? (
-                              <tr>
-                                <td className={formFieldStyles.moneyDonationList.logsTable.tdCenter} colSpan={6}>
-                                  {t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}
-                                </td>
-                              </tr>
-                            ) : allLogs.map((lg, index) => (
-                              <tr key={lg.id} className={formFieldStyles.moneyDonationList.logsTable.tr}>
-                                <td className={formFieldStyles.moneyDonationList.logsTable.td}>
-                                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                    lg.action === 'create' ? 'bg-green-100 text-green-800' :
-                                    lg.action === 'update' ? 'bg-blue-100 text-blue-800' :
-                                    lg.action === 'delete' ? 'bg-red-100 text-red-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
-                                    {lg.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
-                                     lg.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
-                                     lg.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
-                                     lg.action}
-                            </span>
-                          </td>
-                                <td className={formFieldStyles.moneyDonationList.logsTable.tdNowrap}>
-                                  {lg.created_at ? new Date(lg.created_at).toLocaleString('en-IN', {
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  }) : '-'}
-                          </td>
-                                <td className={formFieldStyles.moneyDonationList.logsTable.td}>{lg.donation_id}</td>
-                                <td className={formFieldStyles.moneyDonationList.logsTable.td}>{lg.receipt_number ?? '-'}</td>
-                                <td className={formFieldStyles.moneyDonationList.logsTable.td}>
-                                  {(() => {
-                                    const userId = lg.created_by;
-                                    if (!userId) return '-';
-                                    const user = userDetails[userId];
-                                    const name = userNames[userId];
-                                    
-                                    if (user?.username) {
-                                      return `@${user.username}`;
-                                    }
-                                    if (user?.name) {
-                                      return user.name;
-                                    }
-                                    if (name) {
-                                      return name;
-                                    }
-                                    return `User ${userId}`;
-                                  })()}
-                                </td>
-                                <td className="py-3 px-4 border-b">
-                                  <div className="text-sm text-gray-600 max-w-md">
-                                    {(() => {
-                                      // Parse donation details from the log data
-                                      const details = lg.details;
-                                      if (!details) return <span className="text-gray-400">-</span>;
-                                      
-                                      // Extract specific fields from the details
-                                      const registerNo = details.register_no || details.after?.register_no || details.before?.register_no;
-                                      const price = details.price || details.after?.price || details.before?.price;
-                                      const quantity = details.quantity || details.after?.quantity || details.before?.quantity;
-                                      const category = details.category || details.after?.category || details.before?.category;
-                                      const donorName = details.donor_name || details.after?.donor_name || details.before?.donor_name;
-                                      const product = details.product || details.after?.product || details.before?.product;
-                                      
-                                      return (
-                                        <div className="space-y-2">
-                                          <div className="bg-blue-50 p-3 rounded border text-xs">
-                                            <div className="font-medium text-blue-700 mb-2">{t('Donation Details', 'நன்கொடை விவரங்கள்')}</div>
-                                            <div className="space-y-1 text-gray-600">
-                                              {registerNo && (
-                                                <div className="flex justify-between">
-                                                  <span className="font-medium">{t('Receipt No', 'ரசீது எண்')}:</span>
-                                                  <span>{registerNo}</span>
-                                                </div>
-                                              )}
-                                              {donorName && (
-                                                <div className="flex justify-between">
-                                                  <span className="font-medium">{t('Donor', 'நன்கொடையாளர்')}:</span>
-                                                  <span>{donorName}</span>
-                                                </div>
-                                              )}
-                                              {product && (
-                                                <div className="flex justify-between">
-                                                  <span className="font-medium">{t('Product', 'பொருள்')}:</span>
-                                                  <span>{product}</span>
-                                                </div>
-                                              )}
-                                              {quantity && (
-                                                <div className="flex justify-between">
-                                                  <span className="font-medium">{t('Quantity', 'அளவு')}:</span>
-                                                  <span>{quantity}</span>
-                                                </div>
-                                              )}
-                                              {price && (
-                                                <div className="flex justify-between">
-                                                  <span className="font-medium">{t('Price', 'விலை')}:</span>
-                                                  <span>₹{price}</span>
-                                                </div>
-                                              )}
-                                              {category && (
-                                                <div className="flex justify-between">
-                                                  <span className="font-medium">{t('Category', 'வகை')}:</span>
-                                                  <span>{category}</span>
-                                                </div>
-                                              )}
-                                            </div>
-                                          </div>
-                                        </div>
-                                      );
-                                    })()}
-                            </div>
-                          </td>
-                        </tr>
-                            ))}
-                  </tbody>
-                </table>
-              </div>
-          </div>
-                    <div className={formFieldStyles.moneyDonationList.pagination.container}>
-                      <div className={formFieldStyles.moneyDonationList.pagination.info}>
-                        {t('Total', 'மொத்தம்')}: <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{allLogsTotal}</span>
-              </div>
-                      <div className={formFieldStyles.moneyDonationList.pagination.controls}>
-                <button
-                          className={formFieldStyles.moneyDonationList.pagination.button}
-                          disabled={allLogsPage <= 1}
-                  onClick={() => {
-                            const prevPage = Math.max(1, allLogsPage - 1);
-                            loadAllDonationProductLogs(prevPage);
-                  }}
-                >
-                  {t('Previous', 'முந்தைய')}
-                </button>
-                        <span className="text-sm text-gray-600">
-                          {t('Page', 'பக்கம்')} {allLogsPage} {t('of', 'இல்')} {Math.ceil(allLogsTotal / allLogsPageSize)}
-                        </span>
-                <button
-                          className={formFieldStyles.moneyDonationList.pagination.button}
-                          disabled={allLogsPage * allLogsPageSize >= allLogsTotal}
-                  onClick={() => {
-                            const nextPage = allLogsPage + 1;
-                            loadAllDonationProductLogs(nextPage);
-                  }}
-                >
-                          {t('Next', 'அடுத்தது')}
-                </button>
-                      </div>
-              </div>
-            </div>
-          )}
-              </div>
+                {t('Clear', 'அழி')}
+              </button>
+              <button
+                onClick={onExport}
+                className="px-3 py-1 border border-gray-300 rounded-md shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                type="button"
+              >
+                {t('Export CSV', 'CSV ஏற்றுமதி')}
+              </button>
+              <button
+                onClick={() => window.print()}
+                className="px-3 py-1 border border-gray-300 rounded-md shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                type="button"
+              >
+                {t('Export PDF', 'PDF ஏற்றுமதி')}
+              </button>
+              <button
+                onClick={openAllLogs}
+                className="px-3 py-1 border border-gray-300 rounded-md shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                type="button"
+              >
+                {t('All Logs', 'அனைத்து பதிவுகள்')}
+              </button>
             </div>
           </div>
         </div>
-      )}
 
-      {/* Donation Product Logs Modal */}
-      {logsFor && (
-        <div className={formFieldStyles.moneyDonationList.modal.overlay}>
-          <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeLogs} />
-          <div className={formFieldStyles.moneyDonationList.modal.container}>
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-6 px-6 rounded-t-lg">
-              <div className={formFieldStyles.moneyDonationList.modal.header}>
-                <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('Activity Log', 'செயல்பாட்டு பதிவு')} #{logsFor}</h2>
-                <button onClick={closeLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+        {/* Main Table */}
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden" onContextMenu={onContextMenu}>
+          <div className="overflow-x-auto">
+            <Table className="min-w-full divide-y divide-gray-200">
+              <TableHeader className="bg-gray-50">
+                <TableRow>
+                  {allColumns.map(
+                    (col) =>
+                      visibleCols[col.key] && (
+                        <TableHead
+                          key={col.key}
+                          className={cn(
+                            "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider",
+                            col.align === 'right' && "text-right",
+                            col.align === 'center' && "text-center"
+                          )}
+                        >
+                          {col.label}
+                        </TableHead>
+                      )
+                  )}
+                </TableRow>
+              </TableHeader>
+              <TableBody className="bg-white divide-y divide-gray-200">
+                {loading ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={visibleColCount}
+                      className="px-6 py-4 text-center text-sm text-gray-500"
+                    >
+                      <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+                    </TableCell>
+                  </TableRow>
+                ) : items.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={visibleColCount}
+                      className="px-6 py-4 text-center text-sm text-gray-500"
+                    >
+                      {t('No data found', 'தரவு கிடைக்கவில்லை')}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  items.map((item, idx) => (
+                    <TableRow key={item.id} className="hover:bg-gray-50">
+                      {visibleCols['#'] && (
+                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {idx + 1}
+                        </TableCell>
+                      )}
+                      {visibleCols.receipt && (
+                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {item.register_no || '-'}
+                        </TableCell>
+                      )}
+                      {visibleCols.contact && (
+                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {item.donor_contact || '-'}
+                        </TableCell>
+                      )}
+                      {visibleCols.date && (
+                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {(item.donation_date || '').slice(0,10) || '-'}
+                        </TableCell>
+                      )}
+                      {visibleCols.donor && (
+                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {item.donor_name || '-'}
+                        </TableCell>
+                      )}
+                      {visibleCols.category && (
+                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {item.category || '-'}
+                        </TableCell>
+                      )}
+                      {visibleCols.product && (
+                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {item.product_name || '-'}
+                        </TableCell>
+                      )}
+                      {visibleCols.qty && (
+                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                          {toNum(item.quantity).toLocaleString()}
+                        </TableCell>
+                      )}
+                      {visibleCols.description && (
+                        <TableCell className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
+                          {item.description || '-'}
+                        </TableCell>
+                      )}
+                      {visibleCols.print && (
+                        <TableCell className="px-6 py-4 whitespace-nowrap text-center">
+                          <PrintButton onClick={() => onPrint(item)} />
+                        </TableCell>
+                      )}
+                      {visibleCols.actions && (
+                        <TableCell className="px-6 py-4 whitespace-nowrap text-center">
+                          <div className="flex justify-center items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openEdit(item)}
+                              className="text-blue-600 hover:text-blue-800 text-xs"
+                            >
+                              {t('Edit', 'திருத்த')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openLogs(item)}
+                              className="text-green-600 hover:text-green-800 text-xs"
+                            >
+                              {t('Logs', 'பதிவுகள்')}
+                            </button>
+                            {(() => {
+                              const canDelete = isLastReceipt(item);
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => openDelete(item)}
+                                  className={`p-1 rounded-md ${canDelete ? 'text-red-600 hover:bg-red-50' : 'text-gray-400 cursor-not-allowed'}`}
+                                  title={canDelete ? undefined : t('Only the latest receipt can be deleted', 'சமீபத்திய ரசீது மட்டுமே நீக்க இயலும்')}
+                                  disabled={!canDelete}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              );
+                            })()}
+                          </div>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Footer with pagination and totals */}
+          <div className="px-6 py-3 flex items-center justify-between border-t border-gray-200 bg-gray-50">
+            <div className="text-sm text-gray-700">
+              {t('Showing', 'காட்டப்படுகிறது')}{' '}
+              <span className="font-medium">1</span> {t('to', 'இலிருந்து')}{' '}
+              <span className="font-medium">{items.length}</span> {t('of', 'மொத்தம்')}{' '}
+              <span className="font-medium">{items.length}</span> {t('results', 'முடிவுகள்')}
+            </div>
+            <div className="flex gap-4 text-sm text-gray-700">
+              <span>
+                {t('Total Qty', 'மொத்த அளவு')}: <span className="font-medium">{totals.qty.toLocaleString()}</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Context Menu for Column Visibility */}
+        {menuOpen && (
+          <div
+            ref={menuRef}
+            className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 w-64"
+            style={{ left: `${menuPos.x}px`, top: `${menuPos.y}px` }}
+          >
+            <div className="px-4 py-3 border-b border-gray-200">
+              <h3 className="text-sm font-medium text-gray-900">{t('Columns', 'நெடுவரிசைகள்')}</h3>
+              <p className="text-xs text-gray-500">
+                {t('Visible', 'காட்டப்படும்')} {Object.values(visibleCols).filter(Boolean).length}/{allColumns.length}
+              </p>
+            </div>
+            <div className="max-h-60 overflow-y-auto p-2">
+              {allColumns.map((col) => (
+                <label
+                  key={col.key}
+                  className="flex items-center px-2 py-1.5 rounded-md hover:bg-gray-50 cursor-pointer select-none"
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!visibleCols[col.key]}
+                    onChange={() => setVisibleCols((prev) => ({ ...prev, [col.key]: !prev[col.key] }))}
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">{col.label}</span>
+                </label>
+              ))}
+            </div>
+            <div className="flex gap-2 p-2 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  const allOn: Record<ColKey, boolean> = {} as any;
+                  allColumns.forEach((c) => {
+                    allOn[c.key] = true;
+                  });
+                  setVisibleCols(allOn);
+                }}
+                className="px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                type="button"
+              >
+                {t('Select all', 'அனைத்தையும் தேர்ந்தெடு')}
+              </button>
+              <button
+                onClick={() => setMenuOpen(false)}
+                className="px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ml-auto"
+                type="button"
+              >
+                {t('Close', 'மூடு')}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Modal */}
+        {editOpen && (
+          <Modal title={t('Edit Donation', 'நன்கொடையை திருத்துக')} onClose={() => setEditOpen(false)}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Product','பொருள்')}</label>
+                <input
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={editForm.product}
+                  onChange={(e)=>setEditForm(prev=>({...prev, product: e.target.value}))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Quantity','அளவு')}</label>
+                <input
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={editForm.quantity}
+                  onChange={(e)=>{
+                    const v = e.target.value;
+                    if (v === '') return setEditForm(prev=>({...prev, quantity: ''}));
+                    const n = parseInt(v,10);
+                    if (!isNaN(n)) setEditForm(prev=>({...prev, quantity: n}));
+                  }}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Date','தேதி')}</label>
+                <input
+                  type="date"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={editForm.donationDate}
+                  onChange={(e)=>setEditForm(prev=>({...prev, donationDate: e.target.value}))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Category','வகை')}</label>
+                <input
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={editForm.category}
+                  onChange={(e)=>setEditForm(prev=>({...prev, category: e.target.value}))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Status','நிலை')}</label>
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={editForm.status}
+                  onChange={(e)=>setEditForm(prev=>({...prev, status: e.target.value}))}
+                >
+                  <option value="available">{t('Available','கிடைக்கும்')}</option>
+                  <option value="reserved">{t('Reserved','ஒதுக்கப்பட்டது')}</option>
+                  <option value="distributed">{t('Distributed','விநியோகிக்கப்பட்டது')}</option>
+                </select>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Donor','நன்கொடையாளர்')}</label>
+                <input
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={editForm.donorName}
+                  onChange={(e)=>setEditForm(prev=>({...prev, donorName: e.target.value}))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Contact','தொடர்பு')}</label>
+                <input
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={editForm.donorContact}
+                  onChange={(e)=>setEditForm(prev=>({...prev, donorContact: e.target.value}))}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Description','விளக்கம்')}</label>
+                <textarea
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={3}
+                  value={editForm.description}
+                  onChange={(e)=>setEditForm(prev=>({...prev, description: e.target.value}))}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Notes','குறிப்புகள்')}</label>
+                <textarea
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={3}
+                  value={editForm.notes}
+                  onChange={(e)=>setEditForm(prev=>({...prev, notes: e.target.value}))}
+                />
               </div>
             </div>
-            
-            <div className="p-6">
-              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            {logsLoading ? (
-                  <div className={formFieldStyles.moneyDonationList.modal.loading}>
-                    {t('Loading logs...', 'பதிவுகள் ஏறுகிறது...')}
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setEditOpen(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                {t('Cancel','ரத்து செய்')}
+              </button>
+              <button
+                onClick={saveEdit}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                {t('Save','சேமி')}
+              </button>
+            </div>
+          </Modal>
+        )}
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('Are you sure?', 'நீங்கள் உறுதியாகவா?')}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('This action cannot be undone. This will permanently delete the donation record.', 'இந்த செயலை திரும்பப் பெற முடியாது. இது நன்கொடை பதிவை நிரந்தரமாக நீக்கும்.')}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t('Cancel', 'ரத்து செய்')}</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDelete} className="bg-red-600 text-white hover:bg-red-700">
+                {t('Delete', 'நீக்கு')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Individual Item Logs Modal */}
+        {logsFor && (
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+              <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={closeLogs} />
+              <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full sm:p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium text-gray-900">{t('Activity Log', 'செயல்பாட்டு பதிவு')} #{logsFor}</h3>
+                  <button
+                    onClick={closeLogs}
+                    className="text-gray-400 hover:text-gray-600 focus:outline-none"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {logsLoading ? (
+                  <div className="flex justify-center items-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                    <span className="ml-2">{t('Loading logs...', 'பதிவுகள் ஏற்றப்படுகிறது...')}</span>
                   </div>
                 ) : logs.length === 0 ? (
-                  <div className={formFieldStyles.moneyDonationList.modal.loading}>
+                  <div className="text-center py-8 text-gray-500">
                     {t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                    <table className={formFieldStyles.moneyDonationList.logsTable.table}>
-                      <thead className={formFieldStyles.moneyDonationList.logsTable.thead}>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
                         <tr>
-                          <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             {t('Action', 'செயல்')}
                           </th>
-                          <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             {t('Date & Time', 'தேதி மற்றும் நேரம்')}
                           </th>
-                          <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             {t('User', 'பயனர்')}
                           </th>
-                          <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             {t('Details', 'விவரங்கள்')}
                           </th>
-                    </tr>
-                  </thead>
-                      <tbody className={formFieldStyles.moneyDonationList.logsTable.tbody}>
-                        {logs.map((lg, index) => (
-                          <tr key={lg.id} className={formFieldStyles.moneyDonationList.logsTable.tr}>
-                            <td className={formFieldStyles.moneyDonationList.logsTable.td}>
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                lg.action === 'create' ? 'bg-green-100 text-green-800' :
-                                lg.action === 'update' ? 'bg-blue-100 text-blue-800' :
-                                lg.action === 'delete' ? 'bg-red-100 text-red-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
-                                {lg.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
-                                 lg.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
-                                 lg.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
-                                 lg.action}
-                            </span>
-                          </td>
-                            <td className={formFieldStyles.moneyDonationList.logsTable.tdNowrap}>
-                              {lg.created_at ? new Date(lg.created_at).toLocaleString('en-IN', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              }) : '-'}
-                          </td>
-                            <td className={formFieldStyles.moneyDonationList.logsTable.td}>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {logs.map((log) => (
+                          <tr key={log.id}>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                log.action === 'create' ? 'bg-green-100 text-green-800' :
+                                log.action === 'update' ? 'bg-blue-100 text-blue-800' :
+                                log.action === 'delete' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {log.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
+                                 log.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
+                                 log.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
+                                 log.action}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {log.created_at ? new Date(log.created_at).toLocaleString() : '-'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {(() => {
-                                const userId = lg.created_by;
+                                const userId = log.created_by;
                                 if (!userId) return '-';
                                 const user = userDetails[userId];
-                                const name = userNames[userId];
-                                
-                                if (user?.username) {
-                                  return `@${user.username}`;
-                                }
-                                if (user?.name) {
-                                  return user.name;
-                                }
-                                if (name) {
-                                  return name;
-                                }
-                                return `User ${userId}`;
+                                if (user?.username) return `@${user.username}`;
+                                if (user?.name) return user.name;
+                                return userNames[userId] || `User ${userId}`;
                               })()}
                             </td>
-                            <td className={formFieldStyles.moneyDonationList.logsTable.td}>
-                              <div className="text-sm text-gray-600 max-w-md">
-                                {(() => {
-                                  // Parse donation details from the log data
-                                  const details = lg.details;
-                                  if (!details) return <span className="text-gray-400">-</span>;
-                                  
-                                  // Extract specific fields from the details
-                                  const registerNo = details.register_no || details.after?.register_no || details.before?.register_no;
-                                  const price = details.price || details.after?.price || details.before?.price;
-                                  const quantity = details.quantity || details.after?.quantity || details.before?.quantity;
-                                  const category = details.category || details.after?.category || details.before?.category;
-                                  const donorName = details.donor_name || details.after?.donor_name || details.before?.donor_name;
-                                  const product = details.product || details.after?.product || details.before?.product;
-                                  
-                                  return (
-                                    <div className="space-y-2">
-                                      <div className="bg-blue-50 p-3 rounded border text-xs">
-                                        <div className="font-medium text-blue-700 mb-2">{t('Donation Details', 'நன்கொடை விவரங்கள்')}</div>
-                                        <div className="space-y-1 text-gray-600">
-                                          {registerNo && (
-                                            <div className="flex justify-between">
-                                              <span className="font-medium">{t('Receipt No', 'ரசீது எண்')}:</span>
-                                              <span>{registerNo}</span>
-                                            </div>
-                                          )}
-                                          {donorName && (
-                                            <div className="flex justify-between">
-                                              <span className="font-medium">{t('Donor', 'நன்கொடையாளர்')}:</span>
-                                              <span>{donorName}</span>
-                                            </div>
-                                          )}
-                                          {product && (
-                                            <div className="flex justify-between">
-                                              <span className="font-medium">{t('Product', 'பொருள்')}:</span>
-                                              <span>{product}</span>
-                                            </div>
-                                          )}
-                                          {quantity && (
-                                            <div className="flex justify-between">
-                                              <span className="font-medium">{t('Quantity', 'அளவு')}:</span>
-                                              <span>{quantity}</span>
-                                            </div>
-                                          )}
-                                          {price && (
-                                            <div className="flex justify-between">
-                                              <span className="font-medium">{t('Price', 'விலை')}:</span>
-                                              <span>₹{price}</span>
-                                            </div>
-                                          )}
-                                          {category && (
-                                            <div className="flex justify-between">
-                                              <span className="font-medium">{t('Category', 'வகை')}:</span>
-                                              <span>{category}</span>
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                })()}
-                            </div>
-                          </td>
-                        </tr>
+                            <td className="px-6 py-4 text-sm text-gray-900">
+                              {log.details ? (
+                                <div className="max-w-xs">
+                                  <pre className="whitespace-pre-wrap text-xs bg-gray-50 p-2 rounded">
+                                    {JSON.stringify(log.details, null, 2)}
+                                  </pre>
+                                </div>
+                              ) : (
+                                '-'
+                              )}
+                            </td>
+                          </tr>
                         ))}
-                  </tbody>
-                </table>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
             </div>
           </div>
-        </div>
-      )}
-    </Card>
+        )}
+
+        {/* All Logs Modal */}
+        {allLogsOpen && (
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+              <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={closeAllLogs} />
+              <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-6xl sm:w-full sm:p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium text-gray-900">{t('All Donation Product Logs', 'அனைத்து பொருள் நன்கொடை பதிவுகள்')}</h3>
+                  <button
+                    onClick={closeAllLogs}
+                    className="text-gray-400 hover:text-gray-600 focus:outline-none"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {allLogsLoading ? (
+                  <div className="flex justify-center items-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                    <span className="ml-2">{t('Loading logs...', 'பதிவுகள் ஏற்றப்படுகிறது...')}</span>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="overflow-x-auto max-h-96">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50 sticky top-0">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              {t('Action', 'செயல்')}
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              {t('Date & Time', 'தேதி மற்றும் நேரம்')}
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              {t('Donation ID', 'நன்கொடை ஐடி')}
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              {t('Receipt No', 'ரசீது எண்')}
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              {t('User', 'பயனர்')}
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              {t('Details', 'விவரங்கள்')}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {allLogs.length === 0 ? (
+                            <tr>
+                              <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
+                                {t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}
+                              </td>
+                            </tr>
+                          ) : allLogs.map((log) => (
+                            <tr key={log.id}>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                  log.action === 'create' ? 'bg-green-100 text-green-800' :
+                                  log.action === 'update' ? 'bg-blue-100 text-blue-800' :
+                                  log.action === 'delete' ? 'bg-red-100 text-red-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {log.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
+                                   log.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
+                                   log.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
+                                   log.action}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {log.created_at ? new Date(log.created_at).toLocaleString() : '-'}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {log.donation_id}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {log.receipt_number || '-'}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {(() => {
+                                  const userId = log.created_by;
+                                  if (!userId) return '-';
+                                  const user = userDetails[userId];
+                                  if (user?.username) return `@${user.username}`;
+                                  if (user?.name) return user.name;
+                                  return userNames[userId] || `User ${userId}`;
+                                })()}
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-900">
+                                {log.details ? (
+                                  <div className="max-w-xs">
+                                    <pre className="whitespace-pre-wrap text-xs bg-gray-50 p-2 rounded">
+                                      {JSON.stringify(log.details, null, 2)}
+                                    </pre>
+                                  </div>
+                                ) : (
+                                  '-'
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Pagination */}
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                      <div className="text-sm text-gray-700">
+                        {t('Total', 'மொத்தம்')}: <span className="font-medium">{allLogsTotal}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={allLogsPage <= 1}
+                          onClick={() => loadAllDonationProductLogs(Math.max(1, allLogsPage - 1))}
+                        >
+                          {t('Previous', 'முந்தைய')}
+                        </button>
+                        <span className="px-3 py-1 text-sm text-gray-600">
+                          {t('Page', 'பக்கம்')} {allLogsPage} {t('of', 'இல்')} {Math.ceil(allLogsTotal / allLogsPageSize)}
+                        </span>
+                        <button
+                          className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={allLogsPage * allLogsPageSize >= allLogsTotal}
+                          onClick={() => loadAllDonationProductLogs(allLogsPage + 1)}
+                        >
+                          {t('Next', 'அடுத்தது')}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </Card>
     </div>
   );
 }
+
+export { DonationService, donationService };

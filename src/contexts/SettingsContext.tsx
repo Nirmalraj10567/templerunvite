@@ -6,6 +6,7 @@ export type UserSettings = {
   sidebar_collapsed_default?: boolean;
   hidden_menu_keys?: string[]; // labels or route paths
   quick_actions?: string[];
+  shortcuts?: Record<string, string>; // route -> keystroke (e.g., "ctrl+k")
   language?: string | null;
   theme?: string | null;
 };
@@ -15,6 +16,7 @@ const defaultSettings: UserSettings = {
   sidebar_collapsed_default: false,
   hidden_menu_keys: [],
   quick_actions: [],
+  shortcuts: {},
   language: null,
   theme: null,
 };
@@ -39,6 +41,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const API_BASE = (import.meta as any)?.env?.VITE_API_BASE_URL || 'http://localhost:4000';
+
   const refresh = useMemo(() => {
     return async () => {
       if (!token) {
@@ -48,7 +52,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch('https://tmsapi.xesstechlink.com/api/user-settings/me', {
+        const res = await fetch(`${API_BASE}/api/user-settings/me`, {
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
@@ -73,7 +77,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const updateSettings = async (partial: Partial<UserSettings>) => {
     if (!token) return false;
     try {
-      const res = await fetch('https://tmsapi.xesstechlink.com/api/user-settings/me', {
+      const res = await fetch(`${API_BASE}/api/user-settings/me`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

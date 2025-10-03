@@ -176,13 +176,23 @@ export const sidebarItems: NavItem[] = [
     tamilLabel: navigationTranslations.tamil.donations,
     icon: HeartIcon,
     children: [
-      { 
+
+{
+  to:'donations/entry',
+  label :navigationTranslations.english.donations,
+  tamilLabel:navigationTranslations.tamil.donations,
+  permissionId:'edit_donations',
+  accessLevel:'edit'
+},
+
+
+    /*  { 
         to: 'donation-product/entry', 
         label: navigationTranslations.english.productDonationsEntry, 
         tamilLabel: navigationTranslations.tamil.productDonationsEntry, 
         permissionId: 'edit_donations',
         accessLevel: 'edit'
-      },
+      },*/
       { 
         to: 'donation-product/list', 
         label: navigationTranslations.english.productDonationsList, 
@@ -190,13 +200,13 @@ export const sidebarItems: NavItem[] = [
         permissionId: 'view_donations',
         accessLevel: 'view'
       },
-      { 
+     /* { 
         to: 'donations/money-entry', 
         label: navigationTranslations.english.moneyDonationEntry, 
         tamilLabel: navigationTranslations.tamil.moneyDonationEntry, 
         permissionId: 'edit_donations',
         accessLevel: 'edit'
-      },
+      },*/
       { 
         to: 'donations/money-list', 
         label: navigationTranslations.english.moneyDonationList, 

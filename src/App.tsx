@@ -69,6 +69,9 @@ import CategoryStatementPage from './pages/ledger/CategoryStatementPage';
 import JournalLogPage from './pages/reports/JournalLogPage';
 import TrialBalancePage from './pages/reports/TrialBalancePage';
 import BalanceSheetPage from './pages/reports/BalanceSheetPage';
+import AnnadhanamLogView from './pages/annadhanam/AnnadhanamLogView';
+import AnnadhanamLogsPage from './pages/annadhanam/AnnadhanamLogsPage';
+import UnifiedDonationEntry from './pages/donations/UnifiedDonationEntry';
 
 function App() {
   return (
@@ -109,6 +112,18 @@ function App() {
                         <PermissionGuard requiredPermission="edit_donations" accessLevel="edit">
                           <YearEndLockGuard>
                             <DonationProductEntry />
+                          </YearEndLockGuard>
+                        </PermissionGuard>
+                      }
+                    />
+                  </Route>
+                
+                    <Route 
+                      path="donations/entry" 
+                      element={
+                        <PermissionGuard requiredPermission="edit_donations" accessLevel="edit">
+                          <YearEndLockGuard>
+                            <UnifiedDonationEntry />
                           </YearEndLockGuard>
                         </PermissionGuard>
                       }
@@ -563,6 +578,16 @@ function App() {
                       </PermissionGuard>
                     }
                   />
+
+
+                  <Route
+                    path="annadhanam/logs"
+                    element={
+                      <PermissionGuard requiredPermission="annadhanam_registrations" accessLevel="view">
+                        <AnnadhanamLogsPage />
+                      </PermissionGuard>
+                    }
+                  />
                   <Route
                     path="annadhanam/new"
                     element={
@@ -759,9 +784,8 @@ function App() {
                     </PermissionGuard>
                   }
                 />
-              </Route>
-              {/* Catch-all route for unmatched paths */}
-              <Route path="*" element={<Navigate to="/" replace />} />
+                {/* Catch-all route for unmatched paths */}
+                <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>
         </BrowserRouter>

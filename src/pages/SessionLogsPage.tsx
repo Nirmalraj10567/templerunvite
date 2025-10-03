@@ -248,7 +248,7 @@ const SessionLogsPage = () => {
         ...(endDate && { endDate }),
       });
 
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/session-logs?${params.toString()}`, {
+      const response = await fetch(`http://localhost:4000/api/session-logs?${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -284,7 +284,7 @@ const SessionLogsPage = () => {
         ...(endDate && { endDate }),
       });
 
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/session-logs/export?${params.toString()}`, {
+      const response = await fetch(`http://localhost:4000/api/session-logs/export?${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -326,7 +326,7 @@ const SessionLogsPage = () => {
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
       
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/session-logs/export-pdf?${params.toString()}`, {
+      const response = await fetch(`http://localhost:4000/api/session-logs/export-pdf?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }

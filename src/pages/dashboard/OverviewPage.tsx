@@ -4,6 +4,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSettings } from '../../contexts/SettingsContext';
 import { useLanguage } from '../../lib/language'; // Added for language support
 import { sidebarItems } from '../../config/navigation';
+import Calendar from '../../components/Calendar';
+import GlobalCalendar from '../../components/GlobalCalendar';
 import {
   UsersIcon,
   BarChartIcon,
@@ -100,7 +102,7 @@ export default function OverviewPage() {
       setError('');
       try {
         // Fetch registrations (for total + recent)
-        const regRes = await fetch(`https://tmsapi.xesstechlink.com/api/registrations?page=1&pageSize=5`, {
+        const regRes = await fetch(`http://localhost:4000/api/registrations?page=1&pageSize=5`, {
           headers: {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -115,7 +117,7 @@ export default function OverviewPage() {
         }
 
         // Fetch full registrations list (for counts)
-        const regAllRes = await fetch(`https://tmsapi.xesstechlink.com/api/registrations?page=1&pageSize=5000`, {
+        const regAllRes = await fetch(`http://localhost:4000/api/registrations?page=1&pageSize=5000`, {
           headers: {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -126,7 +128,7 @@ export default function OverviewPage() {
 
         // Fetch current year's tax setting
         const year = new Date().getFullYear();
-        const taxSetRes = await fetch(`https://tmsapi.xesstechlink.com/api/tax-settings/year/${year}`, {
+        const taxSetRes = await fetch(`http://localhost:4000/api/tax-settings/year/${year}`, {
           headers: {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -136,7 +138,7 @@ export default function OverviewPage() {
         const currentYearTax = Number(taxSetJson?.data?.tax_amount || 0) || 0;
 
         // Fetch tax registrations (limit reasonably)
-        const taxRes = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations?page=1&pageSize=1000`, {
+        const taxRes = await fetch(`http://localhost:4000/api/tax-registrations?page=1&pageSize=1000`, {
           headers: {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -228,7 +230,7 @@ export default function OverviewPage() {
         }
 
         // Fetch events (for upcoming count)
-        const evtRes = await fetch(`https://tmsapi.xesstechlink.com/api/events?from=${todayStr}&page=1&pageSize=1`, {
+        const evtRes = await fetch(`http://localhost:4000/api/events?from=${todayStr}&page=1&pageSize=1`, {
           headers: {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -445,12 +447,12 @@ export default function OverviewPage() {
         </div>
       )}
 
-    {/* Approval Requests - render only if at least one permission is available */}
+    {/* Approval Requests - render only if at least one permission is available 
     {(hasPerm('pooja_approval', 'view') || hasPerm('hall_approval', 'view') || hasPerm('annadhanam_approval', 'view')) && (
       <div className="mt-6">
         <h3 className="text-lg font-semibold text-slate-900 mb-3">{t[lang].approvalRequests}</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Pooja Approval */}
+      
           {hasPerm('pooja_approval', 'view') && (
             <button
               onClick={() => navigate('/dashboard/pooja/approval')}
@@ -464,7 +466,7 @@ export default function OverviewPage() {
             </button>
           )}
 
-          {/* Hall Approvals */}
+         
           {hasPerm('hall_approval', 'view') && (
             <button
               onClick={() => navigate('/dashboard/hall/approvals')}
@@ -478,7 +480,7 @@ export default function OverviewPage() {
             </button>
           )}
 
-          {/* Annadhanam Approval */}
+         
           {hasPerm('annadhanam_approval', 'view') && (
             <button
               onClick={() => navigate('/dashboard/annadhanam/approval')}
@@ -491,9 +493,19 @@ export default function OverviewPage() {
               <div className="text-lg font-semibold text-slate-900 mt-2">{t[lang].annadhanamApproval}</div>
             </button>
           )}
+          
         </div>
       </div>
-    )}
+    )}   
+
+    */}
+
+    {/* Calendar Section */}
+    <div className="mt-6">
+      <Calendar selectedDate={todayStr} />
+    </div>
+
+  
   </div>
 );
 }

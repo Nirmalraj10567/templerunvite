@@ -14,6 +14,9 @@ import {
   ChevronRight as ChevronRightIcon,
   Menu as MenuIcon,
   Shield as ShieldIcon,
+  Clock as ClockIcon,
+  MapPin as MapPinIcon,
+  User as UserIcon,
 } from 'lucide-react';
 
 export {
@@ -30,4 +33,7 @@ export {
   ChevronRightIcon,
   MenuIcon,
   ShieldIcon,
+  ClockIcon,
+  MapPinIcon,
+  UserIcon,
 };

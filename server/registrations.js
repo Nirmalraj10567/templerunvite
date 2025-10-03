@@ -298,6 +298,29 @@ module.exports = function createRegistrationsRouter({ db, authenticateToken, aut
     }
   );
 
+  // Get single registration
+  router.get('/:id', 
+    authenticateToken, 
+    authorizePermission('user_registrations', 'view'), 
+    async (req, res) => {
+      const { id } = req.params;
+      const effectiveTempleId = req.user.templeId;
+      try {
+        const registration = await db('user_registrations')
+          .where({ id, temple_id: effectiveTempleId })
+          .first();
+        if (!registration) {
+          return res.status(404).json({ error: 'Registration not found or access denied.' });
+        }
+
+        res.json({ success: true, data: registration });
+      } catch (err) {
+        console.error('Error fetching registration:', err);
+        res.status(500).json({ error: 'Database error while fetching registration.' });
+      }
+    }
+  );
+
   // Delete registration
   router.delete('/:id', 
     authenticateToken, 

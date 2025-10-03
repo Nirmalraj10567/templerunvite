@@ -7,7 +7,7 @@ const db = knex({
     host: process.env.MYSQL_HOST || '127.0.0.1',
     port: Number(process.env.MYSQL_PORT || 3306),
     user: process.env.MYSQL_USER || 'root',
-    password: process.env.MYSQL_PASSWORD || 'root',
+    password: process.env.MYSQL_PASSWORD || 'rootroot',
     database: process.env.MYSQL_DATABASE || 'templefinals',
     timezone: process.env.MYSQL_TIMEZONE || 'Z',
   },

@@ -18,6 +18,27 @@ const storage = multer.diskStorage({
   }
 });
 
+// GET single tax registration
+router.get('/:id', authenticateToken, authorizePermission('tax_registrations', 'view'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const templeId = req.user.templeId;
+    
+    const registration = await db('user_tax_registrations')
+      .where({ id: Number(id), temple_id: templeId })
+      .first();
+    
+    if (!registration) {
+      return res.status(404).json({ error: 'Tax registration not found or access denied.' });
+    }
+
+    res.json({ success: true, data: registration });
+  } catch (err) {
+    console.error('Error fetching tax registration:', err);
+    res.status(500).json({ error: 'Database error while fetching tax registration.' });
+  }
+});
+
 // GET logs for a specific tax registration
 router.get('/:id/logs', authenticateToken, authorizePermission('tax_registrations', 'view'), async (req, res) => {
   try {

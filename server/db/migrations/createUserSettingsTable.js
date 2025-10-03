@@ -13,6 +13,7 @@ exports.up = async function(knex) {
       t.boolean('sidebar_collapsed_default').notNullable().defaultTo(false);
       t.text('hidden_menu_keys'); // JSON string array
       t.text('quick_actions'); // JSON string array of action keys
+      t.text('shortcuts'); // JSON string map of route->keystroke
       t.string('language', 32); // optional persisted language
       t.string('theme', 32); // optional theme
       t.timestamp('created_at').defaultTo(knex.fn.now());
@@ -34,6 +35,7 @@ exports.up = async function(knex) {
   await ensureColumn('sidebar_collapsed_default', (t) => t.boolean('sidebar_collapsed_default').notNullable().defaultTo(false));
   await ensureColumn('hidden_menu_keys', (t) => t.text('hidden_menu_keys'));
   await ensureColumn('quick_actions', (t) => t.text('quick_actions'));
+  await ensureColumn('shortcuts', (t) => t.text('shortcuts'));
   await ensureColumn('language', (t) => t.string('language', 32));
   await ensureColumn('theme', (t) => t.string('theme', 32));
 };

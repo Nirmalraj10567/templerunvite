@@ -598,6 +598,15 @@ async function logReceiptAction({ receiptId, templeId, userId, action, details }
     console.error('Failed to mount tax-mobile router:', e);
   }
 })();
+// Mount calendar-mobile routes (public; validation via mobile number and templeId)
+(() => {
+  try {
+    const calendarMobileRouter = require('./calendar-mobile')({ db });
+    app.use('/api/mobile/calendar', calendarMobileRouter);
+  } catch (e) {
+    console.error('Failed to mount calendar-mobile router:', e);
+  }
+})();
 // Native categories router under /api/ledger to ensure /api/ledger/categories works
 (() => {
   const express = require('express');
@@ -3513,6 +3522,19 @@ app.use('/api/events',
     next();
   },
   eventsRouter
+);
+
+// Import calendar routes
+const calendarRouter = require('./routes/calendar')({ db });
+
+// Mount calendar routes with middleware
+app.use('/api/calendar',
+  authenticateToken,
+  (req, res, next) => {
+    req.db = db;
+    next();
+  },
+  calendarRouter
 );
 
 app.use((req, res, next) => {

@@ -75,6 +75,8 @@ export default function TaxUserEntryPage() {
   const [showNameResults, setShowNameResults] = useState<boolean>(false);
   const [mobileResults, setMobileResults] = useState<any[]>([]);
   const [showMobileResults, setShowMobileResults] = useState<boolean>(false);
+  const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
+  const [successMessage, setSuccessMessage] = useState<string>('');
   const nameInputRef = useRef<HTMLInputElement>(null);
   const mobileInputRef = useRef<HTMLInputElement>(null);
   const suppressNameLookupRef = useRef<number>(0);
@@ -125,16 +127,16 @@ export default function TaxUserEntryPage() {
         setLoading(true);
         try {
           const [clansRes, groupsRes, occupationsRes, educationsRes] = await Promise.all([
-            fetch(`https://tmsapi.xesstechlink.com/api/master/clans/${user.templeId}`, {
+            fetch(`http://localhost:4000/api/master/clans/${user.templeId}`, {
               headers: { Authorization: `Bearer ${token}` }
             }),
-            fetch(`https://tmsapi.xesstechlink.com/api/master/groups/${user.templeId}`, {
+            fetch(`http://localhost:4000/api/master/groups/${user.templeId}`, {
               headers: { Authorization: `Bearer ${token}` }
             }),
-            fetch(`https://tmsapi.xesstechlink.com/api/master/occupations/${user.templeId}`, {
+            fetch(`http://localhost:4000/api/master/occupations/${user.templeId}`, {
               headers: { Authorization: `Bearer ${token}` }
             }),
-            fetch(`https://tmsapi.xesstechlink.com/api/master/educations/${user.templeId}`, {
+            fetch(`http://localhost:4000/api/master/educations/${user.templeId}`, {
               headers: { Authorization: `Bearer ${token}` }
             }),
           ]);
@@ -187,7 +189,7 @@ export default function TaxUserEntryPage() {
     if (!token) return;
     (async () => {
       try {
-        const resp =await axios.get<any>('https://tmsapi.xesstechlink.com/api/ledger/categories', {
+        const resp =await axios.get<any>('http://localhost:4000/api/ledger/categories', {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = (resp?.data && Array.isArray(resp.data.data)) ? resp.data.data : (Array.isArray(resp?.data) ? resp.data : []);
@@ -214,6 +216,32 @@ export default function TaxUserEntryPage() {
 
   // Helper to show text in current language only
   const L = (en: string, ta: string) => (language === 'english' ? ta : en);
+
+  // Helper function to intelligently determine when to show dropdown
+  const shouldShowDropdown = (results: any[], searchType: 'mobile' | 'name') => {
+    if (!results || results.length === 0) {
+      return false; // No matches - don't show dropdown
+    }
+    
+    if (results.length === 1) {
+      // Single match - auto-fill and don't show dropdown
+      return false;
+    }
+    
+    // 2+ matches - show dropdown for user to choose
+    return true;
+  };
+
+  // Helper function to show success messages in modal
+  const showSuccessAlert = (message: string) => {
+    setSuccessMessage(message);
+    setShowSuccessModal(true);
+    // Auto-close after 4 seconds
+    setTimeout(() => {
+      setShowSuccessModal(false);
+      setSuccessMessage('');
+    }, 4000);
+  };
 
   // Input formatting functions
   const formatMobileNumber = (value: string) => {
@@ -256,6 +284,20 @@ export default function TaxUserEntryPage() {
     return () => clearTimeout(t);
   }, [form.mobileNumber]);
 
+  // Auto-lookup for receipt number
+  useEffect(() => {
+    const receipt = form.referenceNumber?.trim() || '';
+    if (receipt.length < 3) return;
+    const t = setTimeout(() => {
+      try {
+        lookupByReceiptNumber(receipt);
+      } catch (e) {
+        console.error('Auto receipt lookup error:', e);
+      }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [form.referenceNumber]);
+
   // Auto-fill: default Amount to be paid from Outstanding (or Tax Amount) if empty
   useEffect(() => {
     const due = Number(form.outstandingAmount || form.taxAmount || 0);
@@ -281,11 +323,29 @@ export default function TaxUserEntryPage() {
     }
   };
 
+  // Handle click outside to close dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (nameInputRef.current && !nameInputRef.current.contains(target)) {
+        setShowNameResults(false);
+      }
+      if (mobileInputRef.current && !mobileInputRef.current.contains(target)) {
+        setShowMobileResults(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   // Fetch next yearly reference number (read-only Ref No)
   const fetchNextReferenceNumber = async (year: number) => {
     if (!token || !year) return;
     try {
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations/next-ref?year=${year}`, {
+      const res = await fetch(`http://localhost:4000/api/tax-registrations/next-ref?year=${year}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -364,6 +424,7 @@ export default function TaxUserEntryPage() {
     setExistingPhotoUrl(img || null);
   };
 
+
   // Mobile number lookup function
   const lookupUserByMobile = async (mobileNumber: string) => {
     const cleanMobile = mobileNumber.replace(/\D/g, '');
@@ -387,7 +448,7 @@ export default function TaxUserEntryPage() {
     try {
       console.log('Fetching results for mobile:', cleanMobile); // Debug log
       // Search in user_registrations table for existing user data using the search parameter
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/registrations?search=${cleanMobile}&pageSize=10`, {
+      const response = await fetch(`http://localhost:4000/api/registrations?search=${cleanMobile}&pageSize=10`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -396,10 +457,23 @@ export default function TaxUserEntryPage() {
         console.log('Mobile search results:', data); // Debug log
         const rows = (data?.data && Array.isArray(data.data)) ? data.data : [];
         setMobileResults(rows);
-        setShowMobileResults(true); // Always show dropdown if we got this far
+        
+        // Use intelligent dropdown logic
+        const shouldShow = shouldShowDropdown(rows, 'mobile');
+        setShowMobileResults(shouldShow);
+        
         if (rows.length === 0) {
           setMsg(L('No matches found', 'பொருந்தும் பதிவுகள் இல்லை'));
           setTimeout(() => setMsg(null), 3000);
+        } else if (rows.length === 1) {
+          // Auto-fill single match
+          const userData = rows[0];
+          fillFormFromRegistration(userData);
+          const mobile = userData?.mobile_number ? formatMobileNumber(userData.mobile_number) : '';
+          if (mobile && user?.templeId && token) {
+            fetchCumulativeTax(mobile, form.year);
+          }
+          showSuccessAlert(`✅ Auto-filled: ${userData.name} - Registration ID ${userData.id}`);
         }
       }
     } catch (error) {
@@ -422,23 +496,81 @@ export default function TaxUserEntryPage() {
     setNameLookingUp(true);
     setErr(null);
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/registrations?search=${encodeURIComponent(q)}&pageSize=10`, {
+      const response = await fetch(`http://localhost:4000/api/registrations?search=${encodeURIComponent(q)}&pageSize=10`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (response.ok) {
         const data = await response.json();
         const rows = (data?.data && Array.isArray(data.data)) ? data.data : [];
         setNameResults(rows);
-        setShowNameResults(rows.length > 0);
+        
+        // Use intelligent dropdown logic
+        const shouldShow = shouldShowDropdown(rows, 'name');
+        setShowNameResults(shouldShow);
+        
         if (rows.length === 0) {
           setMsg(L('No matches found', 'பொருந்தும் பதிவுகள் இல்லை'));
           setTimeout(() => setMsg(null), 3000);
+        } else if (rows.length === 1) {
+          // Auto-fill single match
+          const userData = rows[0];
+          fillFormFromRegistration(userData);
+          const mobile = userData?.mobile_number ? formatMobileNumber(userData.mobile_number) : '';
+          if (mobile && user?.templeId && token) {
+            fetchCumulativeTax(mobile, form.year);
+          }
+          showSuccessAlert(`✅ Auto-filled: ${userData.name} - Registration ID ${userData.id}`);
         }
       }
     } catch (error) {
       console.error('Error looking up by name:', error);
     } finally {
       setNameLookingUp(false);
+    }
+  };
+
+  // Receipt number lookup function
+  const lookupByReceiptNumber = async (receiptNumber: string) => {
+    const cleanReceipt = (receiptNumber || '').trim();
+    console.log('Looking up receipt:', cleanReceipt);
+
+    if (cleanReceipt.length < 3) {
+      setErr(L('Receipt number too short', 'ரசீது எண் மிகவும் குறுகியது'));
+      return;
+    }
+
+    setLookingUp(true);
+    setErr(null);
+    setMsg(null);
+
+    try {
+      console.log('Fetching results for receipt:', cleanReceipt);
+      // Search in user_registrations table for existing user data using receipt number
+      const response = await fetch(`http://localhost:4000/api/registrations?search=${encodeURIComponent(cleanReceipt)}&pageSize=10`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Receipt search results:', data);
+        const rows = (data?.data && Array.isArray(data.data)) ? data.data : [];
+        
+        if (rows.length > 0) {
+          // Auto-fill the first matching result
+          const userData = rows[0];
+          fillFormFromRegistration(userData);
+          showSuccessAlert(`✅ Found: ${userData.name} - Receipt ${userData.reference_number}`);
+        } else {
+          setErr(L('No registration found with this receipt number', 'இந்த ரசீது எண்ணுடன் பதிவு இல்லை'));
+        }
+      } else {
+        setErr(L('Failed to search receipt number', 'ரசீது எண்ணைத் தேட முடியவில்லை'));
+      }
+    } catch (error) {
+      console.error('Error looking up receipt:', error);
+      setErr(L('Error searching receipt number', 'ரசீது எண்ணைத் தேடுவதில் பிழை'));
+    } finally {
+      setLookingUp(false);
     }
   };
 
@@ -449,8 +581,7 @@ export default function TaxUserEntryPage() {
     if (mobile && user?.templeId && token) {
       fetchCumulativeTax(mobile, form.year);
     }
-    setMsg(`✅ Selected: ${userData.name} - Registration ID ${userData.id}`);
-    setTimeout(() => setMsg(null), 4000);
+    showSuccessAlert(`✅ Selected: ${userData.name} - Registration ID ${userData.id}`);
     setShowNameResults(false);
     setNameResults([]);
     // Briefly suppress auto-lookup to prevent dropdown from reopening
@@ -479,7 +610,7 @@ export default function TaxUserEntryPage() {
 
     if (cleanMobile.length >= 3 && user?.templeId && token) {
       console.log('Will trigger lookup'); // Debug log
-          lookupUserByMobile(formatted);
+      lookupUserByMobile(formatted);
     } else {
       console.log('Clearing results'); // Debug log
       setMobileResults([]);
@@ -494,8 +625,7 @@ export default function TaxUserEntryPage() {
     if (mobile && user?.templeId && token) {
       fetchCumulativeTax(mobile, form.year);
     }
-    setMsg(`✅ Selected: ${userData.name} - Registration ID ${userData.id}`);
-    setTimeout(() => setMsg(null), 4000);
+    showSuccessAlert(`✅ Selected: ${userData.name} - Registration ID ${userData.id}`);
     setShowMobileResults(false);
     setMobileResults([]);
     // Briefly suppress auto-lookup to prevent dropdown from reopening
@@ -519,7 +649,7 @@ export default function TaxUserEntryPage() {
     if (cleanMobile.length !== 10) return;
 
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/tax-calculations/cumulative/${cleanMobile}?currentYear=${year}`, {
+      const response = await fetch(`http://localhost:4000/api/tax-calculations/cumulative/${cleanMobile}?currentYear=${year}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -551,13 +681,12 @@ export default function TaxUserEntryPage() {
             .join(', ');
           
           if (data.data.isNewUser && cumulativeOutstanding > 0) {
-            setMsg(`🆕 NEW Registration: Total ₹${totalTaxDue} (Previous Years: ₹${cumulativeOutstanding}, ${form.year}: ₹${currentYearTax}) | ${breakdownMsg}`);
+            showSuccessAlert(`🆕 NEW Registration: Total ₹${totalTaxDue} (Previous Years: ₹${cumulativeOutstanding}, ${form.year}: ₹${currentYearTax}) | ${breakdownMsg}`);
           } else if (cumulativeOutstanding > 0) {
-            setMsg(`📊 Existing User Outstanding: ₹${totalTaxDue} (Previous: ₹${cumulativeOutstanding}, Current: ₹${currentYearTax})`);
+            showSuccessAlert(`📊 Existing User Outstanding: ₹${totalTaxDue} (Previous: ₹${cumulativeOutstanding}, Current: ₹${currentYearTax})`);
           } else {
-            setMsg(`✅ Current year tax: ₹${currentYearTax} (No previous outstanding)`);
+            showSuccessAlert(`✅ Current year tax: ₹${currentYearTax} (No previous outstanding)`);
           }
-          setTimeout(() => setMsg(null), 8000);
         }
       }
     } catch (error) {
@@ -570,7 +699,7 @@ export default function TaxUserEntryPage() {
     if (!token || !year) return;
 
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/tax-settings/year/${year}`, {
+      const response = await fetch(`http://localhost:4000/api/tax-settings/year/${year}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -583,8 +712,7 @@ export default function TaxUserEntryPage() {
             outstandingAmount: data.data.tax_amount.toString()
           }));
           setInitialDue(Number(data.data.tax_amount) || 0);
-          setMsg(`Tax amount for ${year}: ₹${data.data.tax_amount} loaded / ${year} வரி தொகை: ₹${data.data.tax_amount} ஏற்றப்பட்டது`);
-          setTimeout(() => setMsg(null), 3000);
+          showSuccessAlert(`Tax amount for ${year}: ₹${data.data.tax_amount} loaded / ${year} வரி தொகை: ₹${data.data.tax_amount} ஏற்றப்பட்டது`);
         } else {
           setForm(prev => ({ ...prev, taxAmount: '', outstandingAmount: '' }));
           setMsg(`No tax setting found for year ${year} / ${year} ஆண்டுக்கான வரி அமைப்பு இல்லை`);
@@ -785,7 +913,7 @@ export default function TaxUserEntryPage() {
         formData.append('photo', newUser.photo);
       }
 
-      const res = await fetch('https://tmsapi.xesstechlink.com/api/tax-registrations', {
+      const res = await fetch('http://localhost:4000/api/tax-registrations', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`
@@ -804,12 +932,11 @@ export default function TaxUserEntryPage() {
         throw new Error(message);
       }
 
-      setMsg(`Tax registration ID ${data.id} saved successfully / வரி பதிவு ID ${data.id} வெற்றிகரமாக சேமிக்கப்பட்டது`);
+      showSuccessAlert(`Tax registration ID ${data.id} saved successfully / வரி பதிவு ID ${data.id} வெற்றிகரமாக சேமிக்கப்பட்டது`);
       if (typeof data?.id === 'number') {
         setLastCreatedId(data.id);
         setShowPrintPrompt(true);
       }
-      setTimeout(() => setMsg(null), 5000);
 
       // Reset form
       setForm({
@@ -894,7 +1021,6 @@ export default function TaxUserEntryPage() {
     setExistingPhotoUrl(null);
     setAutoLocked(false);
     setErrors({});
-    setMsg(null);
     setErr(null);
   };
 
@@ -926,12 +1052,12 @@ export default function TaxUserEntryPage() {
 
         {/* Main Container */}
         <div className="bg-white rounded-lg shadow-md border border-gray-200 p-2" onKeyDown={handleFormKeyDown}>
-          {/* Status Messages */}
-          {(msg || err) && (
+          {/* Error Messages Only - Success messages now use modal */}
+          {err && (
             <div className="mb-3">
-              <Alert variant={err ? 'destructive' : 'default'}>
-                <AlertTitle>{err ? 'Error / பிழை' : 'Success / வெற்றி'}</AlertTitle>
-                <AlertDescription>{err ? err : msg}</AlertDescription>
+              <Alert variant="destructive">
+                <AlertTitle>Error / பிழை</AlertTitle>
+                <AlertDescription>{err}</AlertDescription>
               </Alert>
             </div>
           )}
@@ -975,13 +1101,35 @@ export default function TaxUserEntryPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Ref No', 'குறிப்பு எண்')}</label>
-                    <input
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
-                      value={form.referenceNumber}
-                      readOnly
-                      title={L('Auto-generated per year', 'வருடத்திற்கு தானாக உருவாக்கப்படும்')}
-                    />
+                    <label className="block text-xs font-medium text-gray-900 mb-1">
+                      {L('Ref No / Receipt No', 'குறிப்பு எண் / ரசீது எண்')}
+                      {lookingUp && <span className="ml-2 text-blue-600 text-xs">🔍 {L('Searching...', 'தேடுகிறது...')}</span>}
+                    </label>
+                    <div className="flex gap-1">
+                      <input
+                        className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.referenceNumber ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                        value={form.referenceNumber}
+                        onChange={e => {
+                          set('referenceNumber', e.target.value);
+                          if (errors.referenceNumber) setErrors(prev => ({ ...prev, referenceNumber: '' }));
+                        }}
+                        placeholder={L('Enter receipt number to search', 'ரசீது எண்ணைத் தட்டச்சு செய்து தேடு')}
+                        title={L('Enter receipt number to auto-fill details', 'ரசீது எண்ணை உள்ளிட்டு விவரங்களை தானாக நிரப்பு')}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => lookupByReceiptNumber(form.referenceNumber)}
+                        disabled={!form.referenceNumber.trim() || lookingUp}
+                        className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={L('Search by receipt number', 'ரசீது எண்ணால் தேடு')}
+                      >
+                        🔍
+                      </button>
+                    </div>
+                    {errors.referenceNumber && <p className="text-red-500 text-xs mt-1">{errors.referenceNumber}</p>}
+                    <p className="text-xs text-gray-500 mt-1">
+                      💡 {L('Enter existing receipt number to auto-fill details', 'இருந்த ரசீது எண்ணை உள்ளிட்டு விவரங்களை தானாக நிரப்பு')}
+                    </p>
                   </div>
                   
                 </div>
@@ -1012,7 +1160,13 @@ export default function TaxUserEntryPage() {
                         className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.mobileNumber ? 'border-red-500 bg-red-50' : 'border-gray-300'
                           }`}
                         value={form.mobileNumber}
-                        onChange={e => handleMobileChange(e.target.value)}
+                        onChange={e => {
+                          handleMobileChange(e.target.value);
+                          // Clear dropdown when user starts typing
+                          if (showMobileResults) {
+                            setShowMobileResults(false);
+                          }
+                        }}
                         placeholder={L('Enter mobile number to search', 'கைபேசி எண்ணைத் தட்டச்சு செய்து தேடு')}
                         maxLength={12}
                         autoComplete="off"
@@ -1061,30 +1215,42 @@ export default function TaxUserEntryPage() {
                         className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'
                           }`}
                         value={form.name}
-                        onChange={e => set('name', e.target.value)}
+                        onChange={e => {
+                          set('name', e.target.value);
+                          // Clear dropdown when user starts typing
+                          if (showNameResults) {
+                            setShowNameResults(false);
+                          }
+                        }}
                         placeholder={L('Type a name to search', 'பெயரைத் தட்டச்சு செய்து தேடு')}
                         ref={nameInputRef}
                       />
                     </div>
-                    {showNameResults && nameResults.length > 0 && (
+                    {showNameResults && (
                       <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded shadow max-h-56 overflow-auto text-sm">
-                        {nameResults.map((row: any) => (
-                          <button
-                            key={row.id}
-                            type="button"
-                            onClick={() => handleSelectRegistration(row)}
-                            className="w-full text-left px-2 py-1 hover:bg-gray-50 border-b last:border-b-0"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium">{row.name}</span>
-                              <span className="text-xs text-gray-500">#{row.id}</span>
-                            </div>
-                            <div className="text-xs text-gray-600">
-                              {(row.mobile_number ? `📱 ${formatMobileNumber(row.mobile_number)} · ` : '')}
-                              {(row.village ? `${row.village}` : '')}
-                            </div>
-                          </button>
-                        ))}
+                        {nameResults.length > 0 ? (
+                          nameResults.map((row: any) => (
+                            <button
+                              key={row.id}
+                              type="button"
+                              onClick={() => handleSelectRegistration(row)}
+                              className="w-full text-left px-2 py-1 hover:bg-gray-50 border-b last:border-b-0"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium">{row.name}</span>
+                                <span className="text-xs text-gray-500">#{row.id}</span>
+                              </div>
+                              <div className="text-xs text-gray-600">
+                                {(row.mobile_number ? `📱 ${formatMobileNumber(row.mobile_number)} · ` : '')}
+                                {(row.village ? `${row.village}` : '')}
+                              </div>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-3 py-2 text-sm text-gray-500">
+                            {L('No matches found', 'பொருந்தும் பதிவுகள் இல்லை')}
+                          </div>
+                        )}
                       </div>
                     )}
                     {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
@@ -1285,7 +1451,6 @@ export default function TaxUserEntryPage() {
                 </fieldset>
                 )}
               </div>
-
               {/* Cumulative Tax Breakdown (collapsible) */}
               {cumulativeInfo && taxBreakdown.length > 0 && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-1.5">
@@ -1612,12 +1777,33 @@ export default function TaxUserEntryPage() {
                 className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
                 onClick={() => {
                   const t = token ? encodeURIComponent(token) : '';
-                  const url = `https://tmsapi.xesstechlink.com/api/tax-registrations/${lastCreatedId}/receipt.pdf${t ? `?token=${t}` : ''}`;
+                  const url = `http://localhost:4000/api/tax-registrations/${lastCreatedId}/receipt.pdf${t ? `?token=${t}` : ''}`;
                   window.open(url, '_blank');
                   setShowPrintPrompt(false);
                 }}
               >
                 {L('Yes, Print', 'ஆம், அச்சிடு')}
+              </button>
+            </div>
+          </Modal>
+        )}
+
+        {/* Success Alert Modal */}
+        {showSuccessModal && (
+          <Modal
+            title={L('Success', 'வெற்றி')}
+            onClose={() => setShowSuccessModal(false)}
+          >
+            <div className="text-center">
+              <div className="text-green-600 text-4xl mb-4">✅</div>
+              <p className="text-sm text-gray-700 mb-4">
+                {successMessage}
+              </p>
+              <button
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                onClick={() => setShowSuccessModal(false)}
+              >
+                {L('OK', 'சரி')}
               </button>
             </div>
           </Modal>
