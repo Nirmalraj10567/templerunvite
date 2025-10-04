@@ -625,14 +625,14 @@ export default function UnifiedDonationEntry() {
           
           <CardContent className={formFieldStyles.card.content}>
             {/* Tab Navigation */}
-            <div className="mb-8">
-              <div className="flex space-x-2 bg-gray-100 p-1.5 rounded-lg border">
+            <div className="mb-4">
+              <div className="flex space-x-2 bg-gray-100 p-1 rounded-lg border">
                 <button
                   type="button"
                   onClick={() => setActiveTab('money')}
-                  className={`flex-1 py-3 px-6 rounded-md text-base font-semibold transition-all duration-200 ${
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all duration-200 ${
                     activeTab === 'money'
-                      ? 'bg-white text-orange-600 shadow-md border border-orange-200'
+                      ? 'bg-white text-orange-600 shadow border border-orange-200'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }`}
                 >
@@ -641,9 +641,9 @@ export default function UnifiedDonationEntry() {
                 <button
                   type="button"
                   onClick={() => setActiveTab('product')}
-                  className={`flex-1 py-3 px-6 rounded-md text-base font-semibold transition-all duration-200 ${
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all duration-200 ${
                     activeTab === 'product'
-                      ? 'bg-white text-orange-600 shadow-md border border-orange-200'
+                      ? 'bg-white text-orange-600 shadow border border-orange-200'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }`}
                 >
@@ -1024,21 +1024,21 @@ export default function UnifiedDonationEntry() {
                         {t('Reason','காரணம்')}
                       </Label>
                       <Textarea
-                        id="reason"
-                        name="reason"
-                        value={productForm.reason}
-                        onChange={onProductChange}
-                        rows={2}
-                        className={textareaStyles}
-                        placeholder={t('Enter reason','காரணத்தை உள்ளிடவும்')}
-                      />
+                      id="reason"
+                      name="reason"
+                      value={productForm.reason}
+                      onChange={onProductChange}
+                      rows={1}
+                      className={cn(textareaStyles, 'py-1.5 min-h-[2.25rem]', 'resize-none')}
+                      placeholder={t('Enter reason','காரணத்தை உள்ளிடவும்')}
+                    />
                     </div>
                   </div>
 
                   {/* Action Buttons */}
                   <div className="flex justify-end pt-6 border-t border-gray-200">
-                    <Button 
-                      type="submit" 
+                    <Button
+                      type="submit"
                       size="default"
                       className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-md text-base transition-all duration-200"
                       disabled={saving}

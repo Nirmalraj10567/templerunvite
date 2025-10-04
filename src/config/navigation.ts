@@ -194,7 +194,7 @@ export const sidebarItems: NavItem[] = [
         accessLevel: 'edit'
       },*/
       { 
-        to: 'donation-product/list', 
+        to: 'donations/list', 
         label: navigationTranslations.english.productDonationsList, 
         tamilLabel: navigationTranslations.tamil.productDonationsList, 
         permissionId: 'view_donations',
@@ -207,13 +207,13 @@ export const sidebarItems: NavItem[] = [
         permissionId: 'edit_donations',
         accessLevel: 'edit'
       },*/
-      { 
+    /*  { 
         to: 'donations/money-list', 
         label: navigationTranslations.english.moneyDonationList, 
         tamilLabel: navigationTranslations.tamil.moneyDonationList, 
         permissionId: 'view_donations',
         accessLevel: 'view'
-      },
+      },*/
     ]
   },
   {

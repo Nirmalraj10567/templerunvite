@@ -83,6 +83,8 @@ export default function TaxUserEntryPage() {
   const suppressMobileLookupRef = useRef<number>(0);
   // Focus target for fast entry after selection
   const amountPaidRef = useRef<HTMLInputElement>(null);
+  // Separate input for searching by receipt number (do not reuse generated referenceNumber)
+  const [receiptSearch, setReceiptSearch] = useState<string>('');
   // Existing photo from autofill (when no new upload)
   const [existingPhotoUrl, setExistingPhotoUrl] = useState<string | null>(null);
   // When data is autofilled, lock personal/id/address sections by default
@@ -284,9 +286,9 @@ export default function TaxUserEntryPage() {
     return () => clearTimeout(t);
   }, [form.mobileNumber]);
 
-  // Auto-lookup for receipt number
+  // Auto-lookup for receipt number (uses separate search box)
   useEffect(() => {
-    const receipt = form.referenceNumber?.trim() || '';
+    const receipt = receiptSearch?.trim() || '';
     if (receipt.length < 3) return;
     const t = setTimeout(() => {
       try {
@@ -296,7 +298,7 @@ export default function TaxUserEntryPage() {
       }
     }, 500);
     return () => clearTimeout(t);
-  }, [form.referenceNumber]);
+  }, [receiptSearch]);
 
   // Auto-fill: default Amount to be paid from Outstanding (or Tax Amount) if empty
   useEffect(() => {
@@ -1101,34 +1103,41 @@ export default function TaxUserEntryPage() {
                     </select>
                   </div>
                   <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Reference No (auto)', 'குறிப்பு எண் (தானாக)')}</label>
+                    <input
+                      className={`w-full px-2 py-1 text-sm border rounded bg-gray-100 cursor-not-allowed ${errors.referenceNumber ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                      value={form.referenceNumber}
+                      readOnly
+                      title={L('Auto-generated when year changes', 'வருடம் மாற்றும் போது தானாக உருவாகும்')}
+                    />
+                    {errors.referenceNumber && <p className="text-red-500 text-xs mt-1">{errors.referenceNumber}</p>}
+                  </div>
+
+                  <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">
-                      {L('Ref No / Receipt No', 'குறிப்பு எண் / ரசீது எண்')}
+                      {L('Receipt No Search', 'ரசீது எண் தேடல்')}
                       {lookingUp && <span className="ml-2 text-blue-600 text-xs">🔍 {L('Searching...', 'தேடுகிறது...')}</span>}
                     </label>
                     <div className="flex gap-1">
                       <input
-                        className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.referenceNumber ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
-                        value={form.referenceNumber}
-                        onChange={e => {
-                          set('referenceNumber', e.target.value);
-                          if (errors.referenceNumber) setErrors(prev => ({ ...prev, referenceNumber: '' }));
-                        }}
+                        className="w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent border-gray-300"
+                        value={receiptSearch}
+                        onChange={e => setReceiptSearch(e.target.value)}
                         placeholder={L('Enter receipt number to search', 'ரசீது எண்ணைத் தட்டச்சு செய்து தேடு')}
                         title={L('Enter receipt number to auto-fill details', 'ரசீது எண்ணை உள்ளிட்டு விவரங்களை தானாக நிரப்பு')}
                       />
                       <button
                         type="button"
-                        onClick={() => lookupByReceiptNumber(form.referenceNumber)}
-                        disabled={!form.referenceNumber.trim() || lookingUp}
+                        onClick={() => lookupByReceiptNumber(receiptSearch)}
+                        disabled={!receiptSearch.trim() || lookingUp}
                         className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         title={L('Search by receipt number', 'ரசீது எண்ணால் தேடு')}
                       >
                         🔍
                       </button>
                     </div>
-                    {errors.referenceNumber && <p className="text-red-500 text-xs mt-1">{errors.referenceNumber}</p>}
                     <p className="text-xs text-gray-500 mt-1">
-                      💡 {L('Enter existing receipt number to auto-fill details', 'இருந்த ரசீது எண்ணை உள்ளிட்டு விவரங்களை தானாக நிரப்பு')}
+                      💡 {L('Search with an existing receipt number to auto-fill details', 'இருந்த ரசீது எண்ணை உள்ளிட்டு விவரங்களை தானாக நிரப்பு')}
                     </p>
                   </div>
                   
