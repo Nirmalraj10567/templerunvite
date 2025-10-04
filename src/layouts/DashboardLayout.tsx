@@ -46,17 +46,25 @@ export default function DashboardLayout() {
 
   // Handle scroll to show/hide header
   useEffect(() => {
+    let scrollTimeout: NodeJS.Timeout;
+    
     const handleScroll = () => {
       if (!mainScrollRef.current) return;
       
-      const currentScrollY = mainScrollRef.current.scrollTop;
-      const scrollingDown = currentScrollY > lastScrollY;
+      // Clear existing timeout
+      if (scrollTimeout) clearTimeout(scrollTimeout);
       
-      // Only trigger if scrolled more than 10px to prevent jitter
-      if (Math.abs(currentScrollY - lastScrollY) > 10) {
-        setHeaderVisible(!scrollingDown || currentScrollY < 10);
-        setLastScrollY(currentScrollY);
-      }
+      // Debounce scroll events
+      scrollTimeout = setTimeout(() => {
+        const currentScrollY = mainScrollRef.current!.scrollTop;
+        const scrollingDown = currentScrollY > lastScrollY;
+        
+        // Only trigger if scrolled more than 20px to prevent jitter and make it less sensitive
+        if (Math.abs(currentScrollY - lastScrollY) > 20) {
+          setHeaderVisible(!scrollingDown || currentScrollY < 20);
+          setLastScrollY(currentScrollY);
+        }
+      }, 50); // 50ms debounce
     };
 
     const scrollContainer = mainScrollRef.current;
@@ -68,6 +76,7 @@ export default function DashboardLayout() {
       if (scrollContainer) {
         scrollContainer.removeEventListener('scroll', handleScroll);
       }
+      if (scrollTimeout) clearTimeout(scrollTimeout);
     };
   }, [lastScrollY]);
 
@@ -484,7 +493,7 @@ export default function DashboardLayout() {
         className={`
           ${isMobile ? 'fixed' : 'hidden md:flex'} 
           inset-y-0 left-0 z-40 flex-col bg-gradient-to-b from-slate-900 via-blue-950 to-slate-900 
-          text-white transition-all duration-300 shadow-2xl border-r border-blue-800/20
+          text-white transition-all duration-500 ease-in-out shadow-2xl border-r border-blue-800/20
           ${isSidebarCollapsed ? 'w-20' : 'w-72'} h-screen flex-shrink-0
           ${isMobile ? (isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full') : ''}
         `}
@@ -505,7 +514,7 @@ export default function DashboardLayout() {
           )}
           <button 
             onClick={() => setSidebarCollapsed(!isSidebarCollapsed)} 
-            className="hidden md:flex p-3 rounded-xl hover:bg-blue-800/30 transition-all duration-200 
+            className="hidden md:flex p-3 rounded-xl hover:bg-blue-800/30 transition-all duration-500 ease-in-out 
                        backdrop-blur-sm border border-blue-700/20 hover:border-blue-600/40"
           >
             {isSidebarCollapsed ? (
@@ -520,7 +529,7 @@ export default function DashboardLayout() {
         <nav className="flex-1 p-4 space-y-3 overflow-y-auto 
           scrollbar-thin scrollbar-thumb-blue-600 scrollbar-track-transparent 
           scrollbar-track-blue-950/10 hover:scrollbar-thumb-blue-400 
-          transition-colors duration-200">
+          transition-colors duration-500 scroll-smooth">
           {allowedSidebarItems.map((item, index) => {
             if (item.children) {
               const isExpanded = expandedItems.includes(item.label);
@@ -530,20 +539,25 @@ export default function DashboardLayout() {
                   className="space-y-2"
                   onMouseEnter={() => {
                     if (!isSidebarCollapsed) {
-                      setExpandedItems(prev => prev.includes(item.label) ? prev : [...prev, item.label]);
+                      // Add a small delay to prevent rapid opening/closing
+                      setTimeout(() => {
+                        setExpandedItems(prev => prev.includes(item.label) ? prev : [...prev, item.label]);
+                      }, 150);
                     }
                   }}
                   onMouseLeave={() => {
                     if (!isSidebarCollapsed) {
-                      // Always collapse on mouse leave per requirement
-                      setExpandedItems(prev => prev.filter(lbl => lbl !== item.label));
+                      // Add a small delay to prevent rapid opening/closing
+                      setTimeout(() => {
+                        setExpandedItems(prev => prev.filter(lbl => lbl !== item.label));
+                      }, 200);
                     }
                   }}
                 >
                   <div 
                     onClick={() => toggleItemExpansion(item.label)}
                     className={`
-                      group flex items-center p-3 rounded-xl cursor-pointer transition-all duration-200
+                      group flex items-center p-3 rounded-xl cursor-pointer transition-all duration-500 ease-in-out
                       hover:bg-gradient-to-r hover:from-blue-800/40 hover:to-indigo-800/40
                       hover:shadow-lg hover:shadow-blue-900/20 backdrop-blur-sm
                       ${isSidebarCollapsed ? 'justify-center' : ''} 
@@ -561,7 +575,7 @@ export default function DashboardLayout() {
                         <span className="font-medium text-blue-100 group-hover:text-white transition-colors">
                           {item.label}
                         </span>
-                        <div className={`transform transition-transform duration-200 text-blue-400 ${isExpanded ? 'rotate-90' : ''}`}>
+                        <div className={`transform transition-transform duration-500 ease-in-out text-blue-400 ${isExpanded ? 'rotate-90' : ''}`}>
                           <ChevronRightIcon className="w-4 h-4" />
                         </div>
                       </div>
@@ -569,14 +583,14 @@ export default function DashboardLayout() {
                   </div>
                   
                   {!isSidebarCollapsed && isExpanded && (
-                    <div className="pl-6 space-y-1 animate-in slide-in-from-top-2 duration-200">
+                    <div className="pl-6 space-y-1 animate-in slide-in-from-top-2 duration-500 ease-in-out">
                       {item.children.map((child, childIndex) => (
                         <NavLink
                           key={child.to}
                           to={child.to}
                           end
                           className={({ isActive }) =>
-                            `group flex items-center p-3 rounded-lg transition-all duration-200 relative
+                            `group flex items-center p-3 rounded-lg transition-all duration-500 ease-in-out relative
                             ${isActive 
                               ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-900/30' 
                               : 'text-blue-200 hover:bg-blue-800/30 hover:text-white'
@@ -584,7 +598,7 @@ export default function DashboardLayout() {
                           }
                           onClick={() => isMobile && setMobileMenuOpen(false)}
                         >
-                          <div className="w-2 h-2 rounded-full bg-blue-400 mr-3 opacity-60 group-hover:opacity-100 transition-opacity"></div>
+                          <div className="w-2 h-2 rounded-full bg-blue-400 mr-3 opacity-60 group-hover:opacity-100 transition-opacity duration-300"></div>
                           <span className="font-medium">{child.label}</span>
                           <span className="sr-only">{t[lang].close}</span>
                         </NavLink>
@@ -601,7 +615,7 @@ export default function DashboardLayout() {
                 to={item.to}
                 end
                 className={({ isActive }) =>
-                  `group flex items-center p-3 rounded-xl transition-all duration-200 backdrop-blur-sm
+                  `group flex items-center p-3 rounded-xl transition-all duration-500 ease-in-out backdrop-blur-sm
                   ${isSidebarCollapsed ? 'justify-center' : ''} 
                   ${isActive 
                     ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-900/30' 
@@ -610,7 +624,7 @@ export default function DashboardLayout() {
                 }
                 onClick={() => isMobile && setMobileMenuOpen(false)}
               >
-                <item.icon className="h-6 w-6 transition-colors" />
+                <item.icon className="h-6 w-6 transition-colors duration-300" />
                 {!isSidebarCollapsed && <span className="ml-4 font-medium">{item.label}</span>}
               </NavLink>
             );
@@ -623,7 +637,7 @@ export default function DashboardLayout() {
               to="/dashboard/upgrade-now"
               end
               className={({ isActive }) =>
-                `group flex items-center p-3 rounded-xl transition-all duration-200 backdrop-blur-sm
+                `group flex items-center p-3 rounded-xl transition-all duration-500 ease-in-out backdrop-blur-sm
                 ${isSidebarCollapsed ? 'justify-center' : ''} 
                 ${isActive 
                   ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-orange-900/30' 
@@ -705,7 +719,7 @@ export default function DashboardLayout() {
         <header 
           ref={headerRef}
           className={`flex items-center justify-between h-20 bg-white/80 backdrop-blur-lg border-b 
-                     border-blue-200/50 px-6 shadow-sm transition-all duration-300 ease-in-out
+                     border-blue-200/50 px-6 shadow-sm transition-all duration-500 ease-in-out
                      ${headerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full'}`}
           style={{
             position: 'sticky',
@@ -729,10 +743,10 @@ export default function DashboardLayout() {
           ref={mainScrollRef} 
           className={`flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 to-blue-50 
                      scrollbar-thin scrollbar-thumb-blue-400 scrollbar-track-transparent 
-                     hover:scrollbar-thumb-blue-500 transition-all duration-300 
+                     hover:scrollbar-thumb-blue-500 transition-all duration-500 ease-in-out scroll-smooth
                      ${headerVisible ? 'pt-2' : 'pt-0'}`} 
           data-view-only={isViewOnlyForRoute ? 'true' : 'false'}
-          style={{ WebkitOverflowScrolling: 'touch' }}>
+          style={{ WebkitOverflowScrolling: 'touch', scrollBehavior: 'smooth' }}>
           <div className={`${headerVisible ? 'pb-8' : 'py-8'} px-8`}>
             <div className="max-w-7xl mx-auto">
               <Outlet />
@@ -744,7 +758,7 @@ export default function DashboardLayout() {
       {/* Mobile overlay */}
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 md:hidden transition-all duration-300"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 md:hidden transition-all duration-500 ease-in-out"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}

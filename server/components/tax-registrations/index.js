@@ -232,6 +232,7 @@ router.post('/', authenticateToken, authorizePermission('tax_registrations', 'ed
       outstanding_amount: outstandingAmount,
       from_account: cleanedData.fromAccount || cleanedData.from_account || 'TAX A/C',
       transfer_to_account: cleanedData.transferTo || cleanedData.transfer_to || 'INCOME A/C',
+      member_id: cleanedData.memberId || null,
       created_at: db.fn.now(),
       updated_at: db.fn.now(),
     };
@@ -310,6 +311,7 @@ router.get('/', authenticateToken, authorizePermission('tax_registrations', 'vie
           .orWhere('mobile_number', 'like', `%${search}%`)
           .orWhere('aadhaar_number', 'like', `%${search}%`)
           .orWhere('reference_number', 'like', `%${search}%`)
+          .orWhere('member_id', 'like', `%${search}%`)
           .orWhere('village', 'like', `%${search}%`);
       });
     }
@@ -420,6 +422,7 @@ router.put('/:id', authenticateToken, authorizePermission('tax_registrations', '
     if (body.mobile_number !== undefined) updates.mobile_number = (body.mobile_number || '').toString();
     if (body.aadhaar_number !== undefined) updates.aadhaar_number = body.aadhaar_number ? String(body.aadhaar_number).replace(/\D/g, '') : null;
     if (body.reference_number !== undefined) updates.reference_number = String(body.reference_number || '');
+    if (body.member_id !== undefined || body.memberId !== undefined) updates.member_id = (body.member_id || body.memberId) ? String(body.member_id || body.memberId) : null;
     if (body.village !== undefined) updates.village = String(body.village || '');
     if (body.tax_amount !== undefined) updates.tax_amount = Number(body.tax_amount) || 0;
     if (body.amount_paid !== undefined) updates.amount_paid = Number(body.amount_paid) || 0;

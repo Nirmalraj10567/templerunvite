@@ -51,6 +51,7 @@ export default function TaxUserEntryPage() {
     outstandingAmount: '',
     fromAccount: 'TAX A/C',
     transferTo: 'INCOME A/C',
+    memberId: '', // Member ID field
   });
 
   const [newUser, setNewUser] = useState({
@@ -286,19 +287,7 @@ export default function TaxUserEntryPage() {
     return () => clearTimeout(t);
   }, [form.mobileNumber]);
 
-  // Auto-lookup for receipt number (uses separate search box)
-  useEffect(() => {
-    const receipt = receiptSearch?.trim() || '';
-    if (receipt.length < 3) return;
-    const t = setTimeout(() => {
-      try {
-        lookupByReceiptNumber(receipt);
-      } catch (e) {
-        console.error('Auto receipt lookup error:', e);
-      }
-    }, 500);
-    return () => clearTimeout(t);
-  }, [receiptSearch]);
+  // Auto-lookup for receipt number removed - only manual search via button
 
   // Auto-fill: default Amount to be paid from Outstanding (or Tax Amount) if empty
   useEffect(() => {
@@ -395,6 +384,7 @@ export default function TaxUserEntryPage() {
       maleHeirs: userData.male_heirs || 0,
       femaleHeirs: userData.female_heirs || 0,
       mobileNumber: userData.mobile_number ? formatMobileNumber(userData.mobile_number) : prev.mobileNumber,
+      memberId: userData.member_id || userData.memberId || '',
     }));
     // Enable lock after autofill
     setAutoLocked(true);
@@ -895,6 +885,7 @@ export default function TaxUserEntryPage() {
       formData.append('outstandingAmount', String(remainingDue));
       formData.append('fromAccount', (form as any).fromAccount || 'TAX A/C');
       formData.append('transferTo', (form as any).transferTo || 'INCOME A/C');
+      formData.append('memberId', form.memberId);
       formData.append('templeId', user.templeId.toString());
 
       // Append heirs as JSON array if present
@@ -967,6 +958,7 @@ export default function TaxUserEntryPage() {
         outstandingAmount: '',
         fromAccount: 'TAX A/C',
         transferTo: 'INCOME A/C',
+        memberId: '',
       });
 
       setNewUser({
@@ -1012,6 +1004,7 @@ export default function TaxUserEntryPage() {
       outstandingAmount: '',
       fromAccount: 'TAX A/C',
       transferTo: 'INCOME A/C',
+      memberId: '',
     });
     // Fetch tax amount for current year after clearing
     fetchTaxAmountForYear(currentYear);
@@ -1137,7 +1130,7 @@ export default function TaxUserEntryPage() {
                       </button>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
-                      💡 {L('Search with an existing receipt number to auto-fill details', 'இருந்த ரசீது எண்ணை உள்ளிட்டு விவரங்களை தானாக நிரப்பு')}
+                      💡 {L('Enter receipt number and click search to auto-fill details', 'ரசீது எண்ணை உள்ளிட்டு தேடு என்பதை அழுத்தி விவரங்களை தானாக நிரப்பு')}
                     </p>
                   </div>
                   
@@ -1341,6 +1334,15 @@ export default function TaxUserEntryPage() {
                     />
                   </div>
                   </fieldset>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Member ID', 'உறுப்பினர் ID')}</label>
+                    <input
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      value={form.memberId}
+                      onChange={e => set('memberId', e.target.value)}
+                      placeholder={L('Enter member ID', 'உறுப்பினர் ID உள்ளிடவும்')}
+                    />
+                  </div>
                   {/* End locked fields */}
                 </div>
               </div>

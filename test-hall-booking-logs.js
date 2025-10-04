@@ -6,7 +6,7 @@ async function testHallBookingLogs() {
   // You'll need to replace this with a real token
   const token = 'your-test-token-here';
   
-  const baseUrl = 'http://localhost:4000/api/hall-bookings';
+  const baseUrl = 'http://localhost:4000bookings';
   const headers = {
     'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json'

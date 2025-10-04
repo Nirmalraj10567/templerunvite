@@ -16,7 +16,8 @@ function createTaxRegistrationsRouter(db) {
         query = query.where(function() {
           this.where('name', 'like', `%${search}%`)
             .orWhere('mobile_number', 'like', `%${search}%`)
-            .orWhere('reference_number', 'like', `%${search}%`);
+            .orWhere('reference_number', 'like', `%${search}%`)
+            .orWhere('member_id', 'like', `%${search}%`);
         });
       }
       

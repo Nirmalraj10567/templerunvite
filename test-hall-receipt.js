@@ -7,7 +7,7 @@ async function testHallReceiptAPI() {
   // Test 1: Check if backend is running
   console.log('1. Testing backend connection...');
   try {
-    const response = await makeRequest('http://localhost:4000/api/health');
+    const response = await makeRequest('http://localhost:4000h');
     console.log('✅ Backend is running');
   } catch (error) {
     console.log('❌ Backend not running on port 4000');
@@ -18,7 +18,7 @@ async function testHallReceiptAPI() {
   // Test 2: Test receipt number generation without auth
   console.log('\n2. Testing receipt number generation (no auth)...');
   try {
-    const response = await makeRequest('http://localhost:4000/api/hall-bookings/generate-receipt-number');
+    const response = await makeRequest('http://localhost:4000bookings/generate-receipt-number');
     console.log('❌ Should have failed without auth, but got:', response);
   } catch (error) {
     console.log('✅ Correctly rejected without auth');

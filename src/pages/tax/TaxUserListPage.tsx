@@ -15,6 +15,7 @@ type TaxRegistration = {
   mobile_number?: string;
   aadhaar_number?: string | null;
   reference_number?: string;
+  member_id?: string | null;
   village?: string;
   created_at?: string;
   tax_amount?: number;
@@ -42,25 +43,27 @@ export default function TaxUserListPage() {
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / pageSize)), [total, pageSize]);
 
   // Column Keys
-  type ColKey = 'name' | 'mobile_number' | 'aadhaar_number' | 'reference_number' | 'village' | 'created_at' | 'status' | 'actions';
+  type ColKey = 'name' | 'mobile_number' | 'aadhaar_number' | 'reference_number' | 'member_id' | 'village' | 'created_at' | 'status' | 'actions';
 
   const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' | 'center' }> = [
     { key: 'name', label: t('Name', 'பெயர்') },
     { key: 'mobile_number', label: t('Mobile', 'தொலைபேசி') },
     { key: 'aadhaar_number', label: t('Aadhaar', 'ஆதார்') },
     { key: 'reference_number', label: t('Ref No', 'குறிப்பு எண்') },
+    { key: 'member_id', label: t('Member ID', 'உறுப்பினர் ID') },
     { key: 'village', label: t('Village', 'கிராமம்') },
     { key: 'created_at', label: t('Created', 'உருவாக்கப்பட்டது') },
     { key: 'status', label: t('Status', 'நிலை'), align: 'center' },
     { key: 'actions', label: t('Actions', 'செயல்கள்'), align: 'center' },
   ];
 
-  const STORAGE_KEY = 'tax_user_list_visible_columns_v1';
+  const STORAGE_KEY = 'tax_user_list_visible_columns_v3';
   const defaultVisible: Record<ColKey, boolean> = {
     name: true,
     mobile_number: true,
     aadhaar_number: true,
     reference_number: true,
+    member_id: true,
     village: true,
     created_at: true,
     status: true,
@@ -425,7 +428,17 @@ export default function TaxUserListPage() {
   const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? { ...defaultVisible, ...JSON.parse(saved) } : defaultVisible;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Ensure new columns (like member_id) are included with default values
+        const merged = { ...defaultVisible, ...parsed };
+        // Force member_id to be visible by default for new installations
+        if (!parsed.hasOwnProperty('member_id')) {
+          merged.member_id = true;
+        }
+        return merged;
+      }
+      return defaultVisible;
     } catch {
       return defaultVisible;
     }
@@ -484,6 +497,7 @@ export default function TaxUserListPage() {
     mobile_number: '',
     aadhaar_number: '' as string | null,
     reference_number: '',
+    member_id: '' as string | null,
     village: '',
     tax_amount: '' as string,
     amount_paid: '' as string,
@@ -493,6 +507,7 @@ export default function TaxUserListPage() {
     mobile_number?: string;
     aadhaar_number?: string;
     reference_number?: string;
+    member_id?: string;
     village?: string;
     tax_amount?: string;
     amount_paid?: string;
@@ -609,6 +624,7 @@ export default function TaxUserListPage() {
       mobile_number: row.mobile_number || '',
       aadhaar_number: row.aadhaar_number ?? '',
       reference_number: row.reference_number || '',
+      member_id: row.member_id ?? '',
       village: row.village || '',
       tax_amount: (row.tax_amount ?? '').toString(),
       amount_paid: (row.amount_paid ?? '').toString(),
@@ -631,6 +647,7 @@ export default function TaxUserListPage() {
         mobile_number: editForm.mobile_number,
         aadhaar_number: editForm.aadhaar_number || null,
         reference_number: editForm.reference_number,
+        member_id: editForm.member_id || null,
         village: editForm.village,
       };
       // include numeric fields if provided
@@ -734,6 +751,7 @@ export default function TaxUserListPage() {
           mobile_number: r.mobile_number ?? r.mobileNumber,
           aadhaar_number: r.aadhaar_number ?? r.aadhaarNumber ?? null,
           reference_number: r.reference_number ?? r.referenceNumber,
+          member_id: r.member_id ?? r.memberId ?? null,
           village: r.village,
           created_at: r.created_at ?? r.createdAt,
           tax_amount: tax,
@@ -782,6 +800,7 @@ export default function TaxUserListPage() {
           mobile_number: r.mobile_number ?? r.mobileNumber ?? '',
           aadhaar_number: r.aadhaar_number ?? r.aadhaarNumber ?? null,
           reference_number: refNumber,
+          member_id: r.member_id ?? r.memberId ?? null,
           village: r.village ?? '',
           created_at: r.created_at ?? r.createdAt ?? new Date().toISOString(),
           tax_amount: tax,
@@ -983,7 +1002,7 @@ export default function TaxUserListPage() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder={t('Search by name/mobile/aadhaar/ref no', 'பெயர்/தொலைபேசி/ஆதார்/குறிப்பு எண் மூலம் தேடுக')}
+                placeholder={t('Search by name/mobile/aadhaar/ref no/member ID', 'பெயர்/தொலைபேசி/ஆதார்/குறிப்பு எண்/உறுப்பினர் ID மூலம் தேடுக')}
               className={formFieldStyles.moneyDonationList.filters.searchInput}
               />
             </div>
@@ -1097,6 +1116,11 @@ export default function TaxUserListPage() {
                     {visibleCols.reference_number && (
                       <TableCell className={formFieldStyles.moneyDonationList.table.td}>
                         {r.reference_number || '-'}
+                      </TableCell>
+                    )}
+                    {visibleCols.member_id && (
+                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                        {r.member_id || '-'}
                       </TableCell>
                     )}
                     {visibleCols.village && (
@@ -1794,6 +1818,15 @@ export default function TaxUserListPage() {
                   className={`text-xs py-1 ${editErrors.reference_number ? 'border-red-500' : ''}`}
                 />
                 {editErrors.reference_number && <p className="text-[10px] text-red-600 mt-0.5">{editErrors.reference_number}</p>}
+              </div>
+              <div>
+                <Label className="text-xs">{t('Member ID', 'உறுப்பினர் ID')}</Label>
+                <Input
+                  value={editForm.member_id || ''}
+                  onChange={(e) => setEditForm({ ...editForm, member_id: e.target.value })}
+                  className="text-xs py-1"
+                  placeholder={t('Enter member ID', 'உறுப்பினர் ID உள்ளிடவும்')}
+                />
               </div>
               <div>
                 <Label className="text-xs">{t('Village', 'கிராமம்')}</Label>

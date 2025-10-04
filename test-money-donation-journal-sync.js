@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-const BASE_URL = 'http://localhost:4000';
+const BASE_URL = 'http://localhost:4000
 
 // Test script to verify money donation journal sync works after updates
 async function testMoneyDonationJournalSync() {
