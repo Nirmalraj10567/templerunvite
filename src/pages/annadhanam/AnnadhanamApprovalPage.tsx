@@ -871,9 +871,7 @@ export default function AnnadhanamApprovalPage() {
                 <RefreshCcw className="h-3 w-3 mr-1" />
                 {t('Refresh', 'புதுப்பிக்க')}
               </Button>
-              <Button size="sm" className="h-8 text-xs" variant="outline" onClick={openAllLogs}>
-                {t('All Logs', 'அனைத்து பதிவுகள்')}
-              </Button>
+            
               <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handleExportCSV}>
                 <FileDown className="h-3 w-3 mr-1" />
                 {t('Export CSV', 'CSV ஏற்றுமதி')}
@@ -1000,14 +998,7 @@ export default function AnnadhanamApprovalPage() {
                           >
                             <Eye className="h-3 w-3" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openLogs(request.id)}
-                            title={t('Logs', 'பதிவுகள்')}
-                          >
-                            {t('Logs', 'பதிவுகள்')}
-                          </Button>
+                        
                           <Button
                             variant="ghost"
                             size="sm"

@@ -544,9 +544,7 @@ export default function LedgerListPage() {
               PDF
             </Button>
 
-            <Button variant="outline" size="sm" onClick={openAllLogs} className="text-xs h-7 px-2">
-              {t('All Logs', 'அனைத்து பதிவுகள்')}
-            </Button>
+            
           </div>
         </CardContent>
       </Card>
@@ -649,15 +647,7 @@ export default function LedgerListPage() {
                             >
                               <Edit className="h-3 w-3" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openLogs(entry)}
-                              className="h-6 w-6 p-0 text-green-600"
-                              title={t('Logs', 'பதிவுகள்')}
-                            >
-                              📋
-                            </Button>
+                            
                             <Button
                               variant="ghost"
                               size="sm"

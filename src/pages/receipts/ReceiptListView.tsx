@@ -605,9 +605,7 @@ export default function ReceiptListView() {
                 <Button variant="outline" onClick={handlePrint}>
                   {t('print')}
                 </Button>
-                <Button variant="outline" onClick={() => openAllLogs(1)}>
-                  {t('all')} {t('view')}
-                </Button>
+              
                 <Button onClick={handleExportCSV}>
                   {t('exportCsv')}
                 </Button>
@@ -693,15 +691,7 @@ export default function ReceiptListView() {
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-8 w-8 p-0 hover:bg-gray-100"
-                                onClick={() => openReceiptLogs(rec.id, rec.receipt_number)}
-                                title="Logs"
-                              >
-                                <Search className="h-4 w-4" />
-                              </Button>
+                            
                               {/* Delete button enabled ONLY for the last (most recent) receipt */}
                               <Button 
                                 variant="ghost" 
@@ -974,13 +964,7 @@ export default function ReceiptListView() {
                         {t('previous')}
                       </button>
                       <span>{t('showing')} {logsPage}</span>
-                      <button
-                        className="px-2 py-1 border border-gray-300 rounded shadow-sm text-xs bg-white hover:bg-gray-50"
-                        disabled={logsPage * logsPageSize >= logsTotal}
-                        onClick={() => openAllLogs(logsPage + 1)}
-                      >
-                        {t('next')}
-                      </button>
+                      
                     </div>
                   </div>
                 )}

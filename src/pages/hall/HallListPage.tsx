@@ -635,15 +635,7 @@ export default function HallListPage() {
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 p-0 text-green-600 hover:bg-green-50"
-                          onClick={() => openLogs(r)}
-                          title={t('Logs', 'பதிவுகள்')}
-                        >
-                          <History className="h-3.5 w-3.5" />
-                        </Button>
+                       
                         <Button
                           variant="ghost"
                           size="icon"

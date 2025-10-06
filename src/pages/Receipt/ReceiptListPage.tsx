@@ -188,12 +188,7 @@ export default function ReceiptListPage() {
         >
           {t('View', 'பார்வை')}
         </button>
-        <button
-          onClick={() => openAllLogs(1)}
-          className="border px-3 py-1.5 rounded text-sm"
-        >
-          {t('All Logs', 'முழு பதிவுகள்')}
-        </button>
+      
         <button
           onClick={onPrint}
           className="border px-3 py-1.5 rounded text-sm"

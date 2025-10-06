@@ -1116,9 +1116,7 @@ export default function TaxUserListPage() {
             <Button variant="outline" onClick={() => setSearch('')} className={formFieldStyles.moneyDonationList.filters.button}>
                 {t('Clear', 'அழி')}
               </Button>
-            <Button variant="outline" onClick={openAllLogs} className={formFieldStyles.moneyDonationList.filters.button}>
-                {t('All Logs', 'அனைத்து பதிவுகள்')}
-              </Button>
+           
             <Button variant="outline" onClick={handleExportAllPdf} className={formFieldStyles.moneyDonationList.filters.button}>
                 <FileDown className="h-3 w-3 mr-1" />
                 {t('Export All (PDF)', 'அனைத்தையும் ஏற்றுமதி (PDF)')}
@@ -1306,15 +1304,7 @@ export default function TaxUserListPage() {
                         >
                           {t('PDF', 'PDF')}
                         </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openLogs(r)}
-                            disabled={r.id < 0}
-                            className={formFieldStyles.moneyDonationList.actionButtons.logs}
-                          >
-                            {t('Logs', 'பதிவுகள்')}
-                          </Button>
+                         
                           <Button
                             variant="outline"
                             size="sm"

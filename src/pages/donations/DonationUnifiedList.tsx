@@ -430,9 +430,7 @@ export default function DonationUnifiedList() {
                             <button type="button" onClick={() => onPrint(r)} className={formFieldStyles.moneyDonationList.actionButtons.print} title={t('Print Receipt', 'ரசீது அச்சிடுக')}>
                               {t('Print', 'அச்சிடு')}
                             </button>
-                            <button type="button" onClick={() => openLogs(r)} className={formFieldStyles.moneyDonationList.actionButtons.logs} title={t('Logs', 'பதிவுகள்')}>
-                              {t('Logs', 'பதிவுகள்')}
-                            </button>
+                           
                             <button type="button" onClick={() => onEdit(r)} className={formFieldStyles.moneyDonationList.actionButtons.edit} title={t('Edit', 'திருத்து')}>
                               {t('Edit', 'திருத்து')}
                             </button>

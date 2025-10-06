@@ -778,10 +778,7 @@ export default function PoojaListView() {
                 <FileDown className="h-3 w-3 mr-1" />
                 {translate("export")}
               </Button>
-              <Button variant="outline" size="sm" onClick={openAllLogs} className={formFieldStyles.moneyDonationList.filters.button}>
-                <FileDown className="h-3 w-3 mr-1" />
-                {translate("allLogs")}
-              </Button>
+             
             </div>
           </div>
         </div>
@@ -905,15 +902,7 @@ export default function PoojaListView() {
                                   <Trash2 className="h-3 w-3" />
                                 </Button>
                               )}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openLogs(pooja)}
-                                className="h-6 w-6 p-0 text-green-600"
-                                title={translate("logs")}
-                              >
-                                <FileDown className="h-3 w-3" />
-                              </Button>
+                          
                             </div>
                           </td>
                         )}

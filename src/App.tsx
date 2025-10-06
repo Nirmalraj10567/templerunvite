@@ -315,6 +315,32 @@ function App() {
                       }
                     />
 
+                    {/* Ledger */}
+                    <Route
+                      path="ledger/entry"
+                      element={
+                        <PermissionGuard
+                          requiredPermission="ledger_management"
+                          accessLevel="edit"
+                        >
+                          <YearEndLockGuard>
+                            <LedgerEntryPage />
+                          </YearEndLockGuard>
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="ledger/list"
+                      element={
+                        <PermissionGuard
+                          requiredPermission="ledger_management"
+                          accessLevel="view"
+                        >
+                          <LedgerListPage />
+                        </PermissionGuard>
+                      }
+                    />
+
                     {/* Registrations */}
                     <Route
                       path="registrations/entry"

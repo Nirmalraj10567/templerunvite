@@ -589,13 +589,7 @@ export default function AnnadhanamListView() {
                   />
                 </div>
                 <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>
-                  <Button 
-                    variant="outline" 
-                    onClick={openAllLogs}
-                    className={formFieldStyles.moneyDonationList.filters.button}
-                  >
-                    {t("All Logs", "அனைத்து பதிவுகள்")}
-                  </Button>
+               
                   <Button variant="outline" onClick={exportToCSV} disabled={loading || data.length === 0} className={formFieldStyles.moneyDonationList.filters.button}>
                     <FileSpreadsheet className="h-4 w-4 mr-2" />
                     {t("Export CSV", "CSV ஏற்றுமதி")}
@@ -676,15 +670,7 @@ export default function AnnadhanamListView() {
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openLogs(annadhanam.id)}
-                                title={t("Logs", "பதிவுகள்")}
-                                className={formFieldStyles.moneyDonationList.actionButtons.logs}
-                              >
-                                {t("Logs", "பதிவுகள்")}
-                              </Button>
+                             
                               <Button
                                 variant="ghost"
                                 size="sm"
