@@ -361,7 +361,7 @@ export default function DashboardLayout() {
 
   useEffect(() => {
     let mounted = true;
-    fetch('http://localhost:4000/api/system/year-end-status', { headers: { Authorization: `Bearer ${token}` } })
+    fetch('https://tmsapi.xesstechlink.com/api/system/year-end-status', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(d => {
         if (!mounted) return;
@@ -517,9 +517,7 @@ export default function DashboardLayout() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-3 overflow-y-auto 
-          scrollbar-thin scrollbar-thumb-blue-600 scrollbar-track-transparent 
-          scrollbar-track-blue-950/10 hover:scrollbar-thumb-blue-400 
+        <nav className="sidebar-nav flex-1 p-4 space-y-3 overflow-y-auto 
           transition-colors duration-200">
           {allowedSidebarItems.map((item, index) => {
             if (item.children) {
@@ -528,22 +526,11 @@ export default function DashboardLayout() {
                 <div 
                   key={item.label} 
                   className="space-y-2"
-                  onMouseEnter={() => {
-                    if (!isSidebarCollapsed) {
-                      setExpandedItems(prev => prev.includes(item.label) ? prev : [...prev, item.label]);
-                    }
-                  }}
-                  onMouseLeave={() => {
-                    if (!isSidebarCollapsed) {
-                      // Always collapse on mouse leave per requirement
-                      setExpandedItems(prev => prev.filter(lbl => lbl !== item.label));
-                    }
-                  }}
                 >
                   <div 
                     onClick={() => toggleItemExpansion(item.label)}
                     className={`
-                      group flex items-center p-3 rounded-xl cursor-pointer transition-all duration-200
+                      group flex items-center p-3 rounded-xl cursor-pointer transition-all duration-500
                       hover:bg-gradient-to-r hover:from-blue-800/40 hover:to-indigo-800/40
                       hover:shadow-lg hover:shadow-blue-900/20 backdrop-blur-sm
                       ${isSidebarCollapsed ? 'justify-center' : ''} 
@@ -561,7 +548,7 @@ export default function DashboardLayout() {
                         <span className="font-medium text-blue-100 group-hover:text-white transition-colors">
                           {item.label}
                         </span>
-                        <div className={`transform transition-transform duration-200 text-blue-400 ${isExpanded ? 'rotate-90' : ''}`}>
+                        <div className={`transform transition-transform duration-500 text-blue-400 ${isExpanded ? 'rotate-90' : ''}`}>
                           <ChevronRightIcon className="w-4 h-4" />
                         </div>
                       </div>
@@ -569,14 +556,14 @@ export default function DashboardLayout() {
                   </div>
                   
                   {!isSidebarCollapsed && isExpanded && (
-                    <div className="pl-6 space-y-1 animate-in slide-in-from-top-2 duration-200">
+                    <div className="pl-6 space-y-1 animate-in slide-in-from-top-2 duration-500">
                       {item.children.map((child, childIndex) => (
                         <NavLink
                           key={child.to}
                           to={child.to}
                           end
                           className={({ isActive }) =>
-                            `group flex items-center p-3 rounded-lg transition-all duration-200 relative
+                            `group flex items-center p-3 rounded-lg transition-all duration-500 relative
                             ${isActive 
                               ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-900/30' 
                               : 'text-blue-200 hover:bg-blue-800/30 hover:text-white'
@@ -584,7 +571,7 @@ export default function DashboardLayout() {
                           }
                           onClick={() => isMobile && setMobileMenuOpen(false)}
                         >
-                          <div className="w-2 h-2 rounded-full bg-blue-400 mr-3 opacity-60 group-hover:opacity-100 transition-opacity"></div>
+                          <div className="w-2 h-2 rounded-full bg-blue-400 mr-3 opacity-60 group-hover:opacity-100 transition-opacity duration-500"></div>
                           <span className="font-medium">{child.label}</span>
                           <span className="sr-only">{t[lang].close}</span>
                         </NavLink>
@@ -685,7 +672,41 @@ export default function DashboardLayout() {
   };
 
   return (
-    <div className="relative h-screen w-full flex overflow-hidden bg-gradient-to-br from-slate-50 to-blue-50">
+    <>
+      <style>{`
+        .sidebar-nav {
+          scroll-behavior: smooth;
+          scrollbar-width: thin;
+          scrollbar-gutter: stable;
+          overscroll-behavior: contain;
+          -webkit-overflow-scrolling: touch;
+        }
+        
+        .sidebar-nav::-webkit-scrollbar {
+          width: 6px;
+        }
+        
+        .sidebar-nav::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        
+        .sidebar-nav::-webkit-scrollbar-thumb {
+          background: rgba(59, 130, 246, 0.6);
+          border-radius: 3px;
+          transition: background 0.2s ease;
+        }
+        
+        .sidebar-nav::-webkit-scrollbar-thumb:hover {
+          background: rgba(59, 130, 246, 0.8);
+        }
+        
+        /* Reduce scroll momentum */
+        .sidebar-nav {
+          scroll-margin: 0;
+          scroll-padding: 0;
+        }
+      `}</style>
+      <div className="relative h-screen w-full flex overflow-hidden bg-gradient-to-br from-slate-50 to-blue-50">
       {/* Mobile menu button */}
       <div className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white flex justify-between md:hidden shadow-lg">
         <button 
@@ -781,6 +802,7 @@ export default function DashboardLayout() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

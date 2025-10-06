@@ -10,6 +10,15 @@ interface User {
   templeId?: number;
 }
 
+interface Temple {
+  id: number;
+  name: string;
+  registration_id: string;
+  address: string;
+  phone: string;
+  email: string;
+}
+
 interface UserPermission {
   permission_id: string;
   access_level: 'view' | 'edit' | 'full';
@@ -39,6 +48,7 @@ interface AuthContextType {
   token: string | null;
   userPermissions: UserPermission[];
   isSuperAdmin: boolean;
+  temple: Temple | null;
   login: (email: string, password: string) => Promise<void>;
   register: (userData: RegisterData) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
@@ -51,6 +61,7 @@ interface AuthState {
   token: string | null;
   userPermissions: UserPermission[];
   isSuperAdmin: boolean;
+  temple: Temple | null;
   isLoading: boolean;
   error: string;
 }
@@ -60,6 +71,7 @@ const AuthContext = createContext<AuthContextType>({
   token: null,
   userPermissions: [], // already initialized
   isSuperAdmin: false,
+  temple: null,
   login: async () => {},
   register: async () => ({ success: false, error: 'Not initialized' }),
   logout: () => {},
@@ -73,15 +85,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     token: null,
     userPermissions: [],
     isSuperAdmin: false,
+    temple: null,
     isLoading: true,
     error: '',
   });
+
+  // Function to fetch temple data
+  const fetchTempleData = async (templeId: number, token: string): Promise<Temple | null> => {
+    try {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/temples/${templeId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        console.error('Failed to fetch temple data');
+        return null;
+      }
+
+      const data = await response.json();
+      return data.success ? data.data : null;
+    } catch (error) {
+      console.error('Error fetching temple data:', error);
+      return null;
+    }
+  };
 
   // Restore session from localStorage on first load
   useEffect(() => {
     const savedToken = localStorage.getItem('authToken');
     const savedUser = localStorage.getItem('userInfo');
     const savedPermissions = localStorage.getItem('userPermissions');
+    const savedTemple = localStorage.getItem('templeInfo');
     
     if (savedToken && savedUser) {
       // Check if token is expired before restoring session
@@ -90,6 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem('authToken');
         localStorage.removeItem('userInfo');
         localStorage.removeItem('userPermissions');
+        localStorage.removeItem('templeInfo');
         setState(prev => ({ ...prev, isLoading: false }));
         return;
       }
@@ -101,6 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             permission_id: permission.permission_id,
             access_level: permission.access_level,
           }));
+      const parsedTemple = savedTemple ? JSON.parse(savedTemple) : null;
       
       setState(prev => ({
         ...prev,
@@ -108,6 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user: parsedUser,
         userPermissions: parsedPermissions,
         isSuperAdmin: parsedUser.mobile === '9999999999',
+        temple: parsedTemple,
         isLoading: false,
       }));
     } else {
@@ -125,7 +165,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, isLoading: true, error: '' }));
     
     try {
-      const response = await fetch('http://localhost:4000/api/login', {
+      const response = await fetch('https://tmsapi.xesstechlink.com/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mobile: identifier, username: identifier, password }),
@@ -147,17 +187,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         access_level: p.access_level || p.access,
       })) as UserPermission[];
 
+      // Fetch temple data if user has templeId
+      let templeData: Temple | null = null;
+      if (user?.templeId) {
+        templeData = await fetchTempleData(user.templeId, token);
+      }
+
       setState(prev => ({
         ...prev,
         token,
         user,
         userPermissions: permsFromLogin,
         isSuperAdmin: user.mobile === '9999999999',
+        temple: templeData,
         isLoading: false,
       }));
       localStorage.setItem('authToken', token);
       localStorage.setItem('userInfo', JSON.stringify(user));
       localStorage.setItem('userPermissions', JSON.stringify(permsFromLogin));
+      if (templeData) {
+        localStorage.setItem('templeInfo', JSON.stringify(templeData));
+      }
     } catch (error) {
       setState(prev => ({
         ...prev,
@@ -171,7 +221,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, isLoading: true, error: '' }));
     
     try {
-      const response = await fetch('http://localhost:4000/api/register', {
+      const response = await fetch('https://tmsapi.xesstechlink.com/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -223,12 +273,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       token: null,
       userPermissions: [],
       isSuperAdmin: false,
+      temple: null,
       isLoading: false,
       error: '',
     });
     localStorage.removeItem('authToken');
     localStorage.removeItem('userInfo');
     localStorage.removeItem('userPermissions');
+    localStorage.removeItem('templeInfo');
   };
 
   // Set up global logout callback for API client
@@ -259,6 +311,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       token: state.token,
       userPermissions: state.userPermissions,
       isSuperAdmin: state.isSuperAdmin,
+      temple: state.temple,
       login,
       register,
       logout,

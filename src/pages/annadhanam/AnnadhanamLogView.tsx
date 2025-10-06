@@ -75,7 +75,7 @@ export default function AnnadhanamLogView({ recentOnly = false }: AnnadhanamLogV
     const results = await Promise.all(
       missing.map(async (id) => {
         try {
-          const res = await fetch(`http://localhost:4000/api/admin/members/${id}`, {
+          const res = await fetch(`https://tmsapi.xesstechlink.com/api/admin/members/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data = await res.json().catch(() => ({}));
@@ -111,7 +111,7 @@ export default function AnnadhanamLogView({ recentOnly = false }: AnnadhanamLogV
     try {
       setLoading(true);
       const res = await fetch(
-        `http://localhost:4000/api/annadhanam/logs?${params}`,
+        `https://tmsapi.xesstechlink.com/api/annadhanam/logs?${params}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -181,7 +181,7 @@ export default function AnnadhanamLogView({ recentOnly = false }: AnnadhanamLogV
   return (
     <div className="container mx-auto py-6 px-4">
       <Card>
-        <CardHeader className="bg-gradient-to-r from-purple-500 to-purple-600 text-white py-4 px-6 text-center">
+        <CardHeader className={cn(formFieldStyles.tableHeader.container, formFieldStyles.card.header)}>
           <CardTitle className="text-lg font-bold">
             {t('All Annadhanam Logs', 'அனைத்து அன்னதானம் பதிவுகள்')}
           </CardTitle>

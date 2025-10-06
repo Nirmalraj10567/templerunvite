@@ -2,6 +2,8 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/lib/language";
 import PoojaLogView from "./PoojaLogView";
+import { cn } from "@/lib/utils";
+import { formFieldStyles } from "@/styles/formStyles";
 
 interface PoojaLogsPageProps {}
 
@@ -12,7 +14,7 @@ export default function PoojaLogsPage({}: PoojaLogsPageProps) {
   return (
     <div className="container mx-auto py-6 px-4">
       <Card>
-        <CardHeader className="bg-gradient-to-r from-purple-500 to-purple-600 text-white py-4 px-6">
+        <CardHeader className={cn(formFieldStyles.tableHeader.container, formFieldStyles.card.header)}>
           <CardTitle className="text-lg font-bold">
             {t('Pooja Logs', 'பூஜை பதிவுகள்')}
           </CardTitle>

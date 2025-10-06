@@ -80,7 +80,8 @@ export const navigationTranslations = {
     settings: 'அமைப்புகள்',
     generalSettings: 'பொது அமைப்புகள்',
     pdfSettings: 'PDF அமைப்புகள்',
-    myPreferences: 'எனது விருப்பங்கள்'
+    myPreferences: 'எனது விருப்பங்கள்',
+    logPage: 'பதிவு பக்கம்'
   },
   english: {
     overview: 'Home',
@@ -133,7 +134,8 @@ export const navigationTranslations = {
     settings: 'Settings',
     generalSettings: 'General Settings',
     pdfSettings: 'PDF Settings',
-    myPreferences: 'My Preferences'
+    myPreferences: 'My Preferences',
+    logPage: 'Log Page'
   }
 } as const;
 
@@ -468,6 +470,13 @@ export const sidebarItems: NavItem[] = [
         label: navigationTranslations.english.myPreferences, 
         tamilLabel: navigationTranslations.tamil.myPreferences, 
         permissionId: 'setting',
+        accessLevel: 'view'
+      },
+      { 
+        to: 'annadhanam/logs', 
+        label: navigationTranslations.english.logPage, 
+        tamilLabel: navigationTranslations.tamil.logPage, 
+        permissionId: 'annadhanam_registrations',
         accessLevel: 'view'
       },
     ]

@@ -2,7 +2,7 @@ import { Event, EventImage } from '@/types/event';
 import { toast } from '@/components/ui/use-toast';
 
 class EventService {
-  private apiUrl = 'http://localhost:4000/api/events';
+  private apiUrl = 'https://tmsapi.xesstechlink.com/api/events';
   private get apiOrigin() {
     try {
       return new URL(this.apiUrl).origin;

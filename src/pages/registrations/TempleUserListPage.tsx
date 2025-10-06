@@ -114,7 +114,7 @@ export default function TempleUserListPage() {
     try {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
-      const res = await fetch(`http://localhost:4000/api/registrations/export/csv?${params.toString()}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/registrations/export/csv?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
@@ -136,7 +136,7 @@ export default function TempleUserListPage() {
   const handleToggleBlock = async (r: Registration) => {
     const next = r.status === 'blocked' ? 'active' : 'blocked';
     try {
-      const res = await fetch(`http://localhost:4000/api/registrations/${r.id}/status`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/registrations/${r.id}/status`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -209,7 +209,7 @@ export default function TempleUserListPage() {
         search,
       });
 
-      const res = await fetch(`http://localhost:4000/api/registrations?${params.toString()}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/registrations?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -245,7 +245,7 @@ export default function TempleUserListPage() {
 
   const handleDownloadPdf = async (id: number) => {
     try {
-      const res = await fetch(`http://localhost:4000/api/registrations/${id}/pdf`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/registrations/${id}/pdf`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
@@ -265,7 +265,7 @@ export default function TempleUserListPage() {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
 
-      const res = await fetch(`http://localhost:4000/api/registrations/export/pdf?${params.toString()}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/registrations/export/pdf?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {

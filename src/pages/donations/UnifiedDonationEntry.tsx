@@ -162,7 +162,7 @@ export default function UnifiedDonationEntry() {
   // Function to refresh journal after money donation operations
   const refreshJournal = async () => {
     try {
-      await fetch('http://localhost:4000/api/journal/sync-pooja', {
+      await fetch('https://tmsapi.xesstechlink.com/api/journal/sync-pooja', {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -355,7 +355,7 @@ export default function UnifiedDonationEntry() {
 
       try {
         const resp = await axios.get<{ data: DonationProduct[] }>(
-          `http://localhost:4000/api/donation-products/${user.templeId}`,
+          `https://tmsapi.xesstechlink.com/api/donation-products/${user.templeId}`,
           {
             headers: { Authorization: `Bearer ${getAuthToken()}` }
           }
@@ -378,7 +378,7 @@ export default function UnifiedDonationEntry() {
     
     const loadRegisterNo = async () => {
       try {
-        const resp = await axios.get<any>('http://localhost:4000/api/donations/next-register-no', {
+        const resp = await axios.get<any>('https://tmsapi.xesstechlink.com/api/donations/next-register-no', {
           headers: { Authorization: `Bearer ${getAuthToken()}` }
         });
         const nextNo = resp.data?.nextRegisterNo || generateNextRegisterNo();
@@ -546,7 +546,7 @@ export default function UnifiedDonationEntry() {
 
   const fetchNextRegisterNo = async () => {
     try {
-      const resp = await axios.get<any>('http://localhost:4000/api/donations/next-register-no', {
+      const resp = await axios.get<any>('https://tmsapi.xesstechlink.com/api/donations/next-register-no', {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });
       const nextNo = resp.data?.nextRegisterNo || generateNextRegisterNo();

@@ -12,7 +12,7 @@ const LANGUAGES = [
 type HeaderProps = { children?: React.ReactNode };
 
 export function Header({ children }: HeaderProps) {
-  const { user, logout, isSuperAdmin } = useAuth();
+  const { user, logout, isSuperAdmin, temple } = useAuth();
   const navigate = useNavigate();
   const { language, setLanguage } = useLanguage();
   const t = translations[language as keyof typeof translations];
@@ -41,7 +41,9 @@ export function Header({ children }: HeaderProps) {
               <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
                 <span className="text-white text-lg font-bold">🕉️</span>
               </div>
-              <h1 className="text-xl font-bold text-black">Temple Trust</h1>
+              <h1 className="text-xl font-bold text-black">
+                {temple?.name || 'Temple Trust'}
+              </h1>
             </Link>
 
             {!user ? (

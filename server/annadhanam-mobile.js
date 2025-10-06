@@ -239,12 +239,17 @@ module.exports = function(deps = {}) {
   // List with optional search and date filter (mobile version)
   router.get('/', async (req, res) => {
     try {
-      const { q, from, to, page = 1, pageSize = 20, mobile_number } = req.query;
+      const { q, from, to, page = 1, pageSize = 20, mobile_number, temple_id } = req.query;
       const pg = Math.max(parseInt(page, 10) || 1, 1);
       const ps = Math.min(Math.max(parseInt(pageSize, 10) || 20, 1), 100);
       const offset = (pg - 1) * ps;
 
       let query = db('annadhanam');
+      
+      // If temple_id is provided, filter by it (for multi-temple support)
+      if (temple_id) {
+        query = query.where('temple_id', temple_id);
+      }
       
       // If mobile_number is provided, filter by it
       if (mobile_number) {
@@ -268,7 +273,23 @@ module.exports = function(deps = {}) {
       .offset(offset);
 
       const rows = await query;
-      res.json({ success: true, data: rows, page: pg, pageSize: ps });
+      
+      // Get total count for pagination
+      let countQuery = db('annadhanam');
+      if (temple_id) countQuery = countQuery.where('temple_id', temple_id);
+      if (mobile_number) countQuery = countQuery.where('mobile_number', mobile_number);
+      
+      const totalResult = await countQuery.count('* as count').first();
+      const total = totalResult.count;
+
+      res.json({ 
+        success: true, 
+        data: rows, 
+        page: pg, 
+        pageSize: ps,
+        total: total,
+        totalPages: Math.ceil(total / ps)
+      });
     } catch (err) {
       console.error('GET /api/annadhanam-mobile error:', err);
       res.status(500).json({ success: false, error: 'Internal server error' });

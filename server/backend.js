@@ -2708,6 +2708,129 @@ app.get('/api/temples', async (req, res) => {
   }
 });
 
+// Get temple details by ID (authenticated users)
+app.get('/api/temples/:id', authenticateToken, async (req, res) => {
+  try {
+    const templeId = parseInt(req.params.id);
+    if (Number.isNaN(templeId)) {
+      return res.status(400).json({ success: false, error: 'Invalid temple ID' });
+    }
+
+    const temple = await db('temples')
+      .where({ id: templeId })
+      .select('id', 'name', 'registration_id', 'address', 'phone', 'email')
+      .first();
+
+    if (!temple) {
+      return res.status(404).json({ success: false, error: 'Temple not found' });
+    }
+
+    res.json({ success: true, data: temple });
+  } catch (err) {
+    console.error('Error fetching temple details:', err);
+    res.status(500).json({ success: false, error: 'Database error while fetching temple details.' });
+  }
+});
+
+// Public API endpoint to get temple information (no authentication required)
+app.get('/api/public/temples', async (req, res) => {
+  try {
+    const temples = await db('temples')
+      .select('id', 'name', 'registration_id', 'address', 'phone', 'email')
+      .orderBy('name');
+    
+    res.json({ 
+      success: true, 
+      data: temples,
+      message: 'Temple information retrieved successfully'
+    });
+  } catch (err) {
+    console.error('GET /api/public/temples error:', err);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error while fetching temple information' 
+    });
+  }
+});
+
+// Public API endpoint to list annadhanam entries (no authentication required)
+app.get('/api/public/annadhanam', async (req, res) => {
+  try {
+    const { 
+      q, 
+      from, 
+      to, 
+      page = 1, 
+      pageSize = 20, 
+      mobile_number, 
+      temple_id,
+      status = 'approved' // Only show approved entries by default
+    } = req.query;
+    
+    const pg = Math.max(parseInt(page, 10) || 1, 1);
+    const ps = Math.min(Math.max(parseInt(pageSize, 10) || 20, 1), 100);
+    const offset = (pg - 1) * ps;
+
+    let query = db('annadhanam');
+    
+    // Filter by temple_id if provided
+    if (temple_id) {
+      query = query.where('temple_id', temple_id);
+    }
+    
+    // Filter by mobile_number if provided
+    if (mobile_number) {
+      query = query.where('mobile_number', mobile_number);
+    }
+
+    // Filter by status (default to approved for public access)
+    query = query.where('status', status);
+
+    query = query.modify((qb) => {
+      if (q) {
+        qb.andWhere((b) => {
+          b.where('name', 'like', `%${q}%`)
+            .orWhere('receipt_number', 'like', `%${q}%`)
+            .orWhere('mobile_number', 'like', `%${q}%`)
+            .orWhere('food', 'like', `%${q}%`);
+        });
+      }
+      if (from) qb.andWhere('from_date', '>=', from);
+      if (to) qb.andWhere('to_date', '<=', to);
+    })
+    .orderBy('from_date', 'desc')
+    .limit(ps)
+    .offset(offset);
+
+    const rows = await query;
+    
+    // Get total count for pagination
+    let countQuery = db('annadhanam');
+    if (temple_id) countQuery = countQuery.where('temple_id', temple_id);
+    if (mobile_number) countQuery = countQuery.where('mobile_number', mobile_number);
+    countQuery = countQuery.where('status', status);
+    
+    const totalResult = await countQuery.count('* as count').first();
+    const total = totalResult.count;
+
+    res.json({ 
+      success: true, 
+      data: rows, 
+      page: pg, 
+      pageSize: ps,
+      total: total,
+      totalPages: Math.ceil(total / ps),
+      message: 'Public annadhanam entries retrieved successfully'
+    });
+  } catch (err) {
+    console.error('GET /api/public/annadhanam error:', err);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error while fetching annadhanam entries' 
+    });
+  }
+});
+
 // Get available permissions (for admin interface)
 app.get('/api/permissions', authenticateToken, authorizeRole(['admin', 'superadmin']), async (req, res) => {
   try {
@@ -3936,6 +4059,233 @@ const upload = multer({
 const { compressImage } = require('./middlewares/imageCompression');
 
 app.use('/api/registrations', upload.single('photo'), compressImage, registrationsRouter);
+
+// Public API endpoint to update profile photo by mobile number (no authentication required)
+app.post('/api/public/profile-photo/mobile', upload.single('photo'), async (req, res) => {
+  try {
+    const { mobile_number } = req.body;
+    
+    if (!mobile_number) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Mobile number is required' 
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Photo file is required' 
+      });
+    }
+
+    // Validate mobile number format (10 digits)
+    const cleanMobile = mobile_number.replace(/\D/g, '');
+    if (cleanMobile.length !== 10) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid mobile number format' 
+      });
+    }
+
+    // Find user by mobile number
+    const user = await db('user_registrations')
+      .where('mobile_number', cleanMobile)
+      .first();
+
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'User not found with this mobile number' 
+      });
+    }
+
+    // Update photo path
+    const photoPath = `/uploads/profiles/${req.file.filename}`;
+    await db('user_registrations')
+      .where('id', user.id)
+      .update({ 
+        photo_path: photoPath,
+        updated_at: new Date()
+      });
+
+    res.json({ 
+      success: true, 
+      message: 'Profile photo updated successfully',
+      data: {
+        user_id: user.id,
+        mobile_number: cleanMobile,
+        photo_path: photoPath,
+        photo_url: `${req.protocol}://${req.get('host')}/public${photoPath}`
+      }
+    });
+  } catch (err) {
+    console.error('POST /api/public/profile-photo/mobile error:', err);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error while updating profile photo' 
+    });
+  }
+});
+
+// Public API endpoint to update profile photo by member ID (no authentication required)
+app.post('/api/public/profile-photo/member/:id', upload.single('photo'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const memberId = parseInt(id);
+    
+    if (Number.isNaN(memberId)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid member ID format' 
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Photo file is required' 
+      });
+    }
+
+    // Find user by member ID
+    const user = await db('user_registrations')
+      .where('id', memberId)
+      .first();
+
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'User not found with this member ID' 
+      });
+    }
+
+    // Update photo path
+    const photoPath = `/uploads/profiles/${req.file.filename}`;
+    await db('user_registrations')
+      .where('id', memberId)
+      .update({ 
+        photo_path: photoPath,
+        updated_at: new Date()
+      });
+
+    res.json({ 
+      success: true, 
+      message: 'Profile photo updated successfully',
+      data: {
+        user_id: memberId,
+        mobile_number: user.mobile_number,
+        photo_path: photoPath,
+        photo_url: `${req.protocol}://${req.get('host')}/public${photoPath}`
+      }
+    });
+  } catch (err) {
+    console.error('POST /api/public/profile-photo/member/:id error:', err);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error while updating profile photo' 
+    });
+  }
+});
+
+// Public API endpoint to get profile photo by mobile number
+app.get('/api/public/profile-photo/mobile/:mobile_number', async (req, res) => {
+  try {
+    const { mobile_number } = req.params;
+    
+    // Validate mobile number format
+    const cleanMobile = mobile_number.replace(/\D/g, '');
+    if (cleanMobile.length !== 10) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid mobile number format' 
+      });
+    }
+
+    // Find user by mobile number
+    const user = await db('user_registrations')
+      .where('mobile_number', cleanMobile)
+      .select('id', 'mobile_number', 'photo_path', 'name')
+      .first();
+
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'User not found with this mobile number' 
+      });
+    }
+
+    const photoUrl = user.photo_path ? 
+      `${req.protocol}://${req.get('host')}/public${user.photo_path}` : 
+      null;
+
+    res.json({ 
+      success: true, 
+      data: {
+        user_id: user.id,
+        mobile_number: user.mobile_number,
+        name: user.name,
+        photo_path: user.photo_path,
+        photo_url: photoUrl
+      }
+    });
+  } catch (err) {
+    console.error('GET /api/public/profile-photo/mobile/:mobile_number error:', err);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error while fetching profile photo' 
+    });
+  }
+});
+
+// Public API endpoint to get profile photo by member ID
+app.get('/api/public/profile-photo/member/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const memberId = parseInt(id);
+    
+    if (Number.isNaN(memberId)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid member ID format' 
+      });
+    }
+
+    // Find user by member ID
+    const user = await db('user_registrations')
+      .where('id', memberId)
+      .select('id', 'mobile_number', 'photo_path', 'name')
+      .first();
+
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'User not found with this member ID' 
+      });
+    }
+
+    const photoUrl = user.photo_path ? 
+      `${req.protocol}://${req.get('host')}/public${user.photo_path}` : 
+      null;
+
+    res.json({ 
+      success: true, 
+      data: {
+        user_id: user.id,
+        mobile_number: user.mobile_number,
+        name: user.name,
+        photo_path: user.photo_path,
+        photo_url: photoUrl
+      }
+    });
+  } catch (err) {
+    console.error('GET /api/public/profile-photo/member/:id error:', err);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error while fetching profile photo' 
+    });
+  }
+});
 
 // Mount tax registrations router (ensure correct index.js is used)
 const taxRegistrationsRouter = require('./components/tax-registrations/index.js');
