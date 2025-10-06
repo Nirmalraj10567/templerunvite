@@ -15,7 +15,7 @@ interface AnnadhanamLogsPageProps {}
 
 export default function AnnadhanamLogsPage({}: AnnadhanamLogsPageProps) {
   const { language } = useLanguage();
-  const t = (en: string, ta: string) => (language === 'tamil' ? ta : en);
+  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
   const [activeTab, setActiveTab] = useState("all");
 
   return (

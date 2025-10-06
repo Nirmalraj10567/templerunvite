@@ -36,14 +36,13 @@ export default function AnnadhanamLogView({ recentOnly = false }: AnnadhanamLogV
   const navigate = useNavigate();
   const { token } = useAuth();
   const { language } = useLanguage();
-  const t = (en: string, ta: string) => (language === 'english' ? en : ta);
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
 
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [logs, setLogs] = useState<AnnadhanamLog[]>([]);
   const [filteredLogs, setFilteredLogs] = useState<AnnadhanamLog[]>([]);
-  const [activeTab, setActiveTab] = useState<'all' | 'money' | 'product' | 'food'>('all');
   const [userDetails, setUserDetails] = useState<Record<number, { name: string; username?: string; mobile?: string }>>({});
   const [pagination, setPagination] = useState({
     page: 1,
@@ -60,27 +59,10 @@ export default function AnnadhanamLogView({ recentOnly = false }: AnnadhanamLogV
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  // Filter logs based on active tab
+  // Set filtered logs to all logs (no filtering)
   useEffect(() => {
-    if (activeTab === 'all') {
-      setFilteredLogs(logs);
-    } else {
-      const filtered = logs.filter(log => {
-        const details = log.details;
-        if (!details) return false;
-        
-        const food = details.food || details.after?.food || details.before?.food;
-        if (!food) return false;
-
-        if (activeTab === 'money' && food.startsWith('Money:')) return true;
-        if (activeTab === 'product' && food.startsWith('Product:')) return true;
-        if (activeTab === 'food' && !food.startsWith('Money:') && !food.startsWith('Product:')) return true;
-        
-        return false;
-      });
-      setFilteredLogs(filtered);
-    }
-  }, [logs, activeTab]);
+    setFilteredLogs(logs);
+  }, [logs]);
 
   // Fetch user details
   const fetchUserDetails = useCallback(async (userIds: number[]) => {
@@ -234,68 +216,6 @@ export default function AnnadhanamLogView({ recentOnly = false }: AnnadhanamLogV
             </div>
           </form>
 
-          {/* Tabs */}
-          <div className="mb-4">
-            <div className="border-b border-gray-200">
-              <nav className="-mb-px flex space-x-8">
-                <button
-                  onClick={() => setActiveTab('all')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'all'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  {t('All', 'அனைத்தும்')} ({logs.length})
-                </button>
-                <button
-                  onClick={() => setActiveTab('money')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'money'
-                      ? 'border-green-500 text-green-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  {t('Money Donations', 'பண நன்கொடைகள்')} ({logs.filter(log => {
-                    const details = log.details;
-                    if (!details) return false;
-                    const food = details.food || details.after?.food || details.before?.food;
-                    return food && food.startsWith('Money:');
-                  }).length})
-                </button>
-                <button
-                  onClick={() => setActiveTab('product')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'product'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  {t('Product Donations', 'பொருள் நன்கொடைகள்')} ({logs.filter(log => {
-                    const details = log.details;
-                    if (!details) return false;
-                    const food = details.food || details.after?.food || details.before?.food;
-                    return food && food.startsWith('Product:');
-                  }).length})
-                </button>
-                <button
-                  onClick={() => setActiveTab('food')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'food'
-                      ? 'border-orange-500 text-orange-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  {t('Food Donations', 'உணவு நன்கொடைகள்')} ({logs.filter(log => {
-                    const details = log.details;
-                    if (!details) return false;
-                    const food = details.food || details.after?.food || details.before?.food;
-                    return food && !food.startsWith('Money:') && !food.startsWith('Product:');
-                  }).length})
-                </button>
-              </nav>
-            </div>
-          </div>
 
           {/* Table */}
           <div className="border rounded-md overflow-hidden">

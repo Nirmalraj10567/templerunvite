@@ -24,8 +24,14 @@ router.get('/:id', authenticateToken, authorizePermission('tax_registrations', '
     const { id } = req.params;
     const templeId = req.user.templeId;
     
+    // Validate ID is a valid number
+    const numericId = Number(id);
+    if (!Number.isInteger(numericId) || numericId <= 0) {
+      return res.status(400).json({ error: 'Invalid tax registration ID' });
+    }
+    
     const registration = await db('user_tax_registrations')
-      .where({ id: Number(id), temple_id: templeId })
+      .where({ id: numericId, temple_id: templeId })
       .first();
     
     if (!registration) {
@@ -44,13 +50,20 @@ router.get('/:id/logs', authenticateToken, authorizePermission('tax_registration
   try {
     const { id } = req.params;
     const templeId = req.user.templeId;
+    
+    // Validate ID is a valid number
+    const numericId = Number(id);
+    if (!Number.isInteger(numericId) || numericId <= 0) {
+      return res.status(400).json({ error: 'Invalid tax registration ID' });
+    }
+    
     // Ensure table exists (best-effort)
     try {
       const has = await db.schema.hasTable('user_tax_registration_logs');
       if (!has) return res.json({ success: true, data: [] });
     } catch {}
     const rows = await db('user_tax_registration_logs')
-      .where({ tax_registration_id: Number(id), temple_id: templeId })
+      .where({ tax_registration_id: numericId, temple_id: templeId })
       .orderBy('created_at', 'desc')
       .select('*');
     const data = rows.map((r) => ({
@@ -196,6 +209,26 @@ router.post('/', authenticateToken, authorizePermission('tax_registrations', 'ed
         (t) => { try { t.text('transfer_to_account'); } catch (e) {} },
         'ALTER TABLE user_tax_registrations ADD COLUMN transfer_to_account TEXT'
       );
+      await ensureColumn(
+        'user_tax_registrations',
+        'member_id',
+        (t) => { try { t.integer('member_id'); } catch (e) {} },
+        'ALTER TABLE user_tax_registrations ADD COLUMN member_id INT NULL'
+      );
+      // Fix journal_entries table to handle reference_number field
+      await ensureColumn(
+        'journal_entries',
+        'reference_number',
+        (t) => { try { t.string('reference_number', 255).nullable(); } catch (e) {} },
+        'ALTER TABLE journal_entries ADD COLUMN reference_number VARCHAR(255) NULL'
+      );
+      // Ensure user_registrations has reference_number column
+      await ensureColumn(
+        'user_registrations',
+        'reference_number',
+        (t) => { try { t.string('reference_number', 255).nullable(); } catch (e) {} },
+        'ALTER TABLE user_registrations ADD COLUMN reference_number VARCHAR(255) NULL'
+      );
     } catch (e) { /* ignore */ }
 
     // Persist to user_tax_registrations
@@ -232,11 +265,34 @@ router.post('/', authenticateToken, authorizePermission('tax_registrations', 'ed
       outstanding_amount: outstandingAmount,
       from_account: cleanedData.fromAccount || cleanedData.from_account || 'TAX A/C',
       transfer_to_account: cleanedData.transferTo || cleanedData.transfer_to || 'INCOME A/C',
+      member_id: cleanedData.memberId || null, // Add member_id field
       created_at: db.fn.now(),
       updated_at: db.fn.now(),
     };
 
     const [registrationId] = await db('user_tax_registrations').insert(insertPayload);
+
+    // Update user_registrations table with reference_number if memberId is provided
+    if (cleanedData.memberId && insertPayload.reference_number) {
+      try {
+        console.log(`Attempting to update user_registrations: memberId=${cleanedData.memberId}, templeId=${effectiveTempleId}, reference_number=${insertPayload.reference_number}`);
+        
+        const updateResult = await db('user_registrations')
+          .where({ id: cleanedData.memberId, temple_id: effectiveTempleId })
+          .update({ 
+            reference_number: insertPayload.reference_number,
+            updated_at: db.fn.now()
+          });
+        
+        console.log(`Update result: ${updateResult} rows affected`);
+        console.log(`✅ Successfully updated user_registrations with reference_number ${insertPayload.reference_number} for member_id ${cleanedData.memberId}`);
+      } catch (updateError) {
+        console.error('❌ Failed to update user_registrations with reference_number:', updateError);
+        console.error('Error details:', updateError.message);
+      }
+    } else {
+      console.log(`⚠️ Skipping user_registrations update: memberId=${cleanedData.memberId}, reference_number=${insertPayload.reference_number}`);
+    }
 
     // Fetch full inserted row for logging (full data dump)
     let insertedRow = null;
@@ -270,6 +326,7 @@ router.post('/', authenticateToken, authorizePermission('tax_registrations', 'ed
           remarks: `TAX ${year} - ${insertPayload.name}`,
           reference_type: 'tax_registration',
           reference_id: registrationId,
+          reference_number: insertPayload.reference_number || null,
           temple_id: effectiveTempleId,
           created_by: req.user.id,
           created_at: db.fn.now(),
@@ -350,7 +407,14 @@ router.get('/:id/pdf', authenticateToken, authorizePermission('tax_registrations
     const token = (req.headers['authorization'] || '').split(' ')[1];
     if (!token) return res.status(400).json({ error: 'Missing token' });
     const { id } = req.params;
-    return res.redirect(`/api/tax-registrations/${id}/receipt.pdf?token=${encodeURIComponent(token)}`);
+    
+    // Validate ID is a valid number
+    const numericId = Number(id);
+    if (!Number.isInteger(numericId) || numericId <= 0) {
+      return res.status(400).json({ error: 'Invalid tax registration ID' });
+    }
+    
+    return res.redirect(`/api/tax-registrations/${numericId}/receipt.pdf?token=${encodeURIComponent(token)}`);
   } catch (err) {
     console.error('Error redirecting to receipt PDF:', err);
     res.status(500).json({ error: 'Failed to generate PDF' });
@@ -413,6 +477,12 @@ router.put('/:id', authenticateToken, authorizePermission('tax_registrations', '
     const { id } = req.params;
     const templeId = req.user.templeId;
     const body = req.body || {};
+    
+    // Validate ID is a valid number
+    const numericId = Number(id);
+    if (!Number.isInteger(numericId) || numericId <= 0) {
+      return res.status(400).json({ error: 'Invalid tax registration ID' });
+    }
 
     // Map incoming fields (from frontend) to DB columns
     const updates = {};
@@ -429,7 +499,7 @@ router.put('/:id', authenticateToken, authorizePermission('tax_registrations', '
     if (updates.outstanding_amount === undefined && (updates.tax_amount !== undefined || updates.amount_paid !== undefined)) {
       // Fetch current row to compute based on latest values
       const current = await db('user_tax_registrations')
-        .where({ id: Number(id), temple_id: templeId })
+        .where({ id: numericId, temple_id: templeId })
         .first();
       if (!current) return res.status(404).json({ error: 'Tax registration not found' });
       const tax = updates.tax_amount !== undefined ? Number(updates.tax_amount) : Number(current.tax_amount || 0);
@@ -439,24 +509,24 @@ router.put('/:id', authenticateToken, authorizePermission('tax_registrations', '
 
     // Fetch current row BEFORE applying updates for full-dump logging
     const beforeRow = await db('user_tax_registrations')
-      .where({ id: Number(id), temple_id: templeId })
+      .where({ id: numericId, temple_id: templeId })
       .first();
 
     updates.updated_at = db.fn.now();
 
     const count = await db('user_tax_registrations')
-      .where({ id: Number(id), temple_id: templeId })
+      .where({ id: numericId, temple_id: templeId })
       .update(updates);
 
     if (!count) return res.status(404).json({ error: 'Tax registration not found' });
 
     const row = await db('user_tax_registrations')
-      .where({ id: Number(id), temple_id: templeId })
+      .where({ id: numericId, temple_id: templeId })
       .first();
 
     // Log update with full before/after dumps
     await logTaxRegistrationAction({
-      taxRegistrationId: id,
+      taxRegistrationId: numericId,
       templeId,
       userId: req.user?.id,
       action: 'update',
@@ -468,7 +538,7 @@ router.put('/:id', authenticateToken, authorizePermission('tax_registrations', '
       const hasJournal = await db.schema.hasTable('journal_entries');
       if (hasJournal) {
         const existingJE = await db('journal_entries')
-          .where({ reference_type: 'tax_registration', reference_id: Number(id), temple_id: templeId })
+          .where({ reference_type: 'tax_registration', reference_id: numericId, temple_id: templeId })
           .first();
 
         const amountPaidNow = Number(row?.amount_paid || 0);
@@ -498,7 +568,7 @@ router.put('/:id', authenticateToken, authorizePermission('tax_registrations', '
               entry_type: 'transfer',
               remarks,
               reference_type: 'tax_registration',
-              reference_id: Number(id),
+              reference_id: numericId,
               temple_id: templeId,
               created_by: req.user.id,
               created_at: db.fn.now(),
@@ -525,10 +595,16 @@ router.delete('/:id', authenticateToken, authorizePermission('tax_registrations'
   try {
     const { id } = req.params;
     const templeId = req.user.templeId;
+    
+    // Validate ID is a valid number
+    const numericId = Number(id);
+    if (!Number.isInteger(numericId) || numericId <= 0) {
+      return res.status(400).json({ error: 'Invalid tax registration ID' });
+    }
 
     // Check exists and belongs to user's temple
     const existing = await db('user_tax_registrations')
-      .where({ id: Number(id), temple_id: templeId })
+      .where({ id: numericId, temple_id: templeId })
       .first();
     if (!existing) return res.status(404).json({ error: 'Tax registration not found' });
 
@@ -537,7 +613,7 @@ router.delete('/:id', authenticateToken, authorizePermission('tax_registrations'
       const hasJournal = await db.schema.hasTable('journal_entries');
       if (hasJournal) {
         await db('journal_entries')
-          .where({ reference_type: 'tax_registration', reference_id: Number(id), temple_id: templeId })
+          .where({ reference_type: 'tax_registration', reference_id: numericId, temple_id: templeId })
           .del();
       }
     } catch (e) {
@@ -545,16 +621,16 @@ router.delete('/:id', authenticateToken, authorizePermission('tax_registrations'
     }
 
     await db('user_tax_registrations')
-      .where({ id: Number(id), temple_id: templeId })
+      .where({ id: numericId, temple_id: templeId })
       .del();
 
     // Log deletion with full data dump of deleted row
     await logTaxRegistrationAction({
-      taxRegistrationId: id,
+      taxRegistrationId: numericId,
       templeId,
       userId: req.user?.id,
       action: 'delete',
-      details: existing || { id: Number(id) },
+      details: existing || { id: numericId },
     });
 
     res.json({ success: true });

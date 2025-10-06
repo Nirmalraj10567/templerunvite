@@ -51,6 +51,7 @@ export default function TaxUserEntryPage() {
     outstandingAmount: '',
     fromAccount: 'TAX A/C',
     transferTo: 'INCOME A/C',
+    memberId: '', // Add member_id field
   });
 
   const [newUser, setNewUser] = useState({
@@ -286,19 +287,7 @@ export default function TaxUserEntryPage() {
     return () => clearTimeout(t);
   }, [form.mobileNumber]);
 
-  // Auto-lookup for receipt number (uses separate search box)
-  useEffect(() => {
-    const receipt = receiptSearch?.trim() || '';
-    if (receipt.length < 3) return;
-    const t = setTimeout(() => {
-      try {
-        lookupByReceiptNumber(receipt);
-      } catch (e) {
-        console.error('Auto receipt lookup error:', e);
-      }
-    }, 500);
-    return () => clearTimeout(t);
-  }, [receiptSearch]);
+  // Manual search only - no auto-lookup for reference number
 
   // Auto-fill: default Amount to be paid from Outstanding (or Tax Amount) if empty
   useEffect(() => {
@@ -395,6 +384,7 @@ export default function TaxUserEntryPage() {
       maleHeirs: userData.male_heirs || 0,
       femaleHeirs: userData.female_heirs || 0,
       mobileNumber: userData.mobile_number ? formatMobileNumber(userData.mobile_number) : prev.mobileNumber,
+      memberId: userData.reference_number ? userData.reference_number.toString() : '', // Set member_id from user registration
     }));
     // Enable lock after autofill
     setAutoLocked(true);
@@ -547,7 +537,7 @@ export default function TaxUserEntryPage() {
 
     try {
       console.log('Fetching results for receipt:', cleanReceipt);
-      // Search in user_registrations table for existing user data using receipt number
+      // Search in user_registrations table for existing user data using reference number
       const response = await fetch(`http://localhost:4000/api/registrations?search=${encodeURIComponent(cleanReceipt)}&pageSize=10`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -561,16 +551,16 @@ export default function TaxUserEntryPage() {
           // Auto-fill the first matching result
           const userData = rows[0];
           fillFormFromRegistration(userData);
-          showSuccessAlert(`✅ Found: ${userData.name} - Receipt ${userData.reference_number}`);
+          showSuccessAlert(`✅ Found: ${userData.name} - Reference ${userData.reference_number} (Member ID: ${userData.id || 'N/A'})`);
         } else {
-          setErr(L('No registration found with this receipt number', 'இந்த ரசீது எண்ணுடன் பதிவு இல்லை'));
+          setErr(L('No user registration found with this reference number', 'இந்த குறிப்பு எண்ணுடன் பயனர் பதிவு இல்லை'));
         }
       } else {
-        setErr(L('Failed to search receipt number', 'ரசீது எண்ணைத் தேட முடியவில்லை'));
+        setErr(L('Failed to search reference number', 'குறிப்பு எண்ணைத் தேட முடியவில்லை'));
       }
     } catch (error) {
       console.error('Error looking up receipt:', error);
-      setErr(L('Error searching receipt number', 'ரசீது எண்ணைத் தேடுவதில் பிழை'));
+      setErr(L('Error searching reference number', 'குறிப்பு எண்ணைத் தேடுவதில் பிழை'));
     } finally {
       setLookingUp(false);
     }
@@ -896,6 +886,8 @@ export default function TaxUserEntryPage() {
       formData.append('fromAccount', (form as any).fromAccount || 'TAX A/C');
       formData.append('transferTo', (form as any).transferTo || 'INCOME A/C');
       formData.append('templeId', user.templeId.toString());
+      // Add member_id field - this should be populated when user is found via lookup
+      formData.append('memberId', (form as any).memberId || '');
 
       // Append heirs as JSON array if present
       if (newUser.heirs && newUser.heirs.length > 0) {
@@ -967,6 +959,7 @@ export default function TaxUserEntryPage() {
         outstandingAmount: '',
         fromAccount: 'TAX A/C',
         transferTo: 'INCOME A/C',
+        memberId: '', // Reset member_id field
       });
 
       setNewUser({
@@ -1012,6 +1005,7 @@ export default function TaxUserEntryPage() {
       outstandingAmount: '',
       fromAccount: 'TAX A/C',
       transferTo: 'INCOME A/C',
+      memberId: '', // Reset member_id field
     });
     // Fetch tax amount for current year after clearing
     fetchTaxAmountForYear(currentYear);
@@ -1115,7 +1109,7 @@ export default function TaxUserEntryPage() {
 
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">
-                      {L('Receipt No Search', 'ரசீது எண் தேடல்')}
+                      {L('Reference No Search', 'குறிப்பு எண் தேடல்')}
                       {lookingUp && <span className="ml-2 text-blue-600 text-xs">🔍 {L('Searching...', 'தேடுகிறது...')}</span>}
                     </label>
                     <div className="flex gap-1">
@@ -1123,21 +1117,21 @@ export default function TaxUserEntryPage() {
                         className="w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent border-gray-300"
                         value={receiptSearch}
                         onChange={e => setReceiptSearch(e.target.value)}
-                        placeholder={L('Enter receipt number to search', 'ரசீது எண்ணைத் தட்டச்சு செய்து தேடு')}
-                        title={L('Enter receipt number to auto-fill details', 'ரசீது எண்ணை உள்ளிட்டு விவரங்களை தானாக நிரப்பு')}
+                        placeholder={L('Enter reference number to search', 'குறிப்பு எண்ணைத் தட்டச்சு செய்து தேடு')}
+                        title={L('Enter reference number to auto-fill details', 'குறிப்பு எண்ணை உள்ளிட்டு விவரங்களை தானாக நிரப்பு')}
                       />
                       <button
                         type="button"
                         onClick={() => lookupByReceiptNumber(receiptSearch)}
                         disabled={!receiptSearch.trim() || lookingUp}
                         className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title={L('Search by receipt number', 'ரசீது எண்ணால் தேடு')}
+                        title={L('Search by reference number', 'குறிப்பு எண்ணால் தேடு')}
                       >
                         🔍
                       </button>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
-                      💡 {L('Search with an existing receipt number to auto-fill details', 'இருந்த ரசீது எண்ணை உள்ளிட்டு விவரங்களை தானாக நிரப்பு')}
+                      💡 {L('Search with an existing reference number to auto-fill details', 'இருந்த குறிப்பு எண்ணை உள்ளிட்டு விவரங்களை தானாக நிரப்பு')}
                     </p>
                   </div>
                   

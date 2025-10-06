@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { FileDown } from 'lucide-react';
+import { FileDown, Trash2 } from 'lucide-react';
 import { cn, pageContainerStyles, formFieldStyles } from '@/styles/formStyles';
 
 type TaxRegistration = {
@@ -20,6 +20,21 @@ type TaxRegistration = {
   tax_amount?: number;
   amount_paid?: number;
   outstanding_amount?: number;
+  // Additional member fields
+  alternative_name?: string;
+  wife_name?: string;
+  education?: string;
+  occupation?: string;
+  father_name?: string;
+  address?: string;
+  birth_date?: string;
+  pan_number?: string;
+  clan?: string;
+  group?: string;
+  postal_code?: string;
+  male_heirs?: number;
+  female_heirs?: number;
+  member_id?: number;
 };
 
 export default function TaxUserListPage() {
@@ -42,26 +57,50 @@ export default function TaxUserListPage() {
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / pageSize)), [total, pageSize]);
 
   // Column Keys
-  type ColKey = 'name' | 'mobile_number' | 'aadhaar_number' | 'reference_number' | 'village' | 'created_at' | 'status' | 'actions';
+  type ColKey = 'name' | 'mobile_number' | 'aadhaar_number' | 'reference_number' | 'village' | 'created_at' | 'status' | 'actions' | 'father_name' | 'education' | 'occupation' | 'clan' | 'group' | 'address' | 'birth_date' | 'pan_number' | 'postal_code' | 'male_heirs' | 'female_heirs' | 'member_id';
 
   const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' | 'center' }> = [
     { key: 'name', label: t('Name', 'பெயர்') },
     { key: 'mobile_number', label: t('Mobile', 'தொலைபேசி') },
     { key: 'aadhaar_number', label: t('Aadhaar', 'ஆதார்') },
     { key: 'reference_number', label: t('Ref No', 'குறிப்பு எண்') },
+    { key: 'father_name', label: t('Father Name', 'தந்தை பெயர்') },
+    { key: 'education', label: t('Education', 'கல்வி') },
+    { key: 'occupation', label: t('Occupation', 'தொழில்') },
+    { key: 'clan', label: t('Clan', 'குலம்') },
+    { key: 'group', label: t('Group', 'குழு') },
     { key: 'village', label: t('Village', 'கிராமம்') },
+    { key: 'address', label: t('Address', 'முகவரி') },
+    { key: 'birth_date', label: t('Birth Date', 'பிறந்த தேதி') },
+    { key: 'pan_number', label: t('PAN', 'பான்') },
+    { key: 'postal_code', label: t('Postal Code', 'அஞ்சல் குறியீடு') },
+    { key: 'male_heirs', label: t('Male Heirs', 'ஆண் வாரிசு'), align: 'center' },
+    { key: 'female_heirs', label: t('Female Heirs', 'பெண் வாரிசு'), align: 'center' },
+    { key: 'member_id', label: t('Member ID', 'உறுப்பினர் ஐடி'), align: 'center' },
     { key: 'created_at', label: t('Created', 'உருவாக்கப்பட்டது') },
     { key: 'status', label: t('Status', 'நிலை'), align: 'center' },
     { key: 'actions', label: t('Actions', 'செயல்கள்'), align: 'center' },
   ];
 
-  const STORAGE_KEY = 'tax_user_list_visible_columns_v1';
+  const STORAGE_KEY = 'tax_user_list_visible_columns_v2';
   const defaultVisible: Record<ColKey, boolean> = {
     name: true,
     mobile_number: true,
     aadhaar_number: true,
     reference_number: true,
+    father_name: true,
+    education: false,
+    occupation: false,
+    clan: false,
+    group: false,
     village: true,
+    address: false,
+    birth_date: false,
+    pan_number: false,
+    postal_code: false,
+    male_heirs: false,
+    female_heirs: false,
+    member_id: false,
     created_at: true,
     status: true,
     actions: true,
@@ -487,6 +526,18 @@ export default function TaxUserListPage() {
     village: '',
     tax_amount: '' as string,
     amount_paid: '' as string,
+    // Additional member fields
+    father_name: '',
+    education: '',
+    occupation: '',
+    clan: '',
+    group: '',
+    address: '',
+    birth_date: '',
+    pan_number: '',
+    postal_code: '',
+    male_heirs: '' as string,
+    female_heirs: '' as string,
   });
   const [editErrors, setEditErrors] = useState<{
     name?: string;
@@ -496,6 +547,17 @@ export default function TaxUserListPage() {
     village?: string;
     tax_amount?: string;
     amount_paid?: string;
+    father_name?: string;
+    education?: string;
+    occupation?: string;
+    clan?: string;
+    group?: string;
+    address?: string;
+    birth_date?: string;
+    pan_number?: string;
+    postal_code?: string;
+    male_heirs?: string;
+    female_heirs?: string;
   }>({});
 
   // Logs modal state
@@ -612,6 +674,18 @@ export default function TaxUserListPage() {
       village: row.village || '',
       tax_amount: (row.tax_amount ?? '').toString(),
       amount_paid: (row.amount_paid ?? '').toString(),
+      // Additional member fields
+      father_name: row.father_name || '',
+      education: row.education || '',
+      occupation: row.occupation || '',
+      clan: row.clan || '',
+      group: row.group || '',
+      address: row.address || '',
+      birth_date: row.birth_date || '',
+      pan_number: row.pan_number || '',
+      postal_code: row.postal_code || '',
+      male_heirs: (row.male_heirs ?? '').toString(),
+      female_heirs: (row.female_heirs ?? '').toString(),
     });
     setEditErrors({});
   };
@@ -632,6 +706,18 @@ export default function TaxUserListPage() {
         aadhaar_number: editForm.aadhaar_number || null,
         reference_number: editForm.reference_number,
         village: editForm.village,
+        // Additional member fields
+        father_name: editForm.father_name,
+        education: editForm.education,
+        occupation: editForm.occupation,
+        clan: editForm.clan,
+        group: editForm.group,
+        address: editForm.address,
+        birth_date: editForm.birth_date,
+        pan_number: editForm.pan_number,
+        postal_code: editForm.postal_code,
+        male_heirs: editForm.male_heirs ? Number(editForm.male_heirs) : undefined,
+        female_heirs: editForm.female_heirs ? Number(editForm.female_heirs) : undefined,
       };
       // include numeric fields if provided
       const taxN = editForm.tax_amount?.trim() ? Number(editForm.tax_amount) : undefined;
@@ -739,6 +825,21 @@ export default function TaxUserListPage() {
           tax_amount: tax,
           amount_paid: paid,
           outstanding_amount: outstanding,
+          // Additional member fields
+          alternative_name: r.alternative_name,
+          wife_name: r.wife_name,
+          education: r.education,
+          occupation: r.occupation,
+          father_name: r.father_name,
+          address: r.address,
+          birth_date: r.birth_date,
+          pan_number: r.pan_number,
+          clan: r.clan,
+          group: r.group,
+          postal_code: r.postal_code,
+          male_heirs: r.male_heirs,
+          female_heirs: r.female_heirs,
+          member_id: r.member_id,
         } as TaxRegistration;
       });
 
@@ -1099,9 +1200,69 @@ export default function TaxUserListPage() {
                         {r.reference_number || '-'}
                       </TableCell>
                     )}
+                    {visibleCols.father_name && (
+                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                        {r.father_name || '-'}
+                      </TableCell>
+                    )}
+                    {visibleCols.education && (
+                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                        {r.education || '-'}
+                      </TableCell>
+                    )}
+                    {visibleCols.occupation && (
+                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                        {r.occupation || '-'}
+                      </TableCell>
+                    )}
+                    {visibleCols.clan && (
+                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                        {r.clan || '-'}
+                      </TableCell>
+                    )}
+                    {visibleCols.group && (
+                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                        {r.group || '-'}
+                      </TableCell>
+                    )}
                     {visibleCols.village && (
                       <TableCell className={formFieldStyles.moneyDonationList.table.td}>
                         {r.village || '-'}
+                      </TableCell>
+                    )}
+                    {visibleCols.address && (
+                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                        {r.address || '-'}
+                      </TableCell>
+                    )}
+                    {visibleCols.birth_date && (
+                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                        {r.birth_date ? new Date(r.birth_date).toLocaleDateString(language === 'tamil' ? 'ta-IN' : 'en-IN') : '-'}
+                      </TableCell>
+                    )}
+                    {visibleCols.pan_number && (
+                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                        {r.pan_number || '-'}
+                      </TableCell>
+                    )}
+                    {visibleCols.postal_code && (
+                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                        {r.postal_code || '-'}
+                      </TableCell>
+                    )}
+                    {visibleCols.male_heirs && (
+                      <TableCell className={cn(formFieldStyles.moneyDonationList.table.td, formFieldStyles.moneyDonationList.table.tdCenter)}>
+                        {r.male_heirs || 0}
+                      </TableCell>
+                    )}
+                    {visibleCols.female_heirs && (
+                      <TableCell className={cn(formFieldStyles.moneyDonationList.table.td, formFieldStyles.moneyDonationList.table.tdCenter)}>
+                        {r.female_heirs || 0}
+                      </TableCell>
+                    )}
+                    {visibleCols.member_id && (
+                      <TableCell className={cn(formFieldStyles.moneyDonationList.table.td, formFieldStyles.moneyDonationList.table.tdCenter)}>
+                        {r.member_id || '-'}
                       </TableCell>
                     )}
                     {visibleCols.created_at && (
@@ -1164,13 +1325,14 @@ export default function TaxUserListPage() {
                             {t('Edit', 'திருத்து')}
                           </Button>
                           <Button
-                            variant="destructive"
+                            variant="outline"
                             size="sm"
                             onClick={() => handleDelete(r)}
                             disabled={r.id < 0}
                             className={formFieldStyles.moneyDonationList.actionButtons.delete}
+                            title={t('Delete', 'நீக்கு')}
                           >
-                            {t('Delete', 'நீக்கு')}
+                            <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
                       </TableCell>
@@ -1798,6 +1960,22 @@ export default function TaxUserListPage() {
               <div>
                 <Label className="text-xs">{t('Village', 'கிராமம்')}</Label>
                 <Input value={editForm.village} onChange={(e) => setEditForm({ ...editForm, village: e.target.value })} className="text-xs py-1" />
+              </div>
+              <div>
+                <Label className="text-xs">{t('Father Name', 'தந்தை பெயர்')}</Label>
+                <Input value={editForm.father_name} onChange={(e) => setEditForm({ ...editForm, father_name: e.target.value })} className="text-xs py-1" />
+              </div>
+              <div>
+                <Label className="text-xs">{t('Education', 'கல்வி')}</Label>
+                <Input value={editForm.education} onChange={(e) => setEditForm({ ...editForm, education: e.target.value })} className="text-xs py-1" />
+              </div>
+              <div>
+                <Label className="text-xs">{t('Occupation', 'தொழில்')}</Label>
+                <Input value={editForm.occupation} onChange={(e) => setEditForm({ ...editForm, occupation: e.target.value })} className="text-xs py-1" />
+              </div>
+              <div>
+                <Label className="text-xs">{t('Address', 'முகவரி')}</Label>
+                <Input value={editForm.address} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} className="text-xs py-1" />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
