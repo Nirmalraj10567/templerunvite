@@ -9,7 +9,7 @@ const data = JSON.parse(fs.readFileSync(inputFile, 'utf-8'));
 // Create files from the parsed data
 data.files.forEach(file => {
   try {
-    const filePath = file.name;
+    const filePath = file.name;¯
     
     // Ensure folders exist
     fs.mkdirSync(path.dirname(filePath), { recursive: true });

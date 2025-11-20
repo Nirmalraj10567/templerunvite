@@ -44,19 +44,63 @@ export default function DashboardLayout() {
   const mainScrollRef = React.useRef<HTMLDivElement>(null);
   const headerRef = React.useRef<HTMLElement>(null);
 
-  // Handle scroll to show/hide header
+  // Handle scroll to show/hide header with advanced debouncing
   useEffect(() => {
+    let scrollTimeout: NodeJS.Timeout;
+    let ticking = false;
+    let isScrolling = false;
+    let scrollEndTimeout: NodeJS.Timeout;
+
     const handleScroll = () => {
-      if (!mainScrollRef.current) return;
+      if (!mainScrollRef.current || ticking) return;
       
-      const currentScrollY = mainScrollRef.current.scrollTop;
-      const scrollingDown = currentScrollY > lastScrollY;
+      ticking = true;
+      isScrolling = true;
       
-      // Only trigger if scrolled more than 10px to prevent jitter
-      if (Math.abs(currentScrollY - lastScrollY) > 10) {
-        setHeaderVisible(!scrollingDown || currentScrollY < 10);
-        setLastScrollY(currentScrollY);
-      }
+      requestAnimationFrame(() => {
+        if (!mainScrollRef.current) {
+          ticking = false;
+          return;
+        }
+        
+        const currentScrollY = mainScrollRef.current.scrollTop;
+        const scrollingDown = currentScrollY > lastScrollY;
+        const scrollDifference = Math.abs(currentScrollY - lastScrollY);
+        
+        // Clear any existing timeouts
+        if (scrollTimeout) {
+          clearTimeout(scrollTimeout);
+        }
+        if (scrollEndTimeout) {
+          clearTimeout(scrollEndTimeout);
+        }
+        
+        // Only update if scrolled more than 25px to prevent jitter
+        if (scrollDifference > 25) {
+          const shouldShowHeader = !scrollingDown || currentScrollY < 50;
+          
+          // Immediate update for large scrolls, delayed for smaller ones
+          if (scrollDifference > 100) {
+            setHeaderVisible(shouldShowHeader);
+            setLastScrollY(currentScrollY);
+            ticking = false;
+          } else {
+            // Add a delay to prevent rapid state changes
+            scrollTimeout = setTimeout(() => {
+              setHeaderVisible(shouldShowHeader);
+              setLastScrollY(currentScrollY);
+              ticking = false;
+            }, 100);
+          }
+        } else {
+          ticking = false;
+        }
+        
+        // Reset scrolling flag after a delay
+        scrollEndTimeout = setTimeout(() => {
+          isScrolling = false;
+        }, 150);
+      });
     };
 
     const scrollContainer = mainScrollRef.current;
@@ -67,6 +111,12 @@ export default function DashboardLayout() {
     return () => {
       if (scrollContainer) {
         scrollContainer.removeEventListener('scroll', handleScroll);
+      }
+      if (scrollTimeout) {
+        clearTimeout(scrollTimeout);
+      }
+      if (scrollEndTimeout) {
+        clearTimeout(scrollEndTimeout);
       }
     };
   }, [lastScrollY]);
@@ -705,6 +755,26 @@ export default function DashboardLayout() {
           scroll-margin: 0;
           scroll-padding: 0;
         }
+        
+        /* Prevent bounce and improve scroll performance */
+        html, body {
+          overscroll-behavior: none;
+          -webkit-overflow-scrolling: touch;
+        }
+        
+        /* Smooth transitions for header */
+        .header-transition {
+          transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+                     opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                     transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          will-change: height, opacity, transform;
+        }
+        
+        /* Prevent layout shift during transitions */
+        .main-content {
+          transition: padding-top 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+          will-change: padding-top;
+        }
       `}</style>
       <div className="relative h-screen w-full flex overflow-hidden bg-gradient-to-br from-slate-50 to-blue-50">
       {/* Mobile menu button */}
@@ -725,8 +795,8 @@ export default function DashboardLayout() {
       <div ref={mainContentRef} className="flex-1 flex flex-col overflow-hidden">
         <header 
           ref={headerRef}
-          className={`flex items-center justify-between h-20 bg-white/80 backdrop-blur-lg border-b 
-                     border-blue-200/50 px-6 shadow-sm transition-all duration-300 ease-in-out
+          className={`flex items-center justify-between bg-white/80 backdrop-blur-lg border-b 
+                     border-blue-200/50 px-6 shadow-sm
                      ${headerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full'}`}
           style={{
             position: 'sticky',
@@ -734,6 +804,8 @@ export default function DashboardLayout() {
             zIndex: 20,
             height: headerVisible ? '5rem' : '0',
             overflow: headerVisible ? 'visible' : 'hidden',
+            transition: 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            willChange: 'height, opacity, transform',
           }}>
           {/* Left side: optional view-only badge */}
           <div className="flex items-center gap-3">
@@ -750,11 +822,18 @@ export default function DashboardLayout() {
           ref={mainScrollRef} 
           className={`flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 to-blue-50 
                      scrollbar-thin scrollbar-thumb-blue-400 scrollbar-track-transparent 
-                     hover:scrollbar-thumb-blue-500 transition-all duration-300 
+                     hover:scrollbar-thumb-blue-500
                      ${headerVisible ? 'pt-2' : 'pt-0'}`} 
           data-view-only={isViewOnlyForRoute ? 'true' : 'false'}
-          style={{ WebkitOverflowScrolling: 'touch' }}>
-          <div className={`${headerVisible ? 'pb-8' : 'py-8'} px-8`}>
+          style={{ 
+            WebkitOverflowScrolling: 'touch',
+            transition: 'padding-top 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+            willChange: 'padding-top'
+          }}>
+          <div className={`${headerVisible ? 'pb-8' : 'py-8'} px-8`} style={{
+            transition: 'padding 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+            willChange: 'padding'
+          }}>
             <div className="max-w-7xl mx-auto">
               <Outlet />
             </div>

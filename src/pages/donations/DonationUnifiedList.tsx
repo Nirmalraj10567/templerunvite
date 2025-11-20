@@ -37,6 +37,10 @@ export default function DonationUnifiedList() {
   const [to, setTo] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'money' | 'product'>('all');
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
   // Visible columns (union of both types)
@@ -304,6 +308,17 @@ export default function DonationUnifiedList() {
     }
   };
 
+  // Pagination logic
+  const totalPages = Math.ceil(rows.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedRows = rows.slice(startIndex, endIndex);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [q, from, to, typeFilter]);
+
   // Totals
   const totals = useMemo(() => {
     return rows.reduce((acc, r) => {
@@ -404,9 +419,9 @@ export default function DonationUnifiedList() {
                     </td>
                   </tr>
                 ) : (
-                  rows.map((r, idx) => (
+                  paginatedRows.map((r, idx) => (
                     <tr key={`${r.type}-${r.id}`} className={formFieldStyles.moneyDonationList.table.tr}>
-                      {visibleCols['#'] && <td className={formFieldStyles.moneyDonationList.table.td}>{idx + 1}</td>}
+                      {visibleCols['#'] && <td className={formFieldStyles.moneyDonationList.table.td}>{startIndex + idx + 1}</td>}
                       {visibleCols['type'] && <td className={formFieldStyles.moneyDonationList.table.td}>{r.type === 'money' ? t('Money', 'பணம்') : t('Product', 'பொருள்')}</td>}
                       {visibleCols['receipt'] && <td className={formFieldStyles.moneyDonationList.table.td}>{r.registerNo || '-'}</td>}
                       {visibleCols['date'] && <td className={formFieldStyles.moneyDonationList.table.td}>{(r.date || '').slice(0,10) || '-'}</td>}
@@ -462,8 +477,12 @@ export default function DonationUnifiedList() {
           {/* Summary */}
           <div className={formFieldStyles.moneyDonationList.summary.container}>
             <div className={formFieldStyles.moneyDonationList.summary.info}>
-              {t('Showing', 'காட்டப்படுகிறது')} <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>1</span> {t('to', 'இலிருந்து')}{' '}
-              <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{rows.length}</span> {t('of', 'மொத்தம்')}{' '}
+              {t('Showing', 'காட்டப்படுகிறது')} <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>
+                {rows.length > 0 ? startIndex + 1 : 0}
+              </span> {t('to', 'இலிருந்து')}{' '}
+              <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>
+                {Math.min(endIndex, rows.length)}
+              </span> {t('of', 'மொத்தம்')}{' '}
               <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{rows.length}</span> {t('results', 'முடிவுகள்')}
             </div>
             <div className={formFieldStyles.moneyDonationList.summary.total}>
@@ -475,6 +494,75 @@ export default function DonationUnifiedList() {
               </span>
             </div>
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-700">
+                  {t('Page', 'பக்கம்')} {currentPage} {t('of', 'இலிருந்து')} {totalPages}
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {/* Previous button */}
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className={`px-3 py-1 text-sm rounded-md border transition-colors ${
+                    currentPage === 1
+                      ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {t('Previous', 'முந்தையது')}
+                </button>
+
+                {/* Page numbers */}
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`px-3 py-1 text-sm rounded-md border transition-colors ${
+                          currentPage === pageNum
+                            ? 'bg-blue-500 text-white border-blue-500'
+                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Next button */}
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className={`px-3 py-1 text-sm rounded-md border transition-colors ${
+                    currentPage === totalPages
+                      ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {t('Next', 'அடுத்தது')}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Context menu for column toggle */}

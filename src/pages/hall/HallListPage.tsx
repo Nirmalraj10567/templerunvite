@@ -53,7 +53,7 @@ export default function HallListPage() {
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(10);
   const [totalRecords, setTotalRecords] = useState(0);
   
   // Logs state
@@ -316,7 +316,13 @@ export default function HallListPage() {
     );
   }, [rows]);
 
-  const fetchData = async (page: number = currentPage) => {
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1); // Reset to first page when changing page size
+    fetchData(1, newPageSize);
+  };
+
+  const fetchData = async (page: number = currentPage, limit: number = pageSize) => {
     setLoading(true);
     setError(undefined);
     try {
@@ -326,7 +332,7 @@ export default function HallListPage() {
       if (to) params.set('to', to);
       params.set('sort', 'desc'); // Add descending order parameter
       params.set('page', page.toString());
-      params.set('limit', pageSize.toString());
+      params.set('limit', limit.toString());
       const url = 'https://tmsapi.xesstechlink.com/api/hall-bookings' + (params.toString() ? `?${params.toString()}` : '');
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error('Failed');
@@ -544,7 +550,7 @@ export default function HallListPage() {
                 rows.map((r, idx) => (
                   <tr key={r.id} className={formFieldStyles.moneyDonationList.table.tr}>
                     {visibleCols.register_no && (
-                      <td className={cn(formFieldStyles.moneyDonationList.table.td, formFieldStyles.moneyDonationList.table.tdLeft)}>
+                      <td className={formFieldStyles.moneyDonationList.table.td}>
                         {r.register_no || '-'}
                       </td>
                     )}
@@ -661,8 +667,8 @@ export default function HallListPage() {
         </div>
 
         {/* Footer */}
-        <div className={formFieldStyles.moneyDonationList.table.footer}>
-          <div className={formFieldStyles.moneyDonationList.table.footerText}>
+        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
+          <div className="text-sm text-gray-700">
             {t('Showing', 'காட்டப்படுகிறது')}{' '}
             <span className="font-medium">{(currentPage - 1) * pageSize + 1}</span> {t('to', 'இலிருந்து')}{' '}
             <span className="font-medium">{Math.min(currentPage * pageSize, totalRecords)}</span> {t('of', 'மொத்தம்')}{' '}
@@ -685,7 +691,7 @@ export default function HallListPage() {
 
 
       {/* Pagination Controls */}
-      {totalRecords >= pageSize && (
+      {totalRecords > 0 && (
         <div className="mt-3 flex justify-center items-center gap-2">
           <button
             onClick={() => {
@@ -742,6 +748,23 @@ export default function HallListPage() {
           >
             {t('Next', 'அடுத்து')}
           </button>
+
+          {/* Page Size Selector */}
+          <div className="flex items-center gap-1 ml-4">
+            <span className="text-xs text-gray-600">{t('Show', 'காட்டு')}:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+              className="border px-2 py-1 rounded text-xs bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {Array.from({ length: 10 }, (_, i) => i + 1).map(size => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+            <span className="text-xs text-gray-600">{t('per page', 'பக்கம்')}</span>
+          </div>
         </div>
       )}
 

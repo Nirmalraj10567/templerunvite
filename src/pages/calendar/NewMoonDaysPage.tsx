@@ -42,9 +42,28 @@ const MOON_ICONS = {
   LAST_QUARTER: '🌗'
 };
 
+// Helper to validate API responses
+function isValidMoonPhaseArray(data: unknown): data is MoonPhase[] {
+  return Array.isArray(data) && data.every(item => 
+    typeof item === 'object' && 
+    item !== null && 
+    typeof item.date === 'string' && 
+    typeof item.phase === 'string' &&
+    Object.keys(MOON_PHASES).includes(item.phase)
+  );
+}
+
+function isValidSavedDateArray(data: unknown): data is SavedDate[] {
+  return Array.isArray(data) && data.every(item => 
+    typeof item === 'object' && 
+    item !== null && 
+    typeof item.date === 'string'
+  );
+}
+
 async function fetchMoonPhases(startDate: Date, endDate: Date, token: string | null): Promise<MoonPhase[]> {
   try {
-    const response = await axios.get<MoonPhase[]>('https://tmsapi.xesstechlink.com/api/moon-phases', {
+    const response = await axios.get('https://tmsapi.xesstechlink.com/api/moon-phases', {
       params: {
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString()
@@ -54,21 +73,25 @@ async function fetchMoonPhases(startDate: Date, endDate: Date, token: string | n
         ...(token ? { Authorization: `Bearer ${token}` } : {})
       }
     });
-    return response.data || [];
+
+    if (isValidMoonPhaseArray(response.data)) {
+      return response.data;
+    }
+    console.warn('Invalid moon phases response format:', response.data);
+    return [];
   } catch (error) {
     console.error('Failed to fetch moon phases:', error);
     return [];
   }
 }
 
-// Storage utilities
 const loadSavedDates = async (token: string | null): Promise<SavedDate[]> => {
   try {
     const now = new Date();
     const start = startOfMonth(addMonths(now, -1));
     const end = endOfMonth(addMonths(now, 1));
     
-    const response = await axios.get<SavedDate[]>('/api/moon-dates', {
+    const response = await axios.get('/api/moon-dates', {
       params: {
         startDate: start.toISOString(),
         endDate: end.toISOString()
@@ -77,7 +100,12 @@ const loadSavedDates = async (token: string | null): Promise<SavedDate[]> => {
         ...(token ? { Authorization: `Bearer ${token}` } : {})
       }
     });
-    return response.data;
+
+    if (isValidSavedDateArray(response.data)) {
+      return response.data;
+    }
+    console.warn('Invalid saved dates response format:', response.data);
+    return [];
   } catch (error) {
     console.error('Failed to load saved dates:', error);
     return [];
@@ -116,9 +144,9 @@ export default function NewMoonDaysPage() {
   const { token } = useAuth();
   const { language } = useLanguage();
   
-  // Fixed translation object (Tamil/English labels were swapped)
+  
   const translations = {
-    tamil: {
+    english: {
       title: 'அமாவாசை நாட்கள்',
       previous: 'முந்தையது',
       today: 'இன்று',
@@ -153,7 +181,7 @@ export default function NewMoonDaysPage() {
         LAST_QUARTER: 'கடைசி காலம்',
       },
     },
-    english: {
+    tamil: {
       title: 'New Moon Days',
       previous: 'Previous',
       today: 'Today',
@@ -189,8 +217,9 @@ export default function NewMoonDaysPage() {
       },
     },
   } as const;
-  const lang = (String(language).toLowerCase() === 'english' ? 'tamil' : 'english') as 'tamil' | 'english';
 
+  // Fixed language logic: English should use 'english', Tamil should use 'tamil'
+  const lang = (String(language).toLowerCase() === 'tamil' ? 'tamil' : 'english') as 'english' | 'tamil';
   const t = translations[lang];
 
   const getPhaseLabel = useCallback((phase: keyof typeof MOON_PHASES) => {
@@ -222,38 +251,39 @@ export default function NewMoonDaysPage() {
     fetchMoonPhases(rangeStart, rangeEnd, token).then(setMoonPhases);
   }, [rangeStart, rangeEnd, token]);
 
-  // Load saved dates on mount and when month changes
+  // Load saved dates on mount and when token changes
   useEffect(() => {
     const loadData = async () => {
-      try {
-        const dates = await loadSavedDates(token);
-        setSavedDates(dates);
-      } catch (error) {
-        console.error('Failed to load dates:', error);
-      }
+      const dates = await loadSavedDates(token);
+      setSavedDates(dates);
     };
-    
     loadData();
   }, [token]);
 
-  // Helper to check if a date is saved
   const isDateSaved = useCallback((date: Date) => {
     return savedDates.some(d => isSameDay(parseISO(d.date), date));
   }, [savedDates]);
 
+  // 🔥 CRITICAL FIX: Never include null in modifiers
   const modifiers = useMemo(() => {
     const mods: Record<string, Date | Date[] | { from: Date; to: Date }> = {
       today: new Date(),
-      selected: selectedDate,
-      saved: (savedDates ?? []).map(d => parseISO(d.date)),
+      saved: savedDates.map(d => parseISO(d.date)),
     };
+
+    // Only add selected if it's a valid Date
+    if (selectedDate) {
+      mods.selected = selectedDate;
+    }
 
     // Add moon phase modifiers
     Object.entries(MOON_PHASES).forEach(([phase]) => {
       const phaseDates = moonPhases
         .filter(p => p.phase === phase)
         .map(p => parseISO(p.date));
-      mods[phase.toLowerCase()] = phaseDates;
+      if (phaseDates.length > 0) {
+        mods[phase.toLowerCase()] = phaseDates;
+      }
     });
 
     // Add range selection
@@ -421,9 +451,7 @@ export default function NewMoonDaysPage() {
         end: rangeSelection.to
       });
       
-      const newDates = datesInRange.filter(date => 
-        !isDateSaved(date)
-      );
+      const newDates = datesInRange.filter(date => !isDateSaved(date));
       
       if (newDates.length > 0) {
         const updatedDates = [...savedDates, ...newDates.map(d => ({ date: d.toISOString(), label: '' }))].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
