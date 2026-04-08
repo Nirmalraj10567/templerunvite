@@ -171,3 +171,16 @@ If in a subfolder, ensure the folder is the site root for that domain/subdomai
 
 
 
+
+Chart #77: Properties Management Flow
+
+This flowchart includes:
+
+✅ Source tracking (Purchase/Donation/Other)
+✅ "10 comes from where" tracking (Audio set example)
+✅ Convert asset to cash feature
+
+Pooja Management System Flow	#36
+Annadhanam (Free Meal Service) Flow	#88
+User Registration Flow	#3
+Tax Registration System Flow	#70
