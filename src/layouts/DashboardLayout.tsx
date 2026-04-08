@@ -381,6 +381,35 @@ export default function DashboardLayout() {
     );
   }, [flatRoutes, searchQuery]);
 
+  // Compute current page title from route
+  const pageTitle = useMemo(() => {
+    const path = location.pathname;
+    console.log('Current path:', path);
+    console.log('Flat routes:', flatRoutes);
+    
+    // Find exact match first
+    const exactMatch = flatRoutes.find(r => {
+      const routePath = normalizePath(r.to);
+      console.log('Comparing:', routePath, 'with', path);
+      return routePath === path || path.endsWith('/' + r.to);
+    });
+    
+    if (exactMatch) {
+      console.log('Found exact match:', exactMatch.label);
+      return exactMatch.label;
+    }
+    
+    // Find prefix match (for routes with params like /edit/:id)
+    const prefixMatch = flatRoutes.find(r => {
+      const routePath = normalizePath(r.to);
+      return path.startsWith(routePath + '/') || path.startsWith('/dashboard/' + r.to + '/');
+    });
+    
+    const title = prefixMatch?.label || '';
+    console.log('Final page title:', title);
+    return title;
+  }, [location.pathname, flatRoutes]);
+
   // Global keyboard shortcuts from user settings
   const routeByShortcut = useMemo(() => {
     const mapping: Record<string, string> = {};
@@ -815,7 +844,7 @@ export default function DashboardLayout() {
               </span>
             )}
           </div>
-          <Header />
+          <Header pageTitle={pageTitle} />
         </header>
         
         <main 

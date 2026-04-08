@@ -1,0 +1,1637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temple Management System - Flowcharts Preview</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        h1 { 
+            text-align: center; 
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 20px;
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: transform 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        }
+        .card-header {
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .card-body {
+            padding: 15px;
+        }
+        .card-image {
+            width: 100%;
+            height: auto;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .card-meta {
+            padding: 10px 15px;
+            background: #f9f9f9;
+            font-size: 12px;
+            color: #666;
+            display: flex;
+            justify-content: space-between;
+        }
+        .timestamp {
+            font-style: italic;
+        }
+        .stats {
+            text-align: center;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            max-width: 1800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .stats-grid {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            flex-wrap: wrap;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100vw;
+            height: 100vh;
+            background: white;
+        }
+        .modal-content {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            object-fit: contain;
+            background: white;
+        }
+        .close {
+            position: fixed;
+            top: 15px;
+            right: 25px;
+            color: #333;
+            font-size: 35px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 1002;
+            background: rgba(255,255,255,0.9);
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        .close:hover {
+            background: #667eea;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>🏛️ Temple Management System</h1>
+    <p class="subtitle">Comprehensive Flowchart Documentation</p>
+    
+    <div class="stats">
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-value">95</div>
+                <div class="stat-label">Total Flowcharts</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">4/8/2026</div>
+                <div class="stat-label">Generated On</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">PNG</div>
+                <div class="stat-label">Image Format</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="grid">
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">1. System Architecture Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="system-architecture-flow.png" alt="System Architecture Flow" onclick="openModal('system-architecture-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: system-architecture-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">2. Authentication Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="authentication-flow.png" alt="Authentication Flow" onclick="openModal('authentication-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: authentication-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">3. User Registration Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="user-registration-flow.png" alt="User Registration Flow" onclick="openModal('user-registration-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: user-registration-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">4. Ledger Management System Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="ledger-management-system-flow.png" alt="Ledger Management System Flow" onclick="openModal('ledger-management-system-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: ledger-management-system-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">5. Ledger CRUD Operations Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="ledger-crud-operations-flow.png" alt="Ledger CRUD Operations Flow" onclick="openModal('ledger-crud-operations-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: ledger-crud-operations-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">6. Ledger Balance Calculation Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="ledger-balance-calculation-flow.png" alt="Ledger Balance Calculation Flow" onclick="openModal('ledger-balance-calculation-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: ledger-balance-calculation-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">7. Ledger Journal Integration Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="ledger-journal-integration-flow.png" alt="Ledger Journal Integration Flow" onclick="openModal('ledger-journal-integration-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: ledger-journal-integration-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">8. Ledger Data Architecture</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="ledger-data-architecture.png" alt="Ledger Data Architecture" onclick="openModal('ledger-data-architecture.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: ledger-data-architecture.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">9. Ledger Reports & Analytics Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="ledger-reports-analytics-flow.png" alt="Ledger Reports & Analytics Flow" onclick="openModal('ledger-reports-analytics-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: ledger-reports-analytics-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">10. Ledger Entry Validation Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="ledger-entry-validation-flow.png" alt="Ledger Entry Validation Flow" onclick="openModal('ledger-entry-validation-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: ledger-entry-validation-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">11. Money Donation System Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="money-donation-system-flow.png" alt="Money Donation System Flow" onclick="openModal('money-donation-system-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: money-donation-system-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">12. Money Donation Receipt Generation Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="money-donation-receipt-generation-flow.png" alt="Money Donation Receipt Generation Flow" onclick="openModal('money-donation-receipt-generation-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: money-donation-receipt-generation-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">13. Money Donation Journal Sync Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="money-donation-journal-sync-flow.png" alt="Money Donation Journal Sync Flow" onclick="openModal('money-donation-journal-sync-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: money-donation-journal-sync-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">14. Money Donation Data Architecture</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="money-donation-data-architecture.png" alt="Money Donation Data Architecture" onclick="openModal('money-donation-data-architecture.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: money-donation-data-architecture.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">15. Money Donation Logging Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="money-donation-logging-flow.png" alt="Money Donation Logging Flow" onclick="openModal('money-donation-logging-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: money-donation-logging-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">16. Original Ledger Management Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="original-ledger-management-flow.png" alt="Original Ledger Management Flow" onclick="openModal('original-ledger-management-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: original-ledger-management-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">17. Temple Donations Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="temple-donations-flow.png" alt="Temple Donations Flow" onclick="openModal('temple-donations-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: temple-donations-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">18. Donation Mobile Integration Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="donation-mobile-integration-flow.png" alt="Donation Mobile Integration Flow" onclick="openModal('donation-mobile-integration-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: donation-mobile-integration-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">19. Donation Approval Workflow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="donation-approval-workflow.png" alt="Donation Approval Workflow" onclick="openModal('donation-approval-workflow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: donation-approval-workflow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">20. Donation Data Flow Architecture</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="donation-data-flow-architecture.png" alt="Donation Data Flow Architecture" onclick="openModal('donation-data-flow-architecture.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: donation-data-flow-architecture.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">21. Donation Types and Processing</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="donation-types-and-processing.png" alt="Donation Types and Processing" onclick="openModal('donation-types-and-processing.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: donation-types-and-processing.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">22. Donation Analytics and Reporting</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="donation-analytics-and-reporting.png" alt="Donation Analytics and Reporting" onclick="openModal('donation-analytics-and-reporting.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: donation-analytics-and-reporting.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">23. Event Management System Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="event-management-system-flow.png" alt="Event Management System Flow" onclick="openModal('event-management-system-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: event-management-system-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">24. Event Mobile Calendar Integration Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="event-mobile-calendar-integration-flow.png" alt="Event Mobile Calendar Integration Flow" onclick="openModal('event-mobile-calendar-integration-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: event-mobile-calendar-integration-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">25. Event Image Management Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="event-image-management-flow.png" alt="Event Image Management Flow" onclick="openModal('event-image-management-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: event-image-management-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">26. Event Data Architecture</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="event-data-architecture.png" alt="Event Data Architecture" onclick="openModal('event-data-architecture.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: event-data-architecture.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">27. Event Calendar Integration Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="event-calendar-integration-flow.png" alt="Event Calendar Integration Flow" onclick="openModal('event-calendar-integration-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: event-calendar-integration-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">28. Kanikalar (Wedding) Management System Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="kanikalar-wedding-management-system-flow.png" alt="Kanikalar (Wedding) Management System Flow" onclick="openModal('kanikalar-wedding-management-system-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: kanikalar-wedding-management-system-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">29. Kanikalar Wedding Events Management Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="kanikalar-wedding-events-management-flow.png" alt="Kanikalar Wedding Events Management Flow" onclick="openModal('kanikalar-wedding-events-management-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: kanikalar-wedding-events-management-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">30. Master Data Management System Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="master-data-management-system-flow.png" alt="Master Data Management System Flow" onclick="openModal('master-data-management-system-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: master-data-management-system-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">31. Master Data Referential Integrity Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="master-data-referential-integrity-flow.png" alt="Master Data Referential Integrity Flow" onclick="openModal('master-data-referential-integrity-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: master-data-referential-integrity-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">32. Master Data Architecture</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="master-data-architecture.png" alt="Master Data Architecture" onclick="openModal('master-data-architecture.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: master-data-architecture.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">33. Master Data CRUD Sequence Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="master-data-crud-sequence-flow.png" alt="Master Data CRUD Sequence Flow" onclick="openModal('master-data-crud-sequence-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: master-data-crud-sequence-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">34. Kanikalar Data Architecture</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="kanikalar-data-architecture.png" alt="Kanikalar Data Architecture" onclick="openModal('kanikalar-data-architecture.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: kanikalar-data-architecture.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">35. Event Search and Filtering Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="event-search-and-filtering-flow.png" alt="Event Search and Filtering Flow" onclick="openModal('event-search-and-filtering-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: event-search-and-filtering-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">36. Pooja Management System Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="pooja-management-system-flow.png" alt="Pooja Management System Flow" onclick="openModal('pooja-management-system-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: pooja-management-system-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">37. Pooja Approval Workflow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="pooja-approval-workflow.png" alt="Pooja Approval Workflow" onclick="openModal('pooja-approval-workflow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: pooja-approval-workflow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">38. Pooja Mobile Integration Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="pooja-mobile-integration-flow.png" alt="Pooja Mobile Integration Flow" onclick="openModal('pooja-mobile-integration-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: pooja-mobile-integration-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">39. Pooja Calendar & Booking View Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="pooja-calendar-booking-view-flow.png" alt="Pooja Calendar & Booking View Flow" onclick="openModal('pooja-calendar-booking-view-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: pooja-calendar-booking-view-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">40. Pooja Time Slot Management Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="pooja-time-slot-management-flow.png" alt="Pooja Time Slot Management Flow" onclick="openModal('pooja-time-slot-management-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: pooja-time-slot-management-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">41. Pooja Data Architecture</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="pooja-data-architecture.png" alt="Pooja Data Architecture" onclick="openModal('pooja-data-architecture.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: pooja-data-architecture.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">42. Pooja Receipt Number Generation Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="pooja-receipt-number-generation-flow.png" alt="Pooja Receipt Number Generation Flow" onclick="openModal('pooja-receipt-number-generation-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: pooja-receipt-number-generation-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">43. Pooja Original Booking System Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="pooja-original-booking-system-flow.png" alt="Pooja Original Booking System Flow" onclick="openModal('pooja-original-booking-system-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: pooja-original-booking-system-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">44. New Moon Days (Moon Phases) System Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="new-moon-days-moon-phases-system-flow.png" alt="New Moon Days (Moon Phases) System Flow" onclick="openModal('new-moon-days-moon-phases-system-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: new-moon-days-moon-phases-system-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">45. Moon Phase Calculation Algorithm Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="moon-phase-calculation-algorithm-flow.png" alt="Moon Phase Calculation Algorithm Flow" onclick="openModal('moon-phase-calculation-algorithm-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: moon-phase-calculation-algorithm-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">46. Moon Date Storage Architecture</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="moon-date-storage-architecture.png" alt="Moon Date Storage Architecture" onclick="openModal('moon-date-storage-architecture.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: moon-date-storage-architecture.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">47. New Moon Days Calendar Integration Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="new-moon-days-calendar-integration-flow.png" alt="New Moon Days Calendar Integration Flow" onclick="openModal('new-moon-days-calendar-integration-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: new-moon-days-calendar-integration-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">48. Moon Phase Data Management Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="moon-phase-data-management-flow.png" alt="Moon Phase Data Management Flow" onclick="openModal('moon-phase-data-management-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: moon-phase-data-management-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">49. Astronomical Calculation Detail Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="astronomical-calculation-detail-flow.png" alt="Astronomical Calculation Detail Flow" onclick="openModal('astronomical-calculation-detail-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: astronomical-calculation-detail-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">50. Hall Booking System Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="hall-booking-system-flow.png" alt="Hall Booking System Flow" onclick="openModal('hall-booking-system-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: hall-booking-system-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">51. Hall Booking Approval Workflow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="hall-booking-approval-workflow.png" alt="Hall Booking Approval Workflow" onclick="openModal('hall-booking-approval-workflow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: hall-booking-approval-workflow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">52. Hall Booking Mobile Integration Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="hall-booking-mobile-integration-flow.png" alt="Hall Booking Mobile Integration Flow" onclick="openModal('hall-booking-mobile-integration-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: hall-booking-mobile-integration-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">53. Hall Booking Payment & Charges Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="hall-booking-payment-charges-flow.png" alt="Hall Booking Payment & Charges Flow" onclick="openModal('hall-booking-payment-charges-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: hall-booking-payment-charges-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">54. Hall Booking Receipt Generation Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="hall-booking-receipt-generation-flow.png" alt="Hall Booking Receipt Generation Flow" onclick="openModal('hall-booking-receipt-generation-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: hall-booking-receipt-generation-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">55. Hall Booking Data Architecture</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="hall-booking-data-architecture.png" alt="Hall Booking Data Architecture" onclick="openModal('hall-booking-data-architecture.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: hall-booking-data-architecture.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">56. Hall Booking Conflict Detection Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="hall-booking-conflict-detection-flow.png" alt="Hall Booking Conflict Detection Flow" onclick="openModal('hall-booking-conflict-detection-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: hall-booking-conflict-detection-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">57. Hall Booking Original State Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="hall-booking-original-state-flow.png" alt="Hall Booking Original State Flow" onclick="openModal('hall-booking-original-state-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: hall-booking-original-state-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">58. Tax Registration Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="tax-registration-flow.png" alt="Tax Registration Flow" onclick="openModal('tax-registration-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: tax-registration-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">59. API Request Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="api-request-flow.png" alt="API Request Flow" onclick="openModal('api-request-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: api-request-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">60. Receipt System Architecture</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="receipt-system-architecture.png" alt="Receipt System Architecture" onclick="openModal('receipt-system-architecture.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: receipt-system-architecture.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">61. Receipt Generation Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="receipt-generation-flow.png" alt="Receipt Generation Flow" onclick="openModal('receipt-generation-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: receipt-generation-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">62. Receipt Settings Management Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="receipt-settings-management-flow.png" alt="Receipt Settings Management Flow" onclick="openModal('receipt-settings-management-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: receipt-settings-management-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">63. Receipt Number Generation Strategy</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="receipt-number-generation-strategy.png" alt="Receipt Number Generation Strategy" onclick="openModal('receipt-number-generation-strategy.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: receipt-number-generation-strategy.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">64. Financial Reports System Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="financial-reports-system-flow.png" alt="Financial Reports System Flow" onclick="openModal('financial-reports-system-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: financial-reports-system-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">65. Daily & Monthly Report Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="daily-monthly-report-flow.png" alt="Daily & Monthly Report Flow" onclick="openModal('daily-monthly-report-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: daily-monthly-report-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">66. Journal Log Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="journal-log-flow.png" alt="Journal Log Flow" onclick="openModal('journal-log-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: journal-log-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">67. Trial Balance Generation Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="trial-balance-generation-flow.png" alt="Trial Balance Generation Flow" onclick="openModal('trial-balance-generation-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: trial-balance-generation-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">68. Balance Sheet Generation Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="balance-sheet-generation-flow.png" alt="Balance Sheet Generation Flow" onclick="openModal('balance-sheet-generation-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: balance-sheet-generation-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">69. Cashflow Statement Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="cashflow-statement-flow.png" alt="Cashflow Statement Flow" onclick="openModal('cashflow-statement-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: cashflow-statement-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">70. Tax Registration System Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="tax-registration-system-flow.png" alt="Tax Registration System Flow" onclick="openModal('tax-registration-system-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: tax-registration-system-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">71. Tax Entry with Journal Integration Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="tax-entry-with-journal-integration-flow.png" alt="Tax Entry with Journal Integration Flow" onclick="openModal('tax-entry-with-journal-integration-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: tax-entry-with-journal-integration-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">72. Tax List and Search Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="tax-list-and-search-flow.png" alt="Tax List and Search Flow" onclick="openModal('tax-list-and-search-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: tax-list-and-search-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">73. Tax Settings Management Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="tax-settings-management-flow.png" alt="Tax Settings Management Flow" onclick="openModal('tax-settings-management-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: tax-settings-management-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">74. Tax Receipt Generation Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="tax-receipt-generation-flow.png" alt="Tax Receipt Generation Flow" onclick="openModal('tax-receipt-generation-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: tax-receipt-generation-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">75. Users & Authentication System Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="users-authentication-system-flow.png" alt="Users & Authentication System Flow" onclick="openModal('users-authentication-system-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: users-authentication-system-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">76. User Registrations Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="user-registrations-flow.png" alt="User Registrations Flow" onclick="openModal('user-registrations-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: user-registrations-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">77. Properties Management Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="properties-management-flow.png" alt="Properties Management Flow" onclick="openModal('properties-management-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: properties-management-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">78. Calendar System Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="calendar-system-flow.png" alt="Calendar System Flow" onclick="openModal('calendar-system-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: calendar-system-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">79. PDF Settings Management Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="pdf-settings-management-flow.png" alt="PDF Settings Management Flow" onclick="openModal('pdf-settings-management-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: pdf-settings-management-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">80. Database Schema Relationships</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="database-schema-relationships.png" alt="Database Schema Relationships" onclick="openModal('database-schema-relationships.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: database-schema-relationships.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">81. File Upload Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="file-upload-flow.png" alt="File Upload Flow" onclick="openModal('file-upload-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: file-upload-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">82. Report Generation Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="report-generation-flow.png" alt="Report Generation Flow" onclick="openModal('report-generation-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: report-generation-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">83. Mobile API Integration</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="mobile-api-integration.png" alt="Mobile API Integration" onclick="openModal('mobile-api-integration.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: mobile-api-integration.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">84. Error Handling Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="error-handling-flow.png" alt="Error Handling Flow" onclick="openModal('error-handling-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: error-handling-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">85. Migration and Deployment Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="migration-and-deployment-flow.png" alt="Migration and Deployment Flow" onclick="openModal('migration-and-deployment-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: migration-and-deployment-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">86. Logging and Monitoring Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="logging-and-monitoring-flow.png" alt="Logging and Monitoring Flow" onclick="openModal('logging-and-monitoring-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: logging-and-monitoring-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">87. Data Export/Import Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="data-export-import-flow.png" alt="Data Export/Import Flow" onclick="openModal('data-export-import-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: data-export-import-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">88. Annadhanam (Free Meal Service) Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="annadhanam-free-meal-service-flow.png" alt="Annadhanam (Free Meal Service) Flow" onclick="openModal('annadhanam-free-meal-service-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: annadhanam-free-meal-service-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">89. Annadhanam Mobile Integration Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="annadhanam-mobile-integration-flow.png" alt="Annadhanam Mobile Integration Flow" onclick="openModal('annadhanam-mobile-integration-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: annadhanam-mobile-integration-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">90. Annadhanam Data Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="annadhanam-data-flow.png" alt="Annadhanam Data Flow" onclick="openModal('annadhanam-data-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: annadhanam-data-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">91. Permission System Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="permission-system-flow.png" alt="Permission System Flow" onclick="openModal('permission-system-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: permission-system-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">92. Pooja Settings Management Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="pooja-settings-management-flow.png" alt="Pooja Settings Management Flow" onclick="openModal('pooja-settings-management-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: pooja-settings-management-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">93. Home Dashboard Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="home-dashboard-flow.png" alt="Home Dashboard Flow" onclick="openModal('home-dashboard-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: home-dashboard-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">94. Married Man Tax Registration Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="married-man-tax-registration-flow.png" alt="Married Man Tax Registration Flow" onclick="openModal('married-man-tax-registration-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: married-man-tax-registration-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">95. Temple Trust Settings Flow</div>
+            </div>
+            <div class="card-body">
+                <img class="card-image" src="temple-trust-settings-flow.png" alt="Temple Trust Settings Flow" onclick="openModal('temple-trust-settings-flow.png')">
+            </div>
+            <div class="card-meta">
+                <span>File: temple-trust-settings-flow.png</span>
+                <span class="timestamp">4:51:01 PM</span>
+            </div>
+        </div>
+        
+    </div>
+    
+    <div id="modal" class="modal" onclick="closeModal()">
+        <span class="close">&times;</span>
+        <div class="modal-image-container" id="modal-container" onclick="event.stopPropagation()">
+            <img class="modal-content" id="modal-img" draggable="false">
+        </div>
+        <div class="zoom-controls" onclick="event.stopPropagation()">
+            <button class="zoom-btn" onclick="zoomOut()" title="Zoom Out (−)">−</button>
+            <span class="zoom-level" id="zoom-level">100%</span>
+            <button class="zoom-btn" onclick="zoomIn()" title="Zoom In (+)">+</button>
+            <button class="zoom-btn" onclick="resetZoom()" title="Reset (0)">⟲</button>
+            <button class="zoom-btn" onclick="togglePanMode()" id="pan-btn" title="Pan/Move Mode (Space)">✋</button>
+        </div>
+        <div class="instructions">Scroll to zoom • Drag to move • ESC to close</div>
+    </div>
+    
+    <style>
+        .modal-image-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background: white;
+        }
+        .modal-content {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            object-fit: contain;
+            transition: transform 0.1s ease;
+            transform-origin: center center;
+            cursor: grab;
+            background: white;
+        }
+        .modal-content.panning {
+            cursor: grabbing;
+        }
+        .modal-content.pan-mode {
+            cursor: move;
+        }
+        .zoom-controls {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            background: rgba(0,0,0,0.8);
+            padding: 10px 20px;
+            border-radius: 30px;
+            z-index: 1001;
+            align-items: center;
+        }
+        .zoom-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 50%;
+            background: white;
+            color: #333;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .zoom-btn:hover {
+            background: #667eea;
+            color: white;
+            transform: scale(1.1);
+        }
+        .zoom-btn:active {
+            transform: scale(0.95);
+        }
+        .zoom-btn.active {
+            background: #667eea;
+            color: white;
+        }
+        .zoom-level {
+            color: white;
+            font-size: 14px;
+            min-width: 50px;
+            text-align: center;
+        }
+        .instructions {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255,255,255,0.7);
+            font-size: 12px;
+            background: rgba(0,0,0,0.5);
+            padding: 5px 15px;
+            border-radius: 15px;
+        }
+    </style>
+    
+    <script>
+        let currentZoom = 1;
+        let zoomStep = 0.25;
+        let minZoom = 0.25;
+        let maxZoom = 5;
+        let isPanning = false;
+        let panMode = false;
+        let startX = 0;
+        let startY = 0;
+        let translateX = 0;
+        let translateY = 0;
+        
+        function openModal(src) {
+            document.getElementById('modal-img').src = src;
+            document.getElementById('modal').style.display = 'block';
+            resetZoom();
+        }
+        
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+            resetZoom();
+        }
+        
+        function zoomIn() {
+            if (currentZoom < maxZoom) {
+                currentZoom += zoomStep;
+                applyZoom();
+            }
+        }
+        
+        function zoomOut() {
+            if (currentZoom > minZoom) {
+                currentZoom -= zoomStep;
+                applyZoom();
+            }
+        }
+        
+        function resetZoom() {
+            currentZoom = 1;
+            translateX = 0;
+            translateY = 0;
+            applyZoom();
+        }
+        
+        function applyZoom() {
+            const img = document.getElementById('modal-img');
+            img.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentZoom})`;
+            document.getElementById('zoom-level').textContent = Math.round(currentZoom * 100) + '%';
+        }
+        
+        function togglePanMode() {
+            panMode = !panMode;
+            const img = document.getElementById('modal-img');
+            const btn = document.getElementById('pan-btn');
+            if (panMode) {
+                img.classList.add('pan-mode');
+                btn.classList.add('active');
+            } else {
+                img.classList.remove('pan-mode');
+                btn.classList.remove('active');
+            }
+        }
+        
+        // Mouse wheel zoom
+        document.getElementById('modal-container').addEventListener('wheel', function(e) {
+            e.preventDefault();
+            if (e.deltaY < 0) {
+                zoomIn();
+            } else {
+                zoomOut();
+            }
+        });
+        
+        // Pan/Move functionality
+        const modalImg = document.getElementById('modal-img');
+        
+        modalImg.addEventListener('mousedown', function(e) {
+            if (panMode || currentZoom > 1) {
+                isPanning = true;
+                startX = e.clientX - translateX;
+                startY = e.clientY - translateY;
+                modalImg.classList.add('panning');
+                e.preventDefault();
+            }
+        });
+        
+        document.addEventListener('mousemove', function(e) {
+            if (isPanning) {
+                translateX = e.clientX - startX;
+                translateY = e.clientY - startY;
+                applyZoom();
+            }
+        });
+        
+        document.addEventListener('mouseup', function() {
+            isPanning = false;
+            modalImg.classList.remove('panning');
+        });
+        
+        // Touch support for mobile
+        modalImg.addEventListener('touchstart', function(e) {
+            if (panMode || currentZoom > 1) {
+                isPanning = true;
+                startX = e.touches[0].clientX - translateX;
+                startY = e.touches[0].clientY - translateY;
+            }
+        });
+        
+        modalImg.addEventListener('touchmove', function(e) {
+            if (isPanning) {
+                e.preventDefault();
+                translateX = e.touches[0].clientX - startX;
+                translateY = e.touches[0].clientY - startY;
+                applyZoom();
+            }
+        });
+        
+        modalImg.addEventListener('touchend', function() {
+            isPanning = false;
+        });
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (document.getElementById('modal').style.display === 'block') {
+                if (e.key === 'Escape') closeModal();
+                if (e.key === '+' || e.key === '=') zoomIn();
+                if (e.key === '-') zoomOut();
+                if (e.key === '0') resetZoom();
+                if (e.key === ' ') {
+                    e.preventDefault();
+                    togglePanMode();
+                }
+            }
+        });
+    </script>
+</body>
+</html>

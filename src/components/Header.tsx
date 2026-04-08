@@ -9,9 +9,9 @@ const LANGUAGES = [
   { code: 'tamil', label: 'தமிழ்', nativeLabel: 'தமிழ்' }
 ] as const;
 
-type HeaderProps = { children?: React.ReactNode };
+type HeaderProps = { children?: React.ReactNode; pageTitle?: string };
 
-export function Header({ children }: HeaderProps) {
+export function Header({ children, pageTitle }: HeaderProps) {
   const { user, logout, isSuperAdmin, temple } = useAuth();
   const navigate = useNavigate();
   const { language, setLanguage } = useLanguage();
@@ -37,14 +37,25 @@ export function Header({ children }: HeaderProps) {
           <div>{children}</div>
         ) : (
           <div className="flex justify-between items-center py-2">
-            <Link to="/" className="flex items-center space-x-2 ml-2">
-              <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-lg font-bold">🕉️</span>
+            {/* Page Title in center when provided */}
+            {pageTitle && (
+              <div className="ml-2">
+                <h2 className="text-lg font-semibold text-gray-700">{pageTitle}</h2>
               </div>
-              <h1 className="text-xl font-bold text-black">
-                {temple?.name || 'Temple Trust'}
-              </h1>
-            </Link>
+            )}
+            
+            {/* Logo and temple name when no page title */}
+            {!pageTitle && (
+              <Link to="/" className="flex items-center space-x-2 ml-2">
+                <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-lg font-bold">🕉️</span>
+                </div>
+                <h1 className="text-xl font-bold text-black">
+                  {temple?.name || 'Temple Trust'}
+                </h1>
+              </Link>
+            )}
+
 
             {!user ? (
               <div className="flex items-center gap-2 pr-2">
