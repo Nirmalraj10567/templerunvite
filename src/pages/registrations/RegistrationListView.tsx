@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 
@@ -24,6 +24,14 @@ type Registration = {
   total_amount: number;
   outstanding_amount: number;
   created_at: string;
+  // Family chain fields
+  gender?: string;
+  marital_status?: string;
+  parent_reference_id?: string;
+  family_head_reference?: string;
+  relationship_type?: string;
+  reference_number?: string;
+  village?: string;
 };
 
 export default function RegistrationListView() {
@@ -34,6 +42,7 @@ export default function RegistrationListView() {
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
+  const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
   const [selectedRegistration, setSelectedRegistration] = useState<Registration | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -48,7 +57,7 @@ export default function RegistrationListView() {
         search,
       });
 
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/registrations?${query}`, {
+      const response = await fetch(`http://localhost:4000/api/registrations?${query}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -97,7 +106,7 @@ export default function RegistrationListView() {
   const handleExportPDF = async (registration: Registration) => {
     setIsGeneratingPdf(true);
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/registrations/${registration.id}/pdf`, {
+      const response = await fetch(`http://localhost:4000/api/registrations/${registration.id}/pdf`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -129,7 +138,7 @@ export default function RegistrationListView() {
   const handleExportAllPDF = async () => {
     setIsGeneratingPdf(true);
     try {
-      const response = await fetch('https://tmsapi.xesstechlink.com/api/registrations/export-pdf', {
+      const response = await fetch('http://localhost:4000/api/registrations/export-pdf', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -158,6 +167,39 @@ export default function RegistrationListView() {
     }
   };
 
+  // Filter and sort registrations based on family filter
+  const filteredRegistrations = useMemo(() => {
+    let filtered = registrations;
+    
+    // Filter by family chain
+    if (familyFilter === 'family') {
+      filtered = registrations.filter(r => r.parent_reference_id || r.family_head_reference || r.relationship_type);
+    }
+    
+    // Sort based on filter mode
+    if (familyFilter === 'family') {
+      // Family mode: sort by family hierarchy
+      filtered = [...filtered].sort((a, b) => {
+        const aIsHead = a.reference_number && a.family_head_reference === a.reference_number;
+        const bIsHead = b.reference_number && b.family_head_reference === b.reference_number;
+        if (aIsHead && !bIsHead) return -1;
+        if (!aIsHead && bIsHead) return 1;
+        const aParent = a.parent_reference_id || '';
+        const bParent = b.parent_reference_id || '';
+        return String(aParent).localeCompare(String(bParent)) || String(a.name).localeCompare(String(b.name));
+      });
+    } else {
+      // All mode: sort by reference number desc
+      filtered = [...filtered].sort((a, b) => {
+        const refA = a.reference_number || a.receipt_number || '';
+        const refB = b.reference_number || b.receipt_number || '';
+        return String(refB).localeCompare(String(refA));
+      });
+    }
+    
+    return filtered;
+  }, [registrations, familyFilter]);
+
   if (loading && registrations.length === 0) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -171,8 +213,8 @@ export default function RegistrationListView() {
       <div className="bg-white rounded-lg shadow-md p-6">
         <h1 className="text-2xl font-bold text-gray-800 mb-6">Registration List</h1>
         
-        {/* Search Bar */}
-        <div className="mb-6">
+        {/* Search Bar & Filters */}
+        <div className="mb-6 space-y-4">
           <form onSubmit={handleSearch} className="flex gap-2">
             <input
               type="text"
@@ -188,6 +230,25 @@ export default function RegistrationListView() {
               Search
             </button>
           </form>
+          
+          {/* Family Chain Filter */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">Filter:</span>
+            <div className="flex items-center gap-1 bg-purple-50 rounded p-1 border border-purple-200">
+              <button
+                onClick={() => setFamilyFilter('all')}
+                className={`px-3 py-1 rounded text-sm transition-colors ${familyFilter === 'all' ? 'bg-purple-600 text-white shadow-sm' : 'bg-transparent text-purple-700 hover:text-purple-900'}`}
+              >
+                All Users
+              </button>
+              <button
+                onClick={() => setFamilyFilter('family')}
+                className={`px-3 py-1 rounded text-sm transition-colors ${familyFilter === 'family' ? 'bg-purple-600 text-white shadow-sm' : 'bg-transparent text-purple-700 hover:text-purple-900'}`}
+              >
+                👨‍👩‍👧‍👦 Family Chain
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Registrations Table */}
@@ -199,17 +260,37 @@ export default function RegistrationListView() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mobile</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gender</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Family Chain</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {registrations.map((reg) => (
+              {filteredRegistrations.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                    {familyFilter === 'family' ? 'No family chain members found. Create tax registrations with family links.' : 'No registrations found.'}
+                  </td>
+                </tr>
+              ) : filteredRegistrations.map((reg) => (
                 <tr key={reg.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{reg.receipt_number}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{reg.receipt_number || reg.reference_number || '-'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(reg.date)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{reg.name}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{reg.mobile_number || 'N/A'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {reg.gender === 'male' ? '♂️' : reg.gender === 'female' ? '♀️' : '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    {(() => {
+                      const hasParent = !!reg.parent_reference_id;
+                      const isFamilyHead = reg.reference_number && reg.family_head_reference === reg.reference_number;
+                      if (isFamilyHead) return <span className="px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">👑 Head</span>;
+                      if (hasParent) return <span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">🔗 Child</span>;
+                      return <span className="text-gray-400">-</span>;
+                    })()}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₹{reg.amount?.toLocaleString() || '0'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button

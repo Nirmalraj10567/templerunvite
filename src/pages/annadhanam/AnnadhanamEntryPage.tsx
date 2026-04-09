@@ -155,7 +155,7 @@ export default function AnnadhanamEntryPage() {
   const fetchNextReceipt = async () => {
     if (id) return;
     try {
-      const resp = await fetch('https://tmsapi.xesstechlink.com/api/annadhanam/next-receipt', {
+      const resp = await fetch('http://localhost:4000/api/annadhanam/next-receipt', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -174,7 +174,7 @@ export default function AnnadhanamEntryPage() {
     if (!id) return;
     try {
       setLogsLoading(true);
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${id}/logs`, {
+      const response = await fetch(`http://localhost:4000/api/annadhanam/${id}/logs`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -225,7 +225,7 @@ export default function AnnadhanamEntryPage() {
       const fetchAnnadhanam = async () => {
         try {
           setIsLoading(true);
-          const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${id}`, {
+          const response = await fetch(`http://localhost:4000/api/annadhanam/${id}`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -355,7 +355,7 @@ export default function AnnadhanamEntryPage() {
         remarks: data.remarks || ''
       };
 
-      const url = id ? `https://tmsapi.xesstechlink.com/api/annadhanam/${id}` : 'https://tmsapi.xesstechlink.com/api/annadhanam';
+      const url = id ? `http://localhost:4000/api/annadhanam/${id}` : 'http://localhost:4000/api/annadhanam';
       const method = id ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -817,7 +817,7 @@ export default function AnnadhanamEntryPage() {
                   className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
                   onClick={() => {
                     const q = token ? `?token=${encodeURIComponent(token)}` : '';
-                    const url = `https://tmsapi.xesstechlink.com/api/annadhanam/${lastCreatedId}/receipt.pdf${q}`;
+                    const url = `http://localhost:4000/api/annadhanam/${lastCreatedId}/receipt.pdf${q}`;
                     window.open(url, '_blank');
                     setShowPrintPrompt(false);
                   }} 

@@ -36,6 +36,13 @@ exports.up = async function(knex) {
       table.integer('approved_by').references('id').inTable('users');
       table.timestamp('approved_at');
       table.text('note');
+      // Family chain columns for multi-generational tax linking
+      table.string('parent_reference_id');
+      table.string('gender');
+      table.string('marital_status');
+      table.string('wife_father_name');
+      table.string('family_head_reference');
+      table.string('relationship_type').defaultTo('self');
       table.timestamp('created_at').defaultTo(knex.fn.now());
       table.timestamp('updated_at').defaultTo(knex.fn.now());
     });
@@ -78,6 +85,13 @@ exports.up = async function(knex) {
       await addIfMissing('transfer_to_account', 'ALTER TABLE user_tax_registrations ADD COLUMN transfer_to_account TEXT');
       await addIfMissing('from_account', 'ALTER TABLE user_tax_registrations ADD COLUMN from_account TEXT');
       await addIfMissing('donation_amount', 'ALTER TABLE user_tax_registrations ADD COLUMN donation_amount DECIMAL(10,2) DEFAULT 0');
+      // Family chain columns for multi-generational tax linking
+      await addIfMissing('parent_reference_id', 'ALTER TABLE user_tax_registrations ADD COLUMN parent_reference_id TEXT');
+      await addIfMissing('gender', 'ALTER TABLE user_tax_registrations ADD COLUMN gender TEXT');
+      await addIfMissing('marital_status', 'ALTER TABLE user_tax_registrations ADD COLUMN marital_status TEXT');
+      await addIfMissing('wife_father_name', 'ALTER TABLE user_tax_registrations ADD COLUMN wife_father_name TEXT');
+      await addIfMissing('family_head_reference', 'ALTER TABLE user_tax_registrations ADD COLUMN family_head_reference TEXT');
+      await addIfMissing('relationship_type', 'ALTER TABLE user_tax_registrations ADD COLUMN relationship_type TEXT DEFAULT \'self\'');
     } catch (e) {
       console.log('Note: Column synchronization for user_tax_registrations skipped:', e.message);
     }

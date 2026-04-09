@@ -1,7 +1,7 @@
 // Using built-in fetch (Node.js 18+)
 
 async function testSimpleMember() {
-  const baseUrl = 'https://tmsapi.xesstechlink.com';
+  const baseUrl = 'http://localhost:4000';
 
   try {
     console.log('Testing backend connection...');

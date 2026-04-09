@@ -42,7 +42,7 @@ export interface PdfSettings {
 
 export const pdfSettingsService = {
   async get(): Promise<PdfSettings> {
-    const resp: any = await axios.get('https://tmsapi.xesstechlink.com/api/pdf-settings', {
+    const resp: any = await axios.get('http://localhost:4000/api/pdf-settings', {
       headers: { Authorization: `Bearer ${getAuthToken()}` },
     });
     return resp?.data?.data || {};

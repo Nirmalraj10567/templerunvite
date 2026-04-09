@@ -3,7 +3,7 @@ const fetch = require('node-fetch');
 async function addTaxData() {
   try {
     // Login first
-    const loginRes = await fetch('https://tmsapi.xesstechlink.com/api/login', {
+    const loginRes = await fetch('http://localhost:4000/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: 'superadmin', password: 'superadmin123' })
@@ -30,7 +30,7 @@ async function addTaxData() {
     console.log('\n--- Adding Tax Settings ---');
     for (const setting of taxSettings) {
       try {
-        const res = await fetch('https://tmsapi.xesstechlink.com/api/tax-settings', {
+        const res = await fetch('http://localhost:4000/api/tax-settings', {
           method: 'POST',
           headers,
           body: JSON.stringify(setting)
@@ -100,7 +100,7 @@ async function addTaxData() {
     console.log('\n--- Adding Tax Registrations ---');
     for (const reg of taxRegs) {
       try {
-        const res = await fetch('https://tmsapi.xesstechlink.com/api/tax-registrations', {
+        const res = await fetch('http://localhost:4000/api/tax-registrations', {
           method: 'POST',
           headers,
           body: JSON.stringify(reg)
@@ -114,7 +114,7 @@ async function addTaxData() {
 
     // Test cumulative calculation
     console.log('\n--- Testing Cumulative Calculation ---');
-    const testRes = await fetch('https://tmsapi.xesstechlink.com/api/tax-calculations/cumulative/9999999999?currentYear=2025', { headers });
+    const testRes = await fetch('http://localhost:4000/api/tax-calculations/cumulative/9999999999?currentYear=2025', { headers });
     const testData = await testRes.json();
     console.log('NEW user cumulative:', testData);
 

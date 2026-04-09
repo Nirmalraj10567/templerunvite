@@ -56,7 +56,9 @@ exports.up = async function(knex) {
       { name: 'postal_code', type: 'TEXT' },
       { name: 'male_heirs', type: 'INTEGER', defaultValue: 0 },
       { name: 'female_heirs', type: 'INTEGER', defaultValue: 0 },
-      { name: 'photo_path', type: 'TEXT' }
+      { name: 'photo_path', type: 'TEXT' },
+      { name: 'gender', type: 'TEXT' },
+      { name: 'marital_status', type: 'TEXT' }
     ];
 
     for (const column of columnsToAdd) {

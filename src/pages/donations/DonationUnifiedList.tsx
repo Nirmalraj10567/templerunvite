@@ -127,9 +127,9 @@ export default function DonationUnifiedList() {
     try {
       let res: any;
       if (row.type === 'money') {
-        res = await fetch(`https://tmsapi.xesstechlink.com/api/money-donations/${row.id}/logs`, { headers: { Authorization: `Bearer ${token}` } });
+        res = await fetch(`http://localhost:4000/api/money-donations/${row.id}/logs`, { headers: { Authorization: `Bearer ${token}` } });
       } else {
-        res = await fetch(`https://tmsapi.xesstechlink.com/api/donations/${row.id}/logs`, { headers: { Authorization: `Bearer ${token}` } });
+        res = await fetch(`http://localhost:4000/api/donations/${row.id}/logs`, { headers: { Authorization: `Bearer ${token}` } });
       }
       if (!res.ok) throw new Error('Failed to fetch logs');
       const result = await res.json();

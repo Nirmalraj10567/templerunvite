@@ -227,6 +227,10 @@ export default function TempleUserEntryPage() {
     outstandingAmount: '',
     photo: null as File | null,
     heirs: [] as Heir[],
+    // Family chain fields
+    parentReferenceId: '',
+    familyHeadReference: '',
+    relationshipType: 'self',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -256,10 +260,10 @@ export default function TempleUserEntryPage() {
       (async () => {
         try {
           const [clansRes, groupsRes, occupationsRes, educationsRes] = await Promise.all([
-            fetch(`https://tmsapi.xesstechlink.com/api/master/clans/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
-            fetch(`https://tmsapi.xesstechlink.com/api/master/groups/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
-            fetch(`https://tmsapi.xesstechlink.com/api/master/occupations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
-            fetch(`https://tmsapi.xesstechlink.com/api/master/educations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } })
+            fetch(`http://localhost:4000/api/master/clans/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`http://localhost:4000/api/master/groups/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`http://localhost:4000/api/master/occupations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`http://localhost:4000/api/master/educations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } })
           ]);
           if (clansRes.ok) {
             const clans = (await clansRes.json()).map((x: any) => x.name);
@@ -298,7 +302,7 @@ export default function TempleUserEntryPage() {
     if (!token) return;
     (async () => {
       try {
-        const resp = await fetch('https://tmsapi.xesstechlink.com/api/ledger/categories', {
+        const resp = await fetch('http://localhost:4000/api/ledger/categories', {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = await resp.json();
@@ -318,7 +322,7 @@ export default function TempleUserEntryPage() {
     const loadForEdit = async () => {
       if (!editId || !token) return;
       try {
-        const res = await fetch(`https://tmsapi.xesstechlink.com/api/registrations/${editId}`, {
+        const res = await fetch(`http://localhost:4000/api/registrations/${editId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
@@ -356,7 +360,7 @@ export default function TempleUserEntryPage() {
         }));
         // Debug: Log the photo path
         console.log('Photo path from API:', r.photo_path);
-        const baseUrl = 'https://tmsapi.xesstechlink.com/public';
+        const baseUrl = 'http://localhost:4000/public';
         const photoUrl = r.photo_path ? 
           (r.photo_path.startsWith('http') ? r.photo_path : `${baseUrl}${r.photo_path.startsWith('/') ? '' : '/'}${r.photo_path}`) : 
           null;
@@ -413,8 +417,93 @@ export default function TempleUserEntryPage() {
   // A generic handler for most input fields.
   const handleFieldChange = (field: keyof typeof newUser, value: string | number) => {
     setNewUser((prev) => ({ ...prev, [field]: value }));
-    if (errors[field as string]) {
-      setErrors((prev) => ({ ...prev, [field as string]: '' }));
+  };
+
+  // Family reference lookup - search for father's tax record
+  const lookupFamilyByReference = async (refNumber: string) => {
+    const cleanRef = (refNumber || '').trim();
+    if (!cleanRef || cleanRef.length < 3) {
+      setErr(language === 'tamil' ? 'குறிப்பு எண் மிகக் குறைவாக உள்ளது' : 'Reference number too short');
+      return;
+    }
+    setLookingUp(true);
+    setErr(null);
+    try {
+      const res = await fetch(`http://localhost:4000/api/tax-registrations/by-reference/${encodeURIComponent(cleanRef)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.data) {
+          const familyData = data.data;
+          
+          // VERIFICATION: Check if new person's name exists in family heirs list
+          const userName = newUser.name?.toLowerCase().trim() || '';
+          const userFatherName = newUser.fatherName?.toLowerCase().trim() || '';
+          const familyHeadName = familyData.name?.toLowerCase().trim() || '';
+          
+          // For now, check if father name matches family head (simple verification)
+          // Full heirs list check requires another API call
+          const fatherMatches = userFatherName && familyHeadName && 
+            (userFatherName === familyHeadName || 
+             userFatherName.includes(familyHeadName) || 
+             familyHeadName.includes(userFatherName));
+          
+          // Also check if user's last name matches family's last name
+          const userLastName = newUser.name?.split(' ').pop()?.toLowerCase() || '';
+          const familyLastName = familyData.name?.split(' ').pop()?.toLowerCase() || '';
+          const nameMatches = userLastName === familyLastName;
+          
+          // If verification fails, show warning but allow override
+          if (!fatherMatches && !nameMatches && userName) {
+            const confirmLink = window.confirm(
+              language === 'tamil' 
+                ? `⚠️ எச்சரிக்கை: ${familyData.name} குடும்பத்துடன் பொருந்தவில்லை\\n\\n` +
+                  `உங்கள் பெயர்: ${newUser.name}\\n` +
+                  `தந்தை பெயர்: ${newUser.fatherName || '-'}\\n` +
+                  `குடும்ப தலைவர்: ${familyData.name}\\n\\n` +
+                  `இந்த குடும்பத்தில் "${newUser.name}" பதிவு செய்யப்பட்ட வாரிசா?\\n` +
+                  `இருப்பினும் இணைக்க வேண்டுமா?`
+                : `⚠️ WARNING: Details don't match with ${familyData.name} family\\n\\n` +
+                  `Your Name: ${newUser.name}\\n` +
+                  `Father Name: ${newUser.fatherName || '-'}\\n` +
+                  `Family Head: ${familyData.name}\\n\\n` +
+                  `Is "${newUser.name}" registered as a heir in this family?\\n` +
+                  `Still want to link?`
+            );
+            if (!confirmLink) {
+              setLookingUp(false);
+              return;
+            }
+          }
+          
+          // Auto-fill father's name and other family details
+          setNewUser(prev => ({
+            ...prev,
+            fatherName: familyData.name || prev.fatherName,
+            clan: familyData.clan || prev.clan,
+            group: familyData.group || prev.group,
+            parentReferenceId: cleanRef,
+            familyHeadReference: familyData.family_head_reference || familyData.reference_number || cleanRef,
+          }));
+          setMsg(language === 'tamil' 
+            ? `✅ குடும்பத்துடன் இணைக்கப்பட்டது: ${familyData.name}` 
+            : `✅ Linked to Family: ${familyData.name}`);
+        } else {
+          setErr(language === 'tamil' ? 'இந்த குறிப்பு எண்ணுடன் வரி பதிவு இல்லை' : 'No tax registration found with this reference');
+        }
+      } else if (res.status === 403) {
+        setErr(language === 'tamil' ? 'வரி பதிவுகளை பார்க்க அனுமதி இல்லை' : 'No permission to view tax registrations');
+      } else if (res.status === 404) {
+        setErr(language === 'tamil' ? 'இந்த குறிப்பு எண்ணுடன் வரி பதிவு இல்லை' : 'No tax registration found with this reference');
+      } else {
+        setErr(language === 'tamil' ? 'குடும்ப குறிப்பு எண்ணைத் தேட முடியவில்லை' : 'Failed to search family reference');
+      }
+    } catch (error) {
+      console.error('Error looking up family reference:', error);
+      setErr(language === 'tamil' ? 'குடும்ப குறிப்பு எண்ணைத் தேடுவதில் பிழை' : 'Error searching family reference');
+    } finally {
+      setLookingUp(false);
     }
   };
 
@@ -473,6 +562,9 @@ export default function TempleUserEntryPage() {
       maleHeirs: 0,
       femaleHeirs: 0,
       outstandingAmount: '',
+      parentReferenceId: '',
+      familyHeadReference: '',
+      relationshipType: 'self',
       photo: null,
       heirs: [],
     });
@@ -488,7 +580,7 @@ export default function TempleUserEntryPage() {
   const fetchNextRef = async () => {
     if (!token || !user?.templeId) return;
     try {
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/registrations/next-reference?templeId=${user.templeId}`, {
+      const res = await fetch(`http://localhost:4000/api/registrations/next-reference?templeId=${user.templeId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -591,7 +683,7 @@ export default function TempleUserEntryPage() {
     setMsg(null);
     try {
       const isEdit = !!editId;
-      const url = isEdit ? `https://tmsapi.xesstechlink.com/api/registrations/${editId}` : 'https://tmsapi.xesstechlink.com/api/registrations';
+      const url = isEdit ? `http://localhost:4000/api/registrations/${editId}` : 'http://localhost:4000/api/registrations';
       const method = isEdit ? 'PUT' : 'POST';
       
       // Check if we have a photo to upload
@@ -627,6 +719,10 @@ export default function TempleUserEntryPage() {
           education: h.education,
           birthDate: h.birthDate,
         }))));
+        // Family chain fields
+        formData.append('parentReferenceId', newUser.parentReferenceId);
+        formData.append('familyHeadReference', newUser.familyHeadReference);
+        formData.append('relationshipType', newUser.relationshipType);
         
         const res = await fetch(url, {
           method,
@@ -677,6 +773,10 @@ export default function TempleUserEntryPage() {
             education: h.education,
             birthDate: h.birthDate,
           })),
+          // Family chain fields
+          parentReferenceId: newUser.parentReferenceId,
+          familyHeadReference: newUser.familyHeadReference,
+          relationshipType: newUser.relationshipType,
         };
         
         const res = await fetch(url, {
@@ -730,6 +830,9 @@ export default function TempleUserEntryPage() {
       group: '',
       maleHeirs: 0,
       femaleHeirs: 0,
+      parentReferenceId: '',
+      familyHeadReference: '',
+      relationshipType: 'self',
       outstandingAmount: '',
       photo: null,
       heirs: [],
@@ -872,13 +975,41 @@ export default function TempleUserEntryPage() {
                   <label className="block text-xs font-medium text-gray-900 mb-1">
                     {t[language as 'tamil' | 'english'].fatherName} *
                   </label>
-                  <input
-                    className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.fatherName ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
-                    value={newUser.fatherName}
-                    onChange={(e) => handleFieldChange('fatherName', e.target.value)}
-                    required
-                  />
+                  <div className="flex gap-1">
+                    <input
+                      className={`flex-1 px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.fatherName ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                      value={newUser.fatherName}
+                      onChange={(e) => handleFieldChange('fatherName', e.target.value)}
+                      placeholder={language === 'tamil' ? 'தந்தையின் பெயர்' : "Father's Name"}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => lookupFamilyByReference(newUser.parentReferenceId || newUser.fatherName)}
+                      disabled={lookingUp}
+                      className="px-2 py-1 bg-amber-600 text-white text-xs rounded hover:bg-amber-700 disabled:opacity-50"
+                      title={language === 'tamil' ? 'குடும்ப குறிப்பு எண் மூலம் தேடு' : 'Search by Family Reference'}
+                    >
+                      {lookingUp ? '...' : '🔍'}
+                    </button>
+                  </div>
                   {errors.fatherName && <p className="text-red-500 text-xs mt-1">{errors.fatherName}</p>}
+                  
+                  {/* Family Reference Input */}
+                  <div className="mt-1 flex gap-1">
+                    <input
+                      className="flex-1 px-2 py-1 text-xs border border-amber-300 rounded focus:ring-1 focus:ring-amber-500"
+                      value={newUser.parentReferenceId}
+                      onChange={(e) => handleFieldChange('parentReferenceId', e.target.value)}
+                      placeholder={language === 'tamil' ? 'குடும்ப குறிப்பு எண் (T-2024-XXX)' : 'Family Reference (T-2024-XXX)'}
+                    />
+                  </div>
+                  
+                  {newUser.parentReferenceId && (
+                    <div className="mt-1 text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded border border-amber-200">
+                      {language === 'tamil' ? 'குடும்பத்துடன் இணைக்கப்பட்டது:' : 'Linked to Family:'} {newUser.parentReferenceId}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].educationLabel} *</label>

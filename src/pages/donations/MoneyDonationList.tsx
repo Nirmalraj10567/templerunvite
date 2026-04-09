@@ -40,7 +40,7 @@ export default function MoneyDonationList() {
     const results = await Promise.all(
       missing.map(async (id) => {
         try {
-          const res = await fetch(`https://tmsapi.xesstechlink.com/api/admin/members/${id}`, {
+          const res = await fetch(`http://localhost:4000/api/admin/members/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data = await res.json().catch(() => ({}));
@@ -171,7 +171,7 @@ export default function MoneyDonationList() {
     setLogs([]);
     setLogsLoading(true);
     try {
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/money-donations/${donationId}/logs`, {
+      const res = await fetch(`http://localhost:4000/api/money-donations/${donationId}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -223,7 +223,7 @@ export default function MoneyDonationList() {
   const loadAllDonationLogs = async (pageNum: number) => {
     setAllLogsLoading(true);
     try {
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/money-donations/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
+      const res = await fetch(`http://localhost:4000/api/money-donations/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -323,7 +323,7 @@ export default function MoneyDonationList() {
   // Function to refresh journal after money donation operations
   const refreshJournal = async () => {
     try {
-      await fetch('https://tmsapi.xesstechlink.com/api/journal/sync-pooja', {
+      await fetch('http://localhost:4000/api/journal/sync-pooja', {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,

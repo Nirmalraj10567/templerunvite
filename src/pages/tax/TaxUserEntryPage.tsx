@@ -31,6 +31,8 @@ export default function TaxUserEntryPage() {
     name: '',
     alternativeName: '',
     wifeName: '',
+    wifeFatherName: '',
+    wifeContact: '',
     education: '',
     occupation: '',
     fatherName: '',
@@ -45,13 +47,19 @@ export default function TaxUserEntryPage() {
     postalCode: '',
     maleHeirs: 0,
     femaleHeirs: 0,
+    gender: '',
+    maritalStatus: '',
+    parentReferenceId: '',
+    familyHeadReference: '',
+    relationshipType: 'self',
+    separateFromFamily: true,
     year: new Date().getFullYear(),
     taxAmount: '',
     amountPaid: '',
     outstandingAmount: '',
     fromAccount: 'TAX A/C',
     transferTo: 'INCOME A/C',
-    memberId: '', // Add member_id field
+    memberId: '',
   });
 
   const [newUser, setNewUser] = useState({
@@ -130,16 +138,16 @@ export default function TaxUserEntryPage() {
         setLoading(true);
         try {
           const [clansRes, groupsRes, occupationsRes, educationsRes] = await Promise.all([
-            fetch(`https://tmsapi.xesstechlink.com/api/master/clans/${user.templeId}`, {
+            fetch(`http://localhost:4000/api/master/clans/${user.templeId}`, {
               headers: { Authorization: `Bearer ${token}` }
             }),
-            fetch(`https://tmsapi.xesstechlink.com/api/master/groups/${user.templeId}`, {
+            fetch(`http://localhost:4000/api/master/groups/${user.templeId}`, {
               headers: { Authorization: `Bearer ${token}` }
             }),
-            fetch(`https://tmsapi.xesstechlink.com/api/master/occupations/${user.templeId}`, {
+            fetch(`http://localhost:4000/api/master/occupations/${user.templeId}`, {
               headers: { Authorization: `Bearer ${token}` }
             }),
-            fetch(`https://tmsapi.xesstechlink.com/api/master/educations/${user.templeId}`, {
+            fetch(`http://localhost:4000/api/master/educations/${user.templeId}`, {
               headers: { Authorization: `Bearer ${token}` }
             }),
           ]);
@@ -192,7 +200,7 @@ export default function TaxUserEntryPage() {
     if (!token) return;
     (async () => {
       try {
-        const resp =await axios.get<any>('https://tmsapi.xesstechlink.com/api/ledger/categories', {
+        const resp =await axios.get<any>('http://localhost:4000/api/ledger/categories', {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = (resp?.data && Array.isArray(resp.data.data)) ? resp.data.data : (Array.isArray(resp?.data) ? resp.data : []);
@@ -336,7 +344,7 @@ export default function TaxUserEntryPage() {
   const fetchNextReferenceNumber = async (year: number) => {
     if (!token || !year) return;
     try {
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations/next-ref?year=${year}`, {
+      const res = await fetch(`http://localhost:4000/api/tax-registrations/next-ref?year=${year}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -370,6 +378,7 @@ export default function TaxUserEntryPage() {
       name: userData.name || '',
       alternativeName: userData.alternative_name || '',
       wifeName: userData.wife_name || '',
+      wifeFatherName: userData.wife_father_name || '',
       fatherName: userData.father_name || '',
       address: userData.address || '',
       birthDate: userData.birth_date || '',
@@ -383,8 +392,13 @@ export default function TaxUserEntryPage() {
       occupation: userData.occupation || '',
       maleHeirs: userData.male_heirs || 0,
       femaleHeirs: userData.female_heirs || 0,
+      gender: userData.gender || '',
+      maritalStatus: userData.marital_status || '',
+      parentReferenceId: userData.parent_reference_id || '',
+      familyHeadReference: userData.family_head_reference || '',
+      relationshipType: userData.relationship_type || 'self',
       mobileNumber: userData.mobile_number ? formatMobileNumber(userData.mobile_number) : prev.mobileNumber,
-      memberId: userData.reference_number ? userData.reference_number.toString() : '', // Set member_id from user registration
+      memberId: userData.reference_number ? userData.reference_number.toString() : '',
     }));
     // Enable lock after autofill
     setAutoLocked(true);
@@ -440,7 +454,7 @@ export default function TaxUserEntryPage() {
     try {
       console.log('Fetching results for mobile:', cleanMobile); // Debug log
       // Search in user_registrations table for existing user data using the search parameter
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/registrations?search=${cleanMobile}&pageSize=10`, {
+      const response = await fetch(`http://localhost:4000/api/registrations?search=${cleanMobile}&pageSize=10`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -488,7 +502,7 @@ export default function TaxUserEntryPage() {
     setNameLookingUp(true);
     setErr(null);
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/registrations?search=${encodeURIComponent(q)}&pageSize=10`, {
+      const response = await fetch(`http://localhost:4000/api/registrations?search=${encodeURIComponent(q)}&pageSize=10`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (response.ok) {
@@ -538,7 +552,7 @@ export default function TaxUserEntryPage() {
     try {
       console.log('Fetching results for receipt:', cleanReceipt);
       // Search in user_registrations table for existing user data using reference number
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/registrations?search=${encodeURIComponent(cleanReceipt)}&pageSize=10`, {
+      const response = await fetch(`http://localhost:4000/api/registrations?search=${encodeURIComponent(cleanReceipt)}&pageSize=10`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -561,6 +575,55 @@ export default function TaxUserEntryPage() {
     } catch (error) {
       console.error('Error looking up receipt:', error);
       setErr(L('Error searching reference number', 'குறிப்பு எண்ணைத் தேடுவதில் பிழை'));
+    } finally {
+      setLookingUp(false);
+    }
+  };
+
+  // Family reference lookup - for married man to find father's tax record
+  const lookupFamilyByReference = async (refNumber: string) => {
+    const cleanRef = (refNumber || '').trim();
+    if (!cleanRef || cleanRef.length < 3) {
+      setErr(L('Reference number too short', 'குறிப்பு எண் மிகவும் குறுகியது'));
+      return;
+    }
+
+    setLookingUp(true);
+    setErr(null);
+    setMsg(null);
+
+    try {
+      // Search in user_tax_registrations table by reference number
+      const response = await fetch(`http://localhost:4000/api/tax-registrations/by-reference/${encodeURIComponent(cleanRef)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          const familyData = data.data;
+          // Auto-fill family details from father's record
+          setForm(prev => ({
+            ...prev,
+            address: familyData.address || prev.address,
+            village: familyData.village || prev.village,
+            fatherName: familyData.name || prev.fatherName, // Father's name as this person's father
+            mobileNumber: familyData.mobile_number ? formatMobileNumber(familyData.mobile_number) : prev.mobileNumber,
+            clan: familyData.clan || prev.clan,
+            group: familyData.group || prev.group,
+            postalCode: familyData.postal_code || prev.postalCode,
+            parentReferenceId: cleanRef,
+          }));
+          showSuccessAlert(`✅ Linked to Family: ${familyData.name} - ${cleanRef} / குடும்பத்துடன் இணைக்கப்பட்டது: ${familyData.name}`);
+        } else {
+          setErr(L('No tax registration found with this reference', 'இந்த குறிப்பு எண்ணுடன் வரி பதிவு இல்லை'));
+        }
+      } else {
+        setErr(L('Failed to search family reference', 'குடும்ப குறிப்பு எண்ணைத் தேட முடியவில்லை'));
+      }
+    } catch (error) {
+      console.error('Error looking up family reference:', error);
+      setErr(L('Error searching family reference', 'குடும்ப குறிப்பு எண்ணைத் தேடுவதில் பிழை'));
     } finally {
       setLookingUp(false);
     }
@@ -641,7 +704,7 @@ export default function TaxUserEntryPage() {
     if (cleanMobile.length !== 10) return;
 
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/tax-calculations/cumulative/${cleanMobile}?currentYear=${year}`, {
+      const response = await fetch(`http://localhost:4000/api/tax-calculations/cumulative/${cleanMobile}?currentYear=${year}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -691,7 +754,7 @@ export default function TaxUserEntryPage() {
     if (!token || !year) return;
 
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/tax-settings/year/${year}`, {
+      const response = await fetch(`http://localhost:4000/api/tax-settings/year/${year}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -864,6 +927,7 @@ export default function TaxUserEntryPage() {
       formData.append('name', form.name);
       formData.append('alternativeName', form.alternativeName);
       formData.append('wifeName', form.wifeName);
+      formData.append('wifeFatherName', form.wifeFatherName);
       formData.append('education', form.education);
       formData.append('occupation', form.occupation);
       formData.append('fatherName', form.fatherName);
@@ -878,6 +942,12 @@ export default function TaxUserEntryPage() {
       formData.append('postalCode', form.postalCode);
       formData.append('maleHeirs', form.maleHeirs.toString());
       formData.append('femaleHeirs', form.femaleHeirs.toString());
+      formData.append('gender', form.gender);
+      formData.append('maritalStatus', form.maritalStatus);
+      formData.append('parentReferenceId', form.parentReferenceId);
+      formData.append('familyHeadReference', form.familyHeadReference);
+      formData.append('relationshipType', form.relationshipType);
+      formData.append('separateFromFamily', String(form.separateFromFamily));
       formData.append('year', form.year.toString());
       formData.append('taxAmount', form.taxAmount);
       formData.append('amountPaid', form.amountPaid);
@@ -907,7 +977,7 @@ export default function TaxUserEntryPage() {
         formData.append('photo', newUser.photo);
       }
 
-      const res = await fetch('https://tmsapi.xesstechlink.com/api/tax-registrations', {
+      const res = await fetch('http://localhost:4000/api/tax-registrations', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`
@@ -939,6 +1009,8 @@ export default function TaxUserEntryPage() {
         name: '',
         alternativeName: '',
         wifeName: '',
+        wifeFatherName: '',
+        wifeContact: '',
         education: '',
         occupation: '',
         fatherName: '',
@@ -953,13 +1025,19 @@ export default function TaxUserEntryPage() {
         postalCode: '',
         maleHeirs: 0,
         femaleHeirs: 0,
+        gender: '',
+        maritalStatus: '',
+        parentReferenceId: '',
+        familyHeadReference: '',
+        relationshipType: 'self',
+        separateFromFamily: true,
         year: new Date().getFullYear(),
         taxAmount: '',
         amountPaid: '',
         outstandingAmount: '',
         fromAccount: 'TAX A/C',
         transferTo: 'INCOME A/C',
-        memberId: '', // Reset member_id field
+        memberId: '',
       });
 
       setNewUser({
@@ -985,6 +1063,8 @@ export default function TaxUserEntryPage() {
       name: '',
       alternativeName: '',
       wifeName: '',
+      wifeFatherName: '',
+      wifeContact: '',
       education: '',
       occupation: '',
       fatherName: '',
@@ -999,13 +1079,19 @@ export default function TaxUserEntryPage() {
       postalCode: '',
       maleHeirs: 0,
       femaleHeirs: 0,
+      gender: '',
+      maritalStatus: '',
+      parentReferenceId: '',
+      familyHeadReference: '',
+      relationshipType: 'self',
+      separateFromFamily: true,
       year: currentYear,
       taxAmount: '',
       amountPaid: '',
       outstandingAmount: '',
       fromAccount: 'TAX A/C',
       transferTo: 'INCOME A/C',
-      memberId: '', // Reset member_id field
+      memberId: '',
     });
     // Fetch tax amount for current year after clearing
     fetchTaxAmountForYear(currentYear);
@@ -1137,6 +1223,81 @@ export default function TaxUserEntryPage() {
                   
                 </div>
               </div>
+              {/* Gender & Marital Status */}
+              <div className="bg-blue-50 rounded-lg p-1.5 border border-blue-200">
+                <h3 className="text-sm font-semibold text-blue-900 mb-2">{L('Personal Status', 'தனிப்பட்ட நிலை')}</h3>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-1.5">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Gender', 'பாலினம்')} *</label>
+                    <select
+                      className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.gender ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                      value={form.gender}
+                      onChange={e => set('gender', e.target.value)}
+                    >
+                      <option value="">{L('Select', 'தேர்ந்தெடு')}</option>
+                      <option value="male">{L('Male', 'ஆண்')}</option>
+                      <option value="female">{L('Female', 'பெண்')}</option>
+                      <option value="other">{L('Other', 'மற்றவை')}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Marital Status', 'திருமண நிலை')} *</label>
+                    <select
+                      className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.maritalStatus ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                      value={form.maritalStatus}
+                      onChange={e => set('maritalStatus', e.target.value)}
+                    >
+                      <option value="">{L('Select', 'தேர்ந்தெடு')}</option>
+                      <option value="unmarried">{L('Unmarried', 'திருமணமாகாத')}</option>
+                      <option value="married">{L('Married', 'திருமணமான')}</option>
+                      <option value="divorced">{L('Divorced', 'விவாகரத்து')}</option>
+                      <option value="widowed">{L('Widowed', 'விதவை/விதவன்')}</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Family Reference Search - Show only for Married + Male */}
+              {form.maritalStatus === 'married' && form.gender === 'male' && (
+                <div className="bg-amber-50 rounded-lg p-1.5 border border-amber-200">
+                  <h3 className="text-sm font-semibold text-amber-900 mb-2">{L('Family Reference (Father/Husband)', 'குடும்ப குறிப்பு எண் (தந்தை/கணவர்)')}</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-1.5">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-900 mb-1">
+                        {L('Search Father\'s Tax Ref', 'தந்தையின் வரி குறிப்பு எண் தேடு')}
+                      </label>
+                      <div className="flex gap-1">
+                        <input
+                          className="w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent border-gray-300"
+                          value={form.parentReferenceId}
+                          onChange={e => set('parentReferenceId', e.target.value)}
+                          placeholder={L('Enter father\'s reference', 'தந்தையின் குறிப்பு எண்ணை உள்ளிடவும்')}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => lookupFamilyByReference(form.parentReferenceId)}
+                          disabled={!form.parentReferenceId.trim() || lookingUp}
+                          className="px-3 py-1 bg-amber-600 text-white text-xs rounded hover:bg-amber-700 disabled:opacity-50"
+                        >
+                          🔍
+                        </button>
+                      </div>
+                    </div>
+                    {form.parentReferenceId && (
+                      <div className="md:col-span-2 flex items-center">
+                        <div className="bg-white px-3 py-1.5 rounded border border-amber-300 text-xs">
+                          <span className="text-amber-700 font-medium">{L('Linked to Family:', 'குடும்பத்துடன் இணைக்கப்பட்டது:')}</span>
+                          <span className="ml-1 text-gray-700">{form.parentReferenceId}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-amber-700 mt-1">
+                    💡 {L('Enter father\'s tax reference to auto-fill family details (address, village, etc.)', 'குடும்ப விவரங்களை தானாக நிரப்ப தந்தையின் வரி குறிப்பு எண்ணை உள்ளிடவும்')}
+                  </p>
+                </div>
+              )}
+
               {/* Personal Details */}
               <div className="bg-gray-50 rounded-lg p-1.5">
                 <div className="flex items-center justify-between mb-1">
@@ -1268,14 +1429,53 @@ export default function TaxUserEntryPage() {
                       onChange={e => set('alternativeName', e.target.value)}
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Wife\'s Name', 'மனைவி பெயர்')}</label>
-                    <input
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-                      value={form.wifeName}
-                      onChange={e => set('wifeName', e.target.value)}
-                    />
-                  </div>
+                  
+                  {/* Wife Details - Only for Married + Male */}
+                  {form.maritalStatus === 'married' && form.gender === 'male' && (
+                    <>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-900 mb-1">{L('Wife\'s Name', 'மனைவி பெயர்')}</label>
+                        <input
+                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                          value={form.wifeName}
+                          onChange={e => set('wifeName', e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-900 mb-1">{L('Wife\'s Father Name', 'மனைவி தந்தை பெயர்')}</label>
+                        <input
+                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                          value={form.wifeFatherName}
+                          onChange={e => set('wifeFatherName', e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-900 mb-1">{L('Wife Contact', 'மனைவி தொடர்பு')}</label>
+                        <input
+                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                          value={form.wifeContact}
+                          onChange={e => set('wifeContact', e.target.value)}
+                          placeholder={L('Mobile/Phone', 'கைபேசி/தொலைபேசி')}
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={form.separateFromFamily}
+                            onChange={e => set('separateFromFamily', e.target.checked)}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="text-xs font-medium text-gray-900">
+                            {L('Create Separate Tax ID (New Family Branch)', 'தனி வரி ID உருவாக்கு (புதிய குடும்ப கிளை)')}
+                          </span>
+                        </label>
+                        <p className="text-xs text-gray-500 mt-1 ml-5">
+                          {L('If unchecked, this will be linked to existing family record', 'தேர்ந்தெடுக்காவிட்டால், இது இருக்கும் குடும்ப பதிவுடன் இணைக்கப்படும்')}
+                        </p>
+                      </div>
+                    </>
+                  )}
                   {/* Begin locked fields */}
                   <fieldset disabled={autoLocked} className="contents">
                   <div>
@@ -1780,7 +1980,7 @@ export default function TaxUserEntryPage() {
                 className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
                 onClick={() => {
                   const t = token ? encodeURIComponent(token) : '';
-                  const url = `https://tmsapi.xesstechlink.com/api/tax-registrations/${lastCreatedId}/receipt.pdf${t ? `?token=${t}` : ''}`;
+                  const url = `http://localhost:4000/api/tax-registrations/${lastCreatedId}/receipt.pdf${t ? `?token=${t}` : ''}`;
                   window.open(url, '_blank');
                   setShowPrintPrompt(false);
                 }}

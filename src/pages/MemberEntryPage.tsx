@@ -42,7 +42,7 @@ export default function MemberEntryPage() {
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch('https://tmsapi.xesstechlink.com/api/members', {
+      const response = await fetch('http://localhost:4000/api/members', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -133,7 +133,7 @@ export default function MemberEntryPage() {
     if (!editingMember) return;
 
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/users/${editingMember.id}`, {
+      const response = await fetch(`http://localhost:4000/api/users/${editingMember.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

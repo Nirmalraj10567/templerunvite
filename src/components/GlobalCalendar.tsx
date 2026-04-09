@@ -74,7 +74,7 @@ export default function GlobalCalendar({ showPagination = true, itemsPerPage = 2
     setError('');
     try {
       const offset = (page - 1) * itemsPerPage;
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/calendar/all?limit=${itemsPerPage}&offset=${offset}`, {
+      const response = await fetch(`http://localhost:4000/api/calendar/all?limit=${itemsPerPage}&offset=${offset}`, {
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),

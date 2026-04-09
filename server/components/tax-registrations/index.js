@@ -23,25 +23,132 @@ router.get('/:id', authenticateToken, authorizePermission('tax_registrations', '
   try {
     const { id } = req.params;
     const templeId = req.user.templeId;
-    
+
     // Validate ID is a valid number
     const numericId = Number(id);
     if (!Number.isInteger(numericId) || numericId <= 0) {
       return res.status(400).json({ error: 'Invalid tax registration ID' });
     }
-    
+
     const registration = await db('user_tax_registrations')
       .where({ id: numericId, temple_id: templeId })
       .first();
-    
+
     if (!registration) {
       return res.status(404).json({ error: 'Tax registration not found or access denied.' });
     }
 
-    res.json({ success: true, data: registration });
+    // Fetch parent record if parent_reference_id exists
+    let parentRecord = null;
+    if (registration.parent_reference_id) {
+      parentRecord = await db('user_tax_registrations')
+        .where({ reference_number: registration.parent_reference_id, temple_id: templeId })
+        .first();
+    }
+
+    // Fetch children (family members who have this reference as their parent)
+    const familyMembers = await db('user_tax_registrations')
+      .where({ parent_reference_id: registration.reference_number, temple_id: templeId })
+      .select('id', 'reference_number', 'name', 'gender', 'marital_status', 'wife_name');
+
+    res.json({
+      success: true,
+      data: {
+        ...registration,
+        parentRecord: parentRecord || null,
+        familyMembers: familyMembers || []
+      }
+    });
   } catch (err) {
     console.error('Error fetching tax registration:', err);
     res.status(500).json({ error: 'Database error while fetching tax registration.' });
+  }
+});
+
+// GET tax registration by reference number (for family lookup)
+router.get('/by-reference/:refNumber', authenticateToken, authorizePermission('tax_registrations', 'view'), async (req, res) => {
+  try {
+    const { refNumber } = req.params;
+    const templeId = req.user.templeId;
+
+    if (!refNumber || refNumber.trim().length === 0) {
+      return res.status(400).json({ error: 'Reference number is required' });
+    }
+
+    const registration = await db('user_tax_registrations')
+      .where({ reference_number: refNumber, temple_id: templeId })
+      .first();
+
+    if (!registration) {
+      return res.status(404).json({ error: 'Tax registration not found with this reference number.' });
+    }
+
+    res.json({ success: true, data: registration });
+  } catch (err) {
+    console.error('Error fetching tax registration by reference:', err);
+    res.status(500).json({ error: 'Database error while fetching tax registration.' });
+  }
+});
+
+// GET family tree for a given reference number
+router.get('/family-tree/:refNumber', authenticateToken, authorizePermission('tax_registrations', 'view'), async (req, res) => {
+  try {
+    const { refNumber } = req.params;
+    const templeId = req.user.templeId;
+
+    if (!refNumber || refNumber.trim().length === 0) {
+      return res.status(400).json({ error: 'Reference number is required' });
+    }
+
+    // Get the root person
+    const root = await db('user_tax_registrations')
+      .where({ reference_number: refNumber, temple_id: templeId })
+      .first();
+
+    if (!root) {
+      return res.status(404).json({ error: 'Tax registration not found.' });
+    }
+
+    // Get parent if exists
+    let parent = null;
+    if (root.parent_reference_id) {
+      parent = await db('user_tax_registrations')
+        .where({ reference_number: root.parent_reference_id, temple_id: templeId })
+        .first();
+    }
+
+    // Get all family members (siblings + children)
+    const familyHeadRef = root.family_head_reference || root.parent_reference_id || root.reference_number;
+    const allFamily = await db('user_tax_registrations')
+      .where({ temple_id: templeId })
+      .andWhere(function() {
+        this.where('family_head_reference', familyHeadRef)
+            .orWhere('parent_reference_id', familyHeadRef)
+            .orWhere('reference_number', familyHeadRef);
+      })
+      .select('id', 'reference_number', 'name', 'gender', 'marital_status', 'wife_name', 'parent_reference_id', 'family_head_reference');
+
+    // Build tree structure
+    const buildTree = (members, parentRef) => {
+      return members
+        .filter(m => m.parent_reference_id === parentRef || (parentRef === root.reference_number && !m.parent_reference_id && m.reference_number !== root.reference_number))
+        .map(m => ({
+          ...m,
+          children: buildTree(members, m.reference_number)
+        }));
+    };
+
+    const tree = {
+      root,
+      parent,
+      familyMembers: allFamily.filter(m => m.reference_number !== root.reference_number),
+      treeStructure: buildTree(allFamily, root.parent_reference_id)
+    };
+
+    res.json({ success: true, data: tree });
+  } catch (err) {
+    console.error('Error fetching family tree:', err);
+    res.status(500).json({ error: 'Database error while fetching family tree.' });
   }
 });
 
@@ -238,6 +345,16 @@ router.post('/', authenticateToken, authorizePermission('tax_registrations', 'ed
     const outstandingAmount = Number(cleanedData.outstandingAmount || 0);
     const taxAmount = Number(cleanedData.taxAmount || 0);
 
+    // Determine family head reference (root of family tree)
+    let familyHeadRef = null;
+    if (cleanedData.parentReferenceId) {
+      // If parent has a family_head_reference, use that; otherwise use parent's ref
+      const parentRecord = await db('user_tax_registrations')
+        .where({ reference_number: cleanedData.parentReferenceId, temple_id: effectiveTempleId })
+        .first();
+      familyHeadRef = parentRecord?.family_head_reference || cleanedData.parentReferenceId;
+    }
+
     const insertPayload = {
       temple_id: effectiveTempleId,
       reference_number: cleanedData.referenceNumber || '',
@@ -246,6 +363,7 @@ router.post('/', authenticateToken, authorizePermission('tax_registrations', 'ed
       name: cleanedData.name || '',
       alternative_name: cleanedData.alternativeName || '',
       wife_name: cleanedData.wifeName || '',
+      wife_father_name: cleanedData.wifeFatherName || '',
       education: cleanedData.education || '',
       occupation: cleanedData.occupation || '',
       father_name: cleanedData.fatherName || '',
@@ -260,12 +378,17 @@ router.post('/', authenticateToken, authorizePermission('tax_registrations', 'ed
       postal_code: cleanedData.postalCode || '',
       male_heirs: Number(cleanedData.maleHeirs || 0),
       female_heirs: Number(cleanedData.femaleHeirs || 0),
+      gender: cleanedData.gender || '',
+      marital_status: cleanedData.maritalStatus || '',
+      parent_reference_id: cleanedData.parentReferenceId || null,
+      family_head_reference: familyHeadRef || null,
+      relationship_type: cleanedData.relationshipType || 'self',
       tax_amount: taxAmount,
       amount_paid: amountPaid,
       outstanding_amount: outstandingAmount,
       from_account: cleanedData.fromAccount || cleanedData.from_account || 'TAX A/C',
       transfer_to_account: cleanedData.transferTo || cleanedData.transfer_to || 'INCOME A/C',
-      member_id: cleanedData.memberId || null, // Add member_id field
+      member_id: cleanedData.memberId || null,
       created_at: db.fn.now(),
       updated_at: db.fn.now(),
     };

@@ -7,7 +7,7 @@ const { exportRegistrationsToPdf, exportSingleRegistrationToPdf } = require('../
 function createRegistrationsRouter(db) {
   const router = express.Router();
 
-  const validateRegistration = (payload) => {
+  const validateRegistration = async (payload, templeId) => {
     const errors = {};
     
     // Only validate core required fields
@@ -23,6 +23,84 @@ function createRegistrationsRouter(db) {
         errors[field] = message;
       }
     });
+    
+    // FAMILY CHAIN VALIDATION: Verify if new person's name exists in heirs list of family head
+    if (payload.parentReferenceId || payload.familyHeadReference) {
+      const parentRef = payload.parentReferenceId || payload.familyHeadReference;
+      try {
+        // Get the family head's tax registration
+        const familyRecord = await db('user_tax_registrations')
+          .where({ reference_number: parentRef, temple_id: templeId })
+          .first();
+        
+        if (!familyRecord) {
+          errors.familyReference = `Family reference ${parentRef} not found in tax registrations`;
+        } else {
+          // Get the heirs of this family head
+          const familyHeirs = await db('user_tax_registrations')
+            .where({ parent_reference_id: parentRef, temple_id: templeId })
+            .orWhere({ family_head_reference: parentRef, temple_id: templeId })
+            .whereNot({ reference_number: parentRef })
+            .select('name');
+          
+          // Also get heirs from heirs table if exists
+          const heirsFromTable = await db('user_heirs')
+            .whereIn('registration_id', function() {
+              this.select('id').from('user_tax_registrations')
+                .where({ reference_number: parentRef, temple_id: templeId });
+            })
+            .select('name');
+          
+          // Combine all heir names
+          const allHeirNames = [
+            ...familyHeirs.map(h => h.name?.toLowerCase().trim()),
+            ...heirsFromTable.map(h => h.name?.toLowerCase().trim())
+          ].filter(Boolean);
+          
+          // Add family head's name as possible father match
+          const familyHeadName = familyRecord.name?.toLowerCase().trim();
+          
+          // Check if new user's name matches any heir OR if father name matches family head
+          const userName = payload.name?.toLowerCase().trim();
+          const userFatherName = payload.fatherName?.toLowerCase().trim();
+          
+          const nameInHeirsList = allHeirNames.some(heirName => 
+            heirName && (heirName.includes(userName) || userName?.includes(heirName))
+          );
+          
+          const fatherIsFamilyHead = userFatherName && familyHeadName && 
+            (userFatherName === familyHeadName || 
+             userFatherName.includes(familyHeadName) || 
+             familyHeadName.includes(userFatherName));
+          
+          // Verify clan matches if both provided
+          const clanMatches = !payload.clan || !familyRecord.clan || 
+            payload.clan.toLowerCase() === familyRecord.clan.toLowerCase();
+          
+          if (!clanMatches) {
+            errors.clanMismatch = `Clan mismatch: Your clan "${payload.clan}" does not match family clan "${familyRecord.clan}"`;
+          }
+          
+          // If name not in heirs list AND father doesn't match family head, warn
+          if (!nameInHeirsList && !fatherIsFamilyHead && userName) {
+            errors.familyVerification = 
+              `"${payload.name}" is not listed as a heir of ${familyRecord.name}. ` +
+              `Found heirs: ${allHeirNames.length > 0 ? allHeirNames.slice(0, 5).join(', ') : 'None'}. ` +
+              `Please verify family link or check if the person is registered as a child first.`;
+          }
+        }
+      } catch (e) {
+        console.error('Family validation error:', e);
+      }
+    }
+    
+    // Additional format validation
+    if (payload.mobileNumber && !/^\d{10}$/.test(payload.mobileNumber.replace(/\D/g, ''))) {
+      errors.mobileNumber = 'Mobile number must be 10 digits';
+    }
+    
+    return Object.keys(errors).length ? errors : null;
+  };
 
   // GET /api/registrations/next-ref?date=YYYY-MM-DD
   router.get('/next-ref', authenticateToken, async (req, res) => {
@@ -47,14 +125,6 @@ function createRegistrationsRouter(db) {
       res.status(500).json({ error: 'Failed to compute next reference number' });
     }
   });
-    
-    // Additional format validation
-    if (payload.mobileNumber && !/^\d{10}$/.test(payload.mobileNumber.replace(/\D/g, ''))) {
-      errors.mobileNumber = 'Mobile number must be 10 digits';
-    }
-    
-    return Object.keys(errors).length ? errors : null;
-  };
 
   // POST endpoint for new registrations (auto-generate reference_number as YYYY-0001 per calendar year)
   router.post('/', authenticateToken, async (req, res) => {
@@ -70,7 +140,7 @@ function createRegistrationsRouter(db) {
       
       console.log('Payload before validation:', payload);
       
-      const validationErrors = validateRegistration(payload);
+      const validationErrors = await validateRegistration(payload, req.user.templeId);
       if (validationErrors) {
         return res.status(400).json({
           error: 'Validation failed',
@@ -102,7 +172,7 @@ function createRegistrationsRouter(db) {
         // Fallback keeps default nextRef
       }
 
-      // Insert registration
+      // Insert registration with family chain fields
       const [id] = await db('user_registrations').insert({
         temple_id: req.user.templeId,
         reference_number: nextRef,
@@ -125,6 +195,10 @@ function createRegistrationsRouter(db) {
         postal_code: payload.postalCode,
         male_heirs: payload.maleHeirs || 0,
         female_heirs: payload.femaleHeirs || 0,
+        // Family chain fields
+        parent_reference_id: payload.parentReferenceId || null,
+        family_head_reference: payload.familyHeadReference || payload.parentReferenceId || null,
+        relationship_type: payload.relationshipType || 'self',
         created_at: db.fn.now(),
         updated_at: db.fn.now()
       });

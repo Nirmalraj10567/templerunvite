@@ -30,7 +30,7 @@ export function setGlobalLogoutCallback(callback: () => void) {
 }
 
 // Create axios instance with automatic token handling
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://tmsapi.xesstechlink.com';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,

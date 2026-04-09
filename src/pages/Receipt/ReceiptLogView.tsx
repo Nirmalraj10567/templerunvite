@@ -69,7 +69,7 @@ export default function ReceiptLogView({ recentOnly = false }: ReceiptLogViewPro
     const results = await Promise.all(
       missing.map(async (id) => {
         try {
-          const res = await fetch(`https://tmsapi.xesstechlink.com/api/admin/members/${id}`, {
+          const res = await fetch(`http://localhost:4000/api/admin/members/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data = await res.json().catch(() => ({}));
@@ -105,7 +105,7 @@ export default function ReceiptLogView({ recentOnly = false }: ReceiptLogViewPro
     try {
       setLoading(true);
       const res = await fetch(
-        `https://tmsapi.xesstechlink.com/api/receipts/logs?${params}`,
+        `http://localhost:4000/api/receipts/logs?${params}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 

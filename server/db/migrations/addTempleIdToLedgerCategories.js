@@ -1,4 +1,4 @@
-module.exports = async function(db) {
+exports.up = async function(db) {
   try {
     // Check if temple_id column exists
     const columns = await db.raw("PRAGMA table_info(ledger_categories)");
@@ -21,4 +21,9 @@ module.exports = async function(db) {
   } catch (error) {
     console.log('Note: temple_id column may already exist or migration failed:', error.message);
   }
+};
+
+exports.down = async function(db) {
+  // Down migration not needed for column addition
+  console.log('Down migration for addTempleIdToLedgerCategories - no action taken');
 };

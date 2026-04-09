@@ -11,7 +11,7 @@ async function testCalendarAPI() {
     // You would need to replace this with a valid token for testing
     const token = 'your-test-token-here';
     
-    const response = await fetch(`https://tmsapi.xesstechlink.com/api/calendar/${today}`, {
+    const response = await fetch(`http://localhost:4000/api/calendar/${today}`, {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
