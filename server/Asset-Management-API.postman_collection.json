@@ -1,0 +1,472 @@
+{
+  "info": {
+    "name": "Asset Management API",
+    "description": "Complete asset management API collection with MySQL backend. Includes authentication, CRUD operations, convert-to-cash flow, and audit logging.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "123456"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"test_admin\",\n  \"password\": \"test123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "login"
+              ]
+            },
+            "description": "Authenticate and get JWT token. Copy the token from the response and set it as the `authToken` collection variable."
+          },
+          "response": []
+        }
+      ],
+      "description": "Authentication endpoints for obtaining JWT tokens"
+    },
+    {
+      "name": "Assets",
+      "item": [
+        {
+          "name": "Create Asset",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Temple Audio System\",\n  \"details\": \"Professional audio system with mixer, speakers, and microphones\",\n  \"value\": 25000,\n  \"asset_source\": \"donation\",\n  \"source_details\": \"Donated by Mr. Raj for temple functions\",\n  \"donor_name\": \"Mr. Raj\",\n  \"donor_contact\": \"9876543210\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/assets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assets"
+              ]
+            },
+            "description": "Create a new asset with source tracking. Required fields: name, value. Optional: asset_source (purchase/donation/other), source_details, donor_name, donor_contact."
+          },
+          "response": []
+        },
+        {
+          "name": "List All Assets",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/assets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assets"
+              ]
+            },
+            "description": "Get all assets for the authenticated user's temple. Returns assets ordered by updated_at desc."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Single Asset",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/assets/{{assetId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assets",
+                "{{assetId}}"
+              ]
+            },
+            "description": "Get details of a single asset by ID. Requires ownership (same temple)."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Asset",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Audio System\",\n  \"details\": \"Upgraded with wireless microphones\",\n  \"value\": 30000,\n  \"asset_source\": \"donation\",\n  \"source_details\": \"Updated details\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/assets/{{assetId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assets",
+                "{{assetId}}"
+              ]
+            },
+            "description": "Update an existing asset. Cannot update if asset status is 'converted'. Requires 'asset_management' permission with 'full' access."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Asset",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{{{baseUrl}}/api/assets/{{assetId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assets",
+                "{{assetId}}"
+              ]
+            },
+            "description": "Delete an asset. Cannot delete if asset status is 'converted'. Logs deletion before removing."
+          },
+          "response": []
+        },
+        {
+          "name": "Convert Asset to Cash",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/assets/{{assetId}}/convert-to-cash",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assets",
+                "{{assetId}}",
+                "convert-to-cash"
+              ]
+            },
+            "description": "Convert asset to cash. Creates a ledger income entry with asset value, marks asset as 'converted'. Returns incomeEntryId and convertedValue. Asset cannot be modified after conversion."
+          },
+          "response": []
+        }
+      ],
+      "description": "Core asset management endpoints (CRUD + convert to cash)"
+    },
+    {
+      "name": "Audit Logs",
+      "item": [
+        {
+          "name": "Get Asset Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/assets/{{assetId}}/logs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assets",
+                "{{assetId}}",
+                "logs"
+              ]
+            },
+            "description": "Get audit logs for a specific asset. Includes create, update, delete, and convert_to_cash actions with before/after data."
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Asset Logs (Paginated)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/assets/logs/all?page=1&pageSize=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assets",
+                "logs",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": "Get all asset logs with pagination. Filtered by temple for non-superadmins. Includes asset_name and temple_id in response."
+          },
+          "response": []
+        }
+      ],
+      "description": "Audit trail endpoints for tracking asset changes"
+    },
+    {
+      "name": "Test Scenarios",
+      "item": [
+        {
+          "name": "Create - Validation Error (Missing Name)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"value\": 10000\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/assets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assets"
+              ]
+            },
+            "description": "Should return 400 error - name is required"
+          },
+          "response": []
+        },
+        {
+          "name": "Create - Validation Error (Negative Value)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Asset\",\n  \"value\": -1000\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/assets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assets"
+              ]
+            },
+            "description": "Should return 400 error - value must be positive"
+          },
+          "response": []
+        },
+        {
+          "name": "Unauthorized - No Token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/assets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assets"
+              ]
+            },
+            "description": "Should return 401 error - access token required"
+          },
+          "response": []
+        },
+        {
+          "name": "Try Update Converted Asset (Should Fail)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Should Fail\",\n  \"value\": 10000\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/assets/{{convertedAssetId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assets",
+                "{{convertedAssetId}}"
+              ]
+            },
+            "description": "Should return 400 error - Cannot update converted asset"
+          },
+          "response": []
+        },
+        {
+          "name": "Try Delete Converted Asset (Should Fail)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/assets/{{convertedAssetId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assets",
+                "{{convertedAssetId}}"
+              ]
+            },
+            "description": "Should return 400 error - Cannot delete converted asset"
+          },
+          "response": []
+        }
+      ],
+      "description": "Test scenarios for validation, errors, and edge cases"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "assetId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "convertedAssetId",
+      "value": "2",
+      "type": "string"
+    }
+  ]
+}

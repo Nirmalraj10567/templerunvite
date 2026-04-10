@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const db = require('./db');
 
 // JWT Secret (must match the one in backend.js)
-const JWT_SECRET = process.env.JWT_SECRET
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-insecure-secret-change-me'
 
 // Knex instance (MySQL via shared configuration in server/db.js)
 const knexDb = db;

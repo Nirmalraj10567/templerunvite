@@ -20,7 +20,8 @@ const PORT = 4000;
 dotenv.config({ path: path.join(__dirname, 'env') });
 
 // Import routes
-const propertiesRouter = require('./properties');
+const assetsRouter = require('./properties');  // Asset management per flowchart
+const propertyTaxRouter = require('./routes/properties');  // Property tax registrations
 const ledgerRouter = require('./routes/ledger');
 
 // JWT Secret (in production, use environment variable)
@@ -494,7 +495,8 @@ const authorizePermission = (permissionId, requiredLevel = 'view') => {
 const hallApprovalRouter = require('./hall-approval')({ db, authenticateToken, authorizePermission });
 
 // Mount routes
-app.use('/api/properties', propertiesRouter);
+app.use('/api/assets', assetsRouter);           // Asset management per flowchart (convert to cash, source tracking)
+app.use('/api/property-tax', propertyTaxRouter); // Property tax registrations
 app.use('/api/ledger', ledgerRouter);
 app.use('/api/hall-approval', hallApprovalRouter);
 
@@ -587,6 +589,16 @@ async function logReceiptAction({ receiptId, templeId, userId, action, details }
     app.use('/api/annadhanam-mobile', annadhanamMobileRouter);
   } catch (e) {
     console.error('Failed to mount annadhanam-mobile router:', e);
+  }
+})();
+
+// Mount enhanced annadhanam-mobile routes (new flowchart-based features)
+(() => {
+  try {
+    const annadhanamMobileEnhancedRouter = require('./annadhanam-mobile-enhanced')({ db });
+    app.use('/api/annadhanam-mobile-enhanced', annadhanamMobileEnhancedRouter);
+  } catch (e) {
+    console.error('Failed to mount annadhanam-mobile-enhanced router:', e);
   }
 })();
 // Mount tax-mobile routes (public; validation via mobile and templeId in query)
@@ -3873,68 +3885,6 @@ app.get('/api/session-logs/export-pdf', authenticateToken, authorizePermission('
   }
 });
 
-// Temporary admin user creation endpoint
-
-// Import properties routes
-//const propertiesRouter = require('./routes/properties');
-
-// Mount properties routes with middleware
-app.use('/api/properties',
-  authenticateToken,
-  authorizePermission('property_registrations', 'edit'),
-  (req, res, next) => {
-    // Add db to the request object
-    req.db = db;
-    next();
-  },
-  propertiesRouter
-);
-
-// Get all properties with pagination and search
-// Helper: convert a DB row to camelCase response expected by frontend
-function mapPropertyToCamel(row) {
-  if (!row) return null;
-  const cap = (s) => (!s ? '' : s.charAt(0).toUpperCase() + s.slice(1));
-  // Ensure numbers for numeric fields and capitalized taxStatus for UI
-  return {
-    id: row.id,
-    propertyNo: row.property_no,
-    surveyNo: row.survey_no,
-    wardNo: row.ward_no,
-    streetName: row.street_name,
-    area: row.area,
-    city: row.city,
-    pincode: row.pincode,
-    ownerName: row.owner_name,
-    ownerMobile: row.owner_mobile,
-    ownerAadhaar: row.owner_aadhaar,
-    ownerAddress: row.owner_address,
-    taxAmount: Number(row.tax_amount ?? 0),
-    taxYear: Number(row.tax_year ?? 0),
-    taxStatus: cap(String(row.tax_status || 'pending')),
-    lastPaidDate: row.last_paid_date,
-    pendingAmount: Number(row.pending_amount ?? 0),
-    createdBy: row.created_by,
-    templeId: row.temple_id,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
-// Import properties routes
-//const propertiesRouter = require('./routes/properties');
-
-// Mount properties routes with middleware
-app.use('/api/properties',
-  authenticateToken,
-  (req, res, next) => {
-    // Add db to the request object
-    req.db = db;
-    next();
-  },
-  propertiesRouter
-);
-
 // Mount admin members router
 const createAdminMembersRouter = require('./routes/admin/members');
 const adminMembersRouter = createAdminMembersRouter({
@@ -3983,6 +3933,10 @@ app.use('/api/donation-products', donationProductsRouter);
 // Mount annadhanam router
 const annadhanamRouter = require('./annadhanam')({ db });
 app.use('/api/annadhanam', authenticateToken, authorizePermission('annadhanam_registrations', 'view'), annadhanamRouter);
+
+// Mount enhanced annadhanam router (new features based on flowchart)
+const annadhanamEnhancedRouter = require('./annadhanam-enhanced')({ db });
+app.use('/api/annadhanam-enhanced', authenticateToken, authorizePermission('annadhanam_registrations', 'view'), annadhanamEnhancedRouter);
 
 // ... (rest of the code remains the same)
 // Mount pooja router

@@ -1,0 +1,903 @@
+{
+  "info": {
+    "name": "Annadhanam Enhanced API",
+    "description": "Postman collection for Annadhanam Free Meal Service API based on flowchart workflow. Includes donor management, meal packages, slot availability, booking workflow, and feedback collection.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobile\": \"9876543210\",\n  \"password\": \"password\",\n  \"templeId\": 1\n}"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Donor Management",
+      "item": [
+        {
+          "name": "List Donors",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-enhanced/donors?q=&page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-enhanced", "donors"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Donor by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-enhanced/donors/{{donorId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-enhanced", "donors", "{{donorId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create/Update Donor",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-enhanced/donors",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-enhanced", "donors"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"mobile_number\": \"9876543210\",\n  \"email\": \"john@example.com\",\n  \"address\": \"123 Temple Street\",\n  \"city\": \"Chennai\",\n  \"state\": \"Tamil Nadu\",\n  \"pincode\": \"600001\",\n  \"donor_type\": \"individual\",\n  \"is_walk_in\": false\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Donor",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-enhanced/donors/{{donorId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-enhanced", "donors", "{{donorId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe Updated\",\n  \"email\": \"john.new@example.com\",\n  \"address\": \"456 New Street\"\n}"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Meal Packages",
+      "item": [
+        {
+          "name": "List Packages",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-enhanced/packages?meal_time=lunch",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-enhanced", "packages"],
+              "query": [
+                {
+                  "key": "meal_time",
+                  "value": "lunch"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Package",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-enhanced/packages",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-enhanced", "packages"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Special Festival Lunch\",\n  \"description\": \"Traditional feast with extra sweets\",\n  \"base_price\": 3000.00,\n  \"price_per_person\": 100.00,\n  \"meal_time\": \"lunch\",\n  \"min_people\": 20,\n  \"max_people\": 500\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Package",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-enhanced/packages/{{packageId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-enhanced", "packages", "{{packageId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"base_price\": 2500.00,\n  \"price_per_person\": 85.00,\n  \"is_active\": true\n}"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Meal Slots",
+      "item": [
+        {
+          "name": "Check Slot Availability",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-enhanced/slots/check?slot_date=2025-04-15&meal_time=lunch&people_count=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-enhanced", "slots", "check"],
+              "query": [
+                {
+                  "key": "slot_date",
+                  "value": "2025-04-15"
+                },
+                {
+                  "key": "meal_time",
+                  "value": "lunch"
+                },
+                {
+                  "key": "people_count",
+                  "value": "50"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Slots (Date Range)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-enhanced/slots?from_date=2025-04-01&to_date=2025-04-30&meal_time=lunch",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-enhanced", "slots"],
+              "query": [
+                {
+                  "key": "from_date",
+                  "value": "2025-04-01"
+                },
+                {
+                  "key": "to_date",
+                  "value": "2025-04-30"
+                },
+                {
+                  "key": "meal_time",
+                  "value": "lunch"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create/Update Slot",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-enhanced/slots",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-enhanced", "slots"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slot_date\": \"2025-04-15\",\n  \"meal_time\": \"lunch\",\n  \"total_capacity\": 200,\n  \"is_available\": true,\n  \"special_instructions\": \"Festival special arrangements\"\n}"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Booking Workflow",
+      "item": [
+        {
+          "name": "Calculate Amount",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-enhanced/calculate-amount",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-enhanced", "calculate-amount"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"package_id\": {{packageId}},\n  \"people_count\": 50\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Booking (Amount Optional)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-enhanced/book",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-enhanced", "book"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"donor_id\": {{donorId}},\n  \"name\": \"John Doe\",\n  \"mobile_number\": \"9876543210\",\n  \"package_id\": {{packageId}},\n  \"peoples\": 50,\n  \"time\": \"lunch\",\n  \"from_date\": \"2025-04-15\",\n  \"to_date\": \"2025-04-15\",\n  \"remarks\": \"Birthday celebration\",\n  \"special_instructions\": \"Extra sweets needed\",\n  \"is_walk_in\": false,\n  \"booking_source\": \"web\"\n}\n\n// Note: package_id is OPTIONAL. If not provided, calculated_amount will be 0\n// For free meals or custom pricing, omit package_id or set calculated_amount manually"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Free Meal Booking (No Amount)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-enhanced/book",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-enhanced", "book"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"donor_id\": {{donorId}},\n  \"name\": \"Free Meal Donor\",\n  \"mobile_number\": \"9876543210\",\n  \"peoples\": 100,\n  \"time\": \"lunch\",\n  \"from_date\": \"2025-04-15\",\n  \"to_date\": \"2025-04-15\",\n  \"remarks\": \"Free annadhanam for devotees\",\n  \"special_instructions\": \"Free meal - no payment\",\n  \"is_walk_in\": false,\n  \"booking_source\": \"web\"\n}\n\n// NO package_id provided - calculated_amount will be 0\n// Use this for free meals or when payment is handled separately"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm Booking",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-enhanced/{{bookingId}}/confirm",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-enhanced", "{{bookingId}}", "confirm"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mark as Delivered",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-enhanced/{{bookingId}}/deliver",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-enhanced", "{{bookingId}}", "deliver"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"delivery_notes\": \"Delivered successfully at 1:30 PM. All items served.\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mark as Completed",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-enhanced/{{bookingId}}/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-enhanced", "{{bookingId}}", "complete"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Bookings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-enhanced?q=&from=2025-04-01&to=2025-04-30&status=&page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-enhanced"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": ""
+                },
+                {
+                  "key": "from",
+                  "value": "2025-04-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2025-04-30"
+                },
+                {
+                  "key": "status",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Booking by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-enhanced/{{bookingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-enhanced", "{{bookingId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Booking",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-enhanced/{{bookingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-enhanced", "{{bookingId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"package_id\": {{packageId}},\n  \"peoples\": 60,\n  \"remarks\": \"Updated count to 60 people\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Booking",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-enhanced/{{bookingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-enhanced", "{{bookingId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Feedback",
+      "item": [
+        {
+          "name": "Submit Feedback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-enhanced/{{bookingId}}/feedback",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-enhanced", "{{bookingId}}", "feedback"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 5,\n  \"feedback_text\": \"Excellent service and food quality. The temple staff was very helpful.\",\n  \"food_quality_rating\": 5,\n  \"service_rating\": 5,\n  \"cleanliness_rating\": 5,\n  \"would_recommend\": true\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Booking Feedback",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-enhanced/{{bookingId}}/feedback",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-enhanced", "{{bookingId}}", "feedback"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Feedback",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-enhanced/feedback/all?from_date=2025-04-01&to_date=2025-04-30&min_rating=4",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-enhanced", "feedback", "all"],
+              "query": [
+                {
+                  "key": "from_date",
+                  "value": "2025-04-01"
+                },
+                {
+                  "key": "to_date",
+                  "value": "2025-04-30"
+                },
+                {
+                  "key": "min_rating",
+                  "value": "4"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Reports & Statistics",
+      "item": [
+        {
+          "name": "Dashboard Statistics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-enhanced/stats/dashboard?from=2025-04-01&to=2025-04-30",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-enhanced", "stats", "dashboard"],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2025-04-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2025-04-30"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Mobile API",
+      "item": [
+        {
+          "name": "Check/Create Donor",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-mobile-enhanced/check-donor",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-mobile-enhanced", "check-donor"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobile_number\": \"9876543210\",\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"address\": \"123 Mobile Street\",\n  \"temple_id\": 1\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Available Slots",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-mobile-enhanced/available-slots?date=2025-04-15&meal_time=lunch&people_count=50&temple_id=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-mobile-enhanced", "available-slots"],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2025-04-15"
+                },
+                {
+                  "key": "meal_time",
+                  "value": "lunch"
+                },
+                {
+                  "key": "people_count",
+                  "value": "50"
+                },
+                {
+                  "key": "temple_id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Mobile Packages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-mobile-enhanced/packages?meal_time=lunch&temple_id=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-mobile-enhanced", "packages"],
+              "query": [
+                {
+                  "key": "meal_time",
+                  "value": "lunch"
+                },
+                {
+                  "key": "temple_id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mobile Calculate Amount",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-mobile-enhanced/calculate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-mobile-enhanced", "calculate"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"package_id\": 1,\n  \"people_count\": 50,\n  \"temple_id\": 1\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mobile Submit Booking (Amount Optional)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-mobile-enhanced/submit",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-mobile-enhanced", "submit"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"donor_id\": 1,\n  \"name\": \"John Doe\",\n  \"mobile_number\": \"9876543210\",\n  \"email\": \"john@example.com\",\n  \"package_id\": 1,\n  \"peoples\": 50,\n  \"time\": \"lunch\",\n  \"from_date\": \"2025-04-15\",\n  \"to_date\": \"2025-04-15\",\n  \"remarks\": \"Mobile booking\",\n  \"special_instructions\": \"No onions please\",\n  \"temple_id\": 1\n}\n\n// Note: package_id is OPTIONAL. Omit for free meals or custom pricing.\n// Without package_id: calculated_amount = 0"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mobile Get My Bookings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-mobile-enhanced/my-bookings?mobile_number=9876543210&temple_id=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-mobile-enhanced", "my-bookings"],
+              "query": [
+                {
+                  "key": "mobile_number",
+                  "value": "9876543210"
+                },
+                {
+                  "key": "temple_id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mobile Cancel Booking",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-mobile-enhanced/{{bookingId}}/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-mobile-enhanced", "{{bookingId}}", "cancel"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobile_number\": \"9876543210\",\n  \"reason\": \"Change of plans\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mobile Submit Feedback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/annadhanam-mobile-enhanced/{{bookingId}}/feedback",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "annadhanam-mobile-enhanced", "{{bookingId}}", "feedback"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobile_number\": \"9876543210\",\n  \"rating\": 5,\n  \"feedback_text\": \"Excellent service from mobile booking!\",\n  \"food_quality_rating\": 5,\n  \"service_rating\": 5\n}"
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "donorId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "packageId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "bookingId",
+      "value": "1",
+      "type": "string"
+    }
+  ]
+}
