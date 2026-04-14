@@ -492,7 +492,7 @@ export default function PoojaEntryPage() {
                       </div>
                     </div>
 
-                    {/* Amount */
+                    {/* Amount */}
                     <div>
                       <Input
                         id="amount"
@@ -504,7 +504,7 @@ export default function PoojaEntryPage() {
                       />
                     </div>
 
-                    {/* Remarks */
+                    {/* Remarks */}
                     <div className="md:col-span-2">
                       <Textarea
                         id="remarks"
@@ -516,9 +516,9 @@ export default function PoojaEntryPage() {
                     </div>
                   </div>
 
-                  {/* Action Buttons */
+                  {/* Action Buttons */}
                   <div className="flex flex-wrap gap-3 justify-end pt-6 border-t border-gray-200">
-{{ ... }
+                    <Button
                       type="button"
                       variant="outline"
                       className={cn(theme.input.base, "px-5 py-2.5 text-base hover:bg-gray-50 rounded-md")}
