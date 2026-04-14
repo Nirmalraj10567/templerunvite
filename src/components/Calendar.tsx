@@ -67,7 +67,7 @@ export default function Calendar({ selectedDate, onDateSelect, showDatePicker = 
     setLoading(true);
     setError('');
     try {
-      const response = await fetch(`http://localhost:4000/api/calendar/${date}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/calendar/${date}`, {
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),

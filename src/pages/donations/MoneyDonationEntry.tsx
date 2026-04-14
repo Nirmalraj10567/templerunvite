@@ -82,7 +82,7 @@ export default function MoneyDonationEntry() {
   // Function to refresh journal after money donation operations
   const refreshJournal = async () => {
     try {
-      await fetch('http://localhost:4000/api/journal/sync-pooja', {
+      await fetch('https://tmsapi.xesstechlink.com/api/journal/sync-pooja', {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -145,7 +145,7 @@ export default function MoneyDonationEntry() {
     const loadLogs = async () => {
       try {
         if (!lastCreatedId || !token) return;
-        const res = await fetch(`http://localhost:4000/api/donations-approval/request/${lastCreatedId}`, {
+        const res = await fetch(`https://tmsapi.xesstechlink.com/api/donations-approval/request/${lastCreatedId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!res.ok) return;
@@ -294,7 +294,7 @@ export default function MoneyDonationEntry() {
 
         try {
           if (token) {
-            const res = await fetch(`http://localhost:4000/api/donations-approval/request/${editId}`, {
+            const res = await fetch(`https://tmsapi.xesstechlink.com/api/donations-approval/request/${editId}`, {
               headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {

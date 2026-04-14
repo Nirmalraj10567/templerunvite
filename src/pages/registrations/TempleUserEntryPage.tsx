@@ -4,6 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { CardHeader, CardTitle } from '@/components/ui/card';
+import { theme } from '@/styles/theme';
+import { cn } from '@/lib/utils';
 
 type Heir = {
   id: number;
@@ -260,10 +262,10 @@ export default function TempleUserEntryPage() {
       (async () => {
         try {
           const [clansRes, groupsRes, occupationsRes, educationsRes] = await Promise.all([
-            fetch(`http://localhost:4000/api/master/clans/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
-            fetch(`http://localhost:4000/api/master/groups/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
-            fetch(`http://localhost:4000/api/master/occupations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
-            fetch(`http://localhost:4000/api/master/educations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } })
+            fetch(`https://tmsapi.xesstechlink.com/api/master/clans/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`https://tmsapi.xesstechlink.com/api/master/groups/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`https://tmsapi.xesstechlink.com/api/master/occupations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`https://tmsapi.xesstechlink.com/api/master/educations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } })
           ]);
           if (clansRes.ok) {
             const clans = (await clansRes.json()).map((x: any) => x.name);
@@ -302,7 +304,7 @@ export default function TempleUserEntryPage() {
     if (!token) return;
     (async () => {
       try {
-        const resp = await fetch('http://localhost:4000/api/ledger/categories', {
+        const resp = await fetch('https://tmsapi.xesstechlink.com/api/ledger/categories', {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = await resp.json();
@@ -322,7 +324,7 @@ export default function TempleUserEntryPage() {
     const loadForEdit = async () => {
       if (!editId || !token) return;
       try {
-        const res = await fetch(`http://localhost:4000/api/registrations/${editId}`, {
+        const res = await fetch(`https://tmsapi.xesstechlink.com/api/registrations/${editId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
@@ -360,7 +362,7 @@ export default function TempleUserEntryPage() {
         }));
         // Debug: Log the photo path
         console.log('Photo path from API:', r.photo_path);
-        const baseUrl = 'http://localhost:4000/public';
+        const baseUrl = 'https://tmsapi.xesstechlink.com/public';
         const photoUrl = r.photo_path ? 
           (r.photo_path.startsWith('http') ? r.photo_path : `${baseUrl}${r.photo_path.startsWith('/') ? '' : '/'}${r.photo_path}`) : 
           null;
@@ -429,7 +431,7 @@ export default function TempleUserEntryPage() {
     setLookingUp(true);
     setErr(null);
     try {
-      const res = await fetch(`http://localhost:4000/api/tax-registrations/by-reference/${encodeURIComponent(cleanRef)}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations/by-reference/${encodeURIComponent(cleanRef)}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -580,7 +582,7 @@ export default function TempleUserEntryPage() {
   const fetchNextRef = async () => {
     if (!token || !user?.templeId) return;
     try {
-      const res = await fetch(`http://localhost:4000/api/registrations/next-reference?templeId=${user.templeId}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/registrations/next-reference?templeId=${user.templeId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -683,7 +685,7 @@ export default function TempleUserEntryPage() {
     setMsg(null);
     try {
       const isEdit = !!editId;
-      const url = isEdit ? `http://localhost:4000/api/registrations/${editId}` : 'http://localhost:4000/api/registrations';
+      const url = isEdit ? `https://tmsapi.xesstechlink.com/api/registrations/${editId}` : 'https://tmsapi.xesstechlink.com/api/registrations';
       const method = isEdit ? 'PUT' : 'POST';
       
       // Check if we have a photo to upload
@@ -898,7 +900,7 @@ export default function TempleUserEntryPage() {
                   </label>
                   <input
                     type="date"
-                    className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.date ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                    className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.date && "border-red-500 bg-red-50")}
                     value={newUser.date}
                     onChange={(e) => handleFieldChange('date', e.target.value)}
                     required
@@ -910,7 +912,7 @@ export default function TempleUserEntryPage() {
                     {t[language as 'tamil' | 'english'].year}
                   </label>
                   <input
-                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                    className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
                     value={newUser.year}
                     onChange={(e) => handleFieldChange('year', e.target.value)}
                   />
@@ -929,7 +931,7 @@ export default function TempleUserEntryPage() {
                   <div>
                     <input
                       type="tel"
-                      className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.mobileNumber ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.mobileNumber && "border-red-500 bg-red-50")}
                       value={newUser.mobileNumber}
                       onChange={(e) => handleMobileChange(e.target.value)}
                       placeholder={t[language as 'tamil' | 'english'].placeholderMobile}
@@ -948,7 +950,7 @@ export default function TempleUserEntryPage() {
                   </label>
                   <input
                     type="text"
-                    className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                    className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.name && "border-red-500 bg-red-50")}
                     value={newUser.name}
                     onChange={(e) => handleFieldChange('name', e.target.value)}
                     required
@@ -958,7 +960,7 @@ export default function TempleUserEntryPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].alternativeName}</label>
                   <input
-                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                    className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
                     value={newUser.alternativeName}
                     onChange={(e) => handleFieldChange('alternativeName', e.target.value)}
                   />
@@ -966,7 +968,7 @@ export default function TempleUserEntryPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].wifeName}</label>
                   <input
-                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                    className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
                     value={newUser.wifeName}
                     onChange={(e) => handleFieldChange('wifeName', e.target.value)}
                   />
@@ -977,7 +979,7 @@ export default function TempleUserEntryPage() {
                   </label>
                   <div className="flex gap-1">
                     <input
-                      className={`flex-1 px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.fatherName ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                      className={cn(theme.input.base, "flex-1 px-2 py-1 text-sm rounded", errors.fatherName && "border-red-500 bg-red-50")}
                       value={newUser.fatherName}
                       onChange={(e) => handleFieldChange('fatherName', e.target.value)}
                       placeholder={language === 'tamil' ? 'தந்தையின் பெயர்' : "Father's Name"}
@@ -1014,7 +1016,7 @@ export default function TempleUserEntryPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].educationLabel} *</label>
                   <select
-                    className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.education ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                    className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.education && "border-red-500 bg-red-50")}
                     value={newUser.education}
                     onChange={(e) => handleFieldChange('education', e.target.value)}
                     required
@@ -1029,7 +1031,7 @@ export default function TempleUserEntryPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].occupationLabel} *</label>
                   <select
-                    className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.occupation ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                    className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.occupation && "border-red-500 bg-red-50")}
                     value={newUser.occupation}
                     onChange={(e) => handleFieldChange('occupation', e.target.value)}
                     required
@@ -1053,7 +1055,7 @@ export default function TempleUserEntryPage() {
               </div>
               {showAddress && (
                 <textarea
-                  className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.address ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                  className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.address && "border-red-500 bg-red-50")}
                   rows={2}
                   value={newUser.address}
                   onChange={(e) => handleFieldChange('address', e.target.value)}
@@ -1077,7 +1079,7 @@ export default function TempleUserEntryPage() {
                     <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].aadhaarNumber}</label>
                     <input
                       type="text"
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
                       value={newUser.aadhaarNumber}
                       onChange={(e) => handleFormattedInput('aadhaarNumber', e.target.value, formatAadhaarNumber)}
                       placeholder={t[language as 'tamil' | 'english'].placeholderAadhaar}
@@ -1087,7 +1089,7 @@ export default function TempleUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].clan}</label>
                     <select
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
                       value={newUser.clan}
                       onChange={(e) => handleFieldChange('clan', e.target.value)}
                     >
@@ -1100,7 +1102,7 @@ export default function TempleUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].group}</label>
                     <select
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
                       value={newUser.group}
                       onChange={(e) => handleFieldChange('group', e.target.value)}
                     >
@@ -1113,7 +1115,7 @@ export default function TempleUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].postalCode}</label>
                     <input
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
                       value={newUser.postalCode}
                       onChange={(e) => handleFieldChange('postalCode', e.target.value)}
                       placeholder={t[language as 'tamil' | 'english'].placeholderPostal}
@@ -1123,7 +1125,7 @@ export default function TempleUserEntryPage() {
                     <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].maleHeirs}</label>
                     <input
                       type="number"
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
                       value={newUser.maleHeirs}
                       onChange={(e) => handleFieldChange('maleHeirs', parseInt(e.target.value) || 0)}
                       min="0"
@@ -1133,7 +1135,7 @@ export default function TempleUserEntryPage() {
                     <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].femaleHeirs}</label>
                     <input
                       type="number"
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
                       value={newUser.femaleHeirs}
                       onChange={(e) => handleFieldChange('femaleHeirs', parseInt(e.target.value) || 0)}
                       min="0"

@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { getAuthToken } from '@/lib/auth';
 import { useLanguage } from '@/lib/language';
 import { formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 
 import { 
   Loader2, 
@@ -281,7 +282,7 @@ function TrialBalanceContent() {
       setIsLoading(true);
       setError(null);
       const token = getAuthToken();
-      const resp = await fetch(`http://localhost:4000/api/journal/trial-balance?from=${query.startDate}&to=${query.endDate}`, {
+      const resp = await fetch(`https://tmsapi.xesstechlink.com/api/journal/trial-balance?from=${query.startDate}&to=${query.endDate}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
 
@@ -541,7 +542,7 @@ function TrialBalanceContent() {
 
     <div className={pageContainerStyles.container}>
        <Card className={pageContainerStyles.content}>
-         <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+         <CardHeader className={theme.card.header}>
            <CardTitle className="text-lg font-bold w-full">
            {t[language].trialBalance}
            </CardTitle>
@@ -645,7 +646,7 @@ function TrialBalanceContent() {
                   id="start-date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className={cn(!isDateRangeValid && "border-red-500")}
+                  className={cn(theme.input.base, !isDateRangeValid && "border-red-500")}
                 />
               </div>
               
@@ -660,7 +661,7 @@ function TrialBalanceContent() {
                   id="end-date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className={cn(!isDateRangeValid && "border-red-500")}
+                  className={cn(theme.input.base, theme.input.error, !isDateRangeValid && "border-red-500")}
                 />
               </div>
               
@@ -724,7 +725,7 @@ function TrialBalanceContent() {
                   placeholder={t[language].categorySearchPlaceholder} 
                   value={categoryQuery}
                   onChange={(e) => setCategoryQuery(e.target.value)}
-                  className="h-9"
+                  className={cn(theme.input.base, "h-9")}
                 />
               </div>
               
@@ -738,7 +739,7 @@ function TrialBalanceContent() {
                   placeholder={t[language].accountSearchPlaceholder} 
                   value={accountQuery}
                   onChange={(e) => setAccountQuery(e.target.value)}
-                  className="h-9"
+                  className={cn(theme.input.base, "h-9")}
                 />
               </div>
             </div>

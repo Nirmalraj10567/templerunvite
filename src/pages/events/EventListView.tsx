@@ -16,9 +16,8 @@ import eventService from '@/services/eventService';
 import { Event } from '@/types/event';
 import { toast } from '@/components/ui/use-toast';
 import { useLanguage } from '@/lib/language';
-
-//import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn, pageContainerStyles, formFieldStyles } from "@/styles/formStyles";
+import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 
 // Translation object
 const translations = {
@@ -109,7 +108,7 @@ export default function EventListView() {
 
     <div  className={pageContainerStyles.container}>
       <Card>
-        <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+        <CardHeader className={theme.card.header}>
           <CardTitle className="text-sm font-semibold">{t.templeEvents}</CardTitle>
         </CardHeader>
         <CardContent className="p-3">

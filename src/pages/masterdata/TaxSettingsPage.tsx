@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn, pageContainerStyles, formFieldStyles } from "@/styles/formStyles";
+import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 
 interface TaxSetting {
   id: number;
@@ -119,7 +120,7 @@ export default function TaxSettingsPage() {
     
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:4000/api/tax-settings', {
+      const response = await fetch('https://tmsapi.xesstechlink.com/api/tax-settings', {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -155,8 +156,8 @@ export default function TaxSettingsPage() {
 
     try {
       const url = editingId 
-        ? `http://localhost:4000/api/tax-settings/${editingId}`
-        : 'http://localhost:4000/api/tax-settings';
+        ? `https://tmsapi.xesstechlink.com/api/tax-settings/${editingId}`
+        : 'https://tmsapi.xesstechlink.com/api/tax-settings';
       
       const method = editingId ? 'PUT' : 'POST';
 
@@ -222,7 +223,7 @@ export default function TaxSettingsPage() {
     }
 
     try {
-      const response = await fetch(`http://localhost:4000/api/tax-settings/${id}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/tax-settings/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -265,7 +266,7 @@ export default function TaxSettingsPage() {
     setMsg(null);
 
     try {
-      const response = await fetch('http://localhost:4000/api/tax-settings/bulk-toggle', {
+      const response = await fetch('https://tmsapi.xesstechlink.com/api/tax-settings/bulk-toggle', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -310,7 +311,7 @@ export default function TaxSettingsPage() {
   return (
     <div className={pageContainerStyles.container}>
       <Card className={pageContainerStyles.content}>
-        <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+        <CardHeader className={theme.card.header}>
           <CardTitle className="text-lg font-bold w-full">
             {translations.taxSettings}
           </CardTitle>
@@ -407,7 +408,7 @@ export default function TaxSettingsPage() {
                       type="number"
                       min="2020"
                       max="2050"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={cn(theme.input.base, "w-full px-3 py-2 rounded-md")}
                       value={form.year}
                       onChange={e => setForm(prev => ({ ...prev, year: parseInt(e.target.value) || new Date().getFullYear() }))}
                       required
@@ -422,7 +423,7 @@ export default function TaxSettingsPage() {
                       type="number"
                       step="0.01"
                       min="0.01"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={cn(theme.input.base, "w-full px-3 py-2 rounded-md")}
                       value={form.taxAmount}
                       onChange={e => setForm(prev => ({ ...prev, taxAmount: e.target.value }))}
                       placeholder="Enter tax amount"
@@ -435,7 +436,7 @@ export default function TaxSettingsPage() {
                       {translations.description}
                     </label>
                     <textarea
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={cn(theme.input.base, "w-full px-3 py-2 rounded-md")}
                       rows={3}
                       value={form.description}
                       onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))}
@@ -448,7 +449,7 @@ export default function TaxSettingsPage() {
                       <input
                         type="checkbox"
                         id="isActive"
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        className={cn(theme.input.base, "h-4 w-4 text-blue-600 rounded")}
                         checked={form.isActive}
                         onChange={e => setForm(prev => ({ ...prev, isActive: e.target.checked }))}
                       />
@@ -461,7 +462,7 @@ export default function TaxSettingsPage() {
                       <input
                         type="checkbox"
                         id="includePreviousYears"
-                        className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                        className={cn(theme.input.base, "h-4 w-4 text-red-600 rounded")}
                         checked={form.includePreviousYears}
                         onChange={e => setForm(prev => ({ ...prev, includePreviousYears: e.target.checked }))}
                       />

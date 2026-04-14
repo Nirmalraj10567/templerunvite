@@ -37,25 +37,8 @@ export function Header({ children, pageTitle }: HeaderProps) {
           <div>{children}</div>
         ) : (
           <div className="flex justify-between items-center py-2">
-            {/* Page Title in center when provided */}
-            {pageTitle && (
-              <div className="ml-2">
-                <h2 className="text-lg font-semibold text-gray-700">{pageTitle}</h2>
-              </div>
-            )}
-            
-            {/* Logo and temple name when no page title */}
-            {!pageTitle && (
-              <Link to="/" className="flex items-center space-x-2 ml-2">
-                <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
-                  <span className="text-white text-lg font-bold">🕉️</span>
-                </div>
-                <h1 className="text-xl font-bold text-black">
-                  {temple?.name || 'Temple Trust'}
-                </h1>
-              </Link>
-            )}
-
+            {/* Empty left side - no logo or temple name */}
+            <div className="ml-2"></div>
 
             {!user ? (
               <div className="flex items-center gap-2 pr-2">
@@ -83,17 +66,6 @@ export function Header({ children, pageTitle }: HeaderProps) {
                 >
                   {LANGUAGES.find(lang => lang.code !== language)?.nativeLabel}
                 </button>
-                <div className="px-2 py-0.5 rounded-full bg-orange-50 border border-orange-200 text-xs text-orange-900 flex items-center gap-1">
-                  <span className="font-medium">{user.name}</span>
-                  <span className="opacity-60">·</span>
-                  <span className="capitalize opacity-80">{user.role}</span>
-                  {isSuperAdmin && (
-                    <span className="flex items-center gap-1 text-2xs text-amber-500">
-                      <ShieldIcon className="h-2.5 w-2.5" />
-                      SUPERADMIN
-                    </span>
-                  )}
-                </div>
                 <button
                   onClick={handleLogout}
                   className="px-2.5 py-1 rounded-md bg-orange-500 text-white hover:bg-orange-600 text-sm"

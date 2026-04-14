@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-const BASE_URL = 'http://localhost:4000';
+const BASE_URL = 'https://tmsapi.xesstechlink.com';
 
 async function testPermissions() {
   try {

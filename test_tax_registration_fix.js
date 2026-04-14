@@ -33,7 +33,7 @@ const testTaxRegistration = async () => {
     formData.append('transferTo', 'INCOME A/C');
     formData.append('templeId', '12');
 
-    const response = await axios.post('http://localhost:4000/api/tax-registrations', formData, {
+    const response = await axios.post('https://tmsapi.xesstechlink.com/api/tax-registrations', formData, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'multipart/form-data'

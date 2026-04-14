@@ -16,6 +16,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/styles/formStyles";
 import { formFieldStyles } from "@/styles/formStyles";
+import { theme } from "@/styles/theme";
 
 interface AnnadhanamLogViewProps {
   recentOnly?: boolean;
@@ -75,7 +76,7 @@ export default function AnnadhanamLogView({ recentOnly = false }: AnnadhanamLogV
     const results = await Promise.all(
       missing.map(async (id) => {
         try {
-          const res = await fetch(`http://localhost:4000/api/admin/members/${id}`, {
+          const res = await fetch(`https://tmsapi.xesstechlink.com/api/admin/members/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data = await res.json().catch(() => ({}));
@@ -111,7 +112,7 @@ export default function AnnadhanamLogView({ recentOnly = false }: AnnadhanamLogV
     try {
       setLoading(true);
       const res = await fetch(
-        `http://localhost:4000/api/annadhanam/logs?${params}`,
+        `https://tmsapi.xesstechlink.com/api/annadhanam/logs?${params}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -202,7 +203,7 @@ export default function AnnadhanamLogView({ recentOnly = false }: AnnadhanamLogV
                   placeholder={t('Search logs by name, receipt, or user...', 'பெயர், ரசீது அல்லது பயனர் மூலம் தேடவும்...')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className={cn(theme.input.base, "pl-10")}
                   disabled={loading && debouncedSearchTerm === searchTerm}
                 />
               </div>

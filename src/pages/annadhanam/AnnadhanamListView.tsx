@@ -36,6 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn, pageContainerStyles, formFieldStyles } from "@/styles/formStyles";
+import { theme } from '@/styles/theme';
 
 interface Annadhanam {
   id: number;
@@ -134,7 +135,7 @@ export default function AnnadhanamListView() {
     const results = await Promise.all(
       missing.map(async (id) => {
         try {
-          const res = await fetch(`http://localhost:4000/api/admin/members/${id}`, {
+          const res = await fetch(`https://tmsapi.xesstechlink.com/api/admin/members/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data = await res.json().catch(() => ({}));
@@ -171,7 +172,7 @@ export default function AnnadhanamListView() {
     setLogs([]);
     setLogsLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/annadhanam/${annadhanamId}/logs`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${annadhanamId}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -223,7 +224,7 @@ export default function AnnadhanamListView() {
   const loadAllAnnadhanamLogs = async (pageNum: number) => {
     setAllLogsLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/annadhanam/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -275,7 +276,7 @@ export default function AnnadhanamListView() {
     try {
       setLoading(true);
 
-      const response = await fetch(`http://localhost:4000/api/annadhanam?page=${pagination.pageIndex + 1}&per_page=${pagination.pageSize}&search=${encodeURIComponent(searchTerm)}&sort=receipt_number&order=desc`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam?page=${pagination.pageIndex + 1}&per_page=${pagination.pageSize}&search=${encodeURIComponent(searchTerm)}&sort=receipt_number&order=desc`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -508,7 +509,7 @@ export default function AnnadhanamListView() {
     if (!deleteId) return;
 
     try {
-      const response = await fetch(`http://localhost:4000/api/annadhanam/${deleteId}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${deleteId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -561,9 +562,10 @@ export default function AnnadhanamListView() {
   };
 
   return (
-    <div className={pageContainerStyles.container}>
-      <Card className={pageContainerStyles.content}>
-        <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-yellow-50 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto space-y-6">
+        <Card className="shadow-xl border-0 overflow-hidden">
+        <CardHeader className={theme.card.header}>
           <CardTitle className="text-lg font-bold w-full">
             {t("Annadhanam List", "அன்னதானம் பதிவு")}
           </CardTitle>
@@ -582,7 +584,7 @@ export default function AnnadhanamListView() {
                   <Input
                     type="search"
                     placeholder={t("Search by name, receipt number, or mobile...", "பெயர், ரசீது எண் அல்லது மொபைல் மூலம் தேடவும்...")}
-                    className={formFieldStyles.moneyDonationList.filters.searchInput}
+                    className={cn(theme.input.base, "block w-full pl-8 pr-2 py-1 border border-gray-300 rounded leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500 text-xs")}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onKeyDown={handleSearch}
@@ -926,7 +928,7 @@ export default function AnnadhanamListView() {
           <div className={formFieldStyles.moneyDonationList.modal.overlay}>
             <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeAllLogs} />
             <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-7xl mx-4 max-h-[90vh] flex flex-col">
-              <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white py-6 px-6 rounded-t-lg flex-shrink-0">
+              <div className="bg-gradient-to-r from-blue-300 to-indigo-400 text-white py-6 px-6 rounded-t-lg flex-shrink-0">
                 <div className={formFieldStyles.moneyDonationList.modal.header}>
                   <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('All Annadhanam Logs', 'அனைத்து அன்னதானம் பதிவுகள்')}</h2>
                   <button onClick={closeAllLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>
@@ -1119,7 +1121,7 @@ export default function AnnadhanamListView() {
           <div className={formFieldStyles.moneyDonationList.modal.overlay}>
             <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeLogs} />
             <div className={formFieldStyles.moneyDonationList.modal.container}>
-              <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-6 px-6 rounded-t-lg">
+              <div className="bg-gradient-to-r from-blue-300 to-indigo-400 text-white py-6 px-6 rounded-t-lg">
                 <div className={formFieldStyles.moneyDonationList.modal.header}>
                   <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('Activity Log', 'செயல்பாட்டு பதிவு')} #{logsFor}</h2>
                   <button onClick={closeLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>
@@ -1266,7 +1268,8 @@ export default function AnnadhanamListView() {
             </div>
           </div>
         )}
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -1,34 +1,37 @@
-// Form field styles
+import { theme, cn } from './theme';
+
+// Form field styles - Uses centralized theme.ts
+// Change values in theme.ts to update ALL pages automatically
 export const formFieldStyles = {
   // Tax form specific styles
   taxForm: {
-    container: 'min-h-screen bg-gray-50 py-0.5 px-3',
-    header: 'max-w-7xl mx-auto',
-    mainContainer: 'bg-white rounded-lg shadow-md border border-gray-200 p-2',
+    container: cn(theme.layout.pageBackground, 'py-0.5 px-3'),
+    header: cn(theme.layout.container),
+    mainContainer: cn(theme.card.container, 'p-2'),
     section: 'bg-gray-50 rounded-lg p-1.5 mb-2',
     sectionHeader: 'flex items-center justify-between mb-1',
-    sectionTitle: 'text-sm font-semibold text-gray-900',
-    grid: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-1.5',
-    input: 'w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent',
-    select: 'w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent',
-    label: 'block text-xs font-medium text-gray-900 mb-1',
-    error: 'border-red-500 bg-red-50',
-    errorText: 'text-red-500 text-xs mt-1',
+    sectionTitle: cn('text-sm font-semibold text-gray-900'),
+    grid: cn(theme.layout.grid),
+    input: cn(theme.input.base, 'text-sm px-2 py-1'),
+    select: cn(theme.select.base, 'text-sm px-2 py-1'),
+    label: cn('block text-xs font-medium mb-1', 'text-gray-900'),
+    error: cn(theme.input.error, 'bg-red-50'),
+    errorText: cn(theme.validation.errorText),
     button: {
-      clear: 'px-2 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600',
+      clear: cn(theme.button.danger, 'text-xs px-2 py-1'),
       lock: 'text-xs px-2 py-0.5 rounded border',
-      lockActive: 'text-orange-700 border-orange-300 bg-orange-50',
-      lockInactive: 'text-gray-600 border-gray-300 bg-white',
-      action: 'px-4 py-2 bg-blue-600 text-white font-medium rounded shadow hover:bg-blue-700 disabled:opacity-50 text-sm',
-      secondary: 'w-full px-4 py-2 bg-gray-200 text-gray-800 font-medium rounded shadow hover:bg-gray-300 text-sm',
+      lockActive: cn('text-orange-700 border-orange-300 bg-orange-50'),
+      lockInactive: cn('text-gray-600 border-gray-300 bg-white'),
+      action: cn(theme.button.primary, 'text-sm'),
+      secondary: cn(theme.button.secondary, 'w-full'),
       add: 'px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700',
-      delete: 'text-red-600 hover:text-red-800 text-sm',
-      print: 'px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded',
-      cancel: 'px-4 py-2 rounded border',
+      delete: cn('text-red-600 hover:text-red-800 text-sm'),
+      print: cn(theme.button.primary, 'px-4 py-2'),
+      cancel: cn(theme.button.secondary, 'px-4 py-2'),
     },
     card: {
-      header: 'bg-gradient-to-r from-orange-500 to-orange-600 text-white py-6 px-6 rounded-t-lg',
-      title: 'text-2xl font-bold text-center',
+      header: cn(theme.card.header),
+      title: cn('text-2xl font-bold text-center'),
     },
     modal: {
       content: 'mb-4 text-sm',
@@ -52,19 +55,19 @@ export const formFieldStyles = {
     title: 'text-lg font-bold w-full'
   },
   // Input fields
-  input: "text-sm py-2 px-3 h-10 border border-gray-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-200 rounded-md w-full transition-all duration-200",
+  input: cn(theme.input.base, 'text-sm py-2 px-3 h-10'),
   
   // Textarea
-  textarea: "text-sm py-1.5 px-3 border border-gray-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-200 rounded-md w-full transition-all duration-200 min-h-[36px]",
+  textarea: cn(theme.input.base, 'text-sm py-1.5 px-3 min-h-[36px]'),
   
   // Select
-  select: "text-sm py-2 px-3 h-10 border border-gray-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-200 rounded-md w-full bg-white pr-8 appearance-none",
+  select: cn(theme.select.base, 'text-sm py-2 px-3 h-10'),
   
   // Label
-  label: "block text-sm font-medium mb-1 text-gray-700",
+  label: cn(theme.spacing.inputPadding.withoutIcon, 'text-sm font-medium mb-1 text-gray-700'),
   
   // Error message
-  error: "mt-1 text-xs text-red-600",
+  error: cn(theme.validation.errorText),
   
   // Buttons
   button: {
@@ -72,27 +75,27 @@ export const formFieldStyles = {
     sm: "px-3 py-1.5 text-xs h-8",
     md: "px-4 py-2 text-sm h-10",
     lg: "px-6 py-3 text-base h-12",
-    // Variants
-    primary: "bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 text-sm font-medium rounded-md transition-colors",
-    primarySm: "bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-    outline: "px-4 py-2 text-sm font-medium rounded-md border border-gray-300 hover:bg-gray-50 text-gray-700 transition-colors",
+    // Variants - Uses centralized theme
+    primary: cn(theme.button.primary, 'text-sm'),
+    primarySm: cn(theme.button.primary, 'text-xs px-3 py-1.5'),
+    outline: cn(theme.button.secondary, 'text-sm'),
     // Ledger specific buttons
     ledger: {
-      primary: "bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700",
-      outline: "border-gray-300 hover:bg-gray-50"
+      primary: cn(theme.gradients.button, theme.gradients.buttonHover, 'text-white'),
+      outline: cn(theme.button.secondary)
     }
   },
   
   // Card
   card: {
-    container: "shadow-lg border-0 bg-white rounded-lg",
-    header: "py-3 px-6 rounded-t-lg",
-    content: "p-3",
-    title: "text-xl font-semibold text-center",
+    container: cn(theme.card.container),
+    header: cn(theme.card.header, 'py-3 px-6'),
+    content: cn(theme.card.content),
+    title: cn('text-xl font-semibold text-center'),
     // Event-specific card styles
     event: {
-      container: "w-full max-w-4xl",
-      header: "bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6"
+      container: cn('w-full max-w-4xl'),
+      header: cn(theme.card.header, 'py-4 px-6')
     }
   },
   
@@ -273,12 +276,12 @@ export const formFieldStyles = {
       searchContainer: "relative flex-1 w-full",
       searchIcon: "absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none",
       searchIconSvg: "h-4 w-4 text-gray-400",
-      searchInput: "block w-full pl-8 pr-2 py-1 border border-gray-300 rounded leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs",
+      searchInput: "block w-full pl-8 pr-2 py-1 border border-gray-300 rounded leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 text-xs",
       dateContainer: "flex items-center gap-1 w-full md:w-auto",
-      dateInput: "px-2 py-1 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs",
+      dateInput: "px-2 py-1 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 text-xs",
       dateLabel: "text-gray-600 text-xs",
       buttonContainer: "flex flex-wrap gap-1 w-full md:w-auto",
-      button: "px-3 py-1 border border-gray-300 rounded shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
+      button: "px-3 py-1 border border-gray-300 rounded shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-violet-500"
     },
 
     // Table section
@@ -520,5 +523,6 @@ export const calendarStyles = {
   }
 };
 
-// Re-export for backward compatibility
-export const { cn, formatINR, formatAmount } = utils;
+// Re-export utilities from theme.ts for backward compatibility
+export { cn } from './theme';
+export const { formatINR, formatAmount } = utils;

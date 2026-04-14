@@ -12,11 +12,12 @@ import { Textarea } from '@/components/ui/textarea';
 import axios from 'axios';
 import { getAuthToken } from '@/lib/auth';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 
 const generateReceiptNo = async (token: string): Promise<string> => {
   try {
     console.log('Requesting new receipt number...');
-    const response = await fetch('http://localhost:4000/api/hall-bookings/generate-receipt-number', {
+    const response = await fetch('https://tmsapi.xesstechlink.com/api/hall-bookings/generate-receipt-number', {
       headers: { 
         'Authorization': `Bearer ${token}`,
         'Cache-Control': 'no-cache',
@@ -48,7 +49,7 @@ const generateReceiptNo = async (token: string): Promise<string> => {
     // Try to get the latest receipt number from the database as a fallback
     try {
       console.log('Attempting to get latest receipt from database...');
-      const latestResponse = await fetch('http://localhost:4000/api/hall-bookings/latest', {
+      const latestResponse = await fetch('https://tmsapi.xesstechlink.com/api/hall-bookings/latest', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -280,7 +281,7 @@ export default function HallEntryPage() {
       (async () => {
         setLoading(true);
         try {
-          const response = await fetch(`http://localhost:4000/api/hall-bookings/${idNum}`, { 
+          const response = await fetch(`https://tmsapi.xesstechlink.com/api/hall-bookings/${idNum}`, { 
             headers: { Authorization: `Bearer ${token}` } 
           });
           const data = await response.json();
@@ -326,7 +327,7 @@ export default function HallEntryPage() {
   useEffect(() => {
     (async () => {
       try {
-        const accountsResp = await axios.get('http://localhost:4000/api/ledger/accounts', { 
+        const accountsResp = await axios.get('https://tmsapi.xesstechlink.com/api/ledger/accounts', { 
           headers: { Authorization: `Bearer ${getAuthToken()}` } 
         });
         const accs = (accountsResp?.data as any)?.data || accountsResp?.data || [];
@@ -338,10 +339,10 @@ export default function HallEntryPage() {
         
         if (user?.templeId) {
           const [hallsResp, eventsResp] = await Promise.all([
-            axios.get(`http://localhost:4000/api/master/halls/${user.templeId}`, { 
+            axios.get(`https://tmsapi.xesstechlink.com/api/master/halls/${user.templeId}`, { 
               headers: { Authorization: `Bearer ${getAuthToken()}` } 
             }),
-            axios.get(`http://localhost:4000/api/master/hall-events/${user.templeId}`, { 
+            axios.get(`https://tmsapi.xesstechlink.com/api/master/hall-events/${user.templeId}`, { 
               headers: { Authorization: `Bearer ${getAuthToken()}` } 
             }),
           ]);
@@ -460,7 +461,7 @@ export default function HallEntryPage() {
     setSaving(true);
     try {
       // Validate id for edit
-      let endpoint = 'http://localhost:4000/api/hall-bookings';
+      let endpoint = 'https://tmsapi.xesstechlink.com/api/hall-bookings';
       if (isEdit) {
         const idNum = Number(id);
         if (Number.isNaN(idNum)) {
@@ -469,7 +470,7 @@ export default function HallEntryPage() {
           setSaving(false);
           return;
         }
-        endpoint = `http://localhost:4000/api/hall-bookings/${idNum}`;
+        endpoint = `https://tmsapi.xesstechlink.com/api/hall-bookings/${idNum}`;
       }
 
       const payload = {
@@ -535,7 +536,7 @@ export default function HallEntryPage() {
         return;
       }
 
-      const res = await fetch(`http://localhost:4000/api/hall-bookings/${idNum}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/hall-bookings/${idNum}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -570,7 +571,7 @@ export default function HallEntryPage() {
     <div className={pageContainerStyles.container}>
     <div className={pageContainerStyles.content}>
       <Card className={formFieldStyles.card.container}>
-        <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white", formFieldStyles.card.header)}>
+        <CardHeader className={theme.card.header}>
           <CardTitle className="text-lg font-bold text-center">
                 {isEdit ? t('Edit Hall Booking', 'மண்டப பதிவு திருத்து') : t('Hall Booking Entry', 'மண்டப பதிவு')}
               </CardTitle>
@@ -585,7 +586,7 @@ export default function HallEntryPage() {
                       const idNum = Number(id);
                       if (!Number.isNaN(idNum)) {
                         const q = token ? `?token=${encodeURIComponent(token)}` : '';
-                        const pdfUrl = `http://localhost:4000/api/hall-bookings/${idNum}/receipt.pdf${q}`;
+                        const pdfUrl = `https://tmsapi.xesstechlink.com/api/hall-bookings/${idNum}/receipt.pdf${q}`;
                         printPDF(pdfUrl);
                       }
                     }}
@@ -629,9 +630,6 @@ export default function HallEntryPage() {
                 
                 {/* Date */}
                 <div>
-                  <Label className={labelStyles} htmlFor="date">
-                    {t('Date','தேதி')} <span className={formFieldStyles.required}>*</span>
-                  </Label>
                   <Input
                     id="date"
                     type="date"
@@ -639,15 +637,13 @@ export default function HallEntryPage() {
                     value={form.date}
                     onChange={onChange}
                     className={fieldStyles}
+                    placeholder={t('Date','Date') + ' *'}
                     required
                   />
                 </div>
 
                 {/* Time */}
                 <div>
-                  <Label className={labelStyles} htmlFor="time">
-                    {t('Time','நேரம்')}
-                  </Label>
                   <Input
                     id="time"
                     type="time"
@@ -655,30 +651,25 @@ export default function HallEntryPage() {
                     value={form.time}
                     onChange={onChange}
                     className={fieldStyles}
+                    placeholder={t('Time','Time')}
                   />
                 </div>
 
                 {/* Name */}
                 <div className="md:col-span-2">
-                  <Label className={labelStyles} htmlFor="name">
-                    {t('Name','பெயர்')} <span className={formFieldStyles.required}>*</span>
-                  </Label>
                   <Input
                     id="name"
                     name="name"
                     value={form.name}
                     onChange={onChange}
                     className={fieldStyles}
-                    placeholder={t('Enter name','பெயரை உள்ளிடவும்')}
+                    placeholder={t('Name','Name') + ' *'}
                     required
                   />
                 </div>
 
                 {/* Mobile */}
                 <div>
-                  <Label className={labelStyles} htmlFor="mobile">
-                    {t('Phone','தொலைபேசி')} <span className={formFieldStyles.required}>*</span>
-                  </Label>
                   <Input
                     id="mobile"
                     name="mobile"
@@ -696,23 +687,20 @@ export default function HallEntryPage() {
                     }}
                     onChange={onChange}
                     className={fieldStyles}
-                    placeholder={t('10 digits','10 இலக்கம்')}
+                    placeholder={t('Phone','Phone') + ' *'}
                     required
                   />
                 </div>
 
                 {/* Village */}
                 <div>
-                  <Label className={labelStyles} htmlFor="village">
-                    {t('Village','கிராமம்')}
-                  </Label>
                   <Input
                     id="village"
                     name="village"
                     value={form.village}
                     onChange={onChange}
                     className={fieldStyles}
-                    placeholder={t('Enter village','கிராமத்தை உள்ளிடவும்')}
+                    placeholder={t('Village','Village')}
                   />
                 </div>
 
@@ -1078,7 +1066,7 @@ export default function HallEntryPage() {
                 className={formFieldStyles.modal.button.confirm} 
                 onClick={() => {
                   const q = token ? `?token=${encodeURIComponent(token)}` : '';
-                  const pdfUrl = `http://localhost:4000/api/hall-bookings/${lastCreatedId}/receipt.pdf${q}`;
+                  const pdfUrl = `https://tmsapi.xesstechlink.com/api/hall-bookings/${lastCreatedId}/receipt.pdf${q}`;
                   printPDF(pdfUrl);
                   setShowPrintPrompt(false);
                 }}

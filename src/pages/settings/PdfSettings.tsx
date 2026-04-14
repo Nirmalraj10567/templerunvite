@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { pdfSettingsService, PdfSettings } from '@/services/pdfSettingsService';
 import { useLanguage } from '@/lib/language';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { theme } from '@/styles/theme';
+import { cn } from '@/lib/utils';
 
 export default function PdfSettingsPage() {
   const { language } = useLanguage();
@@ -109,7 +111,7 @@ export default function PdfSettingsPage() {
                       name="title_main" 
                       value={form.title_main || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                   </div>
                   
@@ -120,7 +122,7 @@ export default function PdfSettingsPage() {
                       name="title_sub" 
                       value={form.title_sub || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                   </div>
                   
@@ -131,7 +133,7 @@ export default function PdfSettingsPage() {
                       name="subheader" 
                       value={form.subheader || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                   </div>
                   
@@ -142,7 +144,7 @@ export default function PdfSettingsPage() {
                       name="title_line2" 
                       value={form.title_line2 || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 rounded-md w-full transition-all duration-200")}
                       rows={2} 
                     />
                   </div>
@@ -154,7 +156,7 @@ export default function PdfSettingsPage() {
                       name="watermark_text" 
                       value={(form as any).watermark_text || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                     <p className="text-xs text-gray-500 mt-1">{t('Optional faint text printed near the footer.', 'அடிக்குறிப்புக்கு அருகில் அச்சிடப்படும் விருப்ப நீர்த்துளி உரை.')}</p>
                   </div>
@@ -167,7 +169,7 @@ export default function PdfSettingsPage() {
                         type="file" 
                         accept="image/*" 
                         onChange={onUploadLogo}
-                        className="text-base py-2.5 px-3 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md transition-all duration-200"
+                        className={cn(theme.input.base, "text-base py-2.5 px-3 rounded-md transition-all duration-200")}
                       />
                       {logoSrc && (
                         <img src={logoSrc} alt="logo" className="h-16 w-auto border rounded" />
@@ -180,7 +182,7 @@ export default function PdfSettingsPage() {
                         value={form.logo_url || ''}
                         onChange={onChange}
                         placeholder={t('Paste an image URL or use Upload above', 'பட URL ஒன்றை ஒட்டவும் அல்லது மேலே உள்ள பதிவேற்றத்தை பயன்படுத்தவும்')}
-                        className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                        className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                       />
                       <p className="text-xs text-gray-500 mt-1">
                         {t('If set, this URL will be used for the logo. Upload sets a /public path automatically.', 'URL அமைக்கப்பட்டால், இந்த லோகோ பயன்படுத்தப்படும். பதிவேற்றம் தானாகவே /public பாதையை அமைக்கும்.')}
@@ -196,7 +198,7 @@ export default function PdfSettingsPage() {
                       name="pooja_subheader" 
                       value={(form as any).pooja_subheader || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                     <p className="text-xs text-gray-500 mt-1">{t('Used only in Pooja receipts. If empty, default sub-header is used.', 'பூஜை ரசீதுகளில் மட்டும் பயன்படுத்தப்படும். காலியாக இருந்தால் பொதுத் துணை தலைப்பு பயன்படுத்தப்படும்.')}</p>
                   </div>
@@ -208,7 +210,7 @@ export default function PdfSettingsPage() {
                       name="pooja_receipt_label" 
                       value={(form as any).pooja_receipt_label || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                   </div>
                   
@@ -219,7 +221,7 @@ export default function PdfSettingsPage() {
                       name="pooja_date_label" 
                       value={(form as any).pooja_date_label || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                   </div>
                   
@@ -230,7 +232,7 @@ export default function PdfSettingsPage() {
                       name="pooja_year_label" 
                       value={(form as any).pooja_year_label || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                   </div>
                   
@@ -241,7 +243,7 @@ export default function PdfSettingsPage() {
                       name="pooja_cell_label" 
                       value={(form as any).pooja_cell_label || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                   </div>
                   
@@ -252,7 +254,7 @@ export default function PdfSettingsPage() {
                       name="pooja_collector_label" 
                       value={(form as any).pooja_collector_label || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                   </div>
                 </TabsContent>
@@ -264,7 +266,7 @@ export default function PdfSettingsPage() {
                       name="tax_subheader" 
                       value={(form as any).tax_subheader || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                     <p className="text-xs text-gray-500 mt-1">{t('Used only in tax receipts. If empty, default sub-header is used.', 'வரி ரசீதுகளில் மட்டும் பயன்படுத்தப்படும். காலியாக இருந்தால் பொதுத் துணை தலைப்பு பயன்படுத்தப்படும்.')}</p>
                   </div>
@@ -276,7 +278,7 @@ export default function PdfSettingsPage() {
                       name="tax_receipt_label" 
                       value={(form as any).tax_receipt_label || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                   </div>
                   
@@ -287,7 +289,7 @@ export default function PdfSettingsPage() {
                       name="tax_date_label" 
                       value={(form as any).tax_date_label || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                   </div>
                   
@@ -298,7 +300,7 @@ export default function PdfSettingsPage() {
                       name="tax_year_label" 
                       value={(form as any).tax_year_label || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                   </div>
                   
@@ -309,7 +311,7 @@ export default function PdfSettingsPage() {
                       name="tax_cell_label" 
                       value={(form as any).tax_cell_label || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                   </div>
                   
@@ -320,7 +322,7 @@ export default function PdfSettingsPage() {
                       name="tax_collector_label" 
                       value={(form as any).tax_collector_label || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                   </div>
                 </TabsContent>
@@ -332,7 +334,7 @@ export default function PdfSettingsPage() {
                       name="annadhanam_subheader" 
                       value={(form as any).annadhanam_subheader || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                     <p className="text-xs text-gray-500 mt-1">{t('Used only in Annadhanam receipts. If empty, default sub-header is used.', 'அன்னதானம் ரசீதுகளில் மட்டும் பயன்படுத்தப்படும். காலியாக இருந்தால் பொதுத் துணை தலைப்பு பயன்படுத்தப்படும்.')}</p>
                   </div>
@@ -344,7 +346,7 @@ export default function PdfSettingsPage() {
                       name="annadhanam_receipt_label" 
                       value={(form as any).annadhanam_receipt_label || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                   </div>
                   
@@ -355,7 +357,7 @@ export default function PdfSettingsPage() {
                       name="annadhanam_date_label" 
                       value={(form as any).annadhanam_date_label || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                   </div>
                   
@@ -366,7 +368,7 @@ export default function PdfSettingsPage() {
                       name="annadhanam_year_label" 
                       value={(form as any).annadhanam_year_label || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                   </div>
                   
@@ -377,7 +379,7 @@ export default function PdfSettingsPage() {
                       name="annadhanam_cell_label" 
                       value={(form as any).annadhanam_cell_label || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                   </div>
                   
@@ -388,7 +390,7 @@ export default function PdfSettingsPage() {
                       name="annadhanam_collector_label" 
                       value={(form as any).annadhanam_collector_label || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                   </div>
                 </TabsContent>
@@ -400,7 +402,7 @@ export default function PdfSettingsPage() {
                       name="hall_subheader" 
                       value={(form as any).hall_subheader || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                     <p className="text-xs text-gray-500 mt-1">{t('Used only in Hall Booking receipts. If empty, default sub-header is used.', 'மண்டப முன்பதிவு ரசீதுகளில் மட்டும் பயன்படுத்தப்படும். காலியாக இருந்தால் பொதுத் துணை தலைப்பு பயன்படுத்தப்படும்.')}</p>
                   </div>
@@ -412,7 +414,7 @@ export default function PdfSettingsPage() {
                       name="hall_receipt_label" 
                       value={(form as any).hall_receipt_label || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                   </div>
                   
@@ -423,7 +425,7 @@ export default function PdfSettingsPage() {
                       name="hall_date_label" 
                       value={(form as any).hall_date_label || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                   </div>
                   
@@ -434,7 +436,7 @@ export default function PdfSettingsPage() {
                       name="hall_year_label" 
                       value={(form as any).hall_year_label || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                   </div>
                   
@@ -445,7 +447,7 @@ export default function PdfSettingsPage() {
                       name="hall_cell_label" 
                       value={(form as any).hall_cell_label || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                   </div>
                   
@@ -456,7 +458,7 @@ export default function PdfSettingsPage() {
                       name="hall_collector_label" 
                       value={(form as any).hall_collector_label || ''} 
                       onChange={onChange} 
-                      className="text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200"
+                      className={cn(theme.input.base, "text-base py-2.5 px-3 h-11 rounded-md w-full transition-all duration-200")}
                     />
                   </div>
                 </TabsContent>

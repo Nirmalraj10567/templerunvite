@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { formFieldStyles, cn, pageContainerStyles } from '@/styles/formStyles';
+import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 
 interface Props {
   members: Member[];
@@ -237,7 +238,7 @@ export default function MemberListView({
       // preload existing permissions
       setPermLoading(true);
       const targetId = (member as any).userId ?? member.id;
-      const res = await fetch(`http://localhost:4000/api/admin/members/${targetId}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/admin/members/${targetId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -279,7 +280,7 @@ export default function MemberListView({
     setPermError(null);
     try {
       const body = { customPermissions: permItems.filter(r => r.id && r.access) };
-      const res = await fetch(`http://localhost:4000/api/admin/members/${permMember.userId ?? permMember.id}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/admin/members/${permMember.userId ?? permMember.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -304,7 +305,7 @@ export default function MemberListView({
   return (
     <div className={pageContainerStyles.container}>
       <Card className={pageContainerStyles.content}>
-        <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+        <CardHeader className={theme.card.header}>
           <CardTitle className="text-lg font-bold w-full">
             {t("Members List", "உறுப்பினர் பதிவு")}
           </CardTitle>
@@ -332,7 +333,7 @@ export default function MemberListView({
                 value={searchTerm}
                 onChange={(e) => onSearch(e.target.value)}
                 placeholder={t('Search by name/username/mobile/email', 'பெயர்/பயனர் பெயர்/மொபைல்/மின்னஞ்சல் மூலம் தேடுக')}
-                className="pl-8 text-sm py-1"
+                className={cn(theme.input.base, "pl-8 text-sm py-1")}
               />
             </div>
 
@@ -340,7 +341,7 @@ export default function MemberListView({
             <select
               value={filterRole}
               onChange={(e) => onFilter(e.target.value)}
-              className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+              className={cn(theme.input.base, "px-2 py-1 rounded text-sm")}
             >
               <option value="all">{t('All Roles', 'அனைத்து பங்குகள்')}</option>
               <option value="member">{t('Member', 'உறுப்பினர்')}</option>
@@ -583,7 +584,7 @@ export default function MemberListView({
                   onChange={() =>
                     setVisibleCols((prev) => ({ ...prev, [col.key]: !prev[col.key] }))
                   }
-                  className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className={cn(theme.input.base, "h-3 w-3 text-blue-600 rounded")}
                 />
                 <span className="ml-2 text-xs text-gray-700">{col.label}</span>
               </label>
@@ -700,7 +701,7 @@ export default function MemberListView({
                             disabled={!enabled}
                             value={(current?.access as any) || 'view'}
                             onChange={(e) => setPermissionLevel(opt.id, e.target.value as any)}
-                            className="px-2 py-1 border border-gray-300 rounded"
+                            className={cn(theme.input.base, "px-2 py-1 rounded")}
                           >
                             <option value="view">{t('View', 'பார்வை')}</option>
                             <option value="edit">{t('Edit', 'திருத்து')}</option>

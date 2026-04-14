@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 import axios from 'axios';
 import { getAuthToken } from '@/lib/auth';
 
@@ -162,7 +163,7 @@ export default function UnifiedDonationEntry() {
   // Function to refresh journal after money donation operations
   const refreshJournal = async () => {
     try {
-      await fetch('http://localhost:4000/api/journal/sync-pooja', {
+      await fetch('https://tmsapi.xesstechlink.com/api/journal/sync-pooja', {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -355,7 +356,7 @@ export default function UnifiedDonationEntry() {
 
       try {
         const resp = await axios.get<{ data: DonationProduct[] }>(
-          `http://localhost:4000/api/donation-products/${user.templeId}`,
+          `https://tmsapi.xesstechlink.com/api/donation-products/${user.templeId}`,
           {
             headers: { Authorization: `Bearer ${getAuthToken()}` }
           }
@@ -378,7 +379,7 @@ export default function UnifiedDonationEntry() {
     
     const loadRegisterNo = async () => {
       try {
-        const resp = await axios.get<any>('http://localhost:4000/api/donations/next-register-no', {
+        const resp = await axios.get<any>('https://tmsapi.xesstechlink.com/api/donations/next-register-no', {
           headers: { Authorization: `Bearer ${getAuthToken()}` }
         });
         const nextNo = resp.data?.nextRegisterNo || generateNextRegisterNo();
@@ -546,7 +547,7 @@ export default function UnifiedDonationEntry() {
 
   const fetchNextRegisterNo = async () => {
     try {
-      const resp = await axios.get<any>('http://localhost:4000/api/donations/next-register-no', {
+      const resp = await axios.get<any>('https://tmsapi.xesstechlink.com/api/donations/next-register-no', {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });
       const nextNo = resp.data?.nextRegisterNo || generateNextRegisterNo();
@@ -597,10 +598,16 @@ export default function UnifiedDonationEntry() {
     });
   };
 
-  // Use centralized form styles
-  const fieldStyles = "w-full px-3 py-2.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors";
+  // Use centralized form styles with violet theme
+  const fieldStyles = cn(
+    theme.input.base,
+    "w-full px-3 py-2.5 text-sm rounded-md transition-colors"
+  );
   const labelStyles = "block text-sm font-semibold text-gray-700 mb-2";
-  const textareaStyles = "w-full px-3 py-2.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors resize-none";
+  const textareaStyles = cn(
+    theme.input.base,
+    "w-full px-3 py-2.5 text-sm rounded-md transition-colors resize-none"
+  );
 
   // Error message component
   const ErrorMessage = ({ error }: { error?: string }) => {
@@ -617,7 +624,7 @@ export default function UnifiedDonationEntry() {
     <div className={pageContainerStyles.container}>
       <div className={cn(pageContainerStyles.content, "max-w-6xl")}>
         <Card className={formFieldStyles.card.container}>
-          <CardHeader className={cn(formFieldStyles.card.header, formFieldStyles.header.gradient)}>
+          <CardHeader className={theme.card.header}>
             <CardTitle className={formFieldStyles.header.title}>
               {t('Donation Entry', 'நன்கொடை பதிவு')}
             </CardTitle>
@@ -673,30 +680,29 @@ export default function UnifiedDonationEntry() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {/* Register No */}
                   <div>
-                    <Label className={labelStyles}>{t('Register No', 'பதிவு எண்')}</Label>
                     <Input
                       className={`${fieldStyles} bg-gray-100`}
                       name="registerNo"
                       value={moneyForm.registerNo}
                       readOnly
+                      placeholder={t('Register No', 'பதிவு எண்')}
                     />
                   </div>
                   
                   {/* Date */}
                   <div>
-                    <Label className={labelStyles}>{t('Date', 'தேதி')} <span className={formFieldStyles.required}>*</span></Label>
                     <Input 
                       type="date" 
                       className={fieldStyles}
                       name="date" 
                       value={moneyForm.date} 
-                      onChange={onMoneyChange} 
+                      onChange={onMoneyChange}
+                      placeholder={t('Date', 'தேதி')}
                     />
                   </div>
                   
                   {/* Name */}
                   <div>
-                    <Label className={labelStyles}>{t('Name', 'பெயர்')} <span className={formFieldStyles.required}>*</span></Label>
                     <Input 
                       className={fieldStyles}
                       name="name" 
@@ -708,7 +714,6 @@ export default function UnifiedDonationEntry() {
                     
                   {/* Phone */}
                   <div>
-                    <Label className={labelStyles}>{t('Phone', 'கைபேசி எண்')}</Label>
                     <Input 
                       className={fieldStyles}
                       name="phone" 
@@ -730,7 +735,6 @@ export default function UnifiedDonationEntry() {
 
                   {/* Father Name */}
                   <div>
-                    <Label className={labelStyles}>{t('Father Name', 'தந்தை பெயர்')}</Label>
                     <Input 
                       className={fieldStyles}
                       name="fatherName" 
@@ -742,7 +746,6 @@ export default function UnifiedDonationEntry() {
                   
                   {/* Village */}
                   <div>
-                    <Label className={labelStyles}>{t('Village', 'ஊர்')}</Label>
                     <Input 
                       className={fieldStyles}
                       name="village" 
@@ -754,7 +757,6 @@ export default function UnifiedDonationEntry() {
                   
                   {/* Address - Full width */}
                   <div className="md:col-span-2 lg:col-span-3">
-                    <Label className={labelStyles}>{t('Address', 'முகவரி')}</Label>
                     <Input 
                       className={fieldStyles}
                       name="address" 
@@ -766,7 +768,6 @@ export default function UnifiedDonationEntry() {
                   
                   {/* Amount */}
                   <div>
-                    <Label className={labelStyles}>{t('Amount', 'தொகை')} <span className={formFieldStyles.required}>*</span></Label>
                     <Input 
                       className={fieldStyles}
                       name="amount" 
@@ -780,7 +781,6 @@ export default function UnifiedDonationEntry() {
                   
                   {/* Reason - Full width */}
                   <div className="md:col-span-2 lg:col-span-2">
-                    <Label className={labelStyles}>{t('Reason', 'காரணம்')}</Label>
                     <Input 
                       className={fieldStyles}
                       name="reason" 
@@ -795,7 +795,7 @@ export default function UnifiedDonationEntry() {
                 <div className="flex justify-end pt-6 border-t border-gray-200">
                   <Button 
                     disabled={saving} 
-                    className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-md text-base transition-all duration-200"
+                    className="px-6 py-2.5 bg-gradient-to-r from-orange-400 to-red-500 hover:from-orange-500 hover:to-red-600 text-white font-medium rounded-md text-base transition-all duration-200"
                     type="submit"
                   >
                     {saving ? (isEdit ? t('Updating...', 'புதுப்பிக்கிறது...') : t('Saving...', 'சேமிக்கிறது...')) : (isEdit ? t('Update', 'புதுப்பிக்க') : t('Save', 'சேமிக்க'))}
@@ -1040,7 +1040,7 @@ export default function UnifiedDonationEntry() {
                     <Button
                       type="submit"
                       size="default"
-                      className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-md text-base transition-all duration-200"
+                      className="px-6 py-2.5 bg-gradient-to-r from-orange-400 to-red-500 hover:from-orange-500 hover:to-red-600 text-white font-medium rounded-md text-base transition-all duration-200"
                       disabled={saving}
                     >
                       {saving ? t('Saving...','சேமிக்கிறது...') : t('Save','சேமி')}

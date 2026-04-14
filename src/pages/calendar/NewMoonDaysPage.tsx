@@ -15,6 +15,7 @@ import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../lib/language';
 import { calendarStyles, formFieldStyles, pageContainerStyles, cn } from '../../styles/formStyles';
+import { theme } from '../../styles/theme';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/card';
 
 interface MoonPhase {
@@ -63,7 +64,7 @@ function isValidSavedDateArray(data: unknown): data is SavedDate[] {
 
 async function fetchMoonPhases(startDate: Date, endDate: Date, token: string | null): Promise<MoonPhase[]> {
   try {
-    const response = await axios.get('http://localhost:4000/api/moon-phases', {
+    const response = await axios.get('https://tmsapi.xesstechlink.com/api/moon-phases', {
       params: {
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString()
@@ -503,7 +504,7 @@ export default function NewMoonDaysPage() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => setMonth(prev => addMonths(prev, -1))}
-                        className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                        className={cn(theme.input.base, "p-2 rounded-lg hover:bg-gray-50 transition-colors")}
                         aria-label={t.previous}
                       >
                         ←
@@ -513,7 +514,7 @@ export default function NewMoonDaysPage() {
                       </span>
                       <button
                         onClick={() => setMonth(prev => addMonths(prev, 1))}
-                        className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                        className={cn(theme.input.base, "p-2 rounded-lg hover:bg-gray-50 transition-colors")}
                         aria-label={t.next}
                       >
                         →
@@ -533,7 +534,7 @@ export default function NewMoonDaysPage() {
                           type="date"
                           value={quickJumpDate}
                           onChange={(e) => setQuickJumpDate(e.target.value)}
-                          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className={cn(theme.input.base, "px-3 py-2 rounded-lg text-sm")}
                           placeholder={t.jumpPlaceholder}
                         />
                         <button
@@ -590,7 +591,7 @@ export default function NewMoonDaysPage() {
                       id="time"
                       value={selectedTime}
                       onChange={(e) => setSelectedTime(e.target.value)}
-                      className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={cn(theme.input.base, "block w-full rounded-lg shadow-sm")}
                     />
                   </div>
                 </div>
@@ -695,7 +696,7 @@ export default function NewMoonDaysPage() {
                       </ul>
                     </div>
                   ) : (
-                    <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
+                    <div className={cn(theme.input.base, "text-center py-12 border-2 border-dashed rounded-lg")}>
                       <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
@@ -783,7 +784,7 @@ export default function NewMoonDaysPage() {
               value={labelInput}
               onChange={(e) => setLabelInput(e.target.value)}
               placeholder={t.enterLabel}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-6"
+              className={cn(theme.input.base, "w-full px-4 py-3 rounded-lg mb-6")}
               autoFocus
             />
             

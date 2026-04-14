@@ -56,7 +56,7 @@ export default function ReceiptEntryPage() {
     try {
       console.log('🔍 Fetching logs for receipt ID:', id);
       setLogsLoading(true);
-      const response = await fetch(`http://localhost:4000/api/receipts/${id}/logs`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/receipts/${id}/logs`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -92,7 +92,7 @@ export default function ReceiptEntryPage() {
   useEffect(() => {
     const fetchPeople = async () => {
       try {
-        const res = await fetch('http://localhost:4000/api/people', {
+        const res = await fetch('https://tmsapi.xesstechlink.com/api/people', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!res.ok) throw new Error('Failed to fetch people');
@@ -117,7 +117,7 @@ export default function ReceiptEntryPage() {
       if (!id) return;
       setLoading(true);
       try {
-        const res = await fetch(`http://localhost:4000/api/receipts/${id}`, {
+        const res = await fetch(`https://tmsapi.xesstechlink.com/api/receipts/${id}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
@@ -186,7 +186,7 @@ export default function ReceiptEntryPage() {
           }
         })
       };
-            const res = await fetch(id ? `http://localhost:4000/api/receipts/${id}` : 'http://localhost:4000/api/receipts', {
+            const res = await fetch(id ? `https://tmsapi.xesstechlink.com/api/receipts/${id}` : 'https://tmsapi.xesstechlink.com/api/receipts', {
         method: id ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(payload)
@@ -227,62 +227,7 @@ export default function ReceiptEntryPage() {
       )}
       <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm mb-1">{t('Register No', 'பதிவு எண்')}</label>
-          <input className="w-full border p-2 rounded" name="registerNo" value={form.registerNo} onChange={onChange} />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">{t('Date', 'தேதி')}</label>
-          <input type="date" className="w-full border p-2 rounded" name="date" value={form.date} onChange={onChange} />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">{t('Type (Receipt/Payment)', 'Type (வரவு/செலவு)')}</label>
-          <select className="w-full border p-2 rounded" name="type" value={form.type} onChange={onChange}>
-            <option value="">{t('Select type', 'வகையைத் தேர்ந்தெடுக்கவும்')}</option>
-            <option value="receipt">{t('Receipt', 'வரவு')}</option>
-            <option value="payment">{t('Payment', 'செலவு')}</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm mb-1">{t('From (Giver)', 'தந்தவர்')}</label>
-          <select 
-            className="w-full border p-2 rounded" 
-            name="fromPerson" 
-            value={form.fromPerson} 
-            onChange={onChange}
-          >
-            <option value="">{t('Select name', 'பெயரைத் தேர்ந்தெடுக்கவும்')}</option>
-            {people.map(p => (
-              <option key={p.id} value={p.name}>{p.name}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm mb-1">{t('To (Receiver)', 'பெற்றவர்')}</label>
-          <select 
-            className="w-full border p-2 rounded" 
-            name="toPerson" 
-            value={form.toPerson} 
-            onChange={onChange}
-          >
-            <option value="">{t('Select name', 'பெயரைத் தேர்ந்தெடுக்கவும்')}</option>
-            {people.map(p => (
-              <option key={p.id} value={p.name}>{p.name}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm mb-1">{t('Amount', 'தொகை')}</label>
-          <input className="w-full border p-2 rounded" name="amount" value={form.amount} onChange={onChange} />
-        </div>
-        <div className="md:col-span-2">
-          <label className="block text-sm mb-1">{t('Remarks', 'குறிப்பு')}</label>
-          <textarea className="w-full border p-2 rounded" name="remarks" value={form.remarks} onChange={onChange} rows={2} />
-        </div>
-        <div className="md:col-span-2 flex gap-2 justify-center">
-          <button disabled={saving} className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700" type="submit">
-            {saving ? t('Saving...', 'சேமிக்கிறது...') : t('Save', 'பதிவு')}
-          </button>
-          <button type="button" className="border px-4 py-2 rounded" onClick={() => setForm(initialState)}>
+          <input className="w-full border p-2 rounded" name="registerNo" value={form.registerNo} onChange={onChange} placeholder={t('Register No', 'Register No')} />
             {t('Clear', 'வெளியே')}
           </button>
           {id && (

@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Loader2, Trash2 } from 'lucide-react';
 import { cn, pageContainerStyles, formFieldStyles } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 
 // Unified type
 interface UnifiedDonationRow {
@@ -127,9 +128,9 @@ export default function DonationUnifiedList() {
     try {
       let res: any;
       if (row.type === 'money') {
-        res = await fetch(`http://localhost:4000/api/money-donations/${row.id}/logs`, { headers: { Authorization: `Bearer ${token}` } });
+        res = await fetch(`https://tmsapi.xesstechlink.com/api/money-donations/${row.id}/logs`, { headers: { Authorization: `Bearer ${token}` } });
       } else {
-        res = await fetch(`http://localhost:4000/api/donations/${row.id}/logs`, { headers: { Authorization: `Bearer ${token}` } });
+        res = await fetch(`https://tmsapi.xesstechlink.com/api/donations/${row.id}/logs`, { headers: { Authorization: `Bearer ${token}` } });
       }
       if (!res.ok) throw new Error('Failed to fetch logs');
       const result = await res.json();
@@ -331,7 +332,7 @@ export default function DonationUnifiedList() {
   return (
     <div className={pageContainerStyles.container}>
       <Card className={pageContainerStyles.content}>
-        <CardHeader className={cn(formFieldStyles.tableHeader.container, formFieldStyles.card.header)}>
+        <CardHeader className={theme.card.header}>
           <CardTitle className={formFieldStyles.tableHeader.title}>
             {t('Donation List (Unified)', 'நன்கொடை பட்டியல் (ஒன்றுபட்ட)')}
           </CardTitle>
@@ -352,7 +353,7 @@ export default function DonationUnifiedList() {
                 onChange={(e) => setQ(e.target.value)}
                 onKeyDown={onKeyDownSearch}
                 placeholder={t('Search by name/phone/reason/product/receipt', 'பெயர்/தொலைபேசி/காரணம்/பொருள்/ரசீது மூலம் தேடுக')}
-                className={formFieldStyles.moneyDonationList.filters.searchInput}
+                className={cn(theme.input.base, "block w-full pl-8 pr-2 py-1 border border-gray-300 rounded leading-5 bg-white placeholder-gray-500 text-xs")}
               />
             </div>
 
@@ -512,7 +513,7 @@ export default function DonationUnifiedList() {
                   className={`px-3 py-1 text-sm rounded-md border transition-colors ${
                     currentPage === 1
                       ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      : cn(theme.input.base, 'bg-white text-gray-700 hover:bg-gray-50')
                   }`}
                 >
                   {t('Previous', 'முந்தையது')}
@@ -539,7 +540,7 @@ export default function DonationUnifiedList() {
                         className={`px-3 py-1 text-sm rounded-md border transition-colors ${
                           currentPage === pageNum
                             ? 'bg-blue-500 text-white border-blue-500'
-                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                            : cn(theme.input.base, 'bg-white text-gray-700 hover:bg-gray-50')
                         }`}
                       >
                         {pageNum}
@@ -555,7 +556,7 @@ export default function DonationUnifiedList() {
                   className={`px-3 py-1 text-sm rounded-md border transition-colors ${
                     currentPage === totalPages
                       ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      : cn(theme.input.base, 'bg-white text-gray-700 hover:bg-gray-50')
                   }`}
                 >
                   {t('Next', 'அடுத்தது')}

@@ -138,7 +138,7 @@ const interval = setInterval(checkTokenExpiration, 5 * 60 * 1000); // 5 minutes
 Configure the API base URL in your environment:
 
 ```env
-VITE_API_BASE_URL=http://localhost:4000
+VITE_API_BASE_URL=https://tmsapi.xesstechlink.com
 ```
 
 ## Troubleshooting

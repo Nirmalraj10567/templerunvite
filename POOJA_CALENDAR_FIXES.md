@@ -58,7 +58,7 @@ const formatDate = (date: Date) => {
 private baseUrl = `${import.meta.env.VITE_API_BASE_URL || ''}/api/pooja`;
 
 // After
-private baseUrl = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000'}/api/pooja`;
+private baseUrl = `${import.meta.env.VITE_API_BASE_URL || 'https://tmsapi.xesstechlink.com'}/api/pooja`;
 ```
 
 ### 5. React Import Optimization

@@ -440,7 +440,7 @@ export default function DashboardLayout() {
 
   useEffect(() => {
     let mounted = true;
-    fetch('http://localhost:4000/api/system/year-end-status', { headers: { Authorization: `Bearer ${token}` } })
+    fetch('https://tmsapi.xesstechlink.com/api/system/year-end-status', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(d => {
         if (!mounted) return;
@@ -562,8 +562,8 @@ export default function DashboardLayout() {
       <aside
         className={`
           ${isMobile ? 'fixed' : 'hidden md:flex'} 
-          inset-y-0 left-0 z-40 flex-col bg-gradient-to-b from-slate-900 via-blue-950 to-slate-900 
-          text-white transition-all duration-300 shadow-2xl border-r border-blue-800/20
+          inset-y-0 left-0 z-40 flex-col bg-gradient-to-b from-orange-700 via-red-800 to-orange-700 
+          text-white transition-all duration-300 shadow-2xl border-r border-red-600/20
           ${isSidebarCollapsed ? 'w-20' : 'w-72'} h-screen flex-shrink-0
           ${isMobile ? (isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full') : ''}
         `}
@@ -571,26 +571,26 @@ export default function DashboardLayout() {
         onMouseLeave={() => setIsHoveringSidebar(false)}
       >
         {/* Header */}
-        <div className="flex items-center justify-between h-20 px-6 border-b border-blue-800/30 bg-gradient-to-r from-blue-900/50 to-indigo-900/50">
+        <div className="flex items-center justify-between h-20 px-6 border-b border-red-600/30 bg-gradient-to-r from-orange-700/50 to-red-700/50">
           {!isSidebarCollapsed && (
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center shadow-lg">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-300 to-red-500 flex items-center justify-center shadow-lg">
                 <span className="text-xl font-bold text-white">T</span>
               </div>
-              <span className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+              <span className="text-2xl font-bold bg-gradient-to-r from-orange-300 to-red-400 bg-clip-text text-transparent">
                
               </span>
             </div>
           )}
           <button 
             onClick={() => setSidebarCollapsed(!isSidebarCollapsed)} 
-            className="hidden md:flex p-3 rounded-xl hover:bg-blue-800/30 transition-all duration-200 
-                       backdrop-blur-sm border border-blue-700/20 hover:border-blue-600/40"
+            className="hidden md:flex p-3 rounded-xl hover:bg-red-600/30 transition-all duration-200 
+                       backdrop-blur-sm border border-red-500/20 hover:border-red-400/40"
           >
             {isSidebarCollapsed ? (
-              <ChevronRightIcon className="w-5 h-5 text-blue-300" />
+              <ChevronRightIcon className="w-5 h-5 text-red-200" />
             ) : (
-              <ChevronLeftIcon className="w-5 h-5 text-blue-300" />
+              <ChevronLeftIcon className="w-5 h-5 text-red-200" />
             )}
           </button>
         </div>
@@ -610,24 +610,24 @@ export default function DashboardLayout() {
                     onClick={() => toggleItemExpansion(item.label)}
                     className={`
                       group flex items-center p-3 rounded-xl cursor-pointer transition-all duration-500
-                      hover:bg-gradient-to-r hover:from-blue-800/40 hover:to-indigo-800/40
-                      hover:shadow-lg hover:shadow-blue-900/20 backdrop-blur-sm
+                      hover:bg-gradient-to-r hover:from-orange-800/40 hover:to-red-800/40
+                      hover:shadow-lg hover:shadow-red-900/20 backdrop-blur-sm
                       ${isSidebarCollapsed ? 'justify-center' : ''} 
-                      ${isExpanded ? 'bg-gradient-to-r from-blue-800/30 to-indigo-800/30 shadow-lg shadow-blue-900/10' : ''}
+                      ${isExpanded ? 'bg-gradient-to-r from-orange-600/30 to-red-600/30 shadow-lg shadow-red-700/10' : ''}
                     `}
                   >
                     <div className="relative">
-                      <item.icon className="h-6 w-6 text-blue-300 group-hover:text-blue-200 transition-colors" />
+                      <item.icon className="h-6 w-6 text-orange-200 group-hover:text-orange-100 transition-colors" />
                       {isExpanded && !isSidebarCollapsed && (
-                        <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-400 rounded-full"></div>
+                        <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-300 rounded-full"></div>
                       )}
                     </div>
                     {!isSidebarCollapsed && (
                       <div className="flex-1 flex justify-between items-center ml-4">
-                        <span className="font-medium text-blue-100 group-hover:text-white transition-colors">
+                        <span className="font-medium text-orange-50 group-hover:text-white transition-colors">
                           {item.label}
                         </span>
-                        <div className={`transform transition-transform duration-500 text-blue-400 ${isExpanded ? 'rotate-90' : ''}`}>
+                        <div className={`transform transition-transform duration-500 text-orange-400 ${isExpanded ? 'rotate-90' : ''}`}>
                           <ChevronRightIcon className="w-4 h-4" />
                         </div>
                       </div>
@@ -644,13 +644,13 @@ export default function DashboardLayout() {
                           className={({ isActive }) =>
                             `group flex items-center p-3 rounded-lg transition-all duration-500 relative
                             ${isActive 
-                              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-900/30' 
-                              : 'text-blue-200 hover:bg-blue-800/30 hover:text-white'
+                              ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-lg shadow-red-900/30' 
+                              : 'text-orange-200 hover:bg-orange-800/30 hover:text-white'
                             }`
                           }
                           onClick={() => isMobile && setMobileMenuOpen(false)}
                         >
-                          <div className="w-2 h-2 rounded-full bg-blue-400 mr-3 opacity-60 group-hover:opacity-100 transition-opacity duration-500"></div>
+                          <div className="w-2 h-2 rounded-full bg-orange-300 mr-3 opacity-60 group-hover:opacity-100 transition-opacity duration-500"></div>
                           <span className="font-medium">{child.label}</span>
                           <span className="sr-only">{t[lang].close}</span>
                         </NavLink>
@@ -670,13 +670,13 @@ export default function DashboardLayout() {
                   `group flex items-center p-3 rounded-xl transition-all duration-200 backdrop-blur-sm
                   ${isSidebarCollapsed ? 'justify-center' : ''} 
                   ${isActive 
-                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-900/30' 
-                    : 'text-blue-200 hover:bg-gradient-to-r hover:from-blue-800/40 hover:to-indigo-800/40 hover:text-white hover:shadow-lg hover:shadow-blue-900/20'
+                    ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-lg shadow-red-900/30' 
+                    : 'text-orange-200 hover:bg-gradient-to-r hover:from-orange-800/40 hover:to-red-800/40 hover:text-white hover:shadow-lg hover:shadow-red-900/20'
                   }`
                 }
                 onClick={() => isMobile && setMobileMenuOpen(false)}
               >
-                <item.icon className="h-6 w-6 transition-colors" />
+                <item.icon className="h-6 w-6 text-orange-200 group-hover:text-orange-100 transition-colors" />
                 {!isSidebarCollapsed && <span className="ml-4 font-medium">{item.label}</span>}
               </NavLink>
             );
@@ -726,20 +726,20 @@ export default function DashboardLayout() {
         </nav>
 
         {/* User Profile */}
-        <div className="p-4 border-t border-blue-800/30 bg-gradient-to-r from-blue-900/30 to-indigo-900/30">
-          <div className={`flex items-center p-3 rounded-xl bg-gradient-to-r from-blue-800/30 to-indigo-800/30 
-                          backdrop-blur-sm border border-blue-700/20 ${isSidebarCollapsed ? 'justify-center' : ''}`}>
+        <div className="p-4 border-t border-red-600/30 bg-gradient-to-r from-orange-700/30 to-red-700/30">
+          <div className={`flex items-center p-3 rounded-xl bg-gradient-to-r from-orange-800/30 to-red-800/30 
+                          backdrop-blur-sm border border-red-500/20 ${isSidebarCollapsed ? 'justify-center' : ''}`}>
             <div className="relative">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-400 to-indigo-600 
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-400 to-red-600 
                             flex items-center justify-center font-bold text-lg shadow-lg">
                 {user?.name?.[0]?.toUpperCase() || 'U'}
               </div>
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-slate-900"></div>
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-orange-700"></div>
             </div>
             {!isSidebarCollapsed && (
               <div className="ml-4 flex-1">
                 <p className="font-semibold text-white text-lg">{user?.name}</p>
-                <p className="text-sm text-blue-300 capitalize bg-blue-900/40 px-2 py-1 rounded-md inline-block">
+                <p className="text-sm text-orange-200 capitalize bg-orange-700/40 px-2 py-1 rounded-md inline-block">
                   {user?.role}
                 </p>
               </div>
@@ -770,13 +770,13 @@ export default function DashboardLayout() {
         }
         
         .sidebar-nav::-webkit-scrollbar-thumb {
-          background: rgba(59, 130, 246, 0.6);
+          background: rgba(255, 87, 34, 0.6);
           border-radius: 3px;
           transition: background 0.2s ease;
         }
         
         .sidebar-nav::-webkit-scrollbar-thumb:hover {
-          background: rgba(59, 130, 246, 0.8);
+          background: rgba(255, 87, 34, 0.8);
         }
         
         /* Reduce scroll momentum */
@@ -805,12 +805,12 @@ export default function DashboardLayout() {
           will-change: padding-top;
         }
       `}</style>
-      <div className="relative h-screen w-full flex overflow-hidden bg-gradient-to-br from-slate-50 to-blue-50">
+      <div className="relative h-screen w-full flex overflow-hidden bg-gradient-to-br from-orange-50 to-red-50">
       {/* Mobile menu button */}
-      <div className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white flex justify-between md:hidden shadow-lg">
+      <div className="bg-gradient-to-r from-orange-700 to-red-700 text-white flex justify-between md:hidden shadow-lg">
         <button 
           onClick={() => setMobileMenuOpen(true)} 
-          className="mobile-menu-button p-4 hover:bg-blue-800/50 transition-colors duration-200"
+          className="mobile-menu-button p-4 hover:bg-orange-600/50 transition-colors duration-200"
         >
           <MenuIcon className="w-6 h-6" />
         </button>
@@ -825,7 +825,7 @@ export default function DashboardLayout() {
         <header 
           ref={headerRef}
           className={`flex items-center justify-between bg-white/80 backdrop-blur-lg border-b 
-                     border-blue-200/50 px-6 shadow-sm
+                     border-orange-300/50 px-6 shadow-sm
                      ${headerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full'}`}
           style={{
             position: 'sticky',
@@ -836,22 +836,25 @@ export default function DashboardLayout() {
             transition: 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             willChange: 'height, opacity, transform',
           }}>
-          {/* Left side: optional view-only badge */}
+          {/* Left side: temple name and optional view-only badge */}
           <div className="flex items-center gap-3">
+            <h2 className="text-lg font-semibold text-gray-700">
+              {(user as any)?.temple?.name || 'Temple Management System'}
+            </h2>
             {isViewOnlyForRoute && (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
                 View-only
               </span>
             )}
           </div>
-          <Header pageTitle={pageTitle} />
+          <Header />
         </header>
         
         <main 
           ref={mainScrollRef} 
-          className={`flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 to-blue-50 
-                     scrollbar-thin scrollbar-thumb-blue-400 scrollbar-track-transparent 
-                     hover:scrollbar-thumb-blue-500
+          className={`flex-1 overflow-y-auto bg-gradient-to-br from-orange-50 to-red-50 
+                     scrollbar-thin scrollbar-thumb-orange-400 scrollbar-track-transparent 
+                     hover:scrollbar-thumb-orange-500
                      ${headerVisible ? 'pt-2' : 'pt-0'}`} 
           data-view-only={isViewOnlyForRoute ? 'true' : 'false'}
           style={{ 

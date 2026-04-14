@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:4000/api';
+const BASE_URL = 'https://tmsapi.xesstechlink.com/api';
 
 async function testPasswordLogin() {
   console.log('\n--- Testing Password Login API (/api/users/login) ---');

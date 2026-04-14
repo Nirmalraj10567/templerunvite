@@ -7,8 +7,10 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
-import { cn, formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
+import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+
 interface HallRequest {
   id: number;
   register_no?: string | null;
@@ -81,7 +83,7 @@ export default function HallApprovalPage() {
     setLogs([]);
     setLogsLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/hall-approval/${hallId}/logs`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/hall-approval/${hallId}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -120,7 +122,7 @@ export default function HallApprovalPage() {
   const loadAllHallLogs = async (pageNum: number) => {
     setAllLogsLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/hall-approval/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/hall-approval/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -271,7 +273,7 @@ export default function HallApprovalPage() {
     <Card className={pageContainerStyles.container}>
       
      
-        <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+        <CardHeader className={theme.card.header}>
           <CardTitle className="text-lg font-bold w-full">
           {t('Hall Booking Approvals', 'மண்டப முன்பதிவு அனுமதிகள்')}
           </CardTitle>
@@ -279,19 +281,19 @@ export default function HallApprovalPage() {
 
 
       <div className="flex flex-col md:flex-row gap-3 mb-4">
-        <select className="border p-2 rounded" value={status} onChange={(e) => setStatus(e.target.value)}>
+        <select className={cn(theme.input.base, "p-2 rounded")} value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="pending">{t('Pending', 'நிலுவையில்')}</option>
           <option value="approved">{t('Approved', 'அனுமதிக்கப்பட்டது')}</option>
           <option value="rejected">{t('Rejected', 'நிராகரிக்கப்பட்டது')}</option>
           <option value="cancelled">{t('Cancelled', 'ரத்துசெய்யப்பட்டது')}</option>
         </select>
         <input
-          className="border p-2 rounded"
+          className={cn(theme.input.base, "p-2 rounded")}
           placeholder={t('Search by mobile', 'மொபைல் மூலம் தேடுக')}
           value={mobile}
           onChange={(e) => setMobile(e.target.value)}
         />
-        <button className="border px-4 py-2 rounded" onClick={load}>{t('Filter', 'வடிகட்டி')}</button>
+        <button className={cn(theme.input.base, "px-4 py-2 rounded")} onClick={load}>{t('Filter', 'வடிகட்டி')}</button>
         <button className="border px-4 py-2 rounded bg-blue-50 text-blue-700 hover:bg-blue-100" onClick={openAllLogs}>
           {t('All Logs', 'அனைத்து பதிவுகள்')}
         </button>
@@ -502,7 +504,7 @@ export default function HallApprovalPage() {
                     <div className="text-gray-700">{t('Total', 'மொத்தம்')}: <span className="font-medium">{allLogsTotal}</span></div>
                     <div className="flex items-center gap-2">
                       <button
-                        className="px-2 py-1 border border-gray-300 rounded shadow-sm text-xs bg-white hover:bg-gray-50"
+                        className={cn(theme.input.base, "px-2 py-1 rounded shadow-sm text-xs bg-white hover:bg-gray-50")}
                         disabled={allLogsPage <= 1}
                         onClick={() => loadAllHallLogs(allLogsPage - 1)}
                       >
@@ -510,7 +512,7 @@ export default function HallApprovalPage() {
                       </button>
                       <span>{t('Page', 'பக்கம்')} {allLogsPage}</span>
                       <button
-                        className="px-2 py-1 border border-gray-300 rounded shadow-sm text-xs bg-white hover:bg-gray-50"
+                        className={cn(theme.input.base, "px-2 py-1 rounded shadow-sm text-xs bg-white hover:bg-gray-50")}
                         disabled={allLogsPage * allLogsPageSize >= allLogsTotal}
                         onClick={() => loadAllHallLogs(allLogsPage + 1)}
                       >

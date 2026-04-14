@@ -8,7 +8,7 @@ import { Modal } from '../../components/Modal';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
-
+import { theme } from '@/styles/theme';
 
 const MyPreferences: React.FC = () => {
   const { settings, updateSettings } = useSettings();
@@ -190,7 +190,7 @@ const MyPreferences: React.FC = () => {
           <div className="text-center">
 
 
-            <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+            <CardHeader className={theme.card.header}>
             <CardTitle className="text-lg font-bold w-full">
             {t[language].title}
             </CardTitle>
