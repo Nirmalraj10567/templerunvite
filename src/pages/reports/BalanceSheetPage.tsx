@@ -8,8 +8,9 @@ import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { getAuthToken } from '@/lib/auth';
 import { Loader2, RefreshCw, IndianRupee } from 'lucide-react';
-import { useLanguage } from '@/lib/language'; // 👈 Import useLanguage
-import { formFieldStyles, cn, pageContainerStyles } from '@/styles/formStyles';
+import { useLanguage } from '@/lib/language'; 
+import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 
 interface Item {
   account: string;
@@ -124,14 +125,14 @@ export default function BalanceSheetPage() {
       const token = getAuthToken();
 
       // Fetch balance sheet data
-      const balanceResp = await fetch(`http://localhost:4000/api/journal/balance-sheet?from=${query.startDate}&to=${query.endDate}`, {
+      const balanceResp = await fetch(`https://tmsapi.xesstechlink.com/api/journal/balance-sheet?from=${query.startDate}&to=${query.endDate}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!balanceResp.ok) throw new Error(t[language].errorLoading);
       const balanceData = await balanceResp.json();
 
       // Fetch debit transactions from ledger entries (already typed credit/debit)
-      const debitResp = await fetch(`http://localhost:4000/api/ledger/entries?startDate=${query.startDate}&endDate=${query.endDate}&type=debit&limit=1000&page=1`, {
+      const debitResp = await fetch(`https://tmsapi.xesstechlink.com/api/ledger/entries?startDate=${query.startDate}&endDate=${query.endDate}&type=debit&limit=1000&page=1`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       let debitItems: Item[] = [];
@@ -400,7 +401,7 @@ export default function BalanceSheetPage() {
   return (
     <div className={pageContainerStyles.container}>
        <Card className={pageContainerStyles.content}>
-         <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+         <CardHeader className={theme.card.header}>
            <CardTitle className="text-lg font-bold w-full">
            {t[language].balanceSheet}
            </CardTitle>
@@ -416,11 +417,11 @@ export default function BalanceSheetPage() {
           <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-3 items-end">
             <div>
               <Label htmlFor="from" className="text-xs">{t[language].from}</Label>
-              <Input id="from" type="date" className="h-8 text-sm" value={startDate} onChange={(e) => onFilterChange('from', e.target.value)} />
+              <Input id="from" type="date" className={cn(theme.input.base, "h-8 text-sm")} value={startDate} onChange={(e) => onFilterChange('from', e.target.value)} />
             </div>
             <div>
               <Label htmlFor="to" className="text-xs">{t[language].to}</Label>
-              <Input id="to" type="date" className="h-8 text-sm" value={endDate} onChange={(e) => onFilterChange('to', e.target.value)} />
+              <Input id="to" type="date" className={cn(theme.input.base, "h-8 text-sm")} value={endDate} onChange={(e) => onFilterChange('to', e.target.value)} />
             </div>
             <div className="md:col-span-2">
               <Button size="sm" onClick={load} disabled={isLoading} className="flex items-center gap-1">

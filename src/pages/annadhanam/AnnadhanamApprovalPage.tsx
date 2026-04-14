@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle, XCircle, Eye, Clock, FileText, FileDown, Printer, Edit, RefreshCcw } from 'lucide-react';
 import { cn, formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 // Translation object
 const t = {
   tamil: {
@@ -268,7 +269,7 @@ export default function AnnadhanamApprovalPage() {
     setLogs([]);
     setLogsLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/annadhanam/${annadhanamId}/logs`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${annadhanamId}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -307,7 +308,7 @@ export default function AnnadhanamApprovalPage() {
   const loadAllAnnadhanamLogs = async (pageNum: number) => {
     setAllLogsLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/annadhanam/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -344,7 +345,7 @@ export default function AnnadhanamApprovalPage() {
   // Fetch helpers
   const fetchRequestDetails = async (requestId: number) => {
     try {
-      const response = await fetch(`http://localhost:4000/api/annadhanam-approval/request/${requestId}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam-approval/request/${requestId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -381,7 +382,7 @@ export default function AnnadhanamApprovalPage() {
     try {
       setLoading(true);
       const response = await fetch(
-        `http://localhost:4000/api/annadhanam-approval/pending?search=${searchTerm}`,
+        `https://tmsapi.xesstechlink.com/api/annadhanam-approval/pending?search=${searchTerm}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -410,7 +411,7 @@ export default function AnnadhanamApprovalPage() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/annadhanam-approval/stats', {
+      const response = await fetch('https://tmsapi.xesstechlink.com/api/annadhanam-approval/stats', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -432,7 +433,7 @@ export default function AnnadhanamApprovalPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
-      const response = await fetch(`http://localhost:4000/api/annadhanam/${deleteTarget.id}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${deleteTarget.id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -481,7 +482,7 @@ export default function AnnadhanamApprovalPage() {
   const handleApprove = async (requestId: number) => {
     try {
       const response = await fetch(
-        `http://localhost:4000/api/annadhanam-approval/approve/${requestId}`,
+        `https://tmsapi.xesstechlink.com/api/annadhanam-approval/approve/${requestId}`,
         {
           method: 'PUT',
           headers: {
@@ -528,7 +529,7 @@ export default function AnnadhanamApprovalPage() {
   const handleReject = async (requestId: number) => {
     try {
       const response = await fetch(
-        `http://localhost:4000/api/annadhanam-approval/reject/${requestId}`,
+        `https://tmsapi.xesstechlink.com/api/annadhanam-approval/reject/${requestId}`,
         {
           method: 'PUT',
           headers: {
@@ -576,7 +577,7 @@ export default function AnnadhanamApprovalPage() {
 
   const handleBulkAction = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/annadhanam-approval/bulk-action', {
+      const response = await fetch('https://tmsapi.xesstechlink.com/api/annadhanam-approval/bulk-action', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -621,7 +622,7 @@ export default function AnnadhanamApprovalPage() {
 
   const handleSaveStats = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/annadhanam-approval/update-stats', {
+      const response = await fetch('https://tmsapi.xesstechlink.com/api/annadhanam-approval/update-stats', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -756,7 +757,7 @@ export default function AnnadhanamApprovalPage() {
       {/* Header */}
     
       <Card className={pageContainerStyles.content}>
-        <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+        <CardHeader className={theme.card.header}>
           <CardTitle className="text-lg font-bold w-full">
             {t("Annadhanam Approval ", "அன்னதானம் அனுமதி ")}
           </CardTitle>
@@ -857,7 +858,7 @@ export default function AnnadhanamApprovalPage() {
                 placeholder={t('Search by name, mobile, or receipt...', 'பெயர், மொபைல் அல்லது ரசீது மூலம் தேடுக')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 h-8 text-sm"
+                className={cn(theme.input.base, "pl-9 h-8 text-sm")}
               />
             </div>
 
@@ -1357,7 +1358,7 @@ export default function AnnadhanamApprovalPage() {
               onClick={async () => {
                 if (!selectedRequest) return;
                 try {
-                  const response = await fetch(`http://localhost:4000/api/annadhanam/${selectedRequest.id}`, {
+                  const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${selectedRequest.id}`, {
                     method: 'PUT',
                     headers: {
                       'Authorization': `Bearer ${token}`,

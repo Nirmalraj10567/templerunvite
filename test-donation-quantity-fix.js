@@ -6,7 +6,7 @@ async function testDonationQuantityFix() {
   // You'll need to replace this with a real token
   const token = 'your-test-token-here';
   
-  const baseUrl = 'http://localhost:4000/api/donations';
+  const baseUrl = 'https://tmsapi.xesstechlink.com/api/donations';
   const headers = {
     'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json'

@@ -17,7 +17,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import jsPDF from 'jspdf';
-import { cn, formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
+import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -64,7 +65,7 @@ interface User {
 
 // Donation Service
 class DonationService {
-  private baseUrl = 'http://localhost:4000/api';
+  private baseUrl = 'https://tmsapi.xesstechlink.com/api';
 
   async getDonations(token: string, params: { q?: string } = {}) {
     const url = new URL(`${this.baseUrl}/donations`);
@@ -270,7 +271,7 @@ export default function DonationProductList() {
     const results = await Promise.all(
       missing.map(async (id) => {
         try {
-          const res = await fetch(`http://localhost:4000/api/admin/members/${id}`, {
+          const res = await fetch(`https://tmsapi.xesstechlink.com/api/admin/members/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data = await res.json().catch(() => ({}));
@@ -324,7 +325,7 @@ export default function DonationProductList() {
     setLogsFor(item.id);
     setLogsLoading(true);
     try {
-      const response = await fetch(`http://localhost:4000/api/donations/${item.id}/logs`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/donations/${item.id}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch logs');
@@ -364,7 +365,7 @@ export default function DonationProductList() {
     const pageToLoad = pageNum || allLogsPage;
     setAllLogsLoading(true);
     try {
-      const response = await fetch(`http://localhost:4000/api/donations/logs?page=${pageToLoad}&pageSize=${allLogsPageSize}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/donations/logs?page=${pageToLoad}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch logs');
@@ -562,7 +563,7 @@ export default function DonationProductList() {
   return (
     <div className={pageContainerStyles.container}>
       <Card className={pageContainerStyles.content}>
-        <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white flex items-center justify-center py-4 px-6", formFieldStyles.card.header)}>
+        <CardHeader className={theme.card.header}>
           <CardTitle className="text-lg font-bold text-center w-full">
             {t('Donation List', 'பொருள் நன்கொடைக் பட்டியல்')}
           </CardTitle>

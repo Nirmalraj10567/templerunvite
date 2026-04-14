@@ -102,7 +102,7 @@ export default function OverviewPage() {
       setError('');
       try {
         // Fetch registrations (for total + recent)
-        const regRes = await fetch(`http://localhost:4000/api/registrations?page=1&pageSize=5`, {
+        const regRes = await fetch(`https://tmsapi.xesstechlink.com/api/registrations?page=1&pageSize=5`, {
           headers: {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -117,7 +117,7 @@ export default function OverviewPage() {
         }
 
         // Fetch full registrations list (for counts)
-        const regAllRes = await fetch(`http://localhost:4000/api/registrations?page=1&pageSize=5000`, {
+        const regAllRes = await fetch(`https://tmsapi.xesstechlink.com/api/registrations?page=1&pageSize=5000`, {
           headers: {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -128,7 +128,7 @@ export default function OverviewPage() {
 
         // Fetch current year's tax setting
         const year = new Date().getFullYear();
-        const taxSetRes = await fetch(`http://localhost:4000/api/tax-settings/year/${year}`, {
+        const taxSetRes = await fetch(`https://tmsapi.xesstechlink.com/api/tax-settings/year/${year}`, {
           headers: {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -138,7 +138,7 @@ export default function OverviewPage() {
         const currentYearTax = Number(taxSetJson?.data?.tax_amount || 0) || 0;
 
         // Fetch tax registrations (limit reasonably)
-        const taxRes = await fetch(`http://localhost:4000/api/tax-registrations?page=1&pageSize=1000`, {
+        const taxRes = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations?page=1&pageSize=1000`, {
           headers: {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -230,7 +230,7 @@ export default function OverviewPage() {
         }
 
         // Fetch events (for upcoming count)
-        const evtRes = await fetch(`http://localhost:4000/api/events?from=${todayStr}&page=1&pageSize=1`, {
+        const evtRes = await fetch(`https://tmsapi.xesstechlink.com/api/events?from=${todayStr}&page=1&pageSize=1`, {
           headers: {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -279,7 +279,7 @@ export default function OverviewPage() {
       {/* Stat gradient cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {/* Total Members - Blue */}
-        <div className="rounded-2xl p-5 text-white shadow-lg bg-gradient-to-br from-indigo-500 via-indigo-600 to-blue-600 hover:shadow-xl transition-all duration-200">
+        <div className="rounded-2xl p-5 text-white shadow-lg bg-gradient-to-br from-orange-400 via-red-400 to-orange-500 hover:shadow-xl transition-all duration-200">
           <div className="flex items-center justify-between">
             <div className="text-sm opacity-90">{t[lang].totalMembers}</div>
             <UsersIcon className="h-6 w-6 opacity-90" />
@@ -290,7 +290,7 @@ export default function OverviewPage() {
           </div>
         </div>
         {/* Paid Members - Green */}
-        <div className="rounded-2xl p-5 text-white shadow-lg bg-gradient-to-br from-green-500 via-green-600 to-green-600 hover:shadow-xl transition-all duration-200">
+        <div className="rounded-2xl p-5 text-white shadow-lg bg-gradient-to-br from-orange-300 via-red-300 to-orange-400 hover:shadow-xl transition-all duration-200">
           <div className="flex items-center justify-between">
             <div className="text-sm opacity-90">{t[lang].paidMembers}</div>
             <CreditCardIcon className="h-6 w-6 opacity-90" />
@@ -301,7 +301,7 @@ export default function OverviewPage() {
           </div>
         </div>
         {/* Unpaid Members - Blue */}
-        <div className="rounded-2xl p-5 text-white shadow-lg bg-gradient-to-br from-sky-500 via-blue-600 to-indigo-600 hover:shadow-xl transition-all duration-200">
+        <div className="rounded-2xl p-5 text-white shadow-lg bg-gradient-to-br from-orange-400 via-red-400 to-orange-500 hover:shadow-xl transition-all duration-200">
           <div className="flex items-center justify-between">
             <div className="text-sm opacity-90">{t[lang].unpaidMembers}</div>
             <BarChartIcon className="h-6 w-6 opacity-90" />
@@ -312,7 +312,7 @@ export default function OverviewPage() {
           </div>
         </div>
         {/* Upcoming Events - Green */}
-        <div className="rounded-2xl p-5 text-white shadow-lg bg-gradient-to-br from-green-500 via-green-600 to-green-600 hover:shadow-xl transition-all duration-200">
+        <div className="rounded-2xl p-5 text-white shadow-lg bg-gradient-to-br from-orange-300 via-red-300 to-orange-400 hover:shadow-xl transition-all duration-200">
           <div className="flex items-center justify-between">
             <div className="text-sm opacity-90">{t[lang].upcomingEvents}</div>
             <CalendarIcon className="h-6 w-6 opacity-90" />

@@ -13,7 +13,8 @@ import { useLanguage } from '@/lib/language';
 import { ledgerService } from '@/services/ledgerService';
 import { journalService } from '@/services/journalService';
 import { cn } from "@/lib/utils";
-import { formFieldStyles, pageContainerStyles } from '../../styles/formStyles';
+import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 
 interface ReceiptFormData {
   receiptNumber: string;
@@ -192,7 +193,7 @@ export default function ReceiptEntryPage() {
   const fetchNextReceiptNumber = useCallback(async () => {
     try {
       if (id) return;
-      const res = await fetch('http://localhost:4000/api/receipts/next-number', {
+      const res = await fetch('https://tmsapi.xesstechlink.com/api/receipts/next-number', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -221,7 +222,7 @@ export default function ReceiptEntryPage() {
       const fetchReceipt = async () => {
         try {
           setIsLoading(true);
-          const res = await fetch(`http://localhost:4000/api/receipts/${id}`, {
+          const res = await fetch(`https://tmsapi.xesstechlink.com/api/receipts/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           if (!res.ok) throw new Error('Failed to fetch receipt');
@@ -370,7 +371,7 @@ export default function ReceiptEntryPage() {
         remarks: data.remarks || '',
       };
 
-      const url = id ? `http://localhost:4000/api/receipts/${id}` : 'http://localhost:4000/api/receipts';
+      const url = id ? `https://tmsapi.xesstechlink.com/api/receipts/${id}` : 'https://tmsapi.xesstechlink.com/api/receipts';
       const method = id ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,
@@ -501,7 +502,7 @@ export default function ReceiptEntryPage() {
     <div className={pageContainerStyles.container}>
       <div className={pageContainerStyles.content}>
         <Card className={formFieldStyles.card.container}>
-          <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white", formFieldStyles.card.header)}>
+          <CardHeader className={theme.card.header}>
             <CardTitle className="text-2xl font-bold text-center">
               {t('title')}
             </CardTitle>

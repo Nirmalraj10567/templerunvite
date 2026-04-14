@@ -13,7 +13,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { toast } from "@/components/ui/use-toast";
 import { FileDown, Printer } from "lucide-react";
 import propertyService from "@/services/propertyService";
-import { cn, formFieldStyles, pageContainerStyles } from "@/styles/formStyles";
+import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 
 interface Property {
   id: number;
@@ -391,7 +392,7 @@ export default function PropertyListView() {
   return (
     <div className={pageContainerStyles.container}>
       <Card className={pageContainerStyles.content}>
-        <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+        <CardHeader className={theme.card.header}>
           <CardTitle className="text-lg font-bold w-full">
             {t("Property List", "சொத்து பட்டியல்")}
           </CardTitle>

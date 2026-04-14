@@ -9,7 +9,8 @@ import { FileDown } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn, pageContainerStyles, formFieldStyles } from "@/styles/formStyles";
+import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 import { Input } from '@/components/ui/input';
 
 export interface SessionLog {
@@ -248,7 +249,7 @@ const SessionLogsPage = () => {
         ...(endDate && { endDate }),
       });
 
-      const response = await fetch(`http://localhost:4000/api/session-logs?${params.toString()}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/session-logs?${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -284,7 +285,7 @@ const SessionLogsPage = () => {
         ...(endDate && { endDate }),
       });
 
-      const response = await fetch(`http://localhost:4000/api/session-logs/export?${params.toString()}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/session-logs/export?${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -326,7 +327,7 @@ const SessionLogsPage = () => {
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
       
-      const response = await fetch(`http://localhost:4000/api/session-logs/export-pdf?${params.toString()}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/session-logs/export-pdf?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -375,7 +376,7 @@ const SessionLogsPage = () => {
 
      
       <Card className={pageContainerStyles.content}>
-        <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+        <CardHeader className={theme.card.header}>
           <CardTitle className="text-lg font-bold w-full">
           <h1 className="text-2xl font-bold text-white-800">{translate('sessionLogs')}</h1>
           </CardTitle>
@@ -390,13 +391,13 @@ const SessionLogsPage = () => {
             <div className="relative">
               <label className="text-xs text-gray-500 block mb-1">{translate('from')}</label>
               <div className="relative">
-                <input
+                <Input
                   type="text"
                   readOnly
                   value={startDate}
                   onClick={() => setShowStartCalendar(!showStartCalendar)}
                   placeholder="Select start date"
-                  className="w-full rounded-md border border-gray-300 py-2 pl-3 pr-10 text-sm"
+                  className={cn(theme.input.base, "w-full rounded-md py-2 pl-3 pr-10 text-sm")}
                 />
                 {showStartCalendar && (
                   <div className="absolute z-10 mt-1 bg-white border rounded-md shadow-lg">
@@ -417,13 +418,13 @@ const SessionLogsPage = () => {
             <div className="relative">
               <label className="text-xs text-gray-500 block mb-1">{translate('to')}</label>
               <div className="relative">
-                <input
+                <Input
                   type="text"
                   readOnly
                   value={endDate}
                   onClick={() => setShowEndCalendar(!showEndCalendar)}
                   placeholder="Select end date"
-                  className="w-full rounded-md border border-gray-300 py-2 pl-3 pr-10 text-sm"
+                  className={cn(theme.input.base, "w-full rounded-md py-2 pl-3 pr-10 text-sm")}
                 />
                 {showEndCalendar && (
                   <div className="absolute z-10 mt-1 bg-white border rounded-md shadow-lg">
@@ -465,7 +466,7 @@ const SessionLogsPage = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={handleSearch}
-              className="pl-10"
+              className={cn(theme.input.base, "pl-10")}
             />
           </div>
 
@@ -556,7 +557,7 @@ const SessionLogsPage = () => {
                   onChange={() =>
                     setVisibleCols((prev) => ({ ...prev, [col.key]: !prev[col.key] }))
                   }
-                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className={cn(theme.input.base, "h-4 w-4 text-blue-600 rounded")}
                 />
                 <span className="ml-2 text-sm text-gray-700">{col.label}</span>
               </label>

@@ -54,7 +54,7 @@ export function CategoryManager({
       const payloadLabel = category.label.trim();
       const payloadValue = asIs(payloadLabel); // value = label
       const response = await axios.put<Category>(
-        `http://localhost:4000/api/ledger/categories/${category.id}`,
+        `https://tmsapi.xesstechlink.com/api/ledger/categories/${category.id}`,
         {
           value: payloadValue,
           label: payloadLabel,
@@ -97,7 +97,7 @@ export function CategoryManager({
     }
     try {
       setIsLoading(true);
-      await axios.delete(`http://localhost:4000/api/ledger/categories/${id}?templeId=${templeId}`, {
+      await axios.delete(`https://tmsapi.xesstechlink.com/api/ledger/categories/${id}?templeId=${templeId}`, {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });
       setCategories(categories.filter(c => c.id !== id));
@@ -135,7 +135,7 @@ export function CategoryManager({
     try {
       setIsLoading(true);
       const response = await axios.post<Category>(
-        'http://localhost:4000/api/ledger/categories',
+        'https://tmsapi.xesstechlink.com/api/ledger/categories',
         { value: nextVal, label: nextLabel, templeId: templeId },
         { headers: { Authorization: `Bearer ${getAuthToken()}` } }
       );

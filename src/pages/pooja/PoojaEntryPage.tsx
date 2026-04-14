@@ -13,6 +13,8 @@ import { useLanguage } from '@/lib/language';
 import PoojaCalendar from '@/components/PoojaCalendar';
 import { poojaService, PoojaFormData } from '@/services/poojaService';
 import axios from 'axios';
+import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 
 // Ensure date values are compatible with <input type="date"> (expects YYYY-MM-DD)
 const toDateInputValue = (value: any): string => {
@@ -44,7 +46,7 @@ const generateReceiptNo = async (token?: string) => {
     if (!token) {
       throw new Error('Missing auth token');
     }
-    const response = await axios.get<any>('http://localhost:4000/api/pooja/latest-receipt', {
+    const response = await axios.get<any>('https://tmsapi.xesstechlink.com/api/pooja/latest-receipt', {
       headers: { Authorization: `Bearer ${token}` }
     });
     let nextNumber = 1;
@@ -252,7 +254,7 @@ export default function PoojaEntryPage() {
       <div className="min-h-screen bg-gray-50 py-6 px-4">
         <div className="max-w-7xl mx-auto">
           <Card className="shadow-lg border-0 bg-white rounded-lg overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 py-6 px-6">
+            <CardHeader className={theme.card.header}>
               <CardTitle className="text-2xl font-bold text-center text-white">
                 {t('Pooja Entry', 'பூஜை பதிவு')}
               </CardTitle>
@@ -357,32 +359,35 @@ export default function PoojaEntryPage() {
     }
   };
 
+  // Use centralized form styles with theme focus colors
+  const fieldStyles = cn(
+    theme.input.base,
+    "text-base h-11 py-2.5 px-3"
+  );
+  const labelStyles = "block text-sm font-medium mb-1.5 text-gray-700";
+  const textareaStyles = cn(
+    theme.input.base,
+    "text-base py-2.5 px-3 min-h-[100px]"
+  );
+
   const handleCancel = async () => {
     if (id) {
       navigate('/dashboard/pooja');
     } else {
       reset();
       const rn = await generateReceiptNo(token);
-      setValue('receiptNumber', rn);
-      setValue('transferTo', 'INCOME A/C');
     }
   };
-
-  // Consistent field styling
-  const fieldStyles = "text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200";
-  const labelStyles = "block text-sm font-medium mb-1.5 text-gray-700";
-  const textareaStyles = "text-base py-2.5 px-3 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200 min-h-[100px]";
 
   return (
     <div className="min-h-screen bg-gray-50 py-6 px-4">
       <div className="max-w-7xl mx-auto">
         <Card className="shadow-lg border-0 bg-white rounded-lg overflow-hidden">
-          <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 py-6 px-6">
+          <CardHeader className={theme.card.header}>
             <CardTitle className="text-2xl font-bold text-center text-white">
               {t('Pooja Entry', 'பூஜை பதிவு')}
             </CardTitle>
           </CardHeader>
-          
           <CardContent className="p-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Form Section */}
@@ -396,35 +401,27 @@ export default function PoojaEntryPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Receipt Number */}
                     <div>
-                      <Label className={labelStyles}>
-                        {t('Receipt Number', 'ரசீது எண்')} <span className="text-red-500">*</span>
-                      </Label>
                       <Input
                         id="receiptNumber"
                         className={`${fieldStyles} bg-gray-100`}
                         {...register('receiptNumber', { required: true })}
                         readOnly
+                        placeholder={t('Receipt Number', 'Receipt Number') + ' *'}
                       />
                     </div>
 
                     {/* Name */}
                     <div>
-                      <Label className={labelStyles}>
-                        {t('Name', 'பெயர்')} <span className="text-red-500">*</span>
-                      </Label>
                       <Input
                         id="name"
                         className={fieldStyles}
                         {...register('name', { required: true })}
-                        placeholder={t('Enter full name', 'முழு பெயரை உள்ளிடவும்')}
+                        placeholder={t('Name', 'Name') + ' *'}
                       />
                     </div>
 
                     {/* Mobile Number */}
                     <div>
-                      <Label className={labelStyles}>
-                        {t('Mobile Number', 'மொபைல் எண்')} <span className="text-red-500">*</span>
-                      </Label>
                       <Input
                         id="mobileNumber"
                         type="tel"
@@ -452,31 +449,26 @@ export default function PoojaEntryPage() {
                           required: true,
                           pattern: {
                             value: /^[0-9]{10}$/,
-                            message: t('Please enter a valid 10-digit mobile number', 'செல்லுபடியாகும் 10 இலக்க மொபைல் எண்ணை உள்ளிடவும்')
+                            message: t('Please enter a valid 10-digit mobile number', 'Please enter a valid 10-digit mobile number')
                           }
                         })}
-                        placeholder={t('Enter 10-digit mobile number', '10 இலக்க மொபைல் எண்ணை உள்ளிடவும்')}
+                        placeholder={t('Enter 10-digit mobile number', 'Enter 10-digit mobile number')}
                       />
                     </div>
 
                     {/* Time */}
                     <div>
-                      <Label className={labelStyles}>
-                        {t('Time', 'நேரம்')} <span className="text-red-500">*</span>
-                      </Label>
                       <Input
                         id="time"
                         type="time"
                         className={fieldStyles}
                         {...register('time', { required: true })}
+                        placeholder={t('Time', 'Time') + ' *'}
                       />
                     </div>
 
                     {/* From Date */}
                     <div>
-                      <Label className={labelStyles}>
-                        {t('Date', 'தொடக்க தேதி')} <span className="text-red-500">*</span>
-                      </Label>
                       <div className="flex gap-2">
                         <Input
                           id="fromDate"
@@ -492,39 +484,33 @@ export default function PoojaEntryPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => setShowCalendar(!showCalendar)}
-                          className="px-3 py-2.5 text-sm border-gray-300 hover:bg-gray-50 rounded-md"
-                          title={showCalendar ? t('Hide Calendar', 'காலெண்டரை மறை') : t('Show Calendar', 'காலெண்டரை காட்டு')}
+                          className={cn(theme.input.base, "px-3 py-2.5 text-sm hover:bg-gray-50 rounded-md")}
+                          title={showCalendar ? t('Hide Calendar', 'Hide Calendar') : t('Show Calendar', 'Show Calendar')}
                         >
-                          {showCalendar ? '📅' : '📅'}
+                          {showCalendar ? '??' : '??'}
                         </Button>
                       </div>
                     </div>
 
                     {/* Amount */}
                     <div>
-                      <Label className={labelStyles}>
-                        {t('Amount', 'தொகை')}
-                      </Label>
                       <Input
                         id="amount"
                         type="number"
                         step="0.01"
                         className={fieldStyles}
-                        placeholder={t('Enter amount', 'தொகையை உள்ளிடவும்')}
+                        placeholder={t('Amount', 'Amount')}
                         {...register('amount')}
                       />
                     </div>
 
                     {/* Remarks */}
                     <div className="md:col-span-2">
-                      <Label className={labelStyles}>
-                        {t('Remarks', 'குறிப்புகள்')}
-                      </Label>
                       <Textarea
                         id="remarks"
                         className={textareaStyles}
                         {...register('remarks')}
-                        placeholder={t('Enter any additional remarks', 'கூடுதல் குறிப்புகளை உள்ளிடவும்')}
+                        placeholder={t('Remarks', 'Remarks')}
                         rows={3}
                       />
                     </div>
@@ -535,7 +521,7 @@ export default function PoojaEntryPage() {
                     <Button
                       type="button"
                       variant="outline"
-                      className="px-5 py-2.5 text-base border-gray-300 hover:bg-gray-50 rounded-md"
+                      className={cn(theme.input.base, "px-5 py-2.5 text-base hover:bg-gray-50 rounded-md")}
                       onClick={handleCancel}
                       disabled={isSubmitting}
                     >
@@ -546,7 +532,7 @@ export default function PoojaEntryPage() {
                       <Button
                         type="button"
                         variant="outline"
-                        className="px-5 py-2.5 text-base border-gray-300 hover:bg-gray-50 rounded-md"
+                        className={cn(theme.input.base, "px-5 py-2.5 text-base hover:bg-gray-50 rounded-md")}
                         onClick={handlePrintReceipt}
                       >
                         {t('Print Receipt', 'ரசீதை அச்சிட')}
@@ -556,7 +542,7 @@ export default function PoojaEntryPage() {
                     <Button
                       type="button"
                       variant="outline"
-                      className="px-5 py-2.5 text-base border-gray-300 hover:bg-gray-50 rounded-md"
+                      className={cn(theme.input.base, "px-5 py-2.5 text-base hover:bg-gray-50 rounded-md")}
                       onClick={() => {
                         const d = watch('fromDate') || selectedDate || new Date().toISOString().slice(0, 10);
                         navigate(`/dashboard/reports/daily?date=${d}`);
@@ -630,7 +616,7 @@ export default function PoojaEntryPage() {
           <DialogFooter className="flex gap-3">
             <Button 
               variant="outline" 
-              className="px-4 py-2 text-sm border-gray-300 hover:bg-gray-50 rounded-md"
+              className={cn(theme.input.base, "px-4 py-2 text-sm hover:bg-gray-50 rounded-md")}
               onClick={() => setShowPrintConfirm(false)}
             >
               {t('No', 'இல்லை')}

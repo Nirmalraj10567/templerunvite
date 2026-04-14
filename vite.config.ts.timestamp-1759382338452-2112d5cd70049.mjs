@@ -12,12 +12,12 @@ var vite_config_default = defineConfig(({ mode }) => ({
     port: 8080,
     proxy: {
       "/api": {
-        target: "http://localhost:4000",
+        target: "https://tmsapi.xesstechlink.com",
         changeOrigin: true,
         secure: false
       },
       "/master": {
-        target: "http://localhost:4000/api",
+        target: "https://tmsapi.xesstechlink.com/api",
         changeOrigin: true,
         secure: false,
         rewrite: (path2) => path2.replace(/^\/master/, "")

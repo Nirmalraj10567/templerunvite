@@ -10,6 +10,7 @@ import { useLanguage } from '@/lib/language';
 import { toast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import { formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 import { CardHeader, CardTitle } from '@/components/ui/card';
 import {
   AlertDialog,
@@ -260,7 +261,7 @@ export default function ReceiptListView() {
       if (toDate) params.append('to', toDate);
       if (typeFilter !== 'all') params.append('type', typeFilter);
 
-      const res = await fetch(`http://localhost:4000/api/receipts?${params.toString()}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/receipts?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       
@@ -327,7 +328,7 @@ export default function ReceiptListView() {
         if (apiType) params.append('type', apiType);
       }
 
-      const res = await fetch(`http://localhost:4000/api/receipts/export?${params.toString()}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/receipts/export?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       
@@ -362,7 +363,7 @@ export default function ReceiptListView() {
       setLogsOpen(true);
       setLogsLoading(true);
       setLogsTitle(`${t('viewReceipt')} ${receiptNo ? `#${receiptNo}` : ''}`);
-      const res = await fetch(`http://localhost:4000/api/receipts/${id}/logs`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/receipts/${id}/logs`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const result = await res.json();
@@ -384,7 +385,7 @@ export default function ReceiptListView() {
       setLogsOpen(true);
       setLogsLoading(true);
       setLogsTitle(t('viewReceipt'));
-      const res = await fetch(`http://localhost:4000/api/receipts/logs?page=${page}&pageSize=${logsPageSize}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/receipts/logs?page=${page}&pageSize=${logsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const result = await res.json();
@@ -436,7 +437,7 @@ export default function ReceiptListView() {
       if (editedReceipt.donor != null) apiReceiptData.from_person = editedReceipt.donor;
       if (editedReceipt.receiver != null) apiReceiptData.to_person = editedReceipt.receiver;
 
-      const res = await fetch(`http://localhost:4000/api/receipts/${viewEditReceipt.id}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/receipts/${viewEditReceipt.id}`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json', 
@@ -485,7 +486,7 @@ export default function ReceiptListView() {
     if (!deleteId) return;
     
     try {
-      const res = await fetch(`http://localhost:4000/api/receipts/${deleteId}`, { 
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/receipts/${deleteId}`, { 
         method: 'DELETE', 
         headers: { Authorization: `Bearer ${token}` } 
       });
@@ -538,10 +539,7 @@ export default function ReceiptListView() {
     <div className={cn(pageContainerStyles.container, 'max-w-7xl mx-auto')}>
       <div className={pageContainerStyles.content}>
         {/* Header */}
-        <CardHeader className={cn(
-          "bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center",
-          formFieldStyles.donationProductList.logBadge.create
-        )}>
+        <CardHeader className={theme.card.header}>
           <div className="flex justify-center items-center">
             <CardTitle className={cn(
               "text-[1rem] font-bold w-full text-center text-white",
@@ -561,7 +559,7 @@ export default function ReceiptListView() {
                 <Input
                   type="search"
                   placeholder={t('search')}
-                  className="pl-9 w-full"
+                  className={cn(theme.input.base, "pl-9 w-full")}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyDown={handleSearch}
@@ -574,7 +572,7 @@ export default function ReceiptListView() {
                   type="date" 
                   value={fromDate} 
                   onChange={(e) => setFromDate(e.target.value)}
-                  className="h-9"
+                  className={cn(theme.input.base, "h-9")}
                 />
               </div>
               
@@ -584,14 +582,14 @@ export default function ReceiptListView() {
                   type="date" 
                   value={toDate} 
                   onChange={(e) => setToDate(e.target.value)}
-                  className="h-9"
+                  className={cn(theme.input.base, "h-9")}
                 />
               </div>
               
               <div className="flex items-center gap-2">
                 <span className="text-sm whitespace-nowrap">{t('type')}:</span>
                 <select 
-                  className="border rounded h-9 px-2 text-sm" 
+                  className={cn(theme.input.base, "rounded h-9 px-2 text-sm")} 
                   value={typeFilter} 
                   onChange={(e) => setTypeFilter(e.target.value as any)}
                 >
@@ -780,7 +778,7 @@ export default function ReceiptListView() {
                   type="date"
                   value={editedReceipt.date || ''}
                   onChange={(e) => setEditedReceipt({ ...editedReceipt, date: e.target.value })}
-                  className={formFieldStyles.taxForm.input}
+                  className={cn(theme.input.base, formFieldStyles.taxForm.input)}
                   disabled={!editMode}
                 />
               </div>
@@ -793,7 +791,7 @@ export default function ReceiptListView() {
                     ...editedReceipt, 
                     type: e.target.value as 'income' | 'expense' 
                   })}
-                  className={cn(formFieldStyles.taxForm.select, !editMode && 'opacity-50 cursor-not-allowed')}
+                  className={cn(theme.input.base, formFieldStyles.taxForm.select, !editMode && 'opacity-50 cursor-not-allowed')}
                   disabled={!editMode}
                 >
                   <option value="income">{t('income')}</option>
@@ -806,7 +804,7 @@ export default function ReceiptListView() {
                   id="donor" 
                   value={editedReceipt.donor || ''} 
                   onChange={(e) => setEditedReceipt({ ...editedReceipt, donor: e.target.value })} 
-                  className={formFieldStyles.taxForm.input}
+                  className={cn(theme.input.base, formFieldStyles.taxForm.input)}
                   disabled={!editMode} 
                 />
               </div>
@@ -816,7 +814,7 @@ export default function ReceiptListView() {
                   id="receiver" 
                   value={editedReceipt.receiver || ''} 
                   onChange={(e) => setEditedReceipt({ ...editedReceipt, receiver: e.target.value })} 
-                  className={formFieldStyles.taxForm.input}
+                  className={cn(theme.input.base, formFieldStyles.taxForm.input)}
                   disabled={!editMode} 
                 />
               </div>
@@ -827,7 +825,7 @@ export default function ReceiptListView() {
                   type="number"
                   value={editedReceipt.amount || ''}
                   onChange={(e) => setEditedReceipt({ ...editedReceipt, amount: Number(e.target.value) || 0 })}
-                  className={formFieldStyles.taxForm.input}
+                  className={cn(theme.input.base, formFieldStyles.taxForm.input)}
                   disabled={!editMode}
                 />
               </div>
@@ -837,7 +835,7 @@ export default function ReceiptListView() {
                   id="remarks"
                   value={editedReceipt.remarks || ''}
                   onChange={(e) => setEditedReceipt({ ...editedReceipt, remarks: e.target.value })}
-                  className={formFieldStyles.taxForm.input}
+                  className={cn(theme.input.base, formFieldStyles.taxForm.input)}
                   disabled={!editMode}
                 />
               </div>
@@ -957,7 +955,7 @@ export default function ReceiptListView() {
                     </div>
                     <div className="flex items-center gap-2">
                       <button
-                        className="px-2 py-1 border border-gray-300 rounded shadow-sm text-xs bg-white hover:bg-gray-50"
+                        className={cn(theme.input.base, "px-2 py-1 rounded shadow-sm text-xs bg-white hover:bg-gray-50")}
                         disabled={logsPage <= 1}
                         onClick={() => openAllLogs(logsPage - 1)}
                       >

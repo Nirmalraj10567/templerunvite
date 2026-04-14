@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Download, FileText } from 'lucide-react';
-import { formFieldStyles, cn, pageContainerStyles } from '@/styles/formStyles';
+import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 
 const PAGE_SIZE = 20;
 
@@ -33,7 +34,7 @@ export default function JournalLogPage() {
       if (!token || hasSynced) return;
       
       try {
-        const response = await fetch('http://localhost:4000/api/journal/sync-pooja', {
+        const response = await fetch('https://tmsapi.xesstechlink.com/api/journal/sync-pooja', {
           method: 'POST',
           headers: { 
             'Authorization': `Bearer ${token}`,
@@ -254,7 +255,7 @@ export default function JournalLogPage() {
   return (
     <div className={pageContainerStyles.container}>
        <Card className={pageContainerStyles.content}>
-         <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+         <CardHeader className={theme.card.header}>
            <CardTitle className="text-lg font-bold w-full">
            {t('Journal Log', 'ஜர்னல் பதிவு')}
            </CardTitle>
@@ -266,15 +267,15 @@ export default function JournalLogPage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
             <div className="space-y-1">
               <Label htmlFor="startDate">{t('Start Date', 'தொடக்க தேதி')}</Label>
-              <Input id="startDate" type="date" value={startDate} onChange={(e) => onFilterChange('startDate', e.target.value)} />
+              <Input id="startDate" type="date" value={startDate} onChange={(e) => onFilterChange('startDate', e.target.value)} className={theme.input.base} />
             </div>
             <div className="space-y-1">
               <Label htmlFor="endDate">{t('End Date', 'முடிவு தேதி')}</Label>
-              <Input id="endDate" type="date" value={endDate} onChange={(e) => onFilterChange('endDate', e.target.value)} />
+              <Input id="endDate" type="date" value={endDate} onChange={(e) => onFilterChange('endDate', e.target.value)} className={theme.input.base} />
             </div>
             <div className="space-y-1 md:col-span-2">
               <Label htmlFor="account">{t('Account (optional)', 'கணக்கு (விருப்பம்)')}</Label>
-              <Input id="account" placeholder={t('Search account name', 'கணக்கு பெயர்')} value={account} onChange={(e) => onFilterChange('account', e.target.value)} />
+              <Input id="account" placeholder={t('Search account name', 'Search account name')} value={account} onChange={(e) => onFilterChange('account', e.target.value)} className={theme.input.base} />
             </div>
           </div>
           <div className="flex justify-between items-center mb-3">

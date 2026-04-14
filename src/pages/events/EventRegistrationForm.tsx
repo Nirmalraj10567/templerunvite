@@ -11,7 +11,8 @@ import eventService from '@/services/eventService';
 import { Event, EventImage } from '@/types/event';
 import { toast } from '@/components/ui/use-toast';
 import { useLanguage } from '@/lib/language';
-import { cn, formFieldStyles, pageContainerStyles } from '../../styles/formStyles';
+import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 
 // Translation object
 const translations = {
@@ -182,7 +183,7 @@ export default function EventRegistrationForm() {
   <div className={pageContainerStyles.container}>
         <div className={pageContainerStyles.content}>
           <Card className={formFieldStyles.card.container}>
-            <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white", formFieldStyles.card.header)}>
+            <CardHeader className={theme.card.header}>
               <CardTitle className="text-lg font-bold text-center">
               {id ? t.editEvent : t.createEvent}
             </CardTitle>
@@ -201,68 +202,55 @@ export default function EventRegistrationForm() {
                   {/* Event Details Section */}
                   <div className="space-y-6">
                     <div>
-                      <Label className={labelStyles} htmlFor="title">
-                        {t.eventTitle} <span className="text-red-500">*</span>
-                      </Label>
                       <Input 
                         id="title" 
                         className={fieldStyles}
                         {...register('title', { required: t.eventTitle + ' ' + t.required })} 
-                        placeholder={t.eventTitle}
+                        placeholder={t.eventTitle + ' *'}
                       />
                       {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title.message}</p>}
                     </div>
                     
                     <div>
-                      <Label className={labelStyles} htmlFor="description">
-                        {t.description} <span className="text-red-500">*</span>
-                      </Label>
                       <Textarea 
                         id="description" 
                         className={textareaStyles}
                         {...register('description', { required: t.description + ' ' + t.required })} 
-                        placeholder={t.description}
+                        placeholder={t.description + ' *'}
                       />
                       {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description.message}</p>}
                     </div>
                     
                     <div className={formFieldStyles.eventForm.dateTimeGrid}>
                       <div>
-                        <Label className={labelStyles} htmlFor="date">
-                          {t.date} <span className="text-red-500">*</span>
-                        </Label>
                         <Input 
                           id="date" 
                           type="date" 
                           className={fieldStyles}
                           {...register('date', { required: t.date + ' ' + t.required })} 
+                          placeholder={t.date + ' *'}
                         />
                         {errors.date && <p className="text-red-500 text-sm mt-1">{errors.date.message}</p>}
                       </div>
                       
                       <div>
-                        <Label className={labelStyles} htmlFor="time">
-                          {t.time} <span className="text-red-500">*</span>
-                        </Label>
                         <Input 
                           id="time" 
                           type="time" 
                           className={fieldStyles}
                           {...register('time', { required: t.time + ' ' + t.required })} 
+                          placeholder={t.time + ' *'}
                         />
                         {errors.time && <p className="text-red-500 text-sm mt-1">{errors.time.message}</p>}
                       </div>
                     </div>
                     
                     <div>
-                      <Label className={labelStyles} htmlFor="location">
-                        {t.location} <span className="text-red-500">*</span>
-                      </Label>
                       <Input 
                         id="location" 
                         className={fieldStyles}
                         {...register('location', { required: t.location + ' ' + t.required })} 
-                        placeholder={t.location}
+                        placeholder={t.location + ' *'}
                       />
                       {errors.location && <p className="text-red-500 text-sm mt-1">{errors.location.message}</p>}
                     </div>
@@ -331,33 +319,27 @@ export default function EventRegistrationForm() {
                                 </div>
                               ) : null;
                             })()}
-                            
-                            <div className={formFieldStyles.eventForm.imagePreview.form}>
-                              <div>
-                                <Label className="text-xs text-gray-600 mb-1 block">
-                                  {t.imageTitle}
-                                </Label>
-                                <Input 
-                                  className="text-sm py-2 px-3 h-9"
-                                  placeholder={t.imageTitle} 
-                                  {...register(`images.${index}.title`)} 
-                                />
-                              </div>
-                              <div>
-                                <Label className="text-xs text-gray-600 mb-1 block">
-                                  {t.imageCaption}
-                                </Label>
-                                <Textarea 
-                                  className="text-sm py-2 px-3 min-h-[60px]"
-                                  placeholder={t.imageCaption} 
-                                  {...register(`images.${index}.caption`)} 
-                                />
-                              </div>
+                          
+                          <div className={formFieldStyles.eventForm.imagePreview.form}>
+                            <div>
+                              <Input 
+                                className="text-sm py-2 px-3 h-9"
+                                placeholder={t.imageTitle} 
+                                {...register(`images.${index}.title`)} 
+                              />
+                            </div>
+                            <div>
+                              <Textarea 
+                                className="text-sm py-2 px-3 min-h-[60px]"
+                                placeholder={t.imageCaption} 
+                                {...register(`images.${index}.caption`)} 
+                              />
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   </div>
                 </div>
                 

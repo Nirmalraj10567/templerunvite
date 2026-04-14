@@ -1,0 +1,156 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global Theme Variables - Change these to update ALL pages */
+:root {
+  /* Primary Orange Palette */
+  --color-primary-50: #fff7ed;
+  --color-primary-100: #ffedd5;
+  --color-primary-200: #fed7aa;
+  --color-primary-300: #fdba74;
+  --color-primary-400: #fb923c;
+  --color-primary-500: #f97316;
+  --color-primary-600: #ea580c;
+  --color-primary-700: #c2410c;
+
+  /* Secondary Red Palette */
+  --color-secondary-50: #fef2f2;
+  --color-secondary-100: #fee2e2;
+  --color-secondary-500: #ef4444;
+  --color-secondary-600: #dc2626;
+
+  /* Semantic Colors */
+  --color-error: #ef4444;
+  --color-success: #22c55e;
+
+  /* Gray Scale */
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+  --color-gray-700: #374151;
+
+  /* Input Focus Ring */
+  --focus-ring-color: var(--color-primary-500);
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+
+  /* Border Colors */
+  --input-border-color: var(--color-primary-300);
+  --input-border-focus: var(--color-primary-500);
+  --input-border-error: var(--color-error);
+}
+
+/* Global Input Styles - Applied to ALL inputs */
+@layer components {
+  /* Standard Input Theme */
+  .theme-input {
+    @apply border border-[var(--input-border-color)] 
+           focus:border-[var(--input-border-focus)] 
+           focus:ring-2 focus:ring-[var(--focus-ring-color)] focus:ring-offset-[var(--focus-ring-offset)] 
+           focus:outline-none 
+           focus-visible:ring-2 focus-visible:ring-[var(--focus-ring-color)] focus-visible:ring-offset-[var(--focus-ring-offset)] 
+           focus-visible:outline-none 
+           shadow-sm focus:shadow-md 
+           transition-all duration-200;
+  }
+
+  /* Input with Error */
+  .theme-input-error {
+    @apply border-[var(--input-border-error)];
+  }
+
+  /* Select Dropdown Theme */
+  .theme-select {
+    @apply w-full pl-10 pr-10 py-2 
+           border border-[var(--input-border-color)] rounded-lg 
+           focus:outline-none 
+           focus:border-[var(--input-border-focus)] 
+           focus:ring-2 focus:ring-[var(--focus-ring-color)] focus:ring-offset-[var(--focus-ring-offset)] 
+           focus-visible:ring-2 focus-visible:ring-[var(--focus-ring-color)] focus-visible:ring-offset-[var(--focus-ring-offset)] 
+           focus-visible:outline-none 
+           appearance-none bg-white 
+           shadow-sm focus:shadow-md 
+           transition-all duration-200;
+  }
+
+  /* Button Primary */
+  .theme-button-primary {
+    @apply px-8 py-2 
+           bg-gradient-to-r from-[var(--color-primary-500)] to-[var(--color-secondary-500)] 
+           text-white 
+           hover:from-[var(--color-primary-600)] hover:to-[var(--color-secondary-600)] 
+           transition-all duration-200 
+           shadow-lg hover:shadow-xl 
+           transform hover:scale-105
+           rounded-md font-medium;
+  }
+
+  /* Button Secondary */
+  .theme-button-secondary {
+    @apply px-4 py-2 
+           border border-[var(--color-primary-300)] 
+           text-[var(--color-primary-700)] 
+           hover:bg-[var(--color-primary-50)] 
+           transition-all duration-200
+           rounded-md;
+  }
+
+  /* Card Header */
+  .theme-card-header {
+    @apply bg-gradient-to-r from-[var(--color-primary-500)] to-[var(--color-secondary-500)] 
+           text-white py-6 px-6 rounded-t-lg;
+  }
+
+  /* Card Container */
+  .theme-card {
+    @apply shadow-lg border-0 bg-white rounded-lg;
+  }
+
+  /* Page Background */
+  .theme-page-bg {
+    @apply min-h-screen bg-gradient-to-br from-[var(--color-primary-50)] to-[var(--color-secondary-50)];
+  }
+
+  /* Icon Positioning */
+  .theme-icon-left {
+    @apply absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400;
+  }
+
+  /* Layout Grid */
+  .theme-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6;
+  }
+
+  /* Error Text */
+  .theme-error-text {
+    @apply text-[var(--color-error)] text-xs mt-1;
+  }
+
+  /* Focus Ring Utility */
+  .theme-focus-ring {
+    @apply focus:ring-2 focus:ring-[var(--focus-ring-color)] focus:ring-offset-[var(--focus-ring-offset)] 
+           focus:outline-none 
+           focus-visible:ring-2 focus-visible:ring-[var(--focus-ring-color)] focus-visible:ring-offset-[var(--focus-ring-offset)] 
+           focus-visible:outline-none;
+  }
+}
+
+/* Override default browser focus styles */
+@layer base {
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: none;
+    box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring-color);
+  }
+
+  /* Remove default date picker indicators styling */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+  }
+}

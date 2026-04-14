@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Family Chain API Tests', () => {
-  const baseURL = 'http://localhost:4000';
+  const baseURL = 'https://tmsapi.xesstechlink.com';
   
   test('API should respond to family-tree endpoint', async ({ request }) => {
     // Test that the endpoint exists and returns expected structure

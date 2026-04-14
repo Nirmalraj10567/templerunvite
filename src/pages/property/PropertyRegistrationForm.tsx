@@ -12,6 +12,7 @@ import propertyService from '@/services/propertyService';
 import { toast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import { formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 
 interface PropertyFormData {
   id?: number;
@@ -217,7 +218,7 @@ export default function PropertyRegistrationForm() {
     <div className={pageContainerStyles.container}>
       <div className={pageContainerStyles.content}>
         <Card className={formFieldStyles.card.container}>
-          <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white", formFieldStyles.card.header)}>
+          <CardHeader className={theme.card.header}>
             <CardTitle className="text-2xl font-bold">
               {isEdit 
                 ? t('Edit Property', 'சொத்து திருத்தம்') 

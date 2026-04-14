@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 
 // Custom hook for Enter key navigation
 const useEnterKeyNavigation = () => {
@@ -64,10 +66,16 @@ export default function MemberEntryForm({
   const [showSummary, setShowSummary] = useState(false);
   const [showLoginDetails, setShowLoginDetails] = useState(true);
 
-  // Consistent field styling
-  const fieldStyles = "text-lg py-3 px-4 h-12 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200";
-  const labelStyles = "block text-base font-medium mb-2 text-gray-700";
-  const selectStyles = "text-lg py-3 px-4 h-12 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200 bg-white appearance-none pr-10";
+  // Use centralized form styles with theme focus colors
+  const fieldStyles = cn(
+    theme.input.base,
+    "text-lg py-3 px-4 h-12"
+  );
+  const labelStyles = cn(formFieldStyles.label, "text-base mb-2");
+  const selectStyles = cn(
+    theme.input.base,
+    "text-lg py-3 px-4 h-12"
+  );
 
   // Translation object
   const t = {
@@ -264,7 +272,7 @@ export default function MemberEntryForm({
     <div className="min-h-screen bg-gray-50 py-6 px-4 w-full">
       <div className="max-w-7xl mx-auto space-y-6">
         <Card className="shadow-lg border-0 bg-white rounded-lg">
-          <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white py-6 px-6 rounded-t-lg">
+          <CardHeader className={theme.card.header}>
             <CardTitle className="text-2xl font-bold">
               {isEditing ? t[lang].updateMember : t[lang].memberEntry}
             </CardTitle>
@@ -281,16 +289,13 @@ export default function MemberEntryForm({
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   {/* Full Name */}
                   <div>
-                    <Label className={labelStyles} htmlFor="fullName">
-                      {t[lang].fullName} <span className="text-red-500">*</span>
-                    </Label>
                     <Input
                       id="fullName"
                       type="text"
                       value={member?.fullName || ''}
                       onChange={(e) => setMember({ ...member, fullName: e.target.value })}
                       className={fieldStyles}
-                      placeholder={t[lang].fullName}
+                      placeholder={t[lang].fullName + ' *'}
                       required
                     />
                     <p className="mt-1 text-sm text-gray-500">{t[lang].nameNote}</p>
@@ -298,9 +303,6 @@ export default function MemberEntryForm({
 
                   {/* Mobile */}
                   <div>
-                    <Label className={labelStyles} htmlFor="mobile">
-                      {t[lang].mobile} <span className="text-red-500">*</span>
-                    </Label>
                     <Input
                       id="mobile"
                       type="tel"
@@ -312,7 +314,7 @@ export default function MemberEntryForm({
                       className={fieldStyles}
                       inputMode="numeric"
                       maxLength={10}
-                      placeholder="10 digits"
+                      placeholder={t[lang].mobile + ' *'}
                       required
                     />
                     <p className="mt-1 text-sm text-gray-500">{t[lang].mobileNote}</p>
@@ -320,16 +322,13 @@ export default function MemberEntryForm({
 
                   {/* Email */}
                   <div>
-                    <Label className={labelStyles} htmlFor="email">
-                      {t[lang].email}
-                    </Label>
                     <Input
                       id="email"
                       type="email"
                       value={member?.email || ''}
                       onChange={(e) => setMember({ ...member, email: e.target.value })}
                       className={fieldStyles}
-                      placeholder="name@example.com"
+                      placeholder={t[lang].email}
                     />
                     <p className="mt-1 text-sm text-gray-500">{t[lang].emailNote}</p>
                   </div>
@@ -375,7 +374,7 @@ export default function MemberEntryForm({
                   <input
                     type="checkbox"
                     id="createLogin"
-                    className="w-5 h-5 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500 focus:ring-2"
+                    className={cn(theme.input.base, "w-5 h-5 text-orange-600 bg-gray-100 rounded")}
                     checked={member?.createLogin || false}
                     onChange={(e) => setMember({ ...member, createLogin: e.target.checked })}
                   />
@@ -504,11 +503,11 @@ export default function MemberEntryForm({
                             return (
                               <div 
                                 key={opt.id}
-                                className={`border rounded-lg p-4 transition-all duration-200 ${
+                                className={cn(theme.input.base, `rounded-lg p-4 transition-all duration-200 ${
                                   enabled 
-                                    ? 'bg-orange-50 border-orange-200 shadow-sm' 
-                                    : 'bg-gray-50 border-gray-200 hover:border-gray-300'
-                                }`}
+                                    ? 'bg-orange-50 shadow-sm' 
+                                    : 'bg-gray-50'
+                                }`)}
                               >
                                 <div className="flex items-start justify-between gap-4">
                                   <div className="flex items-start gap-3 flex-1">
@@ -523,7 +522,7 @@ export default function MemberEntryForm({
                                           type="checkbox"
                                           checked={!!enabled}
                                           onChange={(e) => togglePermission(opt.id, e.target.checked)}
-                                          className="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500 focus:ring-2"
+                                          className={cn(theme.input.base, "w-4 h-4 text-orange-600 bg-gray-100 rounded")}
                                           id={`perm-${opt.id}`}
                                         />
                                         <label 
@@ -611,7 +610,7 @@ export default function MemberEntryForm({
                 <div className="flex gap-3">
                   {/* Keyboard shortcut hint */}
                   <div className="text-sm text-gray-500 hidden md:flex items-center">
-                    <kbd className="px-2 py-1 text-xs bg-gray-100 border border-gray-300 rounded">Enter</kbd>
+                    <kbd className={cn(theme.input.base, "px-2 py-1 text-xs bg-gray-100 rounded")}>Enter</kbd>
                     <span className="ml-2">to navigate</span>
                   </div>
                 </div>
@@ -620,7 +619,7 @@ export default function MemberEntryForm({
                   <Button
                     type="submit"
                     size="default"
-                    className="px-8 py-3 text-base bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-md"
+                    className="px-8 py-3 text-base bg-gradient-to-r from-orange-400 to-red-500 hover:from-orange-500 hover:to-red-600 text-white font-medium rounded-md"
                   >
                     {isEditing ? t[lang].update : t[lang].addMember}
                   </Button>

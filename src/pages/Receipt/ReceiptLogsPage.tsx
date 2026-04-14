@@ -4,6 +4,7 @@ import { useLanguage } from "@/lib/language";
 import ReceiptLogView from "./ReceiptLogView";
 import { cn } from "@/lib/utils";
 import { formFieldStyles } from "@/styles/formStyles";
+import { theme } from '@/styles/theme';
 
 interface ReceiptLogsPageProps {}
 
@@ -14,7 +15,7 @@ export default function ReceiptLogsPage({}: ReceiptLogsPageProps) {
   return (
     <div className="container mx-auto py-6 px-4">
       <Card>
-        <CardHeader className={cn(formFieldStyles.tableHeader.container, formFieldStyles.card.header)}>
+        <CardHeader className={theme.card.header}>
           <CardTitle className="text-lg font-bold">
             {t('Receipt Logs', 'பதிவு பதிவுகள்')}
           </CardTitle>

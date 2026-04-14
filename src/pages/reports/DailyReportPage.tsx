@@ -10,7 +10,9 @@ import { Button } from '@/components/ui/button';
 import { FileDown, Trash2, RefreshCw } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { formFieldStyles, cn, pageContainerStyles } from '@/styles/formStyles';
+import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
+
 type DailyReport = {
   breakdown: {
     income: Record<string, number>;
@@ -136,7 +138,7 @@ export default function DailyReportPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`http://localhost:4000/api/reports/daily?date=${encodeURIComponent(d)}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/reports/daily?date=${encodeURIComponent(d)}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('Failed to load report');
@@ -154,7 +156,7 @@ export default function DailyReportPage() {
   const resetReport = async () => {
     if (!token || !date) return;
     try {
-      const res = await fetch(`http://localhost:4000/api/reports/daily?date=${encodeURIComponent(date)}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/reports/daily?date=${encodeURIComponent(date)}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -276,7 +278,7 @@ export default function DailyReportPage() {
   return (
    <div className={pageContainerStyles.container}>
           <Card className={pageContainerStyles.content}>
-            <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+            <CardHeader className={theme.card.header}>
               <CardTitle className="text-lg font-bold w-full">
               {t[language].title}
               </CardTitle>
@@ -292,14 +294,14 @@ export default function DailyReportPage() {
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full px-2 py-1 text-xs border border-gray-300 rounded-sm focus:ring-1 focus:ring-orange-500"
+            className={cn(theme.input.base, "w-full px-2 py-1 text-xs rounded-sm")}
           />
         </div>
 
         <div className="flex-1 min-w-[100px]">
           <label className="block text-xs font-medium text-gray-600 mb-1">{t[language].type}</label>
           <select
-            className="w-full px-2 py-1 text-xs border border-gray-300 rounded-sm focus:ring-1 focus:ring-orange-500"
+            className={cn(theme.input.base, "w-full px-2 py-1 text-xs rounded-sm")}
             value={filterType}
             onChange={(e) => setFilterType(e.target.value as any)}
           >
@@ -315,7 +317,7 @@ export default function DailyReportPage() {
             placeholder={t[language].searchPlaceholder}
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
-            className="w-full px-2 py-1 text-xs border border-gray-300 rounded-sm focus:ring-1 focus:ring-orange-500"
+            className={cn(theme.input.base, "w-full px-2 py-1 text-xs rounded-sm")}
           />
         </div>
 
@@ -431,7 +433,7 @@ export default function DailyReportPage() {
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage <= 1}
-              className="px-2 py-1 border border-gray-300 rounded-sm text-gray-700 disabled:opacity-50"
+              className={cn(theme.input.base, "px-2 py-1 rounded-sm text-gray-700 disabled:opacity-50")}
             >
               {t[language].previous}
             </button>
@@ -441,7 +443,7 @@ export default function DailyReportPage() {
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage >= totalPages}
-              className="px-2 py-1 border border-gray-300 rounded-sm text-gray-700 disabled:opacity-50"
+              className={cn(theme.input.base, "px-2 py-1 rounded-sm text-gray-700 disabled:opacity-50")}
             >
               {t[language].next}
             </button>
@@ -456,7 +458,7 @@ export default function DailyReportPage() {
                 <div>
                   <label className="block">{t[language].cashCount}</label>
                   <input
-                    className="w-full px-1 py-0.5 border border-gray-300 rounded-sm text-xs"
+                    className={cn(theme.input.base, "w-full px-1 py-0.5 rounded-sm text-xs")}
                     value={cashCount}
                     onChange={(e) => setCashCount(e.target.value)}
                     placeholder="0"
@@ -465,7 +467,7 @@ export default function DailyReportPage() {
                 <div>
                   <label className="block">{t[language].extraIncome}</label>
                   <input
-                    className="w-full px-1 py-0.5 border border-gray-300 rounded-sm text-xs"
+                    className={cn(theme.input.base, "w-full px-1 py-0.5 rounded-sm text-xs")}
                     value={extraIncome}
                     onChange={(e) => setExtraIncome(e.target.value)}
                     placeholder="0"
@@ -474,7 +476,7 @@ export default function DailyReportPage() {
                 <div>
                   <label className="block">{t[language].extraExpense}</label>
                   <input
-                    className="w-full px-1 py-0.5 border border-gray-300 rounded-sm text-xs"
+                    className={cn(theme.input.base, "w-full px-1 py-0.5 rounded-sm text-xs")}
                     value={extraExpense}
                     onChange={(e) => setExtraExpense(e.target.value)}
                     placeholder="0"
@@ -532,7 +534,7 @@ export default function DailyReportPage() {
             <p className="text-sm text-gray-700">{t[language].resetMessage}</p>
             <div className="flex justify-end gap-2 pt-2">
               <button
-                className="px-3 py-1 text-xs border border-gray-300 rounded-sm text-gray-700 hover:bg-gray-50"
+                className={cn(theme.input.base, "px-3 py-1 text-xs rounded-sm text-gray-700 hover:bg-gray-50")}
                 onClick={() => setShowResetModal(false)}
               >
                 {t[language].cancel}

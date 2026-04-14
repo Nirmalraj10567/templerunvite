@@ -3,7 +3,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
-
+import { formFieldStyles } from '@/styles/formStyles';
+import { cn } from '@/lib/utils';
+import { theme } from '@/styles/theme';
 
 interface MasterDataItem {
   id: number;
@@ -145,7 +147,7 @@ const MasterDataPage = () => {
       const currentTab = tabs.find(t => t.key === activeTab);
       if (!currentTab) return;
 
-      const response = await fetch(`http://localhost:4000/api/master/${currentTab.endpoint}/${user.templeId}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/master/${currentTab.endpoint}/${user.templeId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -170,7 +172,7 @@ const MasterDataPage = () => {
       const currentTab = tabs.find(t => t.key === activeTab);
       if (!currentTab) return;
 
-      const response = await fetch(`http://localhost:4000/api/master/${currentTab.endpoint}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/master/${currentTab.endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -203,7 +205,7 @@ const MasterDataPage = () => {
       const currentTab = tabs.find(t => t.key === activeTab);
       if (!currentTab) return;
 
-      const response = await fetch(`http://localhost:4000/api/master/${currentTab.endpoint}/${editingItem.id}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/master/${currentTab.endpoint}/${editingItem.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -236,7 +238,7 @@ const MasterDataPage = () => {
       const currentTab = tabs.find(t => t.key === activeTab);
       if (!currentTab) return;
 
-      const response = await fetch(`http://localhost:4000/api/master/${currentTab.endpoint}/${id}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/master/${currentTab.endpoint}/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -287,8 +289,15 @@ const MasterDataPage = () => {
     return null;
   }
 
-  // Consistent styling classes
-  const fieldStyles = "text-base py-2.5 px-3 h-11 border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-md w-full transition-all duration-200";
+  // Use centralized form styles with explicit orange focus
+  const fieldStyles = cn(
+    formFieldStyles.input,
+    "text-base h-11 py-2.5 px-3",
+    "border-orange-300 focus:border-orange-500",
+    "focus:ring-2 focus:ring-orange-500 focus:ring-offset-2",
+    "focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2",
+    "focus:outline-none focus-visible:outline-none"
+  );
   const buttonStyles = "px-4 py-2 text-sm font-medium rounded-md transition-all duration-200";
   const primaryButton = "bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white";
   const outlineButton = "border border-gray-300 hover:bg-gray-50 text-gray-700";
@@ -298,7 +307,7 @@ const MasterDataPage = () => {
       <div className="max-w-7xl mx-auto">
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
           {/* Header */}
-          <div className="bg-gradient-to-r from-orange-500 to-orange-600 py-6 px-6">
+          <div className={theme.card.header}>
             <h1 className="text-2xl font-bold text-center text-white">
               {t.title}
             </h1>

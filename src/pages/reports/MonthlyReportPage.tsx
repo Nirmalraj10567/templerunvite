@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from  "@/lib/language"
-import { formFieldStyles, cn, pageContainerStyles } from '@/styles/formStyles';
+import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 import { CardTitle, CardHeader, Card } from '@/components/ui/card';
 type MonthlyReport = {
   breakdown: {
@@ -33,7 +34,7 @@ export default function MonthlyReportPage() {
     setError(null);
     try {
       const params = new URLSearchParams({ year: String(y), month: String(m) });
-      const res = await fetch(`http://localhost:4000/api/reports/monthly?${params.toString()}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/reports/monthly?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('Failed to load report');
@@ -60,7 +61,7 @@ export default function MonthlyReportPage() {
   return (
     <div className={pageContainerStyles.container}>
        <Card className={pageContainerStyles.content}>
-         <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+         <CardHeader className={theme.card.header}>
            <CardTitle className="text-lg font-bold w-full">
            {t('Monthly Report', 'மாதாந்திர அறிக்கை')}
            </CardTitle>
@@ -72,7 +73,7 @@ export default function MonthlyReportPage() {
       <div className="flex flex-wrap gap-3 items-end mb-4">
         <div>
           <label className="block text-sm mb-1">{t('Year', 'ஆண்டு')}</label>
-          <select className="border rounded p-2" value={year} onChange={(e) => setYear(parseInt(e.target.value, 10))}>
+          <select className={cn(theme.input.base, "rounded p-2")} value={year} onChange={(e) => setYear(parseInt(e.target.value, 10))}>
             {Array.from({ length: 10 }, (_, i) => now.getFullYear() - 5 + i).map((y) => (
               <option key={y} value={y}>{y}</option>
             ))}
@@ -80,7 +81,7 @@ export default function MonthlyReportPage() {
         </div>
         <div>
           <label className="block text-sm mb-1">{t('Month', 'மாதம்')}</label>
-          <select className="border rounded p-2" value={month} onChange={(e) => setMonth(parseInt(e.target.value, 10))}>
+          <select className={cn(theme.input.base, "rounded p-2")} value={month} onChange={(e) => setMonth(parseInt(e.target.value, 10))}>
             {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
               <option key={m} value={m}>{m.toString().padStart(2, '0')}</option>
             ))}

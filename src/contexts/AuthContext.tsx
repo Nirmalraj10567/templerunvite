@@ -93,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Function to fetch temple data
   const fetchTempleData = async (templeId: number, token: string): Promise<Temple | null> => {
     try {
-      const response = await fetch(`http://localhost:4000/api/temples/${templeId}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/temples/${templeId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -165,7 +165,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, isLoading: true, error: '' }));
     
     try {
-      const response = await fetch('http://localhost:4000/api/login', {
+      const response = await fetch('https://tmsapi.xesstechlink.com/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mobile: identifier, username: identifier, password }),
@@ -221,7 +221,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, isLoading: true, error: '' }));
     
     try {
-      const response = await fetch('http://localhost:4000/api/register', {
+      const response = await fetch('https://tmsapi.xesstechlink.com/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

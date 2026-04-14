@@ -6,6 +6,7 @@ import { Modal } from '@/components/ui/modal';
 import { useNavigate } from 'react-router-dom';
 import { Trash2, Search, Loader2, FileSpreadsheet, FileDown, Printer, Pencil, History } from 'lucide-react';
 import { cn, formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -114,7 +115,7 @@ export default function HallListPage() {
     const results = await Promise.all(
       missing.map(async (id) => {
         try {
-          const res = await fetch(`http://localhost:4000/api/admin/members/${id}`, {
+          const res = await fetch(`https://tmsapi.xesstechlink.com/api/admin/members/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data = await res.json().catch(() => ({}));
@@ -151,7 +152,7 @@ export default function HallListPage() {
     setLogsFor(item.id);
     setLogsLoading(true);
     try {
-      const response = await fetch(`http://localhost:4000/api/hall-bookings/${item.id}/logs`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/hall-bookings/${item.id}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch logs');
@@ -195,7 +196,7 @@ export default function HallListPage() {
     const pageToLoad = pageNum || allLogsPage;
     setAllLogsLoading(true);
     try {
-      const response = await fetch(`http://localhost:4000/api/hall-bookings/logs?page=${pageToLoad}&pageSize=${allLogsPageSize}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/hall-bookings/logs?page=${pageToLoad}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch logs');
@@ -333,7 +334,7 @@ export default function HallListPage() {
       params.set('sort', 'desc'); // Add descending order parameter
       params.set('page', page.toString());
       params.set('limit', limit.toString());
-      const url = 'http://localhost:4000/api/hall-bookings' + (params.toString() ? `?${params.toString()}` : '');
+      const url = 'https://tmsapi.xesstechlink.com/api/hall-bookings' + (params.toString() ? `?${params.toString()}` : '');
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error('Failed');
       const data = await res.json();
@@ -389,7 +390,7 @@ export default function HallListPage() {
   const handleExportCSV = async () => {
     try {
       const qs = buildQueryString();
-      const url = 'http://localhost:4000/api/hall-bookings/export' + (qs ? `?${qs}` : '');
+      const url = 'https://tmsapi.xesstechlink.com/api/hall-bookings/export' + (qs ? `?${qs}` : '');
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error('Failed to export CSV');
       const blob = await res.blob();
@@ -409,7 +410,7 @@ export default function HallListPage() {
   const handleExportPDF = async () => {
     try {
       const qs = buildQueryString();
-      const url = 'http://localhost:4000/api/hall-bookings/export-pdf' + (qs ? `?${qs}` : '');
+      const url = 'https://tmsapi.xesstechlink.com/api/hall-bookings/export-pdf' + (qs ? `?${qs}` : '');
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error('Failed to export PDF');
       const blob = await res.blob();
@@ -445,7 +446,7 @@ export default function HallListPage() {
             <input
               type="search"
               placeholder={t('Search by name/receipt/village/phone', 'பெயர்/ரசீது/கிராமம்/தொலைபேசி மூலம் தேடுக')}
-              className={formFieldStyles.moneyDonationList.filters.searchInput}
+              className={cn(theme.input.base, "block w-full pl-8 pr-2 py-1 border border-gray-300 rounded leading-5 bg-white placeholder-gray-500 text-xs")}
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && (setCurrentPage(1), fetchData(1))}
@@ -454,13 +455,13 @@ export default function HallListPage() {
           <div className="flex gap-2">
             <input 
               type="date" 
-              className={formFieldStyles.moneyDonationList.filters.dateInput}
+              className={cn(theme.input.base, "px-2 py-1 border border-gray-300 rounded shadow-sm text-xs")}
               value={from} 
               onChange={(e) => setFrom(e.target.value)} 
             />
             <input 
               type="date" 
-              className={formFieldStyles.moneyDonationList.filters.dateInput}
+              className={cn(theme.input.base, "px-2 py-1 border border-gray-300 rounded shadow-sm text-xs")}
               value={to} 
               onChange={(e) => setTo(e.target.value)} 
             />
@@ -794,7 +795,7 @@ export default function HallListPage() {
                 if (!selectedBookingId) return;
                 setDeleting(true);
                 try {
-                  const res = await fetch(`http://localhost:4000/api/hall-bookings/${selectedBookingId}`, {
+                  const res = await fetch(`https://tmsapi.xesstechlink.com/api/hall-bookings/${selectedBookingId}`, {
                     method: 'DELETE',
                     headers: { Authorization: `Bearer ${token}` },
                   });
@@ -1277,7 +1278,7 @@ export default function HallListPage() {
                   onChange={() =>
                     setVisibleCols((prev) => ({ ...prev, [col.key]: !prev[col.key] }))
                   }
-                  className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className={cn(theme.input.base, "h-3 w-3 text-blue-600 rounded")}
                 />
                 <span className="ml-2 text-xs text-gray-700">{col.label}</span>
               </label>

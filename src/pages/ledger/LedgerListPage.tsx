@@ -12,7 +12,8 @@ import { ledgerService, LedgerEntry } from '@/services/ledgerService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
 import { FileDown, Search, RefreshCw, Edit, Trash2, Printer, Plus } from 'lucide-react';
-import { formFieldStyles, cn, pageContainerStyles } from '@/styles/formStyles';
+import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 
 // Define styles using formFieldStyles
 const styles = {
@@ -102,7 +103,7 @@ export default function LedgerListPage() {
     const results = await Promise.all(
       missing.map(async (id) => {
         try {
-          const res = await fetch(`http://localhost:4000/api/admin/members/${id}`, {
+          const res = await fetch(`https://tmsapi.xesstechlink.com/api/admin/members/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data = await res.json().catch(() => ({}));
@@ -267,7 +268,7 @@ export default function LedgerListPage() {
     setLogsFor(entry.id!);
     setLogsLoading(true);
     try {
-      const response = await fetch(`http://localhost:4000/api/ledger-entries/${entry.id}/logs`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/ledger-entries/${entry.id}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch logs');
@@ -311,7 +312,7 @@ export default function LedgerListPage() {
     const pageToLoad = pageNum || allLogsPage;
     setAllLogsLoading(true);
     try {
-      const response = await fetch(`http://localhost:4000/api/ledger-entries/logs?page=${pageToLoad}&pageSize=${allLogsPageSize}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/ledger-entries/logs?page=${pageToLoad}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch logs');
@@ -445,7 +446,7 @@ export default function LedgerListPage() {
   <div className={pageContainerStyles.container}>
     <Card className={pageContainerStyles.content}>
        <div className={pageContainerStyles.content}>
-         <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+         <CardHeader className={theme.card.header}>
            <CardTitle className="text-lg font-bold w-full">
            {t('Ledger', 'பதிவேடு')}
            </CardTitle>
@@ -468,20 +469,20 @@ export default function LedgerListPage() {
               type="date"
               value={filters.startDate}
               onChange={(e) => handleFilterChange('startDate', e.target.value)}
-              className="text-xs h-7"
-              placeholder={t('From', 'முதல்')}
+              className={cn(theme.input.base, "text-xs h-7")}
+              placeholder={t('From', '')}
             />
             <Input
               type="date"
               value={filters.endDate}
               onChange={(e) => handleFilterChange('endDate', e.target.value)}
-              className="text-xs h-7"
-              placeholder={t('To', 'வரை')}
+              className={cn(theme.input.base, "text-xs h-7")}
+              placeholder={t('To', '')}
             />
 
             {/* Type */}
             <Select value={filters.type} onValueChange={(v) => handleFilterChange('type', v)}>
-              <SelectTrigger className="h-7 text-xs">
+              <SelectTrigger className={cn(theme.input.base, "h-7 text-xs")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -493,8 +494,8 @@ export default function LedgerListPage() {
 
             {/* Category */}
             <Select value={filters.under} onValueChange={(v) => handleFilterChange('under', v)}>
-              <SelectTrigger className="h-7 text-xs">
-                <SelectValue placeholder={t('Category', 'வகை')} />
+              <SelectTrigger className={cn(theme.input.base, "h-7 text-xs")}>
+                <SelectValue placeholder={t('Category', '')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t('All Categories', 'அனைத்து வகைகள்')}</SelectItem>
@@ -508,10 +509,10 @@ export default function LedgerListPage() {
             <div className="relative">
               <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400" />
               <Input
-                placeholder={t('Search name', 'பெயரைத் தேடவும்')}
+                placeholder={t('Search name', '')}
                 value={filters.name}
                 onChange={(e) => handleFilterChange('name', e.target.value)}
-                className="text-xs h-7 pl-7"
+                className={cn(theme.input.base, "text-xs h-7 pl-7")}
               />
             </div>
 
@@ -551,7 +552,7 @@ export default function LedgerListPage() {
 
       {/* Compact Table */}
       <div
-        className="bg-white rounded border border-gray-200 overflow-hidden"
+        className={cn(theme.input.base, "bg-white rounded overflow-hidden")}
         onContextMenu={onContextMenu}
       >
         <div className="overflow-x-auto text-xs max-h-[60vh]">
@@ -668,7 +669,7 @@ export default function LedgerListPage() {
         </div>
 
         {/* Footer */}
-        <div className="px-2 py-1 flex items-center justify-between border-t border-gray-200 text-xs">
+        <div className={cn(theme.input.base, "px-2 py-1 flex items-center justify-between text-xs")}>
           <div className="text-gray-700">
             {t('Showing', 'காட்டப்படுகிறது')}{' '}
             <span className="font-medium">{totalCount === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}</span>{' '}
@@ -714,10 +715,10 @@ export default function LedgerListPage() {
       {menuOpen && (
         <div
           ref={menuRef}
-          className="fixed z-50 bg-white rounded shadow border border-gray-200 w-48 text-xs"
+          className={cn(theme.input.base, "fixed z-50 bg-white rounded shadow w-48 text-xs")}
           style={{ left: menuPos.x, top: menuPos.y }}
         >
-          <div className="px-3 py-2 border-b border-gray-200">
+          <div className={cn(theme.input.base, "px-3 py-2")}>
             <h3 className="text-xs font-medium text-gray-900">{t('Columns', 'நெடுவரிசைகள்')}</h3>
             <p className="text-xs text-gray-500">
               {t('Visible', 'காட்டப்படும்')} {Object.values(visibleCols).filter(Boolean).length}/{allColumns.length}
@@ -735,13 +736,13 @@ export default function LedgerListPage() {
                   onChange={() =>
                     setVisibleCols((prev) => ({ ...prev, [col.key]: !prev[col.key] }))
                   }
-                  className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className={cn(theme.input.base, "h-3 w-3 text-blue-600 rounded")}
                 />
                 <span className="ml-2 text-xs text-gray-700">{col.label}</span>
               </label>
             ))}
           </div>
-          <div className="flex flex-wrap gap-1 p-1 border-t border-gray-200">
+          <div className={cn(theme.input.base, "flex flex-wrap gap-1 p-1")}>
             <Button
               variant="outline"
               size="sm"
@@ -820,7 +821,7 @@ export default function LedgerListPage() {
                 ) : (
                   <div className="h-full flex flex-col">
                     <div className="flex-1 overflow-auto max-h-[60vh]">
-                      <div className="bg-white border border-gray-200">
+                      <div className={cn(theme.input.base, "bg-white")}>
                         <table className={formFieldStyles.moneyDonationList.logsTable.table}>
                           <thead className={formFieldStyles.moneyDonationList.logsTable.thead}>
                             <tr>
@@ -1009,7 +1010,7 @@ export default function LedgerListPage() {
             </div>
             
             <div className="p-6">
-              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+              <div className={cn(theme.input.base, "bg-white rounded-lg overflow-hidden")}>
                 {logsLoading ? (
                   <div className={formFieldStyles.moneyDonationList.modal.loading}>
                     {t('Loading logs...', 'பதிவுகள் ஏறுகிறது...')}

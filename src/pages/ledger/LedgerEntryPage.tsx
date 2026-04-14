@@ -26,6 +26,7 @@ import {
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formFieldStyles, pageContainerStyles, formatINR, formatAmount } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 import { CategoryManager } from '@/components/ledger/CategoryManager';
 import { Modal } from '@/components/ui/modal';
 import { Pencil, Trash2 } from 'lucide-react';
@@ -112,8 +113,11 @@ export default function LedgerEntryPage() {
   const watchedValues = watch();
   const watchType = watch('type');
   
-  // Use centralized form styles
-  const fieldStyles = cn(formFieldStyles.input, "text-base h-11 py-2.5");
+  // Use centralized form styles with theme focus colors
+  const fieldStyles = cn(
+    theme.input.base, 
+    "text-base h-11 py-2.5"
+  );
   const labelStyles = formFieldStyles.label;
   
   // Button variants
@@ -123,8 +127,8 @@ export default function LedgerEntryPage() {
       "bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
     ),
     outline: cn(
-      formFieldStyles.button.outline,
-      "border-gray-300 hover:bg-gray-50"
+      theme.input.base,
+      "hover:bg-gray-50"
     )
   };
 
@@ -155,7 +159,7 @@ export default function LedgerEntryPage() {
       setIsLoadingCategories(true);
       try {
         // Pass templeId as a query parameter
-        const resp1 = await axios.get<any>(`http://localhost:4000/api/ledger/categories?templeId=${templeId}`, {
+        const resp1 = await axios.get<any>(`https://tmsapi.xesstechlink.com/api/ledger/categories?templeId=${templeId}`, {
           headers: { Authorization: `Bearer ${getAuthToken()}` }
         });
         const data1 = (resp1?.data && Array.isArray(resp1.data.data)) ? resp1.data.data : (Array.isArray(resp1?.data) ? resp1.data : []);
@@ -164,7 +168,7 @@ export default function LedgerEntryPage() {
         if (!combined || combined.length === 0) {
           try {
             // Pass templeId as a query parameter
-            const resp2 = await axios.get<any>(`http://localhost:4000/api/ledger/categories-used?templeId=${templeId}`, {
+            const resp2 = await axios.get<any>(`https://tmsapi.xesstechlink.com/api/ledger/categories-used?templeId=${templeId}`, {
               headers: { Authorization: `Bearer ${getAuthToken()}` }
             });
             const data2: any[] = (resp2?.data && Array.isArray(resp2.data.data)) ? resp2.data.data : (Array.isArray(resp2?.data) ? resp2.data : []);
@@ -239,7 +243,7 @@ export default function LedgerEntryPage() {
         templeId: templeId || undefined,
       } as const;
 
-      await axios.post('http://localhost:4000/api/ledger/entries', payload, {
+      await axios.post('https://tmsapi.xesstechlink.com/api/ledger/entries', payload, {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });
 
@@ -315,7 +319,7 @@ export default function LedgerEntryPage() {
     }
     try {
       setIsLoadingCategories(true);
-      const response = await axios.post<Category>('http://localhost:4000/api/ledger/categories/find-or-create', {
+      const response = await axios.post<Category>('https://tmsapi.xesstechlink.com/api/ledger/categories/find-or-create', {
         value: cleanVal,
         label: searchValue,
         templeId: templeId
@@ -381,7 +385,7 @@ export default function LedgerEntryPage() {
     }
     
     try {
-      await axios.delete(`http://localhost:4000/api/ledger/categories/${id}?templeId=${templeId}`, {
+      await axios.delete(`https://tmsapi.xesstechlink.com/api/ledger/categories/${id}?templeId=${templeId}`, {
         headers: {
           Authorization: `Bearer ${getAuthToken()}`
         }
@@ -449,7 +453,7 @@ export default function LedgerEntryPage() {
     <div className={pageContainerStyles.container}>
       <div className={pageContainerStyles.content}>
         <Card className={formFieldStyles.card.container}>
-          <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-6 px-6", formFieldStyles.card.header)}>
+          <CardHeader className={theme.card.header}>
             <CardTitle className={cn(formFieldStyles.card.title, "text-2xl")}>
               {t('Ledger Entry', 'பதிவேடு பதிவு')}
             </CardTitle>
@@ -470,26 +474,19 @@ export default function LedgerEntryPage() {
               className={formFieldStyles.form.container}
             >
               {/* Main Form Grid */}
-              <div className={formFieldStyles.form.grid}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Name */}
                 <div>
-                  <Label className={labelStyles}>
-                    {t('Name', 'பெயர்')} <span className="text-red-500">*</span>
-                  </Label>
                   <Input
                     id="name"
                     className={fieldStyles}
-                    {...register('name', { required: t('Name is required', 'பெயர் தேவை') })}
-                    placeholder={t('Enter name', 'பெயரை உள்ளிடவும்')}
+                    {...register('name', { required: t('Name is required', '') })}
+                    placeholder={t('Name', '')}
                   />
                   {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>}
                 </div>
-
                 {/* Category */}
                 <div>
-                  <Label className={labelStyles}>
-                    {t('Category', 'வகை')}
-                  </Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -557,9 +554,6 @@ export default function LedgerEntryPage() {
 
                 {/* Type */}
                 <div>
-                  <Label className={labelStyles}>
-                    {t('Type', 'வகை')} <span className="text-red-500">*</span>
-                  </Label>
                   <div className={formFieldStyles.ledgerForm.grid}>
                     <Button
                       type="button"
@@ -588,9 +582,6 @@ export default function LedgerEntryPage() {
 
                 {/* Amount */}
                 <div>
-                  <Label className={labelStyles}>
-                    {t('Amount', 'தொகை')} <span className="text-red-500">*</span>
-                  </Label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 flex items-center">
                       <span className="mr-1">₹</span>

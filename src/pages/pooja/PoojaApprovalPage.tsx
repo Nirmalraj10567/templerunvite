@@ -12,7 +12,9 @@ import { useToast } from '@/hooks/use-toast';
 import { CheckCircle, XCircle, Eye, Clock, User, Phone, Calendar, FileText, Search, RefreshCw } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn, pageContainerStyles, formFieldStyles } from "@/styles/formStyles";
+import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
+
 interface PoojaRequest {
   id: number;
   receipt_number: string;
@@ -189,7 +191,7 @@ export default function PoojaApprovalPage() {
     setLogs([]);
     setLogsLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/pooja-approval/${poojaId}/logs`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/pooja-approval/${poojaId}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -228,7 +230,7 @@ export default function PoojaApprovalPage() {
   const loadAllPoojaLogs = async (pageNum: number) => {
     setAllLogsLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/pooja-approval/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
+      const res = await fetch(`https://tmsapi.xesstechlink.com/api/pooja-approval/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -265,7 +267,7 @@ export default function PoojaApprovalPage() {
   const fetchRequests = async (page = pagination.page, pageSize = pagination.pageSize) => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:4000/api/pooja', {
+      const response = await axios.get('https://tmsapi.xesstechlink.com/api/pooja', {
         params: {
           q: searchTerm,
           status: statusFilter || undefined,
@@ -313,7 +315,7 @@ export default function PoojaApprovalPage() {
 
   const fetchStats = async () => {
     try {
-      const response = await axios.get('http://localhost:4000/api/pooja/stats/summary', {
+      const response = await axios.get('https://tmsapi.xesstechlink.com/api/pooja/stats/summary', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -336,7 +338,7 @@ export default function PoojaApprovalPage() {
 
   const handleApprove = async (requestId: number) => {
     try {
-      const response = await fetch(`http://localhost:4000/api/pooja-approval/approve/${requestId}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/pooja-approval/approve/${requestId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -374,7 +376,7 @@ export default function PoojaApprovalPage() {
 
   const handleReject = async (requestId: number) => {
     try {
-      const response = await fetch(`http://localhost:4000/api/pooja-approval/reject/${requestId}`, {
+      const response = await fetch(`https://tmsapi.xesstechlink.com/api/pooja-approval/reject/${requestId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -414,7 +416,7 @@ export default function PoojaApprovalPage() {
 
   const handleBulkAction = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/pooja-approval/bulk-action', {
+      const response = await fetch('https://tmsapi.xesstechlink.com/api/pooja-approval/bulk-action', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -500,7 +502,7 @@ export default function PoojaApprovalPage() {
     const loadDetails = async () => {
       try {
         if (!isViewDialogOpen || !selectedRequest) return;
-        const res = await fetch(`http://localhost:4000/api/pooja-approval/request/${selectedRequest.id}`, {
+        const res = await fetch(`https://tmsapi.xesstechlink.com/api/pooja-approval/request/${selectedRequest.id}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!res.ok) return;
@@ -517,7 +519,7 @@ export default function PoojaApprovalPage() {
   return (
     <div className={pageContainerStyles.container}>
    <Card className={pageContainerStyles.content}>  
-        <CardHeader className={cn("bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center", formFieldStyles.card.header)}>
+        <CardHeader className={theme.card.header}>
           <CardTitle className="text-lg font-bold w-full">
             {t("Pooja List Approval", "பூஜை பதிவு அனுமதி")}
           </CardTitle>
@@ -588,7 +590,7 @@ export default function PoojaApprovalPage() {
                 placeholder={t('Search by name, mobile, receipt...', 'பெயர், மொபைல், ரசீது தேடு...')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-7 text-xs h-7"
+                className={cn(theme.input.base, "pl-7 text-xs h-7")}
               />
             </div>
 
@@ -602,7 +604,7 @@ export default function PoojaApprovalPage() {
                 fetchRequests(1, pagination.pageSize);
                 fetchStats();
               }}
-              className="border rounded px-2 h-7 text-xs"
+              className={cn(theme.input.base, "rounded px-2 h-7 text-xs")}
             >
               <option value="">{t('All', 'அனைத்தும்')}</option>
               <option value="pending">{t('Pending', 'நிலுவை')}</option>
@@ -990,7 +992,7 @@ export default function PoojaApprovalPage() {
                   onChange={() =>
                     setVisibleCols((prev) => ({ ...prev, [col.key]: !prev[col.key] }))
                   }
-                  className="h-3 w-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className={cn(theme.input.base, "h-3 w-3 text-blue-600 rounded")}
                 />
                 <span className="ml-2 text-xs text-gray-700">{col.label}</span>
               </label>
@@ -1295,7 +1297,7 @@ export default function PoojaApprovalPage() {
                     <div className="text-gray-700">{t('Total', 'மொத்தம்')}: <span className="font-medium">{allLogsTotal}</span></div>
                     <div className="flex items-center gap-2">
                       <button
-                        className="px-2 py-1 border border-gray-300 rounded shadow-sm text-xs bg-white hover:bg-gray-50"
+                        className={cn(theme.input.base, "px-2 py-1 rounded shadow-sm text-xs bg-white hover:bg-gray-50")}
                         disabled={allLogsPage <= 1}
                         onClick={() => loadAllPoojaLogs(allLogsPage - 1)}
                       >
@@ -1303,7 +1305,7 @@ export default function PoojaApprovalPage() {
                       </button>
                       <span>{t('Page', 'பக்கம்')} {allLogsPage}</span>
                       <button
-                        className="px-2 py-1 border border-gray-300 rounded shadow-sm text-xs bg-white hover:bg-gray-50"
+                        className={cn(theme.input.base, "px-2 py-1 rounded shadow-sm text-xs bg-white hover:bg-gray-50")}
                         disabled={allLogsPage * allLogsPageSize >= allLogsTotal}
                         onClick={() => loadAllPoojaLogs(allLogsPage + 1)}
                       >
