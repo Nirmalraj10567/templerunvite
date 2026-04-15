@@ -32,22 +32,20 @@ import {
   Loader2
 } from 'lucide-react';
 
-// Custom hook for Enter key - only submits form
+// Custom hook for Enter key - focus save button
 const useEnterKeyNavigation = () => {
   const formRef = useRef<HTMLFormElement>(null);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    // Only handle Enter key on textarea to allow newlines
-    if (e.key === 'Enter' && !e.shiftKey) {
-      const target = e.target as HTMLElement;
-      
-      // Allow Enter in textarea for new lines
-      if (target.tagName === 'TEXTAREA') {
-        return; // Let default behavior happen
-      }
-      
-      // On other fields, Enter will naturally submit the form
-      // Tab key handles field navigation naturally
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key !== 'Enter') return;
+    const t = e.target as HTMLElement;
+    const tag = t.tagName?.toLowerCase();
+    if (!tag || ['button', 'textarea'].includes(tag)) return; // allow buttons and textareas to handle Enter normally
+    e.preventDefault();
+    // Focus the save button
+    const submitButton = e.currentTarget.querySelector('button[type="submit"]') as HTMLButtonElement;
+    if (submitButton) {
+      submitButton.focus();
     }
   };
 
@@ -425,17 +423,17 @@ export default function AnnadhanamEntryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-yellow-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className={pageContainerStyles.container}>
+      <div className={cn(pageContainerStyles.content, "max-w-6xl")}>
         {/* Main Form Card */}
-        <Card className="shadow-xl border-0 overflow-hidden">
-          <CardHeader className={theme.card.header}>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-xl font-bold flex items-center gap-2">
-                <Tag className="w-5 h-5" />
-                Donation Details
+        <Card className={formFieldStyles.card.container}>
+          <CardHeader className={theme.header.container}>
+            <div className={theme.header.contentSpacing}>
+              <CardTitle className={theme.header.main}>
+                
+                Annadhanam Details
               </CardTitle>
-              <div className="flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full">
+              <div className={theme.header.badge}>
                 {getDonationTypeIcon()}
                 <span className="text-sm font-medium">
                   {donationType === 'food' && 'Food Donation'}
@@ -462,7 +460,7 @@ export default function AnnadhanamEntryPage() {
                   <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input
                     id="receiptNumber"
-                    className={cn(theme.input.base, "pl-10 bg-gray-50")}
+                    className={cn(theme.input.base, theme.input.size.md, "pl-10 bg-gray-50")}
                     readOnly
                     {...register('receiptNumber')}
                     placeholder="Receipt No."
@@ -476,7 +474,7 @@ export default function AnnadhanamEntryPage() {
                     <Input
                       id="name"
                       autoFocus
-                      className={cn(theme.input.base, `pl-10 ${errors.name ? 'border-red-500' : ''}`)}
+                      className={cn(theme.input.base, theme.input.size.md, `pl-10 ${errors.name ? 'border-red-500' : ''}`)}
                       {...register('name', { required: 'Name is required', onChange: (e) => { const val = e.target.value; if (val) e.target.value = val.charAt(0).toUpperCase() + val.slice(1); } })} onChange={(e) => { const val = e.target.value; setValue('name', val ? val.replace(/\b\w/g, (char) => char.toUpperCase()) : val, { shouldValidate: true }); }}
                       placeholder="Name *"
                     />
@@ -501,7 +499,7 @@ export default function AnnadhanamEntryPage() {
                       }
                       setValue('mobileNumber', cleaned, { shouldValidate: true, shouldDirty: true });
                     }}
-                    className={cn(theme.input.base, `pl-10 ${errors.mobileNumber ? 'border-red-500' : ''}`)}
+                    className={cn(theme.input.base, theme.input.size.md, `pl-10 ${errors.mobileNumber ? 'border-red-500' : ''}`)}
                     {...register('mobileNumber', { 
                       required: 'Mobile number is required',
                       pattern: {
@@ -521,7 +519,7 @@ export default function AnnadhanamEntryPage() {
                     <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <Input
                       id="time"
-                      type="time" className={`pl-10 border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:outline-none shadow-sm focus:shadow-md transition-all duration-200 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer ${errors.time ? 'border-red-500' : ''}`}
+                      type="time" className={cn(theme.input.base, theme.input.size.md, `pl-10 ${errors.time ? 'border-red-500' : ''}`, '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')}
                       {...register('time', { required: 'Time is required' })}
                       placeholder="Time *"
                     />
@@ -535,7 +533,7 @@ export default function AnnadhanamEntryPage() {
                     <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <Input
                       id="fromDate"
-                      type="date" className={`[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer pl-10 border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:outline-none shadow-sm focus:shadow-md transition-all duration-200 ${errors.fromDate ? 'border-red-500' : ''}`}
+                      type="date" className={cn(theme.input.base, theme.input.size.md, `pl-10 ${errors.fromDate ? 'border-red-500' : ''}`, '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')}
                       {...register('fromDate', { required: 'Date is required' })}
                       placeholder="Date *"
                     />
@@ -548,7 +546,7 @@ export default function AnnadhanamEntryPage() {
                   <div className="relative">
                     <select
                       id="donationType"
-                      className={cn(theme.select.base, `w-full ${errors.donationType ? 'border-red-500' : ''}`)}
+                      className={cn(theme.select.base, theme.select.size.md, `w-full ${errors.donationType ? 'border-red-500' : ''}`)}
                       {...register('donationType', { required: 'Donation type is required' })}
                       defaultValue="food"
                     >
@@ -574,7 +572,7 @@ export default function AnnadhanamEntryPage() {
                     <div>
                       <Input
                         id="food"
-                        className={cn(theme.input.base, `border ${errors.food ? 'border-red-500' : ''}`)}
+                        className={cn(theme.input.base, theme.input.size.md, `border ${errors.food ? 'border-red-500' : ''}`)}
                         {...register('food', { required: 'Food items is required' })} onChange={(e) => { const val = e.target.value; setValue('food', val ? val.replace(/\b\w/g, (char) => char.toUpperCase()) : val, { shouldValidate: true }); }}
                         placeholder="Food Items *"
                       />
@@ -584,7 +582,7 @@ export default function AnnadhanamEntryPage() {
                       <Input
                         id="peoples"
                         type="number"
-                        className={cn(theme.input.base, `border ${errors.peoples ? 'border-red-500' : ''}`)}
+                        className={cn(theme.input.base, theme.input.size.md, `border ${errors.peoples ? 'border-red-500' : ''}`)}
                         {...register('peoples', {
                           required: 'People count is required',
                           min: { value: 1, message: 'Number must be at least 1' }
@@ -598,7 +596,7 @@ export default function AnnadhanamEntryPage() {
                       <FileText className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <Input
                         id="remarks"
-                        className="pl-10 border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:outline-none shadow-sm focus:shadow-md transition-all duration-200"
+                        className={cn(theme.input.base, theme.input.size.md, "pl-10")}
                         {...register('remarks')} onChange={(e) => { const val = e.target.value; setValue('remarks', val ? val.replace(/\b\w/g, (char) => char.toUpperCase()) : val, { shouldValidate: true }); }}
                         placeholder="Remarks"
                       />
@@ -611,7 +609,7 @@ export default function AnnadhanamEntryPage() {
                     <div>
                       <Input
                         id="productName"
-                        className={`border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:outline-none shadow-sm focus:shadow-md transition-all duration-200 ${errors.productName ? 'border-red-500' : ''}`}
+                        className={cn(theme.input.base, theme.input.size.md, `${errors.productName ? 'border-red-500' : ''}`)}
                         {...register('productName', { required: 'Product name is required' })} onChange={(e) => { const val = e.target.value; setValue('productName', val ? val.replace(/\b\w/g, (char) => char.toUpperCase()) : val, { shouldValidate: true }); }}
                         placeholder="Product Name *"
                       />
@@ -621,7 +619,7 @@ export default function AnnadhanamEntryPage() {
                       <Input
                         id="quantity"
                         type="number"
-                        className={`border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:outline-none shadow-sm focus:shadow-md transition-all duration-200 ${errors.quantity ? 'border-red-500' : ''}`}
+                        className={cn(theme.input.base, theme.input.size.md, `${errors.quantity ? 'border-red-500' : ''}`)}
                         {...register('quantity', { required: 'Quantity is required', min: { value: 1, message: 'Quantity must be at least 1' } })}
                         placeholder="Quantity *"
                         min="1"
@@ -632,7 +630,7 @@ export default function AnnadhanamEntryPage() {
                       <FileText className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <Input
                         id="remarks"
-                        className="pl-10 border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:outline-none shadow-sm focus:shadow-md transition-all duration-200"
+                        className={cn(theme.input.base, theme.input.size.md, "pl-10")}
                         {...register('remarks')} onChange={(e) => { const val = e.target.value; setValue('remarks', val ? val.replace(/\b\w/g, (char) => char.toUpperCase()) : val, { shouldValidate: true }); }}
                         placeholder="Remarks"
                       />
@@ -646,7 +644,7 @@ export default function AnnadhanamEntryPage() {
                       <Input
                         id="amount"
                         type="number"
-                        className={`border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:outline-none shadow-sm focus:shadow-md transition-all duration-200 ${errors.amount ? 'border-red-500' : ''}`}
+                        className={cn(theme.input.base, theme.input.size.md, `${errors.amount ? 'border-red-500' : ''}`)}
                         {...register('amount', { required: 'Amount is required', min: { value: 1, message: 'Amount must be at least Rs1' } })}
                         placeholder="Amount (Rs) *"
                         min="1"
@@ -657,7 +655,7 @@ export default function AnnadhanamEntryPage() {
                       <FileText className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <Input
                         id="remarks"
-                        className="pl-10 border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:outline-none shadow-sm focus:shadow-md transition-all duration-200"
+                        className={cn(theme.input.base, theme.input.size.md, "pl-10")}
                         {...register('remarks')} onChange={(e) => { const val = e.target.value; setValue('remarks', val ? val.replace(/\b\w/g, (char) => char.toUpperCase()) : val, { shouldValidate: true }); }}
                         placeholder="Remarks"
                       />
@@ -718,10 +716,10 @@ export default function AnnadhanamEntryPage() {
         {/* Activity Logs Section */}
         {showLogs && id && (
           <Card className="shadow-xl border-0 overflow-hidden animate-fadeIn">
-            <CardHeader className="bg-gradient-to-r from-blue-300 to-indigo-400 text-white py-5 px-6">
-              <div className="flex items-center gap-2">
-                <History className="w-5 h-5" />
-                <CardTitle className="text-lg font-bold">
+            <CardHeader className={theme.card.header}>
+              <div className={cn(theme.header.contentSpacing)}>
+                <History className={theme.header.icon} />
+                <CardTitle className={theme.header.secondary}>
                   Activity Log
                 </CardTitle>
               </div>

@@ -278,10 +278,12 @@ export default function DailyReportPage() {
   return (
    <div className={pageContainerStyles.container}>
           <Card className={pageContainerStyles.content}>
-            <CardHeader className={theme.card.header}>
-              <CardTitle className="text-lg font-bold w-full">
-              {t[language].title}
-              </CardTitle>
+            <CardHeader className={theme.header.container}>
+              <div className={theme.header.contentSpacing}>
+                <CardTitle className={theme.header.main}>
+                {t[language].title}
+                </CardTitle>
+              </div>
             </CardHeader>
           
   
@@ -294,14 +296,14 @@ export default function DailyReportPage() {
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className={cn(theme.input.base, "w-full px-2 py-1 text-xs rounded-sm")}
+            className={cn(theme.input.base, theme.input.size.sm)}
           />
         </div>
 
         <div className="flex-1 min-w-[100px]">
           <label className="block text-xs font-medium text-gray-600 mb-1">{t[language].type}</label>
           <select
-            className={cn(theme.input.base, "w-full px-2 py-1 text-xs rounded-sm")}
+            className={cn(theme.select.base, theme.select.size.sm)}
             value={filterType}
             onChange={(e) => setFilterType(e.target.value as any)}
           >
@@ -317,7 +319,7 @@ export default function DailyReportPage() {
             placeholder={t[language].searchPlaceholder}
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
-            className={cn(theme.input.base, "w-full px-2 py-1 text-xs rounded-sm")}
+            className={cn(theme.input.base, theme.input.size.sm)}
           />
         </div>
 
@@ -433,7 +435,7 @@ export default function DailyReportPage() {
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage <= 1}
-              className={cn(theme.input.base, "px-2 py-1 rounded-sm text-gray-700 disabled:opacity-50")}
+              className={cn(theme.input.base, theme.input.size.sm, "px-2 py-1 rounded-sm text-gray-700 disabled:opacity-50")}
             >
               {t[language].previous}
             </button>
@@ -443,7 +445,7 @@ export default function DailyReportPage() {
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage >= totalPages}
-              className={cn(theme.input.base, "px-2 py-1 rounded-sm text-gray-700 disabled:opacity-50")}
+              className={cn(theme.input.base, theme.input.size.sm, "px-2 py-1 rounded-sm text-gray-700 disabled:opacity-50")}
             >
               {t[language].next}
             </button>
@@ -458,7 +460,7 @@ export default function DailyReportPage() {
                 <div>
                   <label className="block">{t[language].cashCount}</label>
                   <input
-                    className={cn(theme.input.base, "w-full px-1 py-0.5 rounded-sm text-xs")}
+                    className={cn(theme.input.base, theme.input.size.sm, "w-full")}
                     value={cashCount}
                     onChange={(e) => setCashCount(e.target.value)}
                     placeholder="0"
@@ -467,7 +469,7 @@ export default function DailyReportPage() {
                 <div>
                   <label className="block">{t[language].extraIncome}</label>
                   <input
-                    className={cn(theme.input.base, "w-full px-1 py-0.5 rounded-sm text-xs")}
+                    className={cn(theme.input.base, theme.input.size.sm, "w-full")}
                     value={extraIncome}
                     onChange={(e) => setExtraIncome(e.target.value)}
                     placeholder="0"
@@ -476,7 +478,7 @@ export default function DailyReportPage() {
                 <div>
                   <label className="block">{t[language].extraExpense}</label>
                   <input
-                    className={cn(theme.input.base, "w-full px-1 py-0.5 rounded-sm text-xs")}
+                    className={cn(theme.input.base, theme.input.size.sm, "w-full")}
                     value={extraExpense}
                     onChange={(e) => setExtraExpense(e.target.value)}
                     placeholder="0"
@@ -534,7 +536,7 @@ export default function DailyReportPage() {
             <p className="text-sm text-gray-700">{t[language].resetMessage}</p>
             <div className="flex justify-end gap-2 pt-2">
               <button
-                className={cn(theme.input.base, "px-3 py-1 text-xs rounded-sm text-gray-700 hover:bg-gray-50")}
+                className={cn(theme.input.base, theme.input.size.sm, "px-3 py-1 text-xs rounded-sm text-gray-700 hover:bg-gray-50")}
                 onClick={() => setShowResetModal(false)}
               >
                 {t[language].cancel}

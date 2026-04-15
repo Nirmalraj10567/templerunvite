@@ -430,10 +430,12 @@ export default function HallListPage() {
   return (
         <div className={pageContainerStyles.container}>
              <Card className={pageContainerStyles.content}>
-               <CardHeader className={cn("w-full", formFieldStyles.tableHeader.container, formFieldStyles.card.header)}>
-                 <CardTitle className={cn("m-0", formFieldStyles.tableHeader.title)}>
-                   {t('Hall Bookings','மண்டப பதிவுகள்')}
-                 </CardTitle>
+               <CardHeader className={cn("w-full", theme.header.container)}>
+                 <div className={theme.header.contentSpacing}>
+                   <CardTitle className={theme.header.main}>
+                     {t('Hall Bookings','மண்டப பதிவுகள்')}
+                   </CardTitle>
+                 </div>
                </CardHeader>
 
       {/* Filters */}
@@ -446,7 +448,7 @@ export default function HallListPage() {
             <input
               type="search"
               placeholder={t('Search by name/receipt/village/phone', 'பெயர்/ரசீது/கிராமம்/தொலைபேசி மூலம் தேடுக')}
-              className={cn(theme.input.base, "block w-full pl-8 pr-2 py-1 border border-gray-300 rounded leading-5 bg-white placeholder-gray-500 text-xs")}
+              className={cn(theme.input.base, theme.input.size.sm, "pl-8")}
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && (setCurrentPage(1), fetchData(1))}
@@ -455,13 +457,13 @@ export default function HallListPage() {
           <div className="flex gap-2">
             <input 
               type="date" 
-              className={cn(theme.input.base, "px-2 py-1 border border-gray-300 rounded shadow-sm text-xs")}
+              className={cn(theme.input.base, theme.input.size.sm)}
               value={from} 
               onChange={(e) => setFrom(e.target.value)} 
             />
             <input 
               type="date" 
-              className={cn(theme.input.base, "px-2 py-1 border border-gray-300 rounded shadow-sm text-xs")}
+              className={cn(theme.input.base, theme.input.size.sm)}
               value={to} 
               onChange={(e) => setTo(e.target.value)} 
             />
@@ -830,7 +832,7 @@ export default function HallListPage() {
         <div className={formFieldStyles.moneyDonationList.modal.overlay}>
           <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeAllLogs} />
           <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-7xl mx-4 max-h-[90vh] flex flex-col">
-            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white py-6 px-6 rounded-t-lg flex-shrink-0">
+            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white py-2 px-6 rounded-t-lg flex-shrink-0">
               <div className={formFieldStyles.moneyDonationList.modal.header}>
                 <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('All Hall Booking Logs', 'அனைத்து மண்டப பதிவு பதிவுகள்')}</h2>
                 <button onClick={closeAllLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>
@@ -1066,7 +1068,7 @@ export default function HallListPage() {
         <div className={formFieldStyles.moneyDonationList.modal.overlay}>
           <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeLogs} />
           <div className={formFieldStyles.moneyDonationList.modal.container}>
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-6 px-6 rounded-t-lg">
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 px-6 rounded-t-lg">
               <div className={formFieldStyles.moneyDonationList.modal.header}>
                 <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('Activity Log', 'செயல்பாட்டு பதிவு')} #{logsFor}</h2>
                 <button onClick={closeLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>

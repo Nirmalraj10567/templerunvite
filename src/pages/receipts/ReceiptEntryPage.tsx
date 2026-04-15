@@ -10,10 +10,11 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
+import { X } from 'lucide-react';
 import { ledgerService } from '@/services/ledgerService';
 import { journalService } from '@/services/journalService';
 import { cn } from "@/lib/utils";
-import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
+import { formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
 import { theme } from '@/styles/theme';
 
 interface ReceiptFormData {
@@ -30,23 +31,16 @@ interface ReceiptFormData {
 const useEnterKeyNavigation = () => {
   const formRef = useRef<HTMLFormElement>(null);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      
-      if (!formRef.current) return;
-      
-      const focusableElements = formRef.current.querySelectorAll(
-        'input:not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled]):not([readonly]), button:not([disabled])'
-      );
-      
-      const currentElement = document.activeElement;
-      const currentIndex = Array.from(focusableElements).indexOf(currentElement as Element);
-      
-      if (currentIndex !== -1 && currentIndex < focusableElements.length - 1) {
-        const nextElement = focusableElements[currentIndex + 1] as HTMLElement;
-        nextElement.focus();
-      }
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key !== 'Enter') return;
+    const t = e.target as HTMLElement;
+    const tag = t.tagName?.toLowerCase();
+    if (!tag || ['button', 'textarea'].includes(tag)) return; // allow buttons and textareas to handle Enter normally
+    e.preventDefault();
+    // Focus the save button
+    const submitButton = e.currentTarget.querySelector('button[type="submit"]') as HTMLButtonElement;
+    if (submitButton) {
+      submitButton.focus();
     }
   };
 
@@ -61,10 +55,10 @@ export default function ReceiptEntryPage() {
   const { formRef, handleKeyDown } = useEnterKeyNavigation();
 
   // Consistent field styling
-  const fieldStyles = formFieldStyles.input;
+  const fieldStyles = cn(theme.input.base, theme.input.size.md);
   const labelStyles = formFieldStyles.label;
-  const selectStyles = formFieldStyles.select;
-  const textareaStyles = formFieldStyles.textarea;
+  const selectStyles = cn(theme.select.base, theme.select.size.md);
+  const textareaStyles = cn(theme.textarea.base, theme.textarea.size.md);
 
   // Unified translation object
   const translations = {
@@ -502,10 +496,12 @@ export default function ReceiptEntryPage() {
     <div className={pageContainerStyles.container}>
       <div className={pageContainerStyles.content}>
         <Card className={formFieldStyles.card.container}>
-          <CardHeader className={theme.card.header}>
-            <CardTitle className="text-2xl font-bold text-center">
-              {t('title')}
-            </CardTitle>
+          <CardHeader className={theme.header.container}>
+            <div className={theme.header.contentSpacing}>
+              <CardTitle className={theme.header.main}>
+                {t('title')}
+              </CardTitle>
+            </div>
           </CardHeader>
           
           <CardContent className="p-6">
@@ -549,6 +545,7 @@ export default function ReceiptEntryPage() {
                       type="date"
                       className={fieldStyles}
                       {...register('date', { required: t('requiredField') })}
+                      autoFocus
                     />
                   </div>
 
@@ -717,12 +714,12 @@ export default function ReceiptEntryPage() {
                     <Button
                       type="button"
                       variant="outline"
-                      size="default"
-                      className="px-6 py-2 text-sm border hover:bg-gray-50 rounded-md"
                       onClick={handleClear}
+                      className="px-6 py-2 text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm hover:shadow-md transition-all duration-200"
                       disabled={isSubmitting}
                     >
-                      {t('clear')}
+                      <X className="w-4 h-4 mr-2" />
+                      Clear
                     </Button>
                   )}
                   

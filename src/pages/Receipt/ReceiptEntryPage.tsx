@@ -154,6 +154,20 @@ export default function ReceiptEntryPage() {
     loadLogs();
   }, [id, token]);
 
+  // Enter key handler: focus save button when Enter is pressed
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key !== 'Enter') return;
+    const t = e.target as HTMLElement;
+    const tag = t.tagName?.toLowerCase();
+    if (!tag || ['button', 'textarea'].includes(tag)) return; // allow buttons and textareas to handle Enter normally
+    e.preventDefault();
+    // Focus the save button
+    const submitButton = e.currentTarget.querySelector('button[type="submit"]') as HTMLButtonElement;
+    if (submitButton) {
+      submitButton.focus();
+    }
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -225,9 +239,9 @@ export default function ReceiptEntryPage() {
       {message && (
         <div className="mb-3 text-sm text-blue-700">{message}</div>
       )}
-      <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4" onKeyDown={handleKeyDown}>
         <div>
-          <input className="w-full border p-2 rounded" name="registerNo" value={form.registerNo} onChange={onChange} placeholder={t('Register No', 'Register No')} />
+          <input className="w-full border p-2 rounded" name="registerNo" value={form.registerNo} onChange={onChange} placeholder={t('Register No', 'Register No')} autoFocus />
             {t('Clear', 'வெளியே')}
           </button>
           {id && (

@@ -1,7 +1,7 @@
 'use client';
 
 import { Member } from '@/types/member';
-import { User, Phone, Mail, Calendar, Building, CreditCard, Shield, ChevronRight, FileText, Upload } from 'lucide-react';
+import { User, Phone, Mail, Calendar, Building, CreditCard, Shield, ChevronRight, FileText, Upload, X } from 'lucide-react';
 import { useState, useRef } from 'react';
 import { useLanguage } from '@/lib/language';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,23 +16,16 @@ import { theme } from '@/styles/theme';
 const useEnterKeyNavigation = () => {
   const formRef = useRef<HTMLFormElement>(null);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      
-      if (!formRef.current) return;
-      
-      const focusableElements = formRef.current.querySelectorAll(
-        'input:not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled]):not([readonly]), button:not([disabled])'
-      );
-      
-      const currentElement = document.activeElement;
-      const currentIndex = Array.from(focusableElements).indexOf(currentElement as Element);
-      
-      if (currentIndex !== -1 && currentIndex < focusableElements.length - 1) {
-        const nextElement = focusableElements[currentIndex + 1] as HTMLElement;
-        nextElement.focus();
-      }
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key !== 'Enter') return;
+    const t = e.target as HTMLElement;
+    const tag = t.tagName?.toLowerCase();
+    if (!tag || ['button', 'textarea'].includes(tag)) return; // allow buttons and textareas to handle Enter normally
+    e.preventDefault();
+    // Focus the save button
+    const submitButton = e.currentTarget.querySelector('button[type="submit"]') as HTMLButtonElement;
+    if (submitButton) {
+      submitButton.focus();
     }
   };
 
@@ -67,15 +60,9 @@ export default function MemberEntryForm({
   const [showLoginDetails, setShowLoginDetails] = useState(true);
 
   // Use centralized form styles with theme focus colors
-  const fieldStyles = cn(
-    theme.input.base,
-    "text-lg py-3 px-4 h-12"
-  );
+  const fieldStyles = cn(theme.input.base, theme.input.size.md);
   const labelStyles = cn(formFieldStyles.label, "text-base mb-2");
-  const selectStyles = cn(
-    theme.input.base,
-    "text-lg py-3 px-4 h-12"
-  );
+  const selectStyles = cn(theme.select.base, theme.select.size.md);
 
   // Translation object
   const t = {
@@ -187,6 +174,20 @@ export default function MemberEntryForm({
   
   const handleSubmit = isEditing ? handleUpdateMember : handleAddMember;
 
+  const clearForm = () => {
+    setMember({
+      fullName: '',
+      mobile: '',
+      email: '',
+      username: '',
+      createLogin: false,
+      password: '',
+      role: 'member',
+      permissionLevel: 'view',
+      customPermissions: []
+    });
+  };
+
   // Comprehensive permission options aligned with backend permission IDs and routing guards
   const PERMISSION_OPTIONS = [
     // Core modules
@@ -269,13 +270,15 @@ export default function MemberEntryForm({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-6 px-4 w-full">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className={pageContainerStyles.container}>
+      <div className={pageContainerStyles.content}>
         <Card className="shadow-lg border-0 bg-white rounded-lg">
-          <CardHeader className={theme.card.header}>
-            <CardTitle className="text-2xl font-bold">
-              {isEditing ? t[lang].updateMember : t[lang].memberEntry}
-            </CardTitle>
+          <CardHeader className={theme.header.container}>
+            <div className={theme.header.contentSpacing}>
+              <CardTitle className={theme.header.main}>
+                {isEditing ? t[lang].updateMember : t[lang].memberEntry}
+              </CardTitle>
+            </div>
           </CardHeader>
           
           <CardContent className="p-6">
@@ -297,6 +300,7 @@ export default function MemberEntryForm({
                       className={fieldStyles}
                       placeholder={t[lang].fullName + ' *'}
                       required
+                      autoFocus
                     />
                     <p className="mt-1 text-sm text-gray-500">{t[lang].nameNote}</p>
                   </div>
@@ -335,9 +339,6 @@ export default function MemberEntryForm({
 
                   {/* Username */}
                   <div>
-                    <Label className={labelStyles} htmlFor="username">
-                      {t[lang].username}
-                    </Label>
                     <Input
                       id="username"
                       type="text"
@@ -388,9 +389,6 @@ export default function MemberEntryForm({
                     {/* Permission Level and Role */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       <div>
-                        <Label className={labelStyles} htmlFor="permissionLevel">
-                          {t[lang].permissionLevel}
-                        </Label>
                         <div className="relative">
                           <select
                             id="permissionLevel"
@@ -425,9 +423,6 @@ export default function MemberEntryForm({
                       </div>
 
                       <div>
-                        <Label className={labelStyles} htmlFor="role">
-                          {t[lang].role}
-                        </Label>
                         <div className="relative">
                           <select
                             id="role"
@@ -447,9 +442,6 @@ export default function MemberEntryForm({
                       </div>
 
                       <div>
-                        <Label className={labelStyles} htmlFor="password">
-                          {t[lang].password}
-                        </Label>
                         <Input
                           id="password"
                           type="password"
@@ -553,11 +545,11 @@ export default function MemberEntryForm({
                                         disabled={!enabled}
                                         value={(current?.access as any) || 'view'}
                                         onChange={(e) => setPermissionLevel(opt.id, e.target.value as any)}
-                                        className={`text-sm border rounded-md px-2 py-1 min-w-[100px] ${
+                                        className={cn(theme.select.base, theme.select.size.md, "min-w-[100px]", 
                                           enabled 
                                             ? 'border-orange-300 bg-white text-orange-900 focus:ring-2 focus:ring-orange-200' 
                                             : 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
-                                        }`}
+                                        )}
                                       >
                                         <option value="view">👁️ View</option>
                                         <option value="edit">✏️ Edit</option>
@@ -622,6 +614,15 @@ export default function MemberEntryForm({
                     className="px-8 py-3 text-base bg-gradient-to-r from-orange-400 to-red-500 hover:from-orange-500 hover:to-red-600 text-white font-medium rounded-md"
                   >
                     {isEditing ? t[lang].update : t[lang].addMember}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={clearForm}
+                    className="px-6 py-3 text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm hover:shadow-md transition-all duration-200"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Clear
                   </Button>
                 </div>
               </div>

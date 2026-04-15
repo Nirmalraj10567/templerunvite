@@ -289,9 +289,9 @@ export default function TempleUserListPage() {
     <div className={pageContainerStyles.container}>
       <Card className={pageContainerStyles.content}>
         {/* Header */}
-        <CardHeader className={cn(formFieldStyles.tableHeader.container, formFieldStyles.card.header)}>
-          <div className="flex items-center justify-between">
-            <CardTitle className={formFieldStyles.tableHeader.title}>
+        <CardHeader className={theme.header.container}>
+          <div className={theme.header.contentSpacing}>
+            <CardTitle className={theme.header.main}>
               {t[language].name}
             </CardTitle>
             <div className="flex items-center gap-2">
@@ -331,7 +331,7 @@ export default function TempleUserListPage() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className={cn(theme.input.base, formFieldStyles.moneyDonationList.filters.searchInput)}
+                className={cn(theme.input.base, theme.input.size.md, formFieldStyles.moneyDonationList.filters.searchInput)}
                 placeholder={t[language].searchPlaceholder}
               />
             </div>

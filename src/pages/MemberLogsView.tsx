@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { useLanguage } from '@/lib/language'; // 👈 Language context
+import { theme } from '@/styles/theme';
+import { cn } from '@/lib/utils';
 
 interface SessionLog {
   id: number;
@@ -183,7 +185,7 @@ export default function MemberLogsView({ token, membersOptions }: MemberLogsView
           <div className="flex flex-col min-w-[200px]">
             <label className="text-xs font-medium text-gray-600 mb-1">{t[lang].user}</label>
             <select
-              className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              className={cn(theme.select.base, theme.select.size.md)}
               value={selectedUserId}
               onChange={(e) => {
                 setSelectedUserId(e.target.value);
@@ -204,7 +206,7 @@ export default function MemberLogsView({ token, membersOptions }: MemberLogsView
             <label className="text-xs font-medium text-gray-600 mb-1">{t[lang].from}</label>
             <input
               type="date"
-              className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              className={cn(theme.input.base, theme.input.size.md)}
               value={fromDate}
               onChange={(e) => {
                 setFromDate(e.target.value);
@@ -218,7 +220,7 @@ export default function MemberLogsView({ token, membersOptions }: MemberLogsView
             <label className="text-xs font-medium text-gray-600 mb-1">{t[lang].to}</label>
             <input
               type="date"
-              className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              className={cn(theme.input.base, theme.input.size.md)}
               value={toDate}
               onChange={(e) => {
                 setToDate(e.target.value);

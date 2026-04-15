@@ -174,86 +174,97 @@ export default function EventRegistrationForm() {
     }
   };
 
-  // Use styles from formStyles
-  const fieldStyles = formFieldStyles.input;
+  // Enter key handler: focus save button when Enter is pressed
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key !== 'Enter') return;
+    const t = e.target as HTMLElement;
+    const tag = t.tagName?.toLowerCase();
+    if (!tag || ['button', 'textarea'].includes(tag)) return; // allow buttons and textareas to handle Enter normally
+    e.preventDefault();
+    // Focus the save button
+    const submitButton = e.currentTarget.querySelector('button[type="submit"]') as HTMLButtonElement;
+    if (submitButton) {
+      submitButton.focus();
+    }
+  };
+
+  // Use styles from formStyles and theme
   const labelStyles = formFieldStyles.label;
-  const textareaStyles = formFieldStyles.textarea;
 
   return (
   <div className={pageContainerStyles.container}>
         <div className={pageContainerStyles.content}>
           <Card className={formFieldStyles.card.container}>
-            <CardHeader className={theme.card.header}>
-              <CardTitle className="text-lg font-bold text-center">
-              {id ? t.editEvent : t.createEvent}
-            </CardTitle>
-          </CardHeader>
-          
-          <CardContent className="p-6">
-            {isLoading ? (
-              <div className="py-12 text-center">
-                <div className="text-lg font-medium">{t.loading}</div>
+            <CardHeader className={theme.header.container}>
+              <div className={theme.header.contentSpacing}>
+                <CardTitle className={theme.header.main}>
+                  {id ? t.editEvent : t.createEvent}
+                </CardTitle>
               </div>
-            ) : (
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+            </CardHeader>
+            <CardContent className="p-6">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-gray-500">{t.loading}</div>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit(onSubmit)} className="space-y-8" onKeyDown={handleKeyDown}>
                 {/* Main Form Grid */}
-                <div className={formFieldStyles.eventForm.formGrid}>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   
                   {/* Event Details Section */}
-                  <div className="space-y-6">
-                    <div>
-                      <Input 
-                        id="title" 
-                        className={fieldStyles}
-                        {...register('title', { required: t.eventTitle + ' ' + t.required })} 
-                        placeholder={t.eventTitle + ' *'}
-                      />
-                      {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title.message}</p>}
-                    </div>
+                  <div>
+                    <Input 
+                      id="title" 
+                      className={cn(theme.input.base, theme.input.size.md)}
+                      {...register('title', { required: t.eventTitle + ' ' + t.required })} 
+                      placeholder={t.eventTitle + ' *'}
+                      autoFocus
+                    />
+                    {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title.message}</p>}
+                  </div>
                     
-                    <div>
-                      <Textarea 
-                        id="description" 
-                        className={textareaStyles}
-                        {...register('description', { required: t.description + ' ' + t.required })} 
-                        placeholder={t.description + ' *'}
-                      />
-                      {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description.message}</p>}
-                    </div>
+                  <div>
+                    <Input 
+                      id="date" 
+                      type="date" 
+                      className={cn(theme.input.base, theme.input.size.md)}
+                      {...register('date', { required: t.date + ' ' + t.required })} 
+                      placeholder={t.date + ' *'}
+                    />
+                    {errors.date && <p className="text-red-500 text-sm mt-1">{errors.date.message}</p>}
+                  </div>
+                  
+                  <div>
+                    <Input 
+                      id="time" 
+                      type="time" 
+                      className={cn(theme.input.base, theme.input.size.md)}
+                      {...register('time', { required: t.time + ' ' + t.required })} 
+                      placeholder={t.time + ' *'}
+                    />
+                    {errors.time && <p className="text-red-500 text-sm mt-1">{errors.time.message}</p>}
+                  </div>
                     
-                    <div className={formFieldStyles.eventForm.dateTimeGrid}>
-                      <div>
-                        <Input 
-                          id="date" 
-                          type="date" 
-                          className={fieldStyles}
-                          {...register('date', { required: t.date + ' ' + t.required })} 
-                          placeholder={t.date + ' *'}
-                        />
-                        {errors.date && <p className="text-red-500 text-sm mt-1">{errors.date.message}</p>}
-                      </div>
-                      
-                      <div>
-                        <Input 
-                          id="time" 
-                          type="time" 
-                          className={fieldStyles}
-                          {...register('time', { required: t.time + ' ' + t.required })} 
-                          placeholder={t.time + ' *'}
-                        />
-                        {errors.time && <p className="text-red-500 text-sm mt-1">{errors.time.message}</p>}
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <Input 
-                        id="location" 
-                        className={fieldStyles}
-                        {...register('location', { required: t.location + ' ' + t.required })} 
-                        placeholder={t.location + ' *'}
-                      />
-                      {errors.location && <p className="text-red-500 text-sm mt-1">{errors.location.message}</p>}
-                    </div>
+                  <div>
+                    <Input 
+                      id="location" 
+                      className={cn(theme.input.base, theme.input.size.md)}
+                      {...register('location', { required: t.location + ' ' + t.required })} 
+                      placeholder={t.location + ' *'}
+                    />
+                    {errors.location && <p className="text-red-500 text-sm mt-1">{errors.location.message}</p>}
+                  </div>
+
+                  <div className="md:col-span-2 lg:col-span-3">
+                    <Textarea 
+                      id="description" 
+                      className={cn(theme.textarea.base, theme.textarea.size.md)}
+                      {...register('description', { required: t.description + ' ' + t.required })} 
+                      placeholder={t.description + ' *'}
+                    />
+                    {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description.message}</p>}
+                  </div>
                   </div>
                   
                   {/* Event Images Section */}
@@ -323,14 +334,14 @@ export default function EventRegistrationForm() {
                           <div className={formFieldStyles.eventForm.imagePreview.form}>
                             <div>
                               <Input 
-                                className="text-sm py-2 px-3 h-9"
+                                className={cn(theme.input.base, theme.input.size.md)}
                                 placeholder={t.imageTitle} 
                                 {...register(`images.${index}.title`)} 
                               />
                             </div>
                             <div>
                               <Textarea 
-                                className="text-sm py-2 px-3 min-h-[60px]"
+                                className={cn(theme.textarea.base, theme.textarea.size.md)}
                                 placeholder={t.imageCaption} 
                                 {...register(`images.${index}.caption`)} 
                               />
@@ -340,7 +351,6 @@ export default function EventRegistrationForm() {
                       ))}
                     </div>
                   )}
-                  </div>
                 </div>
                 
                 {/* Action Buttons */}
@@ -352,6 +362,15 @@ export default function EventRegistrationForm() {
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? t.saving : (id ? t.updateEvent : t.createEvent)}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => reset()}
+                    className="px-6 py-2.5 text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm hover:shadow-md transition-all duration-200"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Clear
                   </Button>
                 </div>
               </form>

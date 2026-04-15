@@ -89,23 +89,16 @@ export default function PoojaEntryPage() {
   const t = (en: string, ta: string) => language === 'english' ? ta : en;
 
   // Handle Enter key navigation
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      
-      if (!formRef.current) return;
-      
-      const focusableElements = formRef.current.querySelectorAll(
-        'input:not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled]):not([readonly]), button:not([disabled])'
-      );
-      
-      const currentElement = document.activeElement;
-      const currentIndex = Array.from(focusableElements).indexOf(currentElement as Element);
-      
-      if (currentIndex !== -1 && currentIndex < focusableElements.length - 1) {
-        const nextElement = focusableElements[currentIndex + 1] as HTMLElement;
-        nextElement.focus();
-      }
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key !== 'Enter') return;
+    const t = e.target as HTMLElement;
+    const tag = t.tagName?.toLowerCase();
+    if (!tag || ['button', 'textarea'].includes(tag)) return; // allow buttons and textareas to handle Enter normally
+    e.preventDefault();
+    // Focus the save button
+    const submitButton = e.currentTarget.querySelector('button[type="submit"]') as HTMLButtonElement;
+    if (submitButton) {
+      submitButton.focus();
     }
   };
 
@@ -254,10 +247,12 @@ export default function PoojaEntryPage() {
       <div className="min-h-screen bg-gray-50 py-6 px-4">
         <div className="max-w-7xl mx-auto">
           <Card className="shadow-lg border-0 bg-white rounded-lg overflow-hidden">
-            <CardHeader className={theme.card.header}>
-              <CardTitle className="text-2xl font-bold text-center text-white">
-                {t('Pooja Entry', 'பூஜை பதிவு')}
-              </CardTitle>
+            <CardHeader className={theme.header.container}>
+              <div className={theme.header.contentSpacing}>
+                <CardTitle className={theme.header.main}>
+                  {t('Pooja Entry', 'பூஜை பதிவு')}
+                </CardTitle>
+              </div>
             </CardHeader>
             <CardContent className="p-6">
               <div className="flex items-center justify-center p-8">
@@ -362,12 +357,13 @@ export default function PoojaEntryPage() {
   // Use centralized form styles with theme focus colors
   const fieldStyles = cn(
     theme.input.base,
-    "text-base h-11 py-2.5 px-3"
+    theme.input.size.md
   );
   const labelStyles = "block text-sm font-medium mb-1.5 text-gray-700";
   const textareaStyles = cn(
-    theme.input.base,
-    "text-base py-2.5 px-3 min-h-[100px]"
+    theme.textarea.base,
+    theme.textarea.size.md,
+    "min-h-[100px]"
   );
 
   const handleCancel = async () => {
@@ -380,13 +376,15 @@ export default function PoojaEntryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-6 px-4">
-      <div className="max-w-7xl mx-auto">
+    <div className={pageContainerStyles.container}>
+      <div className={pageContainerStyles.content}>
         <Card className="shadow-lg border-0 bg-white rounded-lg overflow-hidden">
-          <CardHeader className={theme.card.header}>
-            <CardTitle className="text-2xl font-bold text-center text-white">
-              {t('Pooja Entry', 'பூஜை பதிவு')}
-            </CardTitle>
+          <CardHeader className={theme.header.container}>
+            <div className={theme.header.contentSpacing}>
+              <CardTitle className={theme.header.main}>
+                {t('Pooja Entry', 'பூஜை பதிவு')}
+              </CardTitle>
+            </div>
           </CardHeader>
           <CardContent className="p-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -417,6 +415,7 @@ export default function PoojaEntryPage() {
                         className={fieldStyles}
                         {...register('name', { required: true })}
                         placeholder={t('Name', 'Name') + ' *'}
+                        autoFocus
                       />
                     </div>
 
@@ -484,7 +483,7 @@ export default function PoojaEntryPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => setShowCalendar(!showCalendar)}
-                          className={cn(theme.input.base, "px-3 py-2.5 text-sm hover:bg-gray-50 rounded-md")}
+                          className={cn(theme.input.base, theme.input.size.sm, "hover:bg-gray-50 rounded-md")}
                           title={showCalendar ? t('Hide Calendar', 'Hide Calendar') : t('Show Calendar', 'Show Calendar')}
                         >
                           {showCalendar ? '??' : '??'}

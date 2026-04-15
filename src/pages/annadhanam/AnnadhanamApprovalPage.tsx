@@ -752,16 +752,16 @@ export default function AnnadhanamApprovalPage() {
     window.print();
   };
 
-  return (
-    <div className={pageContainerStyles.container} onContextMenu={onContextMenu}>
-      {/* Header */}
-    
-      <Card className={pageContainerStyles.content}>
-        <CardHeader className={theme.card.header}>
-          <CardTitle className="text-lg font-bold w-full">
+return (
+  <div className={pageContainerStyles.container}>
+    <Card className={pageContainerStyles.content}>
+      <CardHeader className={theme.header.container}>
+        <div className={theme.header.contentSpacing}>
+          <CardTitle className={theme.header.main}>
             {t("Annadhanam Approval ", "அன்னதானம் அனுமதி ")}
           </CardTitle>
-        </CardHeader>
+        </div>
+      </CardHeader>
 
       {/* Stats Cards */}
       {stats && (
@@ -798,7 +798,7 @@ export default function AnnadhanamApprovalPage() {
                     type="number" 
                     value={pendingCount} 
                     onChange={(e) => setPendingCount(Number(e.target.value))}
-                    className="h-8 text-xs"
+                    className={cn(theme.input.base, theme.input.size.sm)}
                   />
                 </div>
                 <div>
@@ -807,7 +807,7 @@ export default function AnnadhanamApprovalPage() {
                     type="number" 
                     value={approvedCount} 
                     onChange={(e) => setApprovedCount(Number(e.target.value))}
-                    className="h-8 text-xs"
+                    className={cn(theme.input.base, theme.input.size.sm)}
                   />
                 </div>
                 <div>
@@ -816,7 +816,7 @@ export default function AnnadhanamApprovalPage() {
                     type="number" 
                     value={rejectedCount} 
                     onChange={(e) => setRejectedCount(Number(e.target.value))}
-                    className="h-8 text-xs"
+                    className={cn(theme.input.base, theme.input.size.sm)}
                   />
                 </div>
               </div>
@@ -858,7 +858,7 @@ export default function AnnadhanamApprovalPage() {
                 placeholder={t('Search by name, mobile, or receipt...', 'பெயர், மொபைல் அல்லது ரசீது மூலம் தேடுக')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className={cn(theme.input.base, "pl-9 h-8 text-sm")}
+                className={cn(theme.input.base, theme.input.size.sm, "pl-9")}
               />
             </div>
 
@@ -1303,6 +1303,7 @@ export default function AnnadhanamApprovalPage() {
                 id="edit_name"
                 value={editForm.name}
                 onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                className={cn(theme.input.base, theme.input.size.md)}
               />
             </div>
             <div>
@@ -1311,6 +1312,7 @@ export default function AnnadhanamApprovalPage() {
                 id="edit_mobile"
                 value={editForm.mobile_number}
                 onChange={(e) => setEditForm((f) => ({ ...f, mobile_number: e.target.value }))}
+                className={cn(theme.input.base, theme.input.size.md)}
               />
             </div>
             <div>
@@ -1320,6 +1322,7 @@ export default function AnnadhanamApprovalPage() {
                 type="date"
                 value={editForm.from_date}
                 onChange={(e) => setEditForm((f) => ({ ...f, from_date: e.target.value }))}
+                className={cn(theme.input.base, theme.input.size.md)}
               />
             </div>
             <div>
@@ -1329,6 +1332,7 @@ export default function AnnadhanamApprovalPage() {
                 type="date"
                 value={editForm.to_date}
                 onChange={(e) => setEditForm((f) => ({ ...f, to_date: e.target.value }))}
+                className={cn(theme.input.base, theme.input.size.md)}
               />
             </div>
             <div>
@@ -1338,6 +1342,7 @@ export default function AnnadhanamApprovalPage() {
                 type="time"
                 value={editForm.time}
                 onChange={(e) => setEditForm((f) => ({ ...f, time: e.target.value }))}
+                className={cn(theme.input.base, theme.input.size.md)}
               />
             </div>
             <div className="md:col-span-2">
@@ -1346,6 +1351,7 @@ export default function AnnadhanamApprovalPage() {
                 id="edit_remarks"
                 value={editForm.remarks || ''}
                 onChange={(e) => setEditForm((f) => ({ ...f, remarks: e.target.value }))}
+                className={cn(theme.textarea.base, theme.textarea.size.md)}
                 rows={3}
               />
             </div>
@@ -1442,6 +1448,7 @@ export default function AnnadhanamApprovalPage() {
                 id="adminNotes"
                 value={adminNotes}
                 onChange={(e) => setAdminNotes(e.target.value)}
+                className={cn(theme.textarea.base, theme.textarea.size.md)}
                 placeholder={t('Add any notes about this approval...', 'இந்த அனுமதி பற்றி குறிப்புகளைச் சேர்க்கவும்...')}
               />
             </div>
@@ -1491,6 +1498,7 @@ export default function AnnadhanamApprovalPage() {
                 id="rejectionReason"
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
+                className={cn(theme.textarea.base, theme.textarea.size.md)}
                 placeholder={t('Please provide a reason for rejection...', 'நிராகரிப்புக்கான காரணத்தை வழங்கவும்...')}
                 required
               />
@@ -1501,6 +1509,7 @@ export default function AnnadhanamApprovalPage() {
                 id="adminNotesReject"
                 value={adminNotes}
                 onChange={(e) => setAdminNotes(e.target.value)}
+                className={cn(theme.textarea.base, theme.textarea.size.md)}
                 placeholder={t('Add any additional notes...', 'கூடுதல் குறிப்புகளைச் சேர்க்கவும்...')}
               />
             </div>
@@ -1551,6 +1560,7 @@ export default function AnnadhanamApprovalPage() {
                   id="bulkRejectionReason"
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
+                  className={cn(theme.textarea.base, theme.textarea.size.md)}
                   placeholder={t('Please provide a reason for rejection...', 'நிராகரிப்புக்கான காரணத்தை வழங்கவும்...')}
                   required
                 />
@@ -1562,6 +1572,7 @@ export default function AnnadhanamApprovalPage() {
                 id="bulkAdminNotes"
                 value={adminNotes}
                 onChange={(e) => setAdminNotes(e.target.value)}
+                className={cn(theme.textarea.base, theme.textarea.size.md)}
                 placeholder={t('Add any notes about this action...', 'இந்த செயல்பற்றி குறிப்புகளைச் சேர்க்கவும்...')}
               />
             </div>

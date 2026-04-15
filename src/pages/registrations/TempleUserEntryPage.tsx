@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { CardHeader, CardTitle } from '@/components/ui/card';
 import { theme } from '@/styles/theme';
 import { cn } from '@/lib/utils';
+import { pageContainerStyles } from '@/styles/formStyles';
 
 type Heir = {
   id: number;
@@ -674,6 +675,20 @@ export default function TempleUserEntryPage() {
     }
   }, [msg]);
 
+  // Handle Enter key to focus save button
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Enter') return;
+    const t = e.target as HTMLElement;
+    const tag = t.tagName?.toLowerCase();
+    if (!tag || ['button', 'textarea'].includes(tag)) return; // allow buttons and textareas to handle Enter normally
+    e.preventDefault();
+    // Focus the save button
+    const saveButton = document.querySelector('button[onClick*="handleAddUser"]') as HTMLButtonElement;
+    if (saveButton) {
+      saveButton.focus();
+    }
+  };
+
   // Save handler: POST on create, PUT on edit
   const handleAddUser = async () => {
     if (!validateForm()) {
@@ -847,72 +862,57 @@ export default function TempleUserEntryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={pageContainerStyles.container}>
       {/* Full width header */}
-      <div className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-6 px-6">
-        <div className="container mx-auto">
+      <div className={theme.card.header}>
+        <div className="max-w-7xl mx-auto">
           <h1 className="text-2xl font-bold text-center">
             {t[language as 'tamil' | 'english'].pageTitle}
           </h1>
         </div>
       </div>
       
-      <div className="container mx-auto p-4">
+      <div className={pageContainerStyles.content}>
       {/* Main Container */}
-      <div className="bg-white rounded-lg shadow-md border border-gray-200 p-2">
+      <div className="bg-white rounded-lg shadow-md border border-gray-200 p-2" onKeyDown={handleKeyDown}>
         {/* Status Messages */}
         {(msg || err) && (
           <div className="mb-3">
             <Alert
-              variant={err ? 'destructive' : 'default'}
-              className={err ? '' : 'border-green-500 bg-green-50 text-green-700'}
-            >
-              <AlertTitle className={err ? '' : 'text-green-800 font-semibold'}>
-                {err ? 'Error / பிழை' : 'Success / வெற்றி'}
-              </AlertTitle>
-              <AlertDescription className={err ? '' : 'text-green-700'}>
-                {err ? err : msg}
-              </AlertDescription>
-            </Alert>
-          </div>
-        )}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-          {/* Left Column - Form Fields (3/4 width) */}
-          <div className="lg:col-span-3 space-y-3">
-            {/* General Info */}
-            <div className="bg-gray-50 rounded-lg p-2">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-semibold text-gray-900">{t[language as 'tamil' | 'english'].generalInfo}</h3>
-                <button
-                  type="button"
-                  onClick={clearForm}
-                  className="px-2 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600"
-                  title={t[language as 'tamil' | 'english'].clearFormTitle}
-                >
-                  🗑️ {t[language as 'tamil' | 'english'].clearForm}
-                </button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
-                {/* Receipt number field removed as per requirement */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-900 mb-1">
-                    {t[language as 'tamil' | 'english'].date} *
-                  </label>
-                  <input
-                    type="date"
-                    className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.date && "border-red-500 bg-red-50")}
-                    value={newUser.date}
-                    onChange={(e) => handleFieldChange('date', e.target.value)}
-                    required
-                  />
-                  {errors.date && <p className="text-red-500 text-xs mt-1">{errors.date}</p>}
-                </div>
+            className={err ? '' : 'border-green-500 bg-green-50 text-green-700'}
+          >
+            <AlertTitle className={err ? '' : 'text-green-800 font-semibold'}>
+              {err ? 'Error / பிழை' : 'Success / வெற்றி'}
+            </AlertTitle>
+            <AlertDescription className={err ? '' : 'text-green-700'}>
+              {err ? err : msg}
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        {/* Left Column - Form Fields (3/4 width) */}
+        <div className="lg:col-span-3 space-y-3">
+          {/* General Info */}
+          <div className="bg-gray-50 rounded-lg p-2">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-gray-900">{t[language as 'tamil' | 'english'].generalInfo}</h3>
+              <button
+                type="button"
+                onClick={clearForm}
+                className="px-2 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600"
+                title={t[language as 'tamil' | 'english'].clearFormTitle}
+              >
+                🗑️ {t[language as 'tamil' | 'english'].clearForm}
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
                 <div>
                   <label className="block text-xs font-medium text-gray-900 mb-1">
                     {t[language as 'tamil' | 'english'].year}
                   </label>
                   <input
-                    className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                    className={cn(theme.input.base, theme.input.size.md, "w-full")}
                     value={newUser.year}
                     onChange={(e) => handleFieldChange('year', e.target.value)}
                   />
@@ -931,7 +931,7 @@ export default function TempleUserEntryPage() {
                   <div>
                     <input
                       type="tel"
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.mobileNumber && "border-red-500 bg-red-50")}
+                      className={cn(theme.input.base, theme.input.size.md, "w-full", errors.mobileNumber && "border-red-500 bg-red-50")}
                       value={newUser.mobileNumber}
                       onChange={(e) => handleMobileChange(e.target.value)}
                       placeholder={t[language as 'tamil' | 'english'].placeholderMobile}
@@ -950,7 +950,7 @@ export default function TempleUserEntryPage() {
                   </label>
                   <input
                     type="text"
-                    className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.name && "border-red-500 bg-red-50")}
+                    className={cn(theme.input.base, theme.input.size.md, "w-full", errors.name && "border-red-500 bg-red-50")}
                     value={newUser.name}
                     onChange={(e) => handleFieldChange('name', e.target.value)}
                     required
@@ -960,7 +960,7 @@ export default function TempleUserEntryPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].alternativeName}</label>
                   <input
-                    className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                    className={cn(theme.input.base, theme.input.size.md, "w-full")}
                     value={newUser.alternativeName}
                     onChange={(e) => handleFieldChange('alternativeName', e.target.value)}
                   />
@@ -968,7 +968,7 @@ export default function TempleUserEntryPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].wifeName}</label>
                   <input
-                    className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                    className={cn(theme.input.base, theme.input.size.md, "w-full")}
                     value={newUser.wifeName}
                     onChange={(e) => handleFieldChange('wifeName', e.target.value)}
                   />
@@ -979,7 +979,7 @@ export default function TempleUserEntryPage() {
                   </label>
                   <div className="flex gap-1">
                     <input
-                      className={cn(theme.input.base, "flex-1 px-2 py-1 text-sm rounded", errors.fatherName && "border-red-500 bg-red-50")}
+                      className={cn(theme.input.base, theme.input.size.md, "flex-1", errors.fatherName && "border-red-500 bg-red-50")}
                       value={newUser.fatherName}
                       onChange={(e) => handleFieldChange('fatherName', e.target.value)}
                       placeholder={language === 'tamil' ? 'தந்தையின் பெயர்' : "Father's Name"}
@@ -1000,7 +1000,7 @@ export default function TempleUserEntryPage() {
                   {/* Family Reference Input */}
                   <div className="mt-1 flex gap-1">
                     <input
-                      className="flex-1 px-2 py-1 text-xs border border-amber-300 rounded focus:ring-1 focus:ring-amber-500"
+                      className={cn(theme.input.base, theme.input.size.md, "flex-1")}
                       value={newUser.parentReferenceId}
                       onChange={(e) => handleFieldChange('parentReferenceId', e.target.value)}
                       placeholder={language === 'tamil' ? 'குடும்ப குறிப்பு எண் (T-2024-XXX)' : 'Family Reference (T-2024-XXX)'}
@@ -1016,7 +1016,7 @@ export default function TempleUserEntryPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].educationLabel} *</label>
                   <select
-                    className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.education && "border-red-500 bg-red-50")}
+                    className={cn(theme.select.base, theme.select.size.md, "w-full", errors.education && "border-red-500 bg-red-50")}
                     value={newUser.education}
                     onChange={(e) => handleFieldChange('education', e.target.value)}
                     required
@@ -1031,7 +1031,7 @@ export default function TempleUserEntryPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].occupationLabel} *</label>
                   <select
-                    className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.occupation && "border-red-500 bg-red-50")}
+                    className={cn(theme.select.base, theme.select.size.md, "w-full", errors.occupation && "border-red-500 bg-red-50")}
                     value={newUser.occupation}
                     onChange={(e) => handleFieldChange('occupation', e.target.value)}
                     required
@@ -1055,7 +1055,7 @@ export default function TempleUserEntryPage() {
               </div>
               {showAddress && (
                 <textarea
-                  className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.address && "border-red-500 bg-red-50")}
+                  className={cn(theme.textarea.base, theme.textarea.size.md, "w-full", errors.address && "border-red-500 bg-red-50")}
                   rows={2}
                   value={newUser.address}
                   onChange={(e) => handleFieldChange('address', e.target.value)}
@@ -1079,7 +1079,7 @@ export default function TempleUserEntryPage() {
                     <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].aadhaarNumber}</label>
                     <input
                       type="text"
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={cn(theme.input.base, theme.input.size.md, "w-full")}
                       value={newUser.aadhaarNumber}
                       onChange={(e) => handleFormattedInput('aadhaarNumber', e.target.value, formatAadhaarNumber)}
                       placeholder={t[language as 'tamil' | 'english'].placeholderAadhaar}
@@ -1089,7 +1089,7 @@ export default function TempleUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].clan}</label>
                     <select
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={cn(theme.select.base, theme.select.size.md, "w-full")}
                       value={newUser.clan}
                       onChange={(e) => handleFieldChange('clan', e.target.value)}
                     >
@@ -1102,7 +1102,7 @@ export default function TempleUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].group}</label>
                     <select
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={cn(theme.select.base, theme.select.size.md, "w-full")}
                       value={newUser.group}
                       onChange={(e) => handleFieldChange('group', e.target.value)}
                     >
@@ -1115,7 +1115,7 @@ export default function TempleUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].postalCode}</label>
                     <input
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={cn(theme.input.base, theme.input.size.md, "w-full")}
                       value={newUser.postalCode}
                       onChange={(e) => handleFieldChange('postalCode', e.target.value)}
                       placeholder={t[language as 'tamil' | 'english'].placeholderPostal}
@@ -1125,7 +1125,7 @@ export default function TempleUserEntryPage() {
                     <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].maleHeirs}</label>
                     <input
                       type="number"
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={cn(theme.input.base, theme.input.size.md, "w-full")}
                       value={newUser.maleHeirs}
                       onChange={(e) => handleFieldChange('maleHeirs', parseInt(e.target.value) || 0)}
                       min="0"
@@ -1135,7 +1135,7 @@ export default function TempleUserEntryPage() {
                     <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].femaleHeirs}</label>
                     <input
                       type="number"
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={cn(theme.input.base, theme.input.size.md, "w-full")}
                       value={newUser.femaleHeirs}
                       onChange={(e) => handleFieldChange('femaleHeirs', parseInt(e.target.value) || 0)}
                       min="0"

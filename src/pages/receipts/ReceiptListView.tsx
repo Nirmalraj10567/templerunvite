@@ -539,12 +539,9 @@ export default function ReceiptListView() {
     <div className={cn(pageContainerStyles.container, 'max-w-7xl mx-auto')}>
       <div className={pageContainerStyles.content}>
         {/* Header */}
-        <CardHeader className={theme.card.header}>
-          <div className="flex justify-center items-center">
-            <CardTitle className={cn(
-              "text-[1rem] font-bold w-full text-center text-white",
-              formFieldStyles.donationProductList.logBadge.base
-            )} style={{ color: 'white', fontSize: 'calc(1.2rem * 1.02)' }}>
+        <CardHeader className={theme.header.container}>
+          <div className={theme.header.contentSpacing}>
+            <CardTitle className={theme.header.main}>
               {t('title')}
             </CardTitle>
           </div>
@@ -559,7 +556,7 @@ export default function ReceiptListView() {
                 <Input
                   type="search"
                   placeholder={t('search')}
-                  className={cn(theme.input.base, "pl-9 w-full")}
+                  className={cn(theme.input.base, theme.input.size.md, "pl-9 w-full")}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyDown={handleSearch}
@@ -572,7 +569,7 @@ export default function ReceiptListView() {
                   type="date" 
                   value={fromDate} 
                   onChange={(e) => setFromDate(e.target.value)}
-                  className={cn(theme.input.base, "h-9")}
+                  className={cn(theme.input.base, theme.input.size.sm)}
                 />
               </div>
               
@@ -582,14 +579,14 @@ export default function ReceiptListView() {
                   type="date" 
                   value={toDate} 
                   onChange={(e) => setToDate(e.target.value)}
-                  className={cn(theme.input.base, "h-9")}
+                  className={cn(theme.input.base, theme.input.size.sm)}
                 />
               </div>
               
               <div className="flex items-center gap-2">
                 <span className="text-sm whitespace-nowrap">{t('type')}:</span>
                 <select 
-                  className={cn(theme.input.base, "rounded h-9 px-2 text-sm")} 
+                  className={cn(theme.select.base, theme.select.size.sm, "rounded")} 
                   value={typeFilter} 
                   onChange={(e) => setTypeFilter(e.target.value as any)}
                 >
@@ -778,7 +775,7 @@ export default function ReceiptListView() {
                   type="date"
                   value={editedReceipt.date || ''}
                   onChange={(e) => setEditedReceipt({ ...editedReceipt, date: e.target.value })}
-                  className={cn(theme.input.base, formFieldStyles.taxForm.input)}
+                  className={cn(theme.input.base, theme.input.size.md, formFieldStyles.taxForm.input)}
                   disabled={!editMode}
                 />
               </div>
@@ -791,7 +788,7 @@ export default function ReceiptListView() {
                     ...editedReceipt, 
                     type: e.target.value as 'income' | 'expense' 
                   })}
-                  className={cn(theme.input.base, formFieldStyles.taxForm.select, !editMode && 'opacity-50 cursor-not-allowed')}
+                  className={cn(theme.select.base, theme.select.size.md, formFieldStyles.taxForm.select, !editMode && 'opacity-50 cursor-not-allowed')}
                   disabled={!editMode}
                 >
                   <option value="income">{t('income')}</option>
@@ -804,7 +801,7 @@ export default function ReceiptListView() {
                   id="donor" 
                   value={editedReceipt.donor || ''} 
                   onChange={(e) => setEditedReceipt({ ...editedReceipt, donor: e.target.value })} 
-                  className={cn(theme.input.base, formFieldStyles.taxForm.input)}
+                  className={cn(theme.input.base, theme.input.size.md, formFieldStyles.taxForm.input)}
                   disabled={!editMode} 
                 />
               </div>
@@ -814,7 +811,7 @@ export default function ReceiptListView() {
                   id="receiver" 
                   value={editedReceipt.receiver || ''} 
                   onChange={(e) => setEditedReceipt({ ...editedReceipt, receiver: e.target.value })} 
-                  className={cn(theme.input.base, formFieldStyles.taxForm.input)}
+                  className={cn(theme.input.base, theme.input.size.md, formFieldStyles.taxForm.input)}
                   disabled={!editMode} 
                 />
               </div>
@@ -825,7 +822,7 @@ export default function ReceiptListView() {
                   type="number"
                   value={editedReceipt.amount || ''}
                   onChange={(e) => setEditedReceipt({ ...editedReceipt, amount: Number(e.target.value) || 0 })}
-                  className={cn(theme.input.base, formFieldStyles.taxForm.input)}
+                  className={cn(theme.input.base, theme.input.size.md, formFieldStyles.taxForm.input)}
                   disabled={!editMode}
                 />
               </div>
@@ -835,7 +832,7 @@ export default function ReceiptListView() {
                   id="remarks"
                   value={editedReceipt.remarks || ''}
                   onChange={(e) => setEditedReceipt({ ...editedReceipt, remarks: e.target.value })}
-                  className={cn(theme.input.base, formFieldStyles.taxForm.input)}
+                  className={cn(theme.input.base, theme.input.size.md, formFieldStyles.taxForm.input)}
                   disabled={!editMode}
                 />
               </div>

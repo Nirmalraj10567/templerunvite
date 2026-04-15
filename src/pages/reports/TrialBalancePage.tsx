@@ -542,10 +542,12 @@ function TrialBalanceContent() {
 
     <div className={pageContainerStyles.container}>
        <Card className={pageContainerStyles.content}>
-         <CardHeader className={theme.card.header}>
-           <CardTitle className="text-lg font-bold w-full">
-           {t[language].trialBalance}
-           </CardTitle>
+         <CardHeader className={theme.header.container}>
+           <div className={theme.header.contentSpacing}>
+             <CardTitle className={theme.header.main}>
+             {t[language].trialBalance}
+             </CardTitle>
+           </div>
          </CardHeader>
        
     <div className="space-y-6">
@@ -646,7 +648,7 @@ function TrialBalanceContent() {
                   id="start-date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className={cn(theme.input.base, !isDateRangeValid && "border-red-500")}
+                  className={cn(theme.input.base, theme.input.size.md, !isDateRangeValid && "border-red-500")}
                 />
               </div>
               
@@ -661,7 +663,7 @@ function TrialBalanceContent() {
                   id="end-date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className={cn(theme.input.base, theme.input.error, !isDateRangeValid && "border-red-500")}
+                  className={cn(theme.input.base, theme.input.size.md, theme.input.error, !isDateRangeValid && "border-red-500")}
                 />
               </div>
               
@@ -725,7 +727,7 @@ function TrialBalanceContent() {
                   placeholder={t[language].categorySearchPlaceholder} 
                   value={categoryQuery}
                   onChange={(e) => setCategoryQuery(e.target.value)}
-                  className={cn(theme.input.base, "h-9")}
+                  className={cn(theme.input.base, theme.input.size.sm)}
                 />
               </div>
               
@@ -739,7 +741,7 @@ function TrialBalanceContent() {
                   placeholder={t[language].accountSearchPlaceholder} 
                   value={accountQuery}
                   onChange={(e) => setAccountQuery(e.target.value)}
-                  className={cn(theme.input.base, "h-9")}
+                  className={cn(theme.input.base, theme.input.size.sm)}
                 />
               </div>
             </div>

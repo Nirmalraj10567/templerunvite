@@ -518,11 +518,13 @@ export default function PoojaApprovalPage() {
 
   return (
     <div className={pageContainerStyles.container}>
-   <Card className={pageContainerStyles.content}>  
-        <CardHeader className={theme.card.header}>
-          <CardTitle className="text-lg font-bold w-full">
-            {t("Pooja List Approval", "பூஜை பதிவு அனுமதி")}
-          </CardTitle>
+   <Card className={pageContainerStyles.content}>
+        <CardHeader className={theme.header.container}>
+          <div className={theme.header.contentSpacing}>
+            <CardTitle className={theme.header.main}>
+              {t("Pooja List Approval", "பூஜை பதிவு அனுமதி")}
+            </CardTitle>
+          </div>
         </CardHeader>
         <div className="flex flex-col md:flex-row gap-3 mb-4">
           {requests.length} {t('requests', 'கோரிக்கைகள்')}
@@ -590,7 +592,7 @@ export default function PoojaApprovalPage() {
                 placeholder={t('Search by name, mobile, receipt...', 'பெயர், மொபைல், ரசீது தேடு...')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className={cn(theme.input.base, "pl-7 text-xs h-7")}
+                className={cn(theme.input.base, theme.input.size.sm, "pl-7")}
               />
             </div>
 
@@ -604,7 +606,7 @@ export default function PoojaApprovalPage() {
                 fetchRequests(1, pagination.pageSize);
                 fetchStats();
               }}
-              className={cn(theme.input.base, "rounded px-2 h-7 text-xs")}
+              className={cn(theme.select.base, theme.select.size.sm, "rounded")}
             >
               <option value="">{t('All', 'அனைத்தும்')}</option>
               <option value="pending">{t('Pending', 'நிலுவை')}</option>
@@ -864,7 +866,7 @@ export default function PoojaApprovalPage() {
               handlePageSizeChange(newSize);
               fetchRequests(1, newSize);
             }}
-            className="border rounded p-1 text-sm"
+            className={cn(theme.select.base, theme.select.size.sm, "rounded")}
           >
             {[5, 10, 20, 50, 100].map((size) => (
               <option key={size} value={size}>
@@ -1118,9 +1120,9 @@ export default function PoojaApprovalPage() {
               <Textarea
                 value={adminNotes}
                 onChange={(e) => setAdminNotes(e.target.value)}
+                className={cn(theme.textarea.base, theme.textarea.size.md)}
                 placeholder={t('Add notes...', 'குறிப்புகள் சேர்க்க...')}
                 rows={2}
-                className="text-xs"
               />
             </div>
           </div>
@@ -1152,10 +1154,10 @@ export default function PoojaApprovalPage() {
               <Textarea
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
+                className={cn(theme.textarea.base, theme.textarea.size.md)}
                 placeholder={t('Reason for rejection...', 'நிராகரிப்பு காரணம்...')}
                 required
                 rows={2}
-                className="text-xs"
               />
             </div>
             <div>
@@ -1163,9 +1165,9 @@ export default function PoojaApprovalPage() {
               <Textarea
                 value={adminNotes}
                 onChange={(e) => setAdminNotes(e.target.value)}
+                className={cn(theme.textarea.base, theme.textarea.size.md)}
                 placeholder={t('Additional notes...', 'கூடுதல் குறிப்புகள்...')}
                 rows={2}
-                className="text-xs"
               />
             </div>
           </div>

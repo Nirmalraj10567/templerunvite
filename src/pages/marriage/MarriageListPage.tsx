@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import { PrintButton } from '@/components/ui/print-button';
+import { theme } from '@/styles/theme';
+import { cn } from '@/lib/utils';
 
 interface MarriageItem {
   id: number;
@@ -212,14 +214,14 @@ export default function MarriageListPage() {
               type="date"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              className={cn(theme.input.base, theme.input.size.md)}
             />
             <span className="text-gray-600">{t('to', 'வரை')}</span>
             <input
               type="date"
               value={to}
               onChange={(e) => setTo(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              className={cn(theme.input.base, theme.input.size.md)}
             />
           </div>
 

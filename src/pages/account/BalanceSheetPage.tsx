@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getAuthToken } from '@/lib/auth';
+import { theme } from '@/styles/theme';
+import { cn } from '@/lib/utils';
 
 type Row = { id: number; name: string; amount: number };
 
@@ -130,14 +132,14 @@ export default function AccountBalanceSheetPage() {
             type="date"
             value={fromDate}
             onChange={(e) => setFromDate(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent min-w-[150px]"
+            className={cn(theme.input.base, theme.input.size.md, "min-w-[150px]")}
           />
           <span className="text-gray-500">—</span>
           <input
             type="date"
             value={toDate}
             onChange={(e) => setToDate(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent min-w-[150px]"
+            className={cn(theme.input.base, theme.input.size.md, "min-w-[150px]")}
           />
         </div>
 

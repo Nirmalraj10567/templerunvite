@@ -446,10 +446,12 @@ export default function LedgerListPage() {
   <div className={pageContainerStyles.container}>
     <Card className={pageContainerStyles.content}>
        <div className={pageContainerStyles.content}>
-         <CardHeader className={theme.card.header}>
-           <CardTitle className="text-lg font-bold w-full">
-           {t('Ledger', 'பதிவேடு')}
-           </CardTitle>
+         <CardHeader className={theme.header.container}>
+           <div className={theme.header.contentSpacing}>
+             <CardTitle className={theme.header.main}>
+             {t('Ledger', 'பதிவேடு')}
+             </CardTitle>
+           </div>
          </CardHeader>
        
         <div className="text-xs text-gray-600">
@@ -469,20 +471,20 @@ export default function LedgerListPage() {
               type="date"
               value={filters.startDate}
               onChange={(e) => handleFilterChange('startDate', e.target.value)}
-              className={cn(theme.input.base, "text-xs h-7")}
+              className={cn(theme.input.base, theme.input.size.sm)}
               placeholder={t('From', '')}
             />
             <Input
               type="date"
               value={filters.endDate}
               onChange={(e) => handleFilterChange('endDate', e.target.value)}
-              className={cn(theme.input.base, "text-xs h-7")}
+              className={cn(theme.input.base, theme.input.size.sm)}
               placeholder={t('To', '')}
             />
 
             {/* Type */}
             <Select value={filters.type} onValueChange={(v) => handleFilterChange('type', v)}>
-              <SelectTrigger className={cn(theme.input.base, "h-7 text-xs")}>
+              <SelectTrigger className={cn(theme.select.base, theme.select.size.sm)}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -494,7 +496,7 @@ export default function LedgerListPage() {
 
             {/* Category */}
             <Select value={filters.under} onValueChange={(v) => handleFilterChange('under', v)}>
-              <SelectTrigger className={cn(theme.input.base, "h-7 text-xs")}>
+              <SelectTrigger className={cn(theme.select.base, theme.select.size.sm)}>
                 <SelectValue placeholder={t('Category', '')} />
               </SelectTrigger>
               <SelectContent>
@@ -512,7 +514,7 @@ export default function LedgerListPage() {
                 placeholder={t('Search name', '')}
                 value={filters.name}
                 onChange={(e) => handleFilterChange('name', e.target.value)}
-                className={cn(theme.input.base, "text-xs h-7 pl-7")}
+                className={cn(theme.input.base, theme.input.size.sm, "pl-7")}
               />
             </div>
 
@@ -801,7 +803,7 @@ export default function LedgerListPage() {
         <div className={formFieldStyles.moneyDonationList.modal.overlay}>
           <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeAllLogs} />
           <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-7xl mx-4 max-h-[90vh] flex flex-col">
-            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white py-6 px-6 rounded-t-lg flex-shrink-0">
+            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white py-2 px-6 rounded-t-lg flex-shrink-0">
               <div className={formFieldStyles.moneyDonationList.modal.header}>
                 <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('All Ledger Logs', 'அனைத்து பதிவேடு பதிவுகள்')}</h2>
                 <button onClick={closeAllLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>
@@ -998,7 +1000,7 @@ export default function LedgerListPage() {
         <div className={formFieldStyles.moneyDonationList.modal.overlay}>
           <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeLogs} />
           <div className={formFieldStyles.moneyDonationList.modal.container}>
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-6 px-6 rounded-t-lg">
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 px-6 rounded-t-lg">
               <div className={formFieldStyles.moneyDonationList.modal.header}>
                 <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('Activity Log', 'செயல்பாட்டு பதிவு')} #{logsFor}</h2>
                 <button onClick={closeLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>

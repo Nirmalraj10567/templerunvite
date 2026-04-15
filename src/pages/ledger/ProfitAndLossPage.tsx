@@ -141,14 +141,14 @@ export default function ProfitAndLossPage() {
             type="date" 
             value={startDate} 
             onChange={(e) => setStartDate(e.target.value)} 
-            className="border rounded px-2 py-1"
+            className={cn(theme.input.base, theme.input.size.sm)}
           />
           <span>-</span>
           <input 
             type="date" 
             value={endDate} 
             onChange={(e) => setEndDate(e.target.value)} 
-            className="border rounded px-2 py-1"
+            className={cn(theme.input.base, theme.input.size.sm)}
           />
           <Button onClick={loadReport}>
             {t('Refresh', 'புதுப்பி')}

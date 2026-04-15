@@ -846,7 +846,7 @@ export default function DonationProductList() {
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('Product','பொருள்')}</label>
                 <input
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={cn(theme.input.base, theme.input.size.md, "w-full")}
                   value={editForm.product}
                   onChange={(e)=>setEditForm(prev=>({...prev, product: e.target.value}))}
                 />
@@ -854,7 +854,7 @@ export default function DonationProductList() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('Quantity','அளவு')}</label>
                 <input
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={cn(theme.input.base, theme.input.size.md)}
                   value={editForm.quantity}
                   onChange={(e)=>{
                     const v = e.target.value;
@@ -868,7 +868,7 @@ export default function DonationProductList() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('Date','தேதி')}</label>
                 <input
                   type="date"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={cn(theme.input.base, theme.input.size.md, "w-full")}
                   value={editForm.donationDate}
                   onChange={(e)=>setEditForm(prev=>({...prev, donationDate: e.target.value}))}
                 />
@@ -876,7 +876,7 @@ export default function DonationProductList() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('Category','வகை')}</label>
                 <input
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={cn(theme.input.base, theme.input.size.md, "w-full")}
                   value={editForm.category}
                   onChange={(e)=>setEditForm(prev=>({...prev, category: e.target.value}))}
                 />
@@ -884,7 +884,7 @@ export default function DonationProductList() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('Status','நிலை')}</label>
                 <select
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={cn(theme.select.base, theme.select.size.md, "w-full")}
                   value={editForm.status}
                   onChange={(e)=>setEditForm(prev=>({...prev, status: e.target.value}))}
                 >
@@ -896,7 +896,7 @@ export default function DonationProductList() {
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('Donor','நன்கொடையாளர்')}</label>
                 <input
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={cn(theme.input.base, theme.input.size.md, "w-full")}
                   value={editForm.donorName}
                   onChange={(e)=>setEditForm(prev=>({...prev, donorName: e.target.value}))}
                 />
@@ -904,7 +904,7 @@ export default function DonationProductList() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('Contact','தொடர்பு')}</label>
                 <input
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={cn(theme.input.base, theme.input.size.md, "w-full")}
                   value={editForm.donorContact}
                   onChange={(e)=>setEditForm(prev=>({...prev, donorContact: e.target.value}))}
                 />
@@ -912,7 +912,7 @@ export default function DonationProductList() {
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('Description','விளக்கம்')}</label>
                 <textarea
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={cn(theme.textarea.base, theme.textarea.size.md, "w-full")}
                   rows={3}
                   value={editForm.description}
                   onChange={(e)=>setEditForm(prev=>({...prev, description: e.target.value}))}
@@ -921,7 +921,7 @@ export default function DonationProductList() {
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('Notes','குறிப்புகள்')}</label>
                 <textarea
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={cn(theme.textarea.base, theme.textarea.size.md, "w-full")}
                   rows={3}
                   value={editForm.notes}
                   onChange={(e)=>setEditForm(prev=>({...prev, notes: e.target.value}))}

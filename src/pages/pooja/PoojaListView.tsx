@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { theme } from "@/styles/theme";
+import { cn } from "@/styles/formStyles";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,8 +31,7 @@ import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/lib/language";
 import { poojaService, Pooja, PoojaFormData } from "@/services/poojaService";
-import { cn, pageContainerStyles, formFieldStyles } from "@/styles/formStyles";
-import { theme } from "@/styles/theme";
+import { pageContainerStyles, formFieldStyles } from "@/styles/formStyles";
 
 interface PoojaLog {
   id: number;
@@ -737,12 +738,11 @@ export default function PoojaListView() {
     <div className={pageContainerStyles.container}>
       <Card className={pageContainerStyles.content}>
         {/* Header */}
-        <CardHeader className={cn(formFieldStyles.tableHeader.container, formFieldStyles.card.header)}>
-          <div className="flex items-center justify-between">
-            <CardTitle className={formFieldStyles.tableHeader.title}>
+        <CardHeader className={theme.header.container}>
+          <div className={theme.header.contentSpacing}>
+            <CardTitle className={theme.header.main}>
               {translate("poojaList")}
             </CardTitle>
-           
           </div>
         </CardHeader>
 
@@ -757,7 +757,7 @@ export default function PoojaListView() {
               <Input
                 type="search"
                 placeholder={translate("searchPlaceholder")}
-                className={cn(theme.input.base, formFieldStyles.moneyDonationList.filters.searchInput)}
+                className={cn(theme.input.base, theme.input.size.sm, formFieldStyles.moneyDonationList.filters.searchInput)}
                 value={quickSearch}
                 onChange={(e) => setQuickSearch(e.target.value)}
               />
@@ -1021,7 +1021,7 @@ export default function PoojaListView() {
                     }));
                   }}
                 >
-                  <SelectTrigger className="h-7 w-16 text-xs">
+                  <SelectTrigger className={cn(theme.select.base, theme.select.size.sm, "w-16")}>
                     <SelectValue placeholder={pagination.pageSize} />
                   </SelectTrigger>
                   <SelectContent>
@@ -1213,7 +1213,7 @@ export default function PoojaListView() {
         <div className={formFieldStyles.moneyDonationList.modal.overlay}>
           <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeAllLogs} />
           <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-6xl mx-4">
-            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white py-6 px-6 rounded-t-lg">
+            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white py-2 px-6 rounded-t-lg">
               <div className={formFieldStyles.moneyDonationList.modal.header}>
                 <h2 className={formFieldStyles.moneyDonationList.modal.title}>{translate("allPoojaLogs")}</h2>
                 <Button variant="ghost" className={formFieldStyles.moneyDonationList.modal.closeButton} onClick={closeAllLogs}>
@@ -1396,7 +1396,7 @@ export default function PoojaListView() {
         <div className={formFieldStyles.moneyDonationList.modal.overlay}>
           <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeLogs} />
           <div className={formFieldStyles.moneyDonationList.modal.container}>
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-6 px-6 rounded-t-lg">
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 px-6 rounded-t-lg">
               <div className={formFieldStyles.moneyDonationList.modal.header}>
                 <h2 className={formFieldStyles.moneyDonationList.modal.title}>{translate("poojaLogs")} #{logsFor}</h2>
                 <Button variant="ghost" className={formFieldStyles.moneyDonationList.modal.closeButton} onClick={closeLogs}>

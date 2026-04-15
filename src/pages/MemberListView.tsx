@@ -305,10 +305,12 @@ export default function MemberListView({
   return (
     <div className={pageContainerStyles.container}>
       <Card className={pageContainerStyles.content}>
-        <CardHeader className={theme.card.header}>
-          <CardTitle className="text-lg font-bold w-full">
-            {t("Members List", "உறுப்பினர் பதிவு")}
-          </CardTitle>
+        <CardHeader className={theme.header.container}>
+          <div className={theme.header.contentSpacing}>
+            <CardTitle className={theme.header.main}>
+              {t("Members List", "உறுப்பினர் பதிவு")}
+            </CardTitle>
+          </div>
         </CardHeader>
       {/* Header */}
       <div className="flex justify-between items-center mb-2 px-1">
@@ -333,7 +335,7 @@ export default function MemberListView({
                 value={searchTerm}
                 onChange={(e) => onSearch(e.target.value)}
                 placeholder={t('Search by name/username/mobile/email', 'பெயர்/பயனர் பெயர்/மொபைல்/மின்னஞ்சல் மூலம் தேடுக')}
-                className={cn(theme.input.base, "pl-8 text-sm py-1")}
+                className={cn(theme.input.base, theme.input.size.md, "pl-8")}
               />
             </div>
 
@@ -341,7 +343,7 @@ export default function MemberListView({
             <select
               value={filterRole}
               onChange={(e) => onFilter(e.target.value)}
-              className={cn(theme.input.base, "px-2 py-1 rounded text-sm")}
+              className={cn(theme.select.base, theme.select.size.md)}
             >
               <option value="all">{t('All Roles', 'அனைத்து பங்குகள்')}</option>
               <option value="member">{t('Member', 'உறுப்பினர்')}</option>
@@ -701,7 +703,7 @@ export default function MemberListView({
                             disabled={!enabled}
                             value={(current?.access as any) || 'view'}
                             onChange={(e) => setPermissionLevel(opt.id, e.target.value as any)}
-                            className={cn(theme.input.base, "px-2 py-1 rounded")}
+                            className={cn(theme.select.base, theme.select.size.md)}
                           >
                             <option value="view">{t('View', 'பார்வை')}</option>
                             <option value="edit">{t('Edit', 'திருத்து')}</option>

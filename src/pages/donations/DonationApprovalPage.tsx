@@ -42,6 +42,8 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
+import { theme } from '@/styles/theme';
+import { cn } from '@/styles/formStyles';
 
 interface DonationItem {
   id: number;
@@ -308,14 +310,14 @@ export default function DonationApprovalPage() {
       <div className="flex justify-between items-center flex-wrap gap-2">
         <h1 className="text-lg font-semibold">{t('Donation Approvals', 'நன்கொடை அனுமதிகள்')}</h1>
         <div className="flex gap-2 items-center flex-wrap">
-          <Input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder={t('Search...', 'தேடுக...')} className="w-56 h-8 text-xs" />
+          <Input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder={t('Search...', 'தேடுக...')} className={cn(theme.input.base, theme.input.size.sm, "w-56")} />
           <div className="flex items-center gap-1">
-            <Input type="date" value={fromDate} onChange={(e)=>setFromDate(e.target.value)} className="h-8 text-xs w-[140px]" />
+            <Input type="date" value={fromDate} onChange={(e)=>setFromDate(e.target.value)} className={cn(theme.input.base, theme.input.size.sm, "w-[140px]")} />
             <span className="text-xs text-gray-600">{t('to','வரை')}</span>
-            <Input type="date" value={toDate} onChange={(e)=>setToDate(e.target.value)} className="h-8 text-xs w-[140px]" />
+            <Input type="date" value={toDate} onChange={(e)=>setToDate(e.target.value)} className={cn(theme.input.base, theme.input.size.sm, "w-[140px]")} />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[150px] h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectTrigger className={cn(theme.select.base, theme.select.size.sm, "w-[150px]")}><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t('All','அனைத்தும்')}</SelectItem>
               <SelectItem value="pending">{t('Pending','நிலுவையில்')}</SelectItem>

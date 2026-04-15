@@ -164,28 +164,17 @@ export default function DonationProductEntry() {
   };
 
   // Handle Enter key navigation
-  const handleKeyDown = (e: React.KeyboardEvent, currentIndex: number) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      
-      // Find next focusable element
-      let nextIndex = currentIndex + 1;
-      while (nextIndex < inputRefs.length) {
-        const nextRef = inputRefs[nextIndex];
-        if (nextRef.current && !nextRef.current.disabled) {
-          nextRef.current.focus();
-          break;
-        }
-        nextIndex++;
-      }
-      
-      // If reached end, focus on submit button or first field
-      if (nextIndex >= inputRefs.length) {
-        const submitButton = document.querySelector('[type="submit"]') as HTMLButtonElement;
-        if (submitButton) {
-          submitButton.focus();
-        }
-      }
+  const handleKeyDown = (e: React.KeyboardEvent, _currentIndex: number) => {
+    if (e.key !== 'Enter') return;
+    const t = e.target as HTMLElement;
+    const tag = t.tagName?.toLowerCase();
+    if (!tag || ['button', 'textarea'].includes(tag)) return; // allow buttons and textareas to handle Enter normally
+    e.preventDefault();
+    // Focus the save button
+    const form = e.currentTarget as HTMLFormElement;
+    const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+    if (submitButton) {
+      submitButton.focus();
     }
   };
 
@@ -322,7 +311,7 @@ export default function DonationProductEntry() {
     <div className={pageContainerStyles.container}>
       <div className={cn(pageContainerStyles.content, "space-y-6")}>
         <Card className={formFieldStyles.card.container}>
-          <CardHeader className={cn(formFieldStyles.card.header, formFieldStyles.header.gradient)}>
+          <CardHeader className={theme.card.header}>
             <CardTitle className={formFieldStyles.header.title}>
               {t('Donation Entry','பொருள் நன்கொடைக் பதிவு')}
             </CardTitle>
@@ -376,11 +365,13 @@ export default function DonationProductEntry() {
                     onChange={onChange}
                     onKeyDown={(e) => handleKeyDown(e, 0)}
                     className={fieldStyles}
+                    autoFocus
                   />
                 </div>
 
                 {/* Name */}
                 <div className="md:col-span-2">
+// ... (rest of the code remains the same)
                   <Label className={labelStyles} htmlFor="name">
                     {t('Name','பெயர்')} <span className={formFieldStyles.required}>*</span>
                   </Label>

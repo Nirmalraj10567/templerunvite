@@ -61,12 +61,81 @@ export const theme = {
     readOnly: 'bg-gray-50',
     // Complete with all padding options - SINGLE LINE
     complete: 'pl-10 border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:outline-none shadow-sm focus:shadow-md transition-all duration-200',
+    // Text field sizes (height and text size only, padding handled by withIcon/withoutIcon)
+    size: {
+      sm: 'h-8 text-sm',
+      md: 'h-10 text-base',
+      lg: 'h-12 text-lg',
+    },
   },
 
   // Select Styles - EXACT from AnnadhanamEntryPage.tsx
   select: {
     base: 'w-full pl-10 pr-10 py-2 border border-orange-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:outline-none appearance-none bg-white shadow-sm focus:shadow-md transition-all duration-200',
     error: 'border-red-500',
+    // Dropdown sizes (height and text size only)
+    size: {
+      sm: 'h-8 text-sm',
+      md: 'h-10 text-base',
+      lg: 'h-12 text-lg',
+    },
+  },
+
+  // Textarea Styles
+  textarea: {
+    base: 'w-full px-4 py-2 border border-orange-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:outline-none bg-white shadow-sm focus:shadow-md transition-all duration-200',
+    error: 'border-red-500',
+    // Textarea sizes (min-height and text size)
+    size: {
+      sm: 'min-h-[80px] text-sm',
+      md: 'min-h-[120px] text-base',
+      lg: 'min-h-[160px] text-lg',
+    },
+  },
+
+  // Checkbox Styles
+  checkbox: {
+    base: 'h-5 w-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500',
+    // Checkbox sizes
+    size: {
+      sm: 'h-4 w-4',
+      md: 'h-5 w-5',
+      lg: 'h-6 w-6',
+    },
+  },
+
+  // Calendar Styles
+  calendar: {
+    base: 'border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:outline-none',
+    // Calendar sizes (height and text size)
+    size: {
+      sm: 'h-8 text-sm',
+      md: 'h-10 text-base',
+      lg: 'h-12 text-lg',
+    },
+  },
+
+  // Switch Styles
+  switch: {
+    base: 'peer-focus:ring-2 peer-focus:ring-orange-500 peer-focus:ring-offset-2',
+    // Switch sizes
+    size: {
+      sm: 'h-5 w-9',
+      md: 'h-6 w-11',
+      lg: 'h-7 w-13',
+    },
+  },
+
+  // Tabs Styles
+  tabs: {
+    base: 'border-b border-gray-200',
+    trigger: 'px-4 py-2 text-sm font-medium text-gray-600 hover:text-orange-600 data-[state=active]:text-orange-600 data-[state=active]:border-b-2 data-[state=active]:border-orange-600',
+    // Tabs sizes (padding and text size)
+    size: {
+      sm: 'px-3 py-1.5 text-xs',
+      md: 'px-4 py-2 text-sm',
+      lg: 'px-6 py-3 text-base',
+    },
   },
 
   // Button Styles - EXACT from AnnadhanamEntryPage.tsx
@@ -79,7 +148,7 @@ export const theme = {
   // Card Styles
   card: {
     container: 'shadow-lg border-0 bg-white rounded-lg',
-    header: 'bg-gradient-to-r from-orange-500 to-orange-600 text-white py-6 px-6 rounded-t-lg',
+    header: 'bg-gradient-to-r from-orange-500 to-orange-600 text-white py-2 px-6 rounded-t-lg',
     content: 'p-6',
   },
 
@@ -88,6 +157,21 @@ export const theme = {
     size: 'w-4 h-4',
     position: 'absolute left-3 top-1/2 transform -translate-y-1/2',
     color: 'text-gray-400',
+  },
+
+  // Header Styles - EXACT from AnnadhanamEntryPage.tsx
+  header: {
+    // Complete header styling from CardHeader
+    container: 'bg-gradient-to-r from-orange-500 to-orange-600 text-white py-2 px-6 rounded-t-lg',
+    // Text sizes
+    main: 'text-xl font-bold',
+    secondary: 'text-lg font-bold',
+    // Icon size
+    icon: 'w-5 h-5',
+    // Spacing for header content
+    contentSpacing: 'flex items-center justify-between',
+    // Badge styling
+    badge: 'flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full',
   },
 
   // Layout

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLanguage } from '@/lib/language';
 import { useAuth } from '@/contexts/AuthContext';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 
 interface MoneyDonationLog {
   id: number;
@@ -168,7 +169,7 @@ export default function MoneyDonationLogView({ recentOnly = false }: MoneyDonati
   return (
     <div className={pageContainerStyles.container}>
       <Card className={pageContainerStyles.content}>
-        <CardHeader className={cn(formFieldStyles.tableHeader.container, formFieldStyles.card.header)}>
+        <CardHeader className={theme.card.header}>
           <CardTitle className={formFieldStyles.tableHeader.title}>
             {t('Money Donation Logs', 'பண நன்கொடை பதிவுகள்')}
           </CardTitle>
@@ -198,7 +199,7 @@ export default function MoneyDonationLogView({ recentOnly = false }: MoneyDonati
                   }
                 }}
                 placeholder={t('Search by receipt number or name...', 'ரசீது எண் அல்லது பெயரைத் தேடுக...')}
-                className={formFieldStyles.moneyDonationList.filters.searchInput}
+                className={cn(theme.input.base, theme.input.size.md, formFieldStyles.moneyDonationList.filters.searchInput)}
                 disabled={loading && debouncedSearchTerm === searchTerm}
               />
             </div>

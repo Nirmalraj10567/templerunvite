@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
-import { formFieldStyles } from '@/styles/formStyles';
+import { formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
 import { cn } from '@/lib/utils';
 import { theme } from '@/styles/theme';
 
@@ -35,7 +35,7 @@ const MasterDataPage = () => {
   const translations = {
     tamil: {
       title: 'Master Data Management',
-      subtitle: 'Manage clans, groups, occupations, and education levels',
+      //subtitle: 'Manage clans, groups, occupations, and education levels',
       clans: 'Kootttam',
       groups: 'Groups',
       occupations: 'Occupations',
@@ -303,14 +303,16 @@ const MasterDataPage = () => {
   const outlineButton = "border border-gray-300 hover:bg-gray-50 text-gray-700";
 
   return (
-    <div className="min-h-screen bg-gray-50 py-6 px-4">
-      <div className="max-w-7xl mx-auto">
+    <div className={pageContainerStyles.container}>
+      <div className={pageContainerStyles.content}>
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
           {/* Header */}
-          <div className={theme.card.header}>
-            <h1 className="text-2xl font-bold text-center text-white">
-              {t.title}
-            </h1>
+          <div className={theme.header.container}>
+            <div className={theme.header.contentSpacing}>
+              <h1 className={theme.header.main}>
+                {t.title}
+              </h1>
+            </div>
             <p className="text-center text-orange-100 mt-2 text-sm">
               {t.subtitle}
             </p>

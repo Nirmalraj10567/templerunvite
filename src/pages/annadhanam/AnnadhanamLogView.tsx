@@ -182,10 +182,12 @@ export default function AnnadhanamLogView({ recentOnly = false }: AnnadhanamLogV
   return (
     <div className="container mx-auto py-6 px-4">
       <Card>
-        <CardHeader className={cn(formFieldStyles.tableHeader.container, formFieldStyles.card.header)}>
-          <CardTitle className="text-lg font-bold">
-            {t('All Annadhanam Logs', 'அனைத்து அன்னதானம் பதிவுகள்')}
-          </CardTitle>
+        <CardHeader className={theme.header.container}>
+          <div className={theme.header.contentSpacing}>
+            <CardTitle className={theme.header.main}>
+              {t('All Annadhanam Logs', 'அனைத்து அன்னதானம் பதிவுகள்')}
+            </CardTitle>
+          </div>
         </CardHeader>
         <CardContent className="pt-6">
           {/* Search */}
@@ -203,7 +205,7 @@ export default function AnnadhanamLogView({ recentOnly = false }: AnnadhanamLogV
                   placeholder={t('Search logs by name, receipt, or user...', 'பெயர், ரசீது அல்லது பயனர் மூலம் தேடவும்...')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className={cn(theme.input.base, "pl-10")}
+                  className={cn(theme.input.base, theme.input.size.md, "pl-10")}
                   disabled={loading && debouncedSearchTerm === searchTerm}
                 />
               </div>

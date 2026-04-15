@@ -16,6 +16,7 @@ import {
 import { Trash2, Loader2 } from 'lucide-react';
 import { cn, pageContainerStyles, formFieldStyles } from '@/styles/formStyles';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { theme } from '@/styles/theme';
 
 export default function MoneyDonationList() {
   const { token } = useAuth();
@@ -396,7 +397,7 @@ export default function MoneyDonationList() {
   return (
        <div className={pageContainerStyles.container}>
             <Card className={pageContainerStyles.content}>
-              <CardHeader className={cn(formFieldStyles.tableHeader.container, formFieldStyles.card.header)}>
+              <CardHeader className={theme.card.header}>
                 <CardTitle className={formFieldStyles.tableHeader.title}>
                   {t('Money Donation List', 'பண நன்கொடைக் பட்டியல்')}
                 </CardTitle>
@@ -422,7 +423,7 @@ export default function MoneyDonationList() {
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={onKeyDownSearch}
               placeholder={t('Search by name/phone/reason', 'பெயர்/தொலைபேசி/காரணம் மூலம் தேடுக')}
-              className={formFieldStyles.moneyDonationList.filters.searchInput}
+              className={cn(theme.input.base, theme.input.size.sm, formFieldStyles.moneyDonationList.filters.searchInput)}
             />
           </div>
 
@@ -431,14 +432,14 @@ export default function MoneyDonationList() {
               type="date"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
-              className={formFieldStyles.moneyDonationList.filters.dateInput}
+              className={cn(theme.input.base, theme.input.size.sm, formFieldStyles.moneyDonationList.filters.dateInput)}
             />
             <span className={formFieldStyles.moneyDonationList.filters.dateLabel}>{t('to', 'வரை')}</span>
             <input
               type="date"
               value={to}
               onChange={(e) => setTo(e.target.value)}
-              className={formFieldStyles.moneyDonationList.filters.dateInput}
+              className={cn(theme.input.base, theme.input.size.sm, formFieldStyles.moneyDonationList.filters.dateInput)}
             />
           </div>
 
@@ -682,7 +683,7 @@ export default function MoneyDonationList() {
         <div className={formFieldStyles.moneyDonationList.modal.overlay}>
           <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeAllLogs} />
           <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-7xl mx-4 max-h-[90vh] flex flex-col">
-            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white py-6 px-6 rounded-t-lg flex-shrink-0">
+            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white py-2 px-6 rounded-t-lg flex-shrink-0">
             <div className={formFieldStyles.moneyDonationList.modal.header}>
               <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('All Money Donation Logs', 'அனைத்து பண நன்கொடை பதிவுகள்')}</h2>
                 <button onClick={closeAllLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>
@@ -889,7 +890,7 @@ export default function MoneyDonationList() {
         <div className={formFieldStyles.moneyDonationList.modal.overlay}>
           <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeLogs} />
           <div className={formFieldStyles.moneyDonationList.modal.container}>
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-6 px-6 rounded-t-lg">
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 px-6 rounded-t-lg">
             <div className={formFieldStyles.moneyDonationList.modal.header}>
                 <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('Activity Log', 'செயல்பாட்டு பதிவு')} #{logsFor}</h2>
                 <button onClick={closeLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>

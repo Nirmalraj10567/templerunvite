@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { FileDown, Trash2 } from 'lucide-react';
 import { cn, pageContainerStyles, formFieldStyles } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 
 type TaxRegistration = {
   id: number;
@@ -1112,7 +1113,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
     <div className={pageContainerStyles.container}>
       <Card className={pageContainerStyles.content}>
       {/* Header */}
-        <CardHeader className={cn(formFieldStyles.tableHeader.container, formFieldStyles.card.header)}>
+        <CardHeader className={theme.card.header}>
           <div className="flex items-center justify-between">
             <CardTitle className={formFieldStyles.tableHeader.title}>
               {t('Tax Registrations', 'வரி பதிவுகள்')}
@@ -1128,7 +1129,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
       <Card className="mb-3">
         <CardContent className="p-2">
           <div className="grid grid-cols-3 gap-2 text-center">
-            <div className={cn(theme.input.base, "w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-orange-500 focus:border-orange-500")}>
+            <div className={cn(theme.input.base, theme.input.size.md, "w-full border border-gray-300 rounded focus:ring-1 focus:ring-orange-500 focus:border-orange-500")}>
               <div className="text-[11px] text-blue-700 font-medium">{t('Total Users', 'மொத்த பயனர்கள்')}</div>
               <div className="text-lg font-bold text-blue-900">{totalUsers}</div>
             </div>
@@ -1613,7 +1614,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
         <div className={formFieldStyles.moneyDonationList.modal.overlay}>
           <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeAllLogs} />
           <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-6xl mx-4">
-            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white py-6 px-6 rounded-t-lg">
+            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white py-2 px-6 rounded-t-lg">
               <div className={formFieldStyles.moneyDonationList.modal.header}>
                 <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('All Tax Registration Logs', 'அனைத்து வரி பதிவுகள் பதிவுகள்')}</h2>
                 <Button variant="ghost" className={formFieldStyles.moneyDonationList.modal.closeButton} onClick={closeAllLogs}>
@@ -1847,7 +1848,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
         <div className={formFieldStyles.moneyDonationList.modal.overlay}>
           <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeLogs} />
           <div className={formFieldStyles.moneyDonationList.modal.container}>
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-6 px-6 rounded-t-lg">
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 px-6 rounded-t-lg">
               <div className={formFieldStyles.moneyDonationList.modal.header}>
                 <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('Activity Log', 'செயல்பாட்டு பதிவு')} #{logsFor}</h2>
                 <Button variant="ghost" className={formFieldStyles.moneyDonationList.modal.closeButton} onClick={closeLogs}>

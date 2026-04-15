@@ -61,10 +61,12 @@ export default function MonthlyReportPage() {
   return (
     <div className={pageContainerStyles.container}>
        <Card className={pageContainerStyles.content}>
-         <CardHeader className={theme.card.header}>
-           <CardTitle className="text-lg font-bold w-full">
-           {t('Monthly Report', 'மாதாந்திர அறிக்கை')}
-           </CardTitle>
+         <CardHeader className={theme.header.container}>
+           <div className={theme.header.contentSpacing}>
+             <CardTitle className={theme.header.main}>
+             {t('Monthly Report', 'மாதாந்திர அறிக்கை')}
+             </CardTitle>
+           </div>
          </CardHeader>
        
       
@@ -73,7 +75,7 @@ export default function MonthlyReportPage() {
       <div className="flex flex-wrap gap-3 items-end mb-4">
         <div>
           <label className="block text-sm mb-1">{t('Year', 'ஆண்டு')}</label>
-          <select className={cn(theme.input.base, "rounded p-2")} value={year} onChange={(e) => setYear(parseInt(e.target.value, 10))}>
+          <select className={cn(theme.select.base, theme.select.size.sm, "rounded")} value={year} onChange={(e) => setYear(parseInt(e.target.value, 10))}>
             {Array.from({ length: 10 }, (_, i) => now.getFullYear() - 5 + i).map((y) => (
               <option key={y} value={y}>{y}</option>
             ))}
@@ -81,7 +83,7 @@ export default function MonthlyReportPage() {
         </div>
         <div>
           <label className="block text-sm mb-1">{t('Month', 'மாதம்')}</label>
-          <select className={cn(theme.input.base, "rounded p-2")} value={month} onChange={(e) => setMonth(parseInt(e.target.value, 10))}>
+          <select className={cn(theme.select.base, theme.select.size.sm, "rounded")} value={month} onChange={(e) => setMonth(parseInt(e.target.value, 10))}>
             {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
               <option key={m} value={m}>{m.toString().padStart(2, '0')}</option>
             ))}

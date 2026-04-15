@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
+import { theme } from '@/styles/theme';
+import { cn } from '@/lib/utils';
 
 type Registration = {
   id: number;
@@ -370,7 +372,7 @@ export default function RegistrationListView() {
               setPageSize(Number(e.target.value));
               setPage(1);
             }}
-            className="px-2 py-1 border rounded-md text-sm"
+            className={cn(theme.select.base, theme.select.size.md)}
           >
             <option value={10}>10 per page</option>
             <option value={25}>25 per page</option>

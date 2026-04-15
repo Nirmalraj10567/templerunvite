@@ -79,8 +79,8 @@ export default function PdfSettingsPage() {
     <div className="min-h-screen bg-gray-50 py-6 px-4">
       <div className="max-w-6xl mx-auto">
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <div className="bg-gradient-to-r from-orange-500 to-orange-600 py-6 px-6">
-            <h1 className="text-2xl font-bold text-center text-white">
+          <div className={theme.card.header}>
+            <h1 className="text-2xl font-bold text-center">
               {t('PDF Settings', 'PDF அமைப்புகள்')}
             </h1>
           </div>
@@ -465,13 +465,14 @@ export default function PdfSettingsPage() {
               </Tabs>
               
               {/* Action Buttons - Full width */}
-              <div className="md:col-span-3 flex flex-wrap gap-3 justify-center pt-4 border-t border-gray-200">
+              <div className="md:col-span-3 flex flex-wrap gap-3 justify-between pt-4 border-t border-gray-200">
+                <div></div>
                 <button 
                   type="submit" 
                   disabled={saving} 
                   className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-md text-base transition-all duration-200"
                 >
-                  {saving ? t('Saving...', 'சேமிக்கிறது...') : t('Save Settings', 'அமைப்புகளை சேமிக்க')}
+                  {saving ? t('Saving...', 'Saving...') : t('Save Settings', 'Save Settings')}
                 </button>
               </div>
             </form>

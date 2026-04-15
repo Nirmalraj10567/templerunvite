@@ -255,10 +255,12 @@ export default function JournalLogPage() {
   return (
     <div className={pageContainerStyles.container}>
        <Card className={pageContainerStyles.content}>
-         <CardHeader className={theme.card.header}>
-           <CardTitle className="text-lg font-bold w-full">
-           {t('Journal Log', 'ஜர்னல் பதிவு')}
-           </CardTitle>
+         <CardHeader className={theme.header.container}>
+           <div className={theme.header.contentSpacing}>
+             <CardTitle className={theme.header.main}>
+             {t('Journal Log', 'ஜர்னல் பதிவு')}
+             </CardTitle>
+           </div>
          </CardHeader>
        
       <Card>
@@ -267,15 +269,15 @@ export default function JournalLogPage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
             <div className="space-y-1">
               <Label htmlFor="startDate">{t('Start Date', 'தொடக்க தேதி')}</Label>
-              <Input id="startDate" type="date" value={startDate} onChange={(e) => onFilterChange('startDate', e.target.value)} className={theme.input.base} />
+              <Input id="startDate" type="date" value={startDate} onChange={(e) => onFilterChange('startDate', e.target.value)} className={cn(theme.input.base, theme.input.size.md)} />
             </div>
             <div className="space-y-1">
               <Label htmlFor="endDate">{t('End Date', 'முடிவு தேதி')}</Label>
-              <Input id="endDate" type="date" value={endDate} onChange={(e) => onFilterChange('endDate', e.target.value)} className={theme.input.base} />
+              <Input id="endDate" type="date" value={endDate} onChange={(e) => onFilterChange('endDate', e.target.value)} className={cn(theme.input.base, theme.input.size.md)} />
             </div>
             <div className="space-y-1 md:col-span-2">
               <Label htmlFor="account">{t('Account (optional)', 'கணக்கு (விருப்பம்)')}</Label>
-              <Input id="account" placeholder={t('Search account name', 'Search account name')} value={account} onChange={(e) => onFilterChange('account', e.target.value)} className={theme.input.base} />
+              <Input id="account" placeholder={t('Search account name', 'Search account name')} value={account} onChange={(e) => onFilterChange('account', e.target.value)} className={cn(theme.input.base, theme.input.size.md)} />
             </div>
           </div>
           <div className="flex justify-between items-center mb-3">

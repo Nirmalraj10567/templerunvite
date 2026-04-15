@@ -308,19 +308,17 @@ export default function TaxUserEntryPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.outstandingAmount, form.taxAmount]);
 
-  // Fast navigation: treat Enter as Tab to move to next field
+  // Fast navigation: focus save button on Enter
   const handleFormKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'Enter') return;
     const t = e.target as HTMLElement;
     const tag = t.tagName?.toLowerCase();
-    if (!tag || ['button'].includes(tag)) return; // allow buttons to click
+    if (!tag || ['button', 'textarea'].includes(tag)) return; // allow buttons and textareas to handle Enter normally
     e.preventDefault();
-    const selectors = 'input, select, textarea, button';
-    const tabbables = Array.from(document.querySelectorAll<HTMLElement>(selectors))
-      .filter(el => !el.hasAttribute('disabled') && el.tabIndex !== -1 && el.offsetParent !== null);
-    const idx = tabbables.indexOf(t);
-    if (idx > -1 && idx + 1 < tabbables.length) {
-      tabbables[idx + 1].focus();
+    // Focus the save button
+    const saveButton = document.querySelector('button[type="submit"]') as HTMLButtonElement;
+    if (saveButton) {
+      saveButton.focus();
     }
   };
 
@@ -1120,16 +1118,18 @@ export default function TaxUserEntryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-0.5 px-3">
-      <div className="max-w-7xl mx-auto">
+    <div className={pageContainerStyles.container}>
+      <div className={pageContainerStyles.content}>
         {/* Language Toggle + Header */}
         <div className="flex items-center justify-between mb-3">
           <div className="text-center flex-1">
-          <CardHeader className={theme.card.header}>
-          <CardTitle className="text-2xl font-bold text-center">
-              {L('Tax Registration', 'வரி பதிவு')}
-         </CardTitle>
-</CardHeader>
+          <CardHeader className={theme.header.container}>
+            <div className={theme.header.contentSpacing}>
+              <CardTitle className={theme.header.main}>
+                {L('Tax Registration', 'வரி பதிவு')}
+              </CardTitle>
+            </div>
+          </CardHeader>
           </div>
      
         </div>
@@ -1167,15 +1167,16 @@ export default function TaxUserEntryPage() {
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Date', 'தேதி')}</label>
                     <input
                       type="date"
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={cn(theme.input.base, theme.input.size.md, "w-full")}
                       value={form.date}
                       onChange={e => set('date', e.target.value)}
+                      autoFocus
                     />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Year', 'வருடம்')} *</label>
                     <select
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={cn(theme.select.base, theme.select.size.md, "w-full")}
                       value={form.year}
                       onChange={e => handleYearChange(parseInt(e.target.value))}
                     >
@@ -1187,7 +1188,8 @@ export default function TaxUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Reference No (auto)', 'குறிப்பு எண் (தானாக)')}</label>
                     <input
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded bg-gray-100 cursor-not-allowed", errors.referenceNumber && "border-red-500 bg-red-50")}
+                      type="text"
+                      className={`${theme.input.base} ${theme.input.size.md} w-full bg-gray-100 cursor-not-allowed ${errors.referenceNumber ? "border-red-500 bg-red-50" : ""}`}
                       value={form.referenceNumber}
                       readOnly
                       title={L('Auto-generated when year changes', 'வருடம் மாற்றும் போது தானாக உருவாகும்')}
@@ -1202,7 +1204,7 @@ export default function TaxUserEntryPage() {
                     </label>
                     <div className="flex gap-1">
                       <input
-                        className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                        className={cn(theme.input.base, theme.input.size.md, "w-full")}
                         value={receiptSearch}
                         onChange={e => setReceiptSearch(e.target.value)}
                         placeholder={L('Enter reference number to search', 'குறிப்பு எண்ணைத் தட்டச்சு செய்து தேடு')}
@@ -1232,7 +1234,7 @@ export default function TaxUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Gender', 'பாலினம்')} *</label>
                     <select
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.gender && "border-red-500 bg-red-50")}
+                      className={cn(theme.select.base, theme.select.size.md, "w-full", errors.gender && "border-red-500 bg-red-50")}
                       value={form.gender}
                       onChange={e => set('gender', e.target.value)}
                     >
@@ -1245,7 +1247,7 @@ export default function TaxUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Marital Status', 'திருமண நிலை')} *</label>
                     <select
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.maritalStatus && "border-red-500 bg-red-50")}
+                      className={cn(theme.select.base, theme.select.size.md, "w-full", errors.maritalStatus && "border-red-500 bg-red-50")}
                       value={form.maritalStatus}
                       onChange={e => set('maritalStatus', e.target.value)}
                     >
@@ -1270,7 +1272,7 @@ export default function TaxUserEntryPage() {
                       </label>
                       <div className="flex gap-1">
                         <input
-                          className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                          className={cn(theme.input.base, theme.input.size.md, "w-full")}
                           value={form.parentReferenceId}
                           onChange={e => set('parentReferenceId', e.target.value)}
                           placeholder={L('Enter father\'s reference', 'தந்தையின் குறிப்பு எண்ணை உள்ளிடவும்')}
@@ -1323,7 +1325,7 @@ export default function TaxUserEntryPage() {
                       <input
                         type="tel"
                         ref={mobileInputRef}
-                        className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.mobileNumber && "border-red-500 bg-red-50")}
+                        className={cn(theme.input.base, theme.input.size.md, "w-full", errors.mobileNumber && "border-red-500 bg-red-50")}
                         value={form.mobileNumber}
                         onChange={e => {
                           handleMobileChange(e.target.value);
@@ -1377,7 +1379,7 @@ export default function TaxUserEntryPage() {
                     </label>
                     <div>
                       <input
-                        className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.name && "border-red-500 bg-red-50")}
+                        className={cn(theme.input.base, theme.input.size.md, "w-full", errors.name && "border-red-500 bg-red-50")}
                         value={form.name}
                         onChange={e => {
                           set('name', e.target.value);
@@ -1424,7 +1426,7 @@ export default function TaxUserEntryPage() {
                       {L('Last Name', 'கடைசி பெயர்')}
                     </label>
                     <input
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={cn(theme.input.base, theme.input.size.md, "w-full")}
                       value={form.alternativeName}
                       onChange={e => set('alternativeName', e.target.value)}
                     />
@@ -1436,7 +1438,7 @@ export default function TaxUserEntryPage() {
                       <div>
                         <label className="block text-xs font-medium text-gray-900 mb-1">{L('Wife\'s Name', 'மனைவி பெயர்')}</label>
                         <input
-                          className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                          className={cn(theme.input.base, theme.input.size.md, "w-full")}
                           value={form.wifeName}
                           onChange={e => set('wifeName', e.target.value)}
                         />
@@ -1444,7 +1446,7 @@ export default function TaxUserEntryPage() {
                       <div>
                         <label className="block text-xs font-medium text-gray-900 mb-1">{L('Wife\'s Father Name', 'மனைவி தந்தை பெயர்')}</label>
                         <input
-                          className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                          className={cn(theme.input.base, theme.input.size.md, "w-full")}
                           value={form.wifeFatherName}
                           onChange={e => set('wifeFatherName', e.target.value)}
                         />
@@ -1452,7 +1454,7 @@ export default function TaxUserEntryPage() {
                       <div>
                         <label className="block text-xs font-medium text-gray-900 mb-1">{L('Wife Contact', 'மனைவி தொடர்பு')}</label>
                         <input
-                          className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                          className={cn(theme.input.base, theme.input.size.md, "w-full")}
                           value={form.wifeContact}
                           onChange={e => set('wifeContact', e.target.value)}
                           placeholder={L('Mobile/Phone', 'கைபேசி/தொலைபேசி')}
@@ -1481,7 +1483,7 @@ export default function TaxUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Alt Name', 'மாற்று பெயர்')}</label>
                     <input
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={cn(theme.input.base, theme.input.size.md, "w-full")}
                       value={form.alternativeName}
                       onChange={e => set('alternativeName', e.target.value)}
                     />
@@ -1489,7 +1491,7 @@ export default function TaxUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Spouse', 'மனைவி')}</label>
                     <input
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={cn(theme.input.base, theme.input.size.md, "w-full")}
                       value={form.wifeName}
                       onChange={e => set('wifeName', e.target.value)}
                     />
@@ -1497,7 +1499,7 @@ export default function TaxUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Father', 'தந்தை')} *</label>
                     <input
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.fatherName && "border-red-500 bg-red-50")}
+                      className={cn(theme.input.base, theme.input.size.md, "w-full", errors.fatherName && "border-red-500 bg-red-50")}
                       value={form.fatherName}
                       onChange={e => set('fatherName', e.target.value)}
                     />
@@ -1507,7 +1509,7 @@ export default function TaxUserEntryPage() {
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Birth Date', 'பிறந்த தேதி')}</label>
                     <input
                       type="date"
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={cn(theme.input.base, theme.input.size.md, "w-full")}
                       value={form.birthDate}
                       onChange={e => set('birthDate', e.target.value)}
                     />
@@ -1515,7 +1517,7 @@ export default function TaxUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Education', 'கல்வி')}</label>
                     <select
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={cn(theme.select.base, theme.select.size.md, "w-full")}
                       value={form.education}
                       onChange={e => set('education', e.target.value)}
                     >
@@ -1528,7 +1530,7 @@ export default function TaxUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Village', 'கிராமம்')}</label>
                     <input
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={cn(theme.input.base, theme.input.size.md, "w-full")}
                       value={form.village}
                       onChange={e => set('village', e.target.value)}
                     />
@@ -1552,8 +1554,7 @@ export default function TaxUserEntryPage() {
                 {showAddress && (
                   <fieldset disabled={autoLocked} className="contents">
                     <textarea
-                      className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.address ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                        }`}
+                      className={cn(theme.textarea.base, theme.textarea.size.md, "w-full", errors.address ? 'border-red-500 bg-red-50' : 'border-gray-300')}
                       rows={2}
                       value={form.address}
                       onChange={e => set('address', e.target.value)}
@@ -1578,8 +1579,7 @@ export default function TaxUserEntryPage() {
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Aadhaar', 'ஆதார்')}</label>
                     <input
                       type="text"
-                      className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.aadhaarNumber ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                        }`}
+                      className={cn(theme.input.base, theme.input.size.md, "w-full", errors.aadhaarNumber ? 'border-red-500 bg-red-50' : 'border-gray-300')}
                       value={form.aadhaarNumber}
                       onChange={e => handleFormattedInput('aadhaarNumber', e.target.value, formatAadhaarNumber)}
                       placeholder="XXXX-XXXX-XXXX"
@@ -1590,7 +1590,7 @@ export default function TaxUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('PAN', 'பான்')}</label>
                     <input
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={cn(theme.input.base, theme.input.size.md, "w-full")}
                       value={form.panNumber}
                       onChange={e => set('panNumber', e.target.value)}
                     />
@@ -1598,7 +1598,7 @@ export default function TaxUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Clan', 'குலம்')}</label>
                     <select
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={cn(theme.select.base, theme.select.size.md, "w-full")}
                       value={form.clan}
                       onChange={e => set('clan', e.target.value)}
                     >
@@ -1611,7 +1611,7 @@ export default function TaxUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Group', 'குழு')}</label>
                     <select
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={cn(theme.select.base, theme.select.size.md, "w-full")}
                       value={form.group}
                       onChange={e => set('group', e.target.value)}
                     >
@@ -1624,7 +1624,7 @@ export default function TaxUserEntryPage() {
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Postal Code', 'அஞ்சல் குறியீடு')}</label>
                     <input
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={cn(theme.input.base, theme.input.size.md, "w-full")}
                       value={form.postalCode}
                       onChange={e => set('postalCode', e.target.value)}
                     />
@@ -1633,7 +1633,7 @@ export default function TaxUserEntryPage() {
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Male Heirs', 'ஆண் வாரிசு')}</label>
                     <input
                       type="number"
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={cn(theme.input.base, theme.input.size.md, "w-full")}
                       value={form.maleHeirs}
                       onChange={e => set('maleHeirs', parseInt(e.target.value) || 0)}
                       min="0"
@@ -1643,7 +1643,7 @@ export default function TaxUserEntryPage() {
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Female Heirs', 'பெண் வாரிசு')}</label>
                     <input
                       type="number"
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={cn(theme.input.base, theme.input.size.md, "w-full")}
                       value={form.femaleHeirs}
                       onChange={e => set('femaleHeirs', parseInt(e.target.value) || 0)}
                       min="0"
@@ -1884,7 +1884,7 @@ export default function TaxUserEntryPage() {
                 <select
                   id="transfer-to"
                   required
-                  className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.transferTo ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                  className={cn(theme.select.base, theme.select.size.md, "w-full", errors.transferTo ? 'border-red-500 bg-red-50' : 'border-gray-300')}
                   value={(form as any).transferTo || ''}
                   onChange={e => set('transferTo' as any, e.target.value)}
                 >
@@ -1904,11 +1904,11 @@ export default function TaxUserEntryPage() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-2">{L('Amounts', 'தொகைகள்')}</h3>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Amount', 'தொகை')}</label>
+                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Tax Amount', 'வரி தொகை')}</label>
                     <input
                       readOnly
                       value={form.taxAmount}
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-100"
+                      className={cn(theme.input.base, theme.input.size.md, "w-full bg-gray-100")}
                     />
                   </div>
                   <div>
@@ -1916,7 +1916,7 @@ export default function TaxUserEntryPage() {
                     <input
                       readOnly
                       value={remainingDue.toString()}
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-100"
+                      className={cn(theme.input.base, theme.input.size.md, "w-full bg-gray-100")}
                     />
                   </div>
                   <div>
@@ -1927,7 +1927,7 @@ export default function TaxUserEntryPage() {
                       onFocus={(e) => e.currentTarget.select()}
                       onChange={e => handleAmountPaidChange(e.target.value)}
                       ref={amountPaidRef}
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                      className={cn(theme.input.base, theme.input.size.md, "w-full")}
                     />
                   </div>
                   <div>
@@ -1935,7 +1935,7 @@ export default function TaxUserEntryPage() {
                     <input
                       readOnly
                       value={remainingDue.toString()}
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-100"
+                      className={cn(theme.input.base, theme.input.size.md, "w-full bg-gray-100")}
                     />
                   </div>
                 </div>

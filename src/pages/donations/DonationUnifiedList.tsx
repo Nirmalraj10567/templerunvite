@@ -332,10 +332,12 @@ export default function DonationUnifiedList() {
   return (
     <div className={pageContainerStyles.container}>
       <Card className={pageContainerStyles.content}>
-        <CardHeader className={theme.card.header}>
-          <CardTitle className={formFieldStyles.tableHeader.title}>
-            {t('Donation List (Unified)', 'நன்கொடை பட்டியல் (ஒன்றுபட்ட)')}
-          </CardTitle>
+        <CardHeader className={theme.header.container}>
+          <div className={theme.header.contentSpacing}>
+            <CardTitle className={theme.header.main}>
+              {t('Donation List (Unified)', 'நன்கொடை பட்டியல் (ஒன்றுபட்ட)')}
+            </CardTitle>
+          </div>
         </CardHeader>
 
         {/* Filters */}
@@ -353,14 +355,14 @@ export default function DonationUnifiedList() {
                 onChange={(e) => setQ(e.target.value)}
                 onKeyDown={onKeyDownSearch}
                 placeholder={t('Search by name/phone/reason/product/receipt', 'பெயர்/தொலைபேசி/காரணம்/பொருள்/ரசீது மூலம் தேடுக')}
-                className={cn(theme.input.base, "block w-full pl-8 pr-2 py-1 border border-gray-300 rounded leading-5 bg-white placeholder-gray-500 text-xs")}
+                className={cn(theme.input.base, theme.input.size.sm, "block w-full pl-8 pr-2 border border-gray-300 rounded leading-5 bg-white placeholder-gray-500")}
               />
             </div>
 
             <div className={formFieldStyles.moneyDonationList.filters.dateContainer}>
-              <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={formFieldStyles.moneyDonationList.filters.dateInput} />
+              <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={cn(theme.input.base, theme.input.size.sm, formFieldStyles.moneyDonationList.filters.dateInput)} />
               <span className={formFieldStyles.moneyDonationList.filters.dateLabel}>{t('to', 'வரை')}</span>
-              <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={formFieldStyles.moneyDonationList.filters.dateInput} />
+              <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={cn(theme.input.base, theme.input.size.sm, formFieldStyles.moneyDonationList.filters.dateInput)} />
             </div>
 
             {/* Type Filter */}
@@ -372,7 +374,7 @@ export default function DonationUnifiedList() {
                 id="typeFilter"
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value as 'all' | 'money' | 'product')}
-                className={formFieldStyles.moneyDonationList.filters.dateInput}
+                className={cn(theme.select.base, theme.select.size.sm, formFieldStyles.moneyDonationList.filters.dateInput)}
               >
                 <option value="all">{t('All', 'அனைத்து')}</option>
                 <option value="money">{t('Money', 'பணம்')}</option>
@@ -617,7 +619,7 @@ export default function DonationUnifiedList() {
           <div className={formFieldStyles.moneyDonationList.modal.overlay}>
             <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeLogs} />
             <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-5xl mx-4 max-h-[90vh] flex flex-col">
-              <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 rounded-t-lg flex-shrink-0">
+              <div className={theme.card.header}>
                 <div className={formFieldStyles.moneyDonationList.modal.header}>
                   <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('Donation Logs', 'நன்கொடை பதிவுகள்')}</h2>
                   <button onClick={closeLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>

@@ -311,10 +311,12 @@ export default function TaxSettingsPage() {
   return (
     <div className={pageContainerStyles.container}>
       <Card className={pageContainerStyles.content}>
-        <CardHeader className={theme.card.header}>
-          <CardTitle className="text-lg font-bold w-full">
-            {translations.taxSettings}
-          </CardTitle>
+        <CardHeader className={theme.header.container}>
+          <div className={theme.header.contentSpacing}>
+            <CardTitle className={theme.header.main}>
+              {translations.taxSettings}
+            </CardTitle>
+          </div>
         </CardHeader>
         
         <CardContent className="p-6">

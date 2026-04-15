@@ -271,24 +271,25 @@ export default function HallApprovalPage() {
 
   return (
     <Card className={pageContainerStyles.container}>
-      
-     
-        <CardHeader className={theme.card.header}>
-          <CardTitle className="text-lg font-bold w-full">
+
+      <CardHeader className={theme.header.container}>
+        <div className={theme.header.contentSpacing}>
+          <CardTitle className={theme.header.main}>
           {t('Hall Booking Approvals', 'மண்டப முன்பதிவு அனுமதிகள்')}
           </CardTitle>
-        </CardHeader>
+        </div>
+      </CardHeader>
 
 
       <div className="flex flex-col md:flex-row gap-3 mb-4">
-        <select className={cn(theme.input.base, "p-2 rounded")} value={status} onChange={(e) => setStatus(e.target.value)}>
+        <select className={cn(theme.select.base, theme.select.size.sm)} value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="pending">{t('Pending', 'நிலுவையில்')}</option>
           <option value="approved">{t('Approved', 'அனுமதிக்கப்பட்டது')}</option>
           <option value="rejected">{t('Rejected', 'நிராகரிக்கப்பட்டது')}</option>
           <option value="cancelled">{t('Cancelled', 'ரத்துசெய்யப்பட்டது')}</option>
         </select>
         <input
-          className={cn(theme.input.base, "p-2 rounded")}
+          className={cn(theme.input.base, theme.input.size.sm)}
           placeholder={t('Search by mobile', 'மொபைல் மூலம் தேடுக')}
           value={mobile}
           onChange={(e) => setMobile(e.target.value)}
@@ -368,7 +369,7 @@ export default function HallApprovalPage() {
           </DialogHeader>
           <div className="space-y-2">
             <label className="text-sm">{t('Approval notes (optional)', 'அனுமதி குறிப்புகள் (விருப்பத்தேர்வு)')}</label>
-            <Textarea value={approveNotes} onChange={(e) => setApproveNotes(e.target.value)} placeholder={t('Enter notes', 'குறிப்புகளை உள்ளிடவும்')} />
+            <Textarea value={approveNotes} onChange={(e) => setApproveNotes(e.target.value)} className={cn(theme.textarea.base, theme.textarea.size.md)} placeholder={t('Enter notes', 'குறிப்புகளை உள்ளிடவும்')} />
           </div>
           <DialogFooter>
             <Button variant="secondary" onClick={() => setApproveOpen(false)}>{t('Cancel', 'ரத்து')}</Button>
@@ -385,9 +386,9 @@ export default function HallApprovalPage() {
           </DialogHeader>
           <div className="space-y-2">
             <label className="text-sm">{t('Rejection reason', 'நிராகரிப்பிற்கான காரணம்')}</label>
-            <Input value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder={t('Enter reason', 'காரணத்தை உள்ளிடவும்')} />
+            <Input value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} className={cn(theme.input.base, theme.input.size.md)} placeholder={t('Enter reason', 'காரணத்தை உள்ளிடவும்')} />
             <label className="text-sm">{t('Admin notes (optional)', 'நிர்வாக குறிப்புகள் (விருப்பத்தேர்வு)')}</label>
-            <Textarea value={rejectNotes} onChange={(e) => setRejectNotes(e.target.value)} placeholder={t('Enter notes', 'குறிப்புகளை உள்ளிடவும்')} />
+            <Textarea value={rejectNotes} onChange={(e) => setRejectNotes(e.target.value)} className={cn(theme.textarea.base, theme.textarea.size.md)} placeholder={t('Enter notes', 'குறிப்புகளை உள்ளிடவும்')} />
           </div>
           <DialogFooter>
             <Button variant="secondary" onClick={() => setRejectOpen(false)}>{t('Cancel', 'ரத்து')}</Button>
@@ -405,47 +406,47 @@ export default function HallApprovalPage() {
           <div className="grid grid-cols-2 gap-2 text-sm">
             <label className="col-span-1">
               <div className="text-xs mb-1">{t('Date','தேதி')}</div>
-              <Input type="date" name="date" value={editForm.date || ''} onChange={onChangeEdit} />
+              <Input type="date" name="date" value={editForm.date || ''} onChange={onChangeEdit} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-1">
               <div className="text-xs mb-1">{t('Time','நேரம்')}</div>
-              <Input type="time" name="time" value={editForm.time || ''} onChange={onChangeEdit} />
+              <Input type="time" name="time" value={editForm.time || ''} onChange={onChangeEdit} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-1">
               <div className="text-xs mb-1">{t('Name','பெயர்')}</div>
-              <Input name="name" value={editForm.name || ''} onChange={onChangeEdit} />
+              <Input name="name" value={editForm.name || ''} onChange={onChangeEdit} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-1">
               <div className="text-xs mb-1">{t('Mobile','தொலைபேசி')}</div>
-              <Input name="mobile" value={editForm.mobile || ''} onChange={onChangeEdit} maxLength={10} />
+              <Input name="mobile" value={editForm.mobile || ''} onChange={onChangeEdit} maxLength={10} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-2">
               <div className="text-xs mb-1">{t('Event','நிகழ்வு')}</div>
-              <Input name="event" value={editForm.event || ''} onChange={onChangeEdit} />
+              <Input name="event" value={editForm.event || ''} onChange={onChangeEdit} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-2">
               <div className="text-xs mb-1">{t('Address','முகவரி')}</div>
-              <Textarea name="address" value={editForm.address || ''} onChange={onChangeEdit} rows={2} />
+              <Textarea name="address" value={editForm.address || ''} onChange={onChangeEdit} className={cn(theme.textarea.base, theme.textarea.size.md)} rows={2} />
             </label>
             <label className="col-span-2">
               <div className="text-xs mb-1">{t('Village','கிராமம்')}</div>
-              <Input name="village" value={editForm.village || ''} onChange={onChangeEdit} />
+              <Input name="village" value={editForm.village || ''} onChange={onChangeEdit} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-1">
               <div className="text-xs mb-1">{t('Total Amount (₹)','மொத்தம் (₹)')}</div>
-              <Input type="number" step="0.01" min="0" name="totalAmount" value={editForm.totalAmount || ''} onChange={onChangeEdit} />
+              <Input type="number" step="0.01" min="0" name="totalAmount" value={editForm.totalAmount || ''} onChange={onChangeEdit} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-1">
               <div className="text-xs mb-1">{t('Advance (₹)','முன்பணம் (₹)')}</div>
-              <Input type="number" step="0.01" min="0" name="advanceAmount" value={editForm.advanceAmount || ''} onChange={onChangeEdit} />
+              <Input type="number" step="0.01" min="0" name="advanceAmount" value={editForm.advanceAmount || ''} onChange={onChangeEdit} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-1">
               <div className="text-xs mb-1">{t('Balance (₹)','இருப்பு (₹)')}</div>
-              <Input readOnly name="balanceAmount" value={editForm.balanceAmount || ''} />
+              <Input readOnly name="balanceAmount" value={editForm.balanceAmount || ''} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-2">
               <div className="text-xs mb-1">{t('Remarks','குறிப்புகள்')}</div>
-              <Textarea name="remarks" value={editForm.remarks || ''} onChange={onChangeEdit} rows={2} />
+              <Textarea name="remarks" value={editForm.remarks || ''} onChange={onChangeEdit} className={cn(theme.textarea.base, theme.textarea.size.md)} rows={2} />
             </label>
           </div>
           <DialogFooter>

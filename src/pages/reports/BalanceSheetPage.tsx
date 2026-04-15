@@ -401,14 +401,16 @@ export default function BalanceSheetPage() {
   return (
     <div className={pageContainerStyles.container}>
        <Card className={pageContainerStyles.content}>
-         <CardHeader className={theme.card.header}>
-           <CardTitle className="text-lg font-bold w-full">
-           {t[language].balanceSheet}
-           </CardTitle>
+         <CardHeader className={theme.header.container}>
+           <div className={theme.header.contentSpacing}>
+             <CardTitle className={theme.header.main}>
+             {t[language].balanceSheet}
+             </CardTitle>
+           </div>
          </CardHeader>
        
       <Card className="shadow-lg">
-        <CardHeader className="py-3 px-4 border-b">
+        <CardHeader className={theme.card.header}>
           <div className="flex justify-start items-left">
             
           </div>
@@ -417,11 +419,11 @@ export default function BalanceSheetPage() {
           <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-3 items-end">
             <div>
               <Label htmlFor="from" className="text-xs">{t[language].from}</Label>
-              <Input id="from" type="date" className={cn(theme.input.base, "h-8 text-sm")} value={startDate} onChange={(e) => onFilterChange('from', e.target.value)} />
+              <Input id="from" type="date" className={cn(theme.input.base, theme.input.size.sm)} value={startDate} onChange={(e) => onFilterChange('from', e.target.value)} />
             </div>
             <div>
               <Label htmlFor="to" className="text-xs">{t[language].to}</Label>
-              <Input id="to" type="date" className={cn(theme.input.base, "h-8 text-sm")} value={endDate} onChange={(e) => onFilterChange('to', e.target.value)} />
+              <Input id="to" type="date" className={cn(theme.input.base, theme.input.size.sm)} value={endDate} onChange={(e) => onFilterChange('to', e.target.value)} />
             </div>
             <div className="md:col-span-2">
               <Button size="sm" onClick={load} disabled={isLoading} className="flex items-center gap-1">

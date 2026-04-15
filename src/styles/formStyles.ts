@@ -89,13 +89,13 @@ export const formFieldStyles = {
   // Card
   card: {
     container: cn(theme.card.container),
-    header: cn(theme.card.header, 'py-3 px-6'),
+    header: cn(theme.card.header),
     content: cn(theme.card.content),
     title: cn('text-xl font-semibold text-center'),
     // Event-specific card styles
     event: {
       container: cn('w-full max-w-4xl'),
-      header: cn(theme.card.header, 'py-4 px-6')
+      header: cn(theme.card.header)
     }
   },
   
@@ -235,12 +235,12 @@ export const formFieldStyles = {
     // Card
     card: {
       container: "shadow-lg border-0 bg-white rounded-lg",
-      header: "py-3 px-6 rounded-t-lg",
+      header: cn(theme.card.header),
       content: "p-3",
       title: "text-xl font-semibold text-center",
       event: {
         container: "w-full max-w-4xl",
-        header: "bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6"
+        header: cn(theme.card.header)
       }
     },
     cardContent: "p-6",
