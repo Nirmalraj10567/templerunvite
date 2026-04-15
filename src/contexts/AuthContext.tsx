@@ -49,7 +49,9 @@ interface AuthContextType {
   userPermissions: UserPermission[];
   isSuperAdmin: boolean;
   temple: Temple | null;
+  isGuest: boolean;
   login: (email: string, password: string) => Promise<void>;
+  guestLogin: () => Promise<{ success: boolean; error?: string }>;
   register: (userData: RegisterData) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   isLoading: boolean;
@@ -72,7 +74,9 @@ const AuthContext = createContext<AuthContextType>({
   userPermissions: [], // already initialized
   isSuperAdmin: false,
   temple: null,
+  isGuest: false,
   login: async () => {},
+  guestLogin: async () => ({ success: false, error: 'Not initialized' }),
   register: async () => ({ success: false, error: 'Not initialized' }),
   logout: () => {},
   isLoading: false,
@@ -80,12 +84,13 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AuthState>({
+  const [state, setState] = useState<AuthState & { isGuest: boolean }>({
     user: null,
     token: null,
     userPermissions: [],
     isSuperAdmin: false,
     temple: null,
+    isGuest: false,
     isLoading: true,
     error: '',
   });
@@ -119,6 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const savedUser = localStorage.getItem('userInfo');
     const savedPermissions = localStorage.getItem('userPermissions');
     const savedTemple = localStorage.getItem('templeInfo');
+    const savedIsGuest = localStorage.getItem('isGuest') === 'true';
     
     if (savedToken && savedUser) {
       // Check if token is expired before restoring session
@@ -128,6 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem('userInfo');
         localStorage.removeItem('userPermissions');
         localStorage.removeItem('templeInfo');
+        localStorage.removeItem('isGuest');
         setState(prev => ({ ...prev, isLoading: false }));
         return;
       }
@@ -148,6 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         userPermissions: parsedPermissions,
         isSuperAdmin: parsedUser.mobile === '9999999999',
         temple: parsedTemple,
+        isGuest: savedIsGuest,
         isLoading: false,
       }));
     } else {
@@ -217,6 +225,66 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Guest login for mobile - allows limited access without registration
+  const guestLogin = async () => {
+    setState(prev => ({ ...prev, isLoading: true, error: '' }));
+
+    try {
+      // Get device info if available
+      const deviceId = localStorage.getItem('deviceId') || `device_${Date.now()}`;
+      localStorage.setItem('deviceId', deviceId);
+
+      const response = await fetch('http://localhost:4000/api/mobile-auth/guest-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deviceId,
+          deviceName: navigator.userAgent || 'Unknown Device'
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Guest login failed');
+      }
+
+      const { token, user } = data;
+
+      // Store guest session
+      setState(prev => ({
+        ...prev,
+        token,
+        user: {
+          id: 0, // Guest users get id 0
+          name: user.name,
+          mobile: '',
+          email: '',
+          role: 'guest',
+        },
+        isGuest: true,
+        userPermissions: user.permissions?.map((p: string) => ({ permission_id: p, access_level: 'view' })) || [],
+        isSuperAdmin: false,
+        temple: null,
+        isLoading: false,
+      }));
+
+      localStorage.setItem('authToken', token);
+      localStorage.setItem('userInfo', JSON.stringify({ ...user, role: 'guest' }));
+      localStorage.setItem('isGuest', 'true');
+
+      return { success: true };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Guest login failed';
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: errorMessage
+      }));
+      return { success: false, error: errorMessage };
+    }
+  };
+
   const register = async (userData: RegisterData) => {
     setState(prev => ({ ...prev, isLoading: true, error: '' }));
     
@@ -274,6 +342,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       userPermissions: [],
       isSuperAdmin: false,
       temple: null,
+      isGuest: false,
       isLoading: false,
       error: '',
     });
@@ -281,6 +350,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('userInfo');
     localStorage.removeItem('userPermissions');
     localStorage.removeItem('templeInfo');
+    localStorage.removeItem('isGuest');
   };
 
   // Set up global logout callback for API client
@@ -312,7 +382,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       userPermissions: state.userPermissions,
       isSuperAdmin: state.isSuperAdmin,
       temple: state.temple,
+      isGuest: state.isGuest,
       login,
+      guestLogin,
       register,
       logout,
       isLoading: state.isLoading,

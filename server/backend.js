@@ -624,6 +624,60 @@ async function removeMoneyDonationFromDaybook({ donationId, templeId }) {
     console.error('Failed to mount users router:', e);
   }
 })();
+
+// Pooja → Daybook sync function
+async function syncPoojaToDaybook({ poojaId, templeId, userId }) {
+  try {
+    const hasDaybook = await db.schema.hasTable('daybook_entries');
+    if (!hasDaybook) return;
+
+    const row = await db('pooja').where({ id: poojaId, temple_id: templeId }).first();
+    if (!row) return;
+
+    // Delete existing daybook entry if any
+    await db('daybook_entries')
+      .where({ temple_id: templeId, reference_type: 'pooja', reference_id: Number(poojaId) })
+      .del();
+
+    if (!row.amount || row.amount <= 0) return;
+
+    const receiptNumber = await generateDaybookReceiptNumber(templeId);
+    const runningBalance = await calculateDaybookRunningBalance(templeId, row.from_date);
+
+    await db('daybook_entries').insert({
+      temple_id: templeId,
+      entry_date: row.from_date,
+      entry_type: 'income',
+      description: `Pooja - ${row.name || 'Unknown'}`,
+      reference_type: 'pooja',
+      reference_id: Number(poojaId),
+      receipt_number: receiptNumber,
+      amount: Number(row.amount || 0),
+      payment_mode: 'cash',
+      party_name: row.name || null,
+      party_mobile: row.mobile_number || null,
+      notes: row.remarks || null,
+      running_balance: runningBalance + Number(row.amount || 0),
+      created_by: userId ? Number(userId) : null,
+      created_at: db.fn.now(),
+    });
+  } catch (e) {
+    console.error('Failed to sync pooja to daybook:', e.message);
+  }
+}
+
+async function removePoojaFromDaybook({ poojaId, templeId }) {
+  try {
+    const hasDaybook = await db.schema.hasTable('daybook_entries');
+    if (!hasDaybook) return;
+
+    await db('daybook_entries')
+      .where({ temple_id: templeId, reference_type: 'pooja', reference_id: Number(poojaId) })
+      .del();
+  } catch (e) {
+    console.error('Failed to remove pooja from daybook:', e.message);
+  }
+}
 // Hall bookings router will be mounted later with proper auth
 // Mount moon API routes (moon-phases and moon-dates)
 (() => {
@@ -636,7 +690,7 @@ async function removeMoneyDonationFromDaybook({ donationId, templeId }) {
 })();
 // Mount mobile auth routes (public endpoints for OTP)
 (() => {
-  const mobileAuthRouter = require('./mobile-auth')({ db });
+  const mobileAuthRouter = require('./mobile-auth')({ db, JWT_SECRET });
   // Do NOT put authenticateToken here so that /api/mobile-auth/send-otp and /verify-otp remain public
   app.use('/api/mobile-auth', mobileAuthRouter);
 })();
@@ -3804,9 +3858,10 @@ app.use('/api/tax-settings',
 // Import tax calculations routes
 const taxCalculationsRouter = require('./routes/tax-calculations');
 
-// Mount tax calculations routes with middleware - make it more specific
-app.use('/api', 
-  authenticateToken, 
+// Mount tax calculations routes with middleware - mounted at /api/tax-settings
+// because taxCalculationsRouter handles /tax-settings/* routes
+app.use('/api/tax-settings',
+  authenticateToken,
   authorizePermission('tax_registrations', 'view'),
   (req, res, next) => {
     // Add db to the request object
@@ -4149,8 +4204,12 @@ app.use('/api/annadhanam-enhanced', authenticateToken, authorizePermission('anna
 
 // ... (rest of the code remains the same)
 // Mount pooja router
-const poojaRouter = require('./pooja')({ db });
+const poojaRouter = require('./pooja')({ db, syncPoojaToDaybook, removePoojaFromDaybook });
 app.use('/api/pooja', authenticateToken, authorizePermission('pooja_registrations', 'view'), poojaRouter);
+
+// Mount pooja master router (settings & items)
+const poojaMasterRouter = require('./pooja-master')({ db });
+app.use('/api/pooja-master', authenticateToken, authorizePermission('pooja_registrations', 'view'), poojaMasterRouter);
 
 // Mobile router already mounted at the top
 

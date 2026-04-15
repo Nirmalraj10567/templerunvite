@@ -1,9 +1,13 @@
 const express = require('express');
 const router = express.Router();
+const jwt = require('jsonwebtoken');
 
-module.exports = ({ db }) => {
+module.exports = ({ db, JWT_SECRET }) => {
   // Test OTP - in production, this should be generated and sent via SMS
   const TEST_OTP = '123456';
+
+  // Guest session counter for unique guest IDs
+  let guestSessionCounter = 0;
 
   // Test endpoint to check if mobile auth routes are working
   router.get('/test', (req, res) => {
@@ -12,6 +16,55 @@ module.exports = ({ db }) => {
       message: 'Mobile auth routes are working!',
       timestamp: new Date().toISOString()
     });
+  });
+
+  // Guest login endpoint - allows limited access without registration
+  // POST /api/mobile/guest-login
+  router.post('/guest-login', async (req, res) => {
+    try {
+      const { deviceId, deviceName } = req.body || {};
+      guestSessionCounter += 1;
+      const guestId = `guest_${Date.now()}_${guestSessionCounter}`;
+
+      // Create guest user payload
+      const guestUser = {
+        id: guestId,
+        type: 'guest',
+        name: 'Guest User',
+        mobile: null,
+        deviceId: deviceId || null,
+        deviceName: deviceName || null,
+        createdAt: new Date().toISOString(),
+        permissions: ['view_public_info', 'browse_events', 'view_temple_info']
+      };
+
+      // Generate JWT token for guest (short expiry: 24 hours)
+      const token = jwt.sign(
+        guestUser,
+        JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+
+      res.json({
+        success: true,
+        message: 'Guest login successful',
+        token,
+        user: {
+          id: guestUser.id,
+          name: guestUser.name,
+          type: guestUser.type,
+          permissions: guestUser.permissions
+        },
+        expiresIn: '24h'
+      });
+
+    } catch (error) {
+      console.error('Guest login error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error'
+      });
+    }
   });
 
   // Send OTP endpoint

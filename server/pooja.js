@@ -9,7 +9,30 @@ const getNumericPart = (receiptNumber) => {
 };
 
 module.exports = function(deps = {}) {
-  const { db } = deps;
+  const { db, syncPoojaToDaybook, removePoojaFromDaybook } = deps;
+
+  // Get pooja settings for temple
+  async function getPoojaSettings(templeId) {
+    try {
+      const has = await db.schema.hasTable('pooja_settings');
+      if (!has) return { multi_pooja_same_day: false, pooja_registration_active: true };
+      
+      let settings = await db('pooja_settings').where({ temple_id: templeId }).first();
+      if (!settings) {
+        await db('pooja_settings').insert({
+          temple_id: templeId,
+          multi_pooja_same_day: false,
+          pooja_registration_active: true,
+          created_at: db.fn.now(),
+          updated_at: db.fn.now(),
+        });
+        settings = await db('pooja_settings').where({ temple_id: templeId }).first();
+      }
+      return settings || { multi_pooja_same_day: false, pooja_registration_active: true };
+    } catch (e) {
+      return { multi_pooja_same_day: false, pooja_registration_active: true };
+    }
+  }
 
   // Helper to write pooja logs
   async function logPoojaAction({ poojaId, templeId, userId, action, details }) {
@@ -355,6 +378,28 @@ module.exports = function(deps = {}) {
         });
       }
 
+      // Check pooja settings and validate same-day pooja
+      const settings = await getPoojaSettings(req.user.templeId);
+      
+      if (!settings.pooja_registration_active) {
+        return res.status(400).json({ 
+          error: 'Pooja registration is currently disabled' 
+        });
+      }
+      
+      if (!settings.multi_pooja_same_day) {
+        const existingOnDate = await db('pooja')
+          .where('temple_id', req.user.templeId)
+          .where('from_date', p.fromDate)
+          .first();
+        
+        if (existingOnDate) {
+          return res.status(400).json({ 
+            error: 'A pooja already exists on this date. Enable multi-pooja setting to allow multiple poojas on same day.' 
+          });
+        }
+      }
+
       const record = {
         temple_id: req.user.templeId,
         receipt_number: p.receiptNumber || null,
@@ -432,20 +477,25 @@ module.exports = function(deps = {}) {
         // Do not fail the main request
       }
 
-      // Log creation with full snapshot
-      try {
-        await logPoojaAction({
-          poojaId: row.id,
-          templeId: req.user.templeId,
-          userId: req.user.id,
-          action: 'create',
-          details: row,
-        });
-        console.log('Successfully logged pooja creation for ID:', row.id);
-      } catch (logError) {
-        console.error('Failed to log pooja creation:', logError);
-        // Don't fail the request if logging fails, but log the error
-      }
+// Log creation with full snapshot
+        try {
+          await logPoojaAction({
+            poojaId: row.id,
+            templeId: req.user.templeId,
+            userId: req.user.id,
+            action: 'create',
+            details: row,
+          });
+          console.log('Successfully logged pooja creation for ID:', row.id);
+        } catch (logError) {
+          console.error('Failed to log pooja creation:', logError);
+        }
+
+        // Sync to daybook
+        if (syncPoojaToDaybook) {
+          syncPoojaToDaybook({ poojaId: row.id, templeId: req.user.templeId, userId: req.user.id })
+            .catch(e => console.error('Failed to sync pooja to daybook:', e));
+        }
 
       res.json({ success: true, data: row });
     } catch (err) {
@@ -558,7 +608,12 @@ module.exports = function(deps = {}) {
       } catch (logError) {
         console.error('❌ Failed to log pooja update:', logError);
         console.error('Log error details:', logError);
-        // Don't fail the request if logging fails, but log the error
+      }
+
+      // Sync to daybook on update
+      if (syncPoojaToDaybook) {
+        syncPoojaToDaybook({ poojaId: id, templeId: req.user.templeId, userId: req.user.id })
+          .catch(e => console.error('Failed to sync pooja to daybook:', e));
       }
 
       res.json({ success: true, data: pooja });
@@ -609,7 +664,12 @@ module.exports = function(deps = {}) {
         console.log('Successfully logged pooja deletion for ID:', id);
       } catch (logError) {
         console.error('Failed to log pooja deletion:', logError);
-        // Don't fail the request if logging fails, but log the error
+      }
+
+      // Remove from daybook on delete
+      if (removePoojaFromDaybook) {
+        removePoojaFromDaybook({ poojaId: id, templeId: req.user.templeId })
+          .catch(e => console.error('Failed to remove pooja from daybook:', e));
       }
 
       res.json({ success: true });

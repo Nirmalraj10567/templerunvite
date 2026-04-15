@@ -24,6 +24,8 @@ function authenticateToken(req, res, next) {
     (method === 'POST' && ((/\/api\/register$/.test(pathOnly)) || (/\/register$/.test(pathOnly)))) ||
     // Allow mobile-auth OTP verification (token validated internally)
     (method === 'POST' && /\/api\/mobile-auth\/verify-otp$/.test(pathOnly)) ||
+    // Allow guest login endpoint
+    (method === 'POST' && /\/api\/mobile-auth\/guest-login$/.test(pathOnly)) ||
     // Allow login mode discovery endpoint
     (method === 'GET' && ((/\/api\/login\/mode$/.test(pathOnly)) || (/\/login\/mode$/.test(pathOnly)))) ||
     // Mobile events list should be public (correct path)
