@@ -73,6 +73,8 @@ import AnnadhanamLogView from './pages/annadhanam/AnnadhanamLogView';
 import AnnadhanamLogsPage from './pages/annadhanam/AnnadhanamLogsPage';
 import UnifiedDonationEntry from './pages/donations/UnifiedDonationEntry';
 import UnifiedDonationList from './pages/donations/UnifiedDonationList';
+import DaybookListPage from './pages/daybook/DaybookListPage';
+import DaybookEntryPage from './pages/daybook/DaybookEntryPage';
 
 function App() {
   return (
@@ -337,6 +339,45 @@ function App() {
                           accessLevel="view"
                         >
                           <LedgerListPage />
+                        </PermissionGuard>
+                      }
+                    />
+
+                    {/* Daybook */}
+                    <Route
+                      path="daybook/list"
+                      element={
+                        <PermissionGuard
+                          requiredPermission="daybook"
+                          accessLevel="view"
+                        >
+                          <DaybookListPage />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="daybook/entry"
+                      element={
+                        <PermissionGuard
+                          requiredPermission="daybook"
+                          accessLevel="edit"
+                        >
+                          <YearEndLockGuard>
+                            <DaybookEntryPage />
+                          </YearEndLockGuard>
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="daybook/edit/:id"
+                      element={
+                        <PermissionGuard
+                          requiredPermission="daybook"
+                          accessLevel="edit"
+                        >
+                          <YearEndLockGuard>
+                            <DaybookEntryPage />
+                          </YearEndLockGuard>
                         </PermissionGuard>
                       }
                     />

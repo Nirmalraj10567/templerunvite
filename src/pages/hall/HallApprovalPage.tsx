@@ -83,7 +83,7 @@ export default function HallApprovalPage() {
     setLogs([]);
     setLogsLoading(true);
     try {
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/hall-approval/${hallId}/logs`, {
+      const res = await fetch(`http://localhost:4000/api/hall-approval/${hallId}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -122,7 +122,7 @@ export default function HallApprovalPage() {
   const loadAllHallLogs = async (pageNum: number) => {
     setAllLogsLoading(true);
     try {
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/hall-approval/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
+      const res = await fetch(`http://localhost:4000/api/hall-approval/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {

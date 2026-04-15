@@ -436,6 +436,7 @@ module.exports = function (deps = {}) {
         'edit_events',
         'annadhanam_registrations',
         'annadhanam_approval',
+        'daybook',
       ];
 
       // Seed permissions table with required IDs to satisfy FK constraint
@@ -468,15 +469,17 @@ module.exports = function (deps = {}) {
         edit_events: 'Edit Events',
         annadhanam_registrations: 'Annadhanam Registrations',
         annadhanam_approval: 'Annadhanam Approval',
+        daybook: 'Daybook',
       };
 
       const permRows = ALL_PERMISSION_IDS.map(id => ({ id, name: PERMISSION_NAMES[id] || id, description: null }));
       try {
-        if (typeof db.client.config.client === 'string' && db.client.config.client.includes('mysql')) {
-          await db('permissions')
-            .insert(permRows)
-            .onConflict('id')
-            .ignore();
+        // Use raw SQL for MySQL compatibility
+        if (db.client.config.client === 'mysql2') {
+          await db.raw(
+            'INSERT IGNORE INTO permissions (id, name, description) VALUES ?',
+            [permRows.map(p => [p.id, p.name, p.description])]
+          );
         } else {
           await db('permissions')
             .insert(permRows)
@@ -534,11 +537,24 @@ module.exports = function (deps = {}) {
               created_at: db.fn.now(),
               updated_at: db.fn.now()
             }));
-          
-          await db('user_permissions')
-            .insert(permissionRecords)
-            .onConflict(['user_id', 'permission_id'])
-            .merge(['access_level', 'updated_at']);
+
+          // MySQL doesn't support onConflict, use raw SQL
+          if (db.client.config.client === 'mysql2') {
+            const values = permissionRecords.map(p => 
+              `(${p.user_id}, '${p.permission_id}', '${p.access_level}', '${p.created_at}', '${p.updated_at}')`
+            ).join(', ');
+            
+            await db.raw(
+              `INSERT INTO user_permissions (user_id, permission_id, access_level, created_at, updated_at) 
+               VALUES ${values}
+               ON DUPLICATE KEY UPDATE access_level = VALUES(access_level), updated_at = VALUES(updated_at)`
+            );
+          } else {
+            await db('user_permissions')
+              .insert(permissionRecords)
+              .onConflict(['user_id', 'permission_id'])
+              .merge(['access_level', 'updated_at']);
+          }
         }
       }
 
@@ -556,7 +572,14 @@ module.exports = function (deps = {}) {
       });
     } catch (err) {
       console.error('Registration error:', err);
-      return res.status(500).json({ error: 'Database error during registration.' });
+      console.error('Error message:', err.message);
+      console.error('Error stack:', err.stack);
+      if (err.sql) console.error('SQL:', err.sql);
+      if (err.sqlMessage) console.error('SQL Message:', err.sqlMessage);
+      return res.status(500).json({ 
+        error: 'Database error during registration.',
+        details: err.message 
+      });
     }
   });
 

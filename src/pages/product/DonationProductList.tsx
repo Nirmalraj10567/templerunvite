@@ -65,7 +65,7 @@ interface User {
 
 // Donation Service
 class DonationService {
-  private baseUrl = 'https://tmsapi.xesstechlink.com/api';
+  private baseUrl = 'http://localhost:4000/api';
 
   async getDonations(token: string, params: { q?: string } = {}) {
     const url = new URL(`${this.baseUrl}/donations`);
@@ -271,7 +271,7 @@ export default function DonationProductList() {
     const results = await Promise.all(
       missing.map(async (id) => {
         try {
-          const res = await fetch(`https://tmsapi.xesstechlink.com/api/admin/members/${id}`, {
+          const res = await fetch(`http://localhost:4000/api/admin/members/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data = await res.json().catch(() => ({}));
@@ -325,7 +325,7 @@ export default function DonationProductList() {
     setLogsFor(item.id);
     setLogsLoading(true);
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/donations/${item.id}/logs`, {
+      const response = await fetch(`http://localhost:4000/api/donations/${item.id}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch logs');
@@ -365,7 +365,7 @@ export default function DonationProductList() {
     const pageToLoad = pageNum || allLogsPage;
     setAllLogsLoading(true);
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/donations/logs?page=${pageToLoad}&pageSize=${allLogsPageSize}`, {
+      const response = await fetch(`http://localhost:4000/api/donations/logs?page=${pageToLoad}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch logs');

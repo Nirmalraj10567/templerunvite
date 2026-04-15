@@ -115,7 +115,7 @@ export default function HallListPage() {
     const results = await Promise.all(
       missing.map(async (id) => {
         try {
-          const res = await fetch(`https://tmsapi.xesstechlink.com/api/admin/members/${id}`, {
+          const res = await fetch(`http://localhost:4000/api/admin/members/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data = await res.json().catch(() => ({}));
@@ -152,7 +152,7 @@ export default function HallListPage() {
     setLogsFor(item.id);
     setLogsLoading(true);
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/hall-bookings/${item.id}/logs`, {
+      const response = await fetch(`http://localhost:4000/api/hall-bookings/${item.id}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch logs');
@@ -196,7 +196,7 @@ export default function HallListPage() {
     const pageToLoad = pageNum || allLogsPage;
     setAllLogsLoading(true);
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/hall-bookings/logs?page=${pageToLoad}&pageSize=${allLogsPageSize}`, {
+      const response = await fetch(`http://localhost:4000/api/hall-bookings/logs?page=${pageToLoad}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch logs');
@@ -334,7 +334,7 @@ export default function HallListPage() {
       params.set('sort', 'desc'); // Add descending order parameter
       params.set('page', page.toString());
       params.set('limit', limit.toString());
-      const url = 'https://tmsapi.xesstechlink.com/api/hall-bookings' + (params.toString() ? `?${params.toString()}` : '');
+      const url = 'http://localhost:4000/api/hall-bookings' + (params.toString() ? `?${params.toString()}` : '');
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error('Failed');
       const data = await res.json();
@@ -390,7 +390,7 @@ export default function HallListPage() {
   const handleExportCSV = async () => {
     try {
       const qs = buildQueryString();
-      const url = 'https://tmsapi.xesstechlink.com/api/hall-bookings/export' + (qs ? `?${qs}` : '');
+      const url = 'http://localhost:4000/api/hall-bookings/export' + (qs ? `?${qs}` : '');
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error('Failed to export CSV');
       const blob = await res.blob();
@@ -410,7 +410,7 @@ export default function HallListPage() {
   const handleExportPDF = async () => {
     try {
       const qs = buildQueryString();
-      const url = 'https://tmsapi.xesstechlink.com/api/hall-bookings/export-pdf' + (qs ? `?${qs}` : '');
+      const url = 'http://localhost:4000/api/hall-bookings/export-pdf' + (qs ? `?${qs}` : '');
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error('Failed to export PDF');
       const blob = await res.blob();
@@ -795,7 +795,7 @@ export default function HallListPage() {
                 if (!selectedBookingId) return;
                 setDeleting(true);
                 try {
-                  const res = await fetch(`https://tmsapi.xesstechlink.com/api/hall-bookings/${selectedBookingId}`, {
+                  const res = await fetch(`http://localhost:4000/api/hall-bookings/${selectedBookingId}`, {
                     method: 'DELETE',
                     headers: { Authorization: `Bearer ${token}` },
                   });

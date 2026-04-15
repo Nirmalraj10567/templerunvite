@@ -140,16 +140,16 @@ export default function TaxUserEntryPage() {
         setLoading(true);
         try {
           const [clansRes, groupsRes, occupationsRes, educationsRes] = await Promise.all([
-            fetch(`https://tmsapi.xesstechlink.com/api/master/clans/${user.templeId}`, {
+            fetch(`http://localhost:4000/api/master/clans/${user.templeId}`, {
               headers: { Authorization: `Bearer ${token}` }
             }),
-            fetch(`https://tmsapi.xesstechlink.com/api/master/groups/${user.templeId}`, {
+            fetch(`http://localhost:4000/api/master/groups/${user.templeId}`, {
               headers: { Authorization: `Bearer ${token}` }
             }),
-            fetch(`https://tmsapi.xesstechlink.com/api/master/occupations/${user.templeId}`, {
+            fetch(`http://localhost:4000/api/master/occupations/${user.templeId}`, {
               headers: { Authorization: `Bearer ${token}` }
             }),
-            fetch(`https://tmsapi.xesstechlink.com/api/master/educations/${user.templeId}`, {
+            fetch(`http://localhost:4000/api/master/educations/${user.templeId}`, {
               headers: { Authorization: `Bearer ${token}` }
             }),
           ]);
@@ -202,7 +202,7 @@ export default function TaxUserEntryPage() {
     if (!token) return;
     (async () => {
       try {
-        const resp =await axios.get<any>('https://tmsapi.xesstechlink.com/api/ledger/categories', {
+        const resp =await axios.get<any>('http://localhost:4000/api/ledger/categories', {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = (resp?.data && Array.isArray(resp.data.data)) ? resp.data.data : (Array.isArray(resp?.data) ? resp.data : []);
@@ -346,7 +346,7 @@ export default function TaxUserEntryPage() {
   const fetchNextReferenceNumber = async (year: number) => {
     if (!token || !year) return;
     try {
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations/next-ref?year=${year}`, {
+      const res = await fetch(`http://localhost:4000/api/tax-registrations/next-ref?year=${year}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -456,7 +456,7 @@ export default function TaxUserEntryPage() {
     try {
       console.log('Fetching results for mobile:', cleanMobile); // Debug log
       // Search in user_registrations table for existing user data using the search parameter
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/registrations?search=${cleanMobile}&pageSize=10`, {
+      const response = await fetch(`http://localhost:4000/api/registrations?search=${cleanMobile}&pageSize=10`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -504,7 +504,7 @@ export default function TaxUserEntryPage() {
     setNameLookingUp(true);
     setErr(null);
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/registrations?search=${encodeURIComponent(q)}&pageSize=10`, {
+      const response = await fetch(`http://localhost:4000/api/registrations?search=${encodeURIComponent(q)}&pageSize=10`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (response.ok) {
@@ -554,7 +554,7 @@ export default function TaxUserEntryPage() {
     try {
       console.log('Fetching results for receipt:', cleanReceipt);
       // Search in user_registrations table for existing user data using reference number
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/registrations?search=${encodeURIComponent(cleanReceipt)}&pageSize=10`, {
+      const response = await fetch(`http://localhost:4000/api/registrations?search=${encodeURIComponent(cleanReceipt)}&pageSize=10`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -596,7 +596,7 @@ export default function TaxUserEntryPage() {
 
     try {
       // Search in user_tax_registrations table by reference number
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations/by-reference/${encodeURIComponent(cleanRef)}`, {
+      const response = await fetch(`http://localhost:4000/api/tax-registrations/by-reference/${encodeURIComponent(cleanRef)}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -706,7 +706,7 @@ export default function TaxUserEntryPage() {
     if (cleanMobile.length !== 10) return;
 
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/tax-calculations/cumulative/${cleanMobile}?currentYear=${year}`, {
+      const response = await fetch(`http://localhost:4000/api/tax-calculations/cumulative/${cleanMobile}?currentYear=${year}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -756,7 +756,7 @@ export default function TaxUserEntryPage() {
     if (!token || !year) return;
 
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/tax-settings/year/${year}`, {
+      const response = await fetch(`http://localhost:4000/api/tax-settings/year/${year}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -979,7 +979,7 @@ export default function TaxUserEntryPage() {
         formData.append('photo', newUser.photo);
       }
 
-      const res = await fetch('https://tmsapi.xesstechlink.com/api/tax-registrations', {
+      const res = await fetch('http://localhost:4000/api/tax-registrations', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`
@@ -1979,7 +1979,7 @@ export default function TaxUserEntryPage() {
                 className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
                 onClick={() => {
                   const t = token ? encodeURIComponent(token) : '';
-                  const url = `https://tmsapi.xesstechlink.com/api/tax-registrations/${lastCreatedId}/receipt.pdf${t ? `?token=${t}` : ''}`;
+                  const url = `http://localhost:4000/api/tax-registrations/${lastCreatedId}/receipt.pdf${t ? `?token=${t}` : ''}`;
                   window.open(url, '_blank');
                   setShowPrintPrompt(false);
                 }}

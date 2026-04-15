@@ -6,7 +6,7 @@ async function testReceiptLogs() {
   // You'll need to replace this with a real token
   const token = 'your-test-token-here';
   
-  const baseUrl = 'https://tmsapi.xesstechlink.com/api/receipts';
+  const baseUrl = 'http://localhost:4000/api/receipts';
   const headers = {
     'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json'

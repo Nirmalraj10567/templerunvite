@@ -46,7 +46,7 @@ const generateReceiptNo = async (token?: string) => {
     if (!token) {
       throw new Error('Missing auth token');
     }
-    const response = await axios.get<any>('https://tmsapi.xesstechlink.com/api/pooja/latest-receipt', {
+    const response = await axios.get<any>('http://localhost:4000/api/pooja/latest-receipt', {
       headers: { Authorization: `Bearer ${token}` }
     });
     let nextNumber = 1;

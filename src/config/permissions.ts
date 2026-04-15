@@ -107,6 +107,14 @@ export const ALL_PERMISSIONS: Permission[] = [
     icon: '🧾',
     href: '/dashboard/receipt/list',
     requiredRole: ['admin', 'superadmin']
+  },
+  {
+    id: 'daybook',
+    name: 'Daybook',
+    description: 'Manage daybook entries (income, expenses, journal)',
+    icon: '📖',
+    href: '/dashboard/daybook/list',
+    requiredRole: ['admin', 'superadmin']
   }
 ];
 
@@ -170,6 +178,11 @@ export const permissions = {
     id: 'receipts',
     name: 'Receipts',
     description: 'Allows managing income/expense receipts'
+  },
+  daybook: {
+    id: 'daybook',
+    name: 'Daybook',
+    description: 'Allows managing daybook entries (income, expenses, journal)'
   },
 };
 

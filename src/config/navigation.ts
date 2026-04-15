@@ -43,6 +43,9 @@ export const navigationTranslations = {
     ledger: 'கணக்கு புத்தகம்',
     newEntry: 'புதிய பதிவு',
     viewEntries: 'பதிவுகளைக் காண்க',
+    daybook: 'டேபுக்',
+    daybookList: 'டேபுக் பட்டியல்',
+    daybookEntry: 'டேபுக் பதிவு',
     pooja: 'பூஜை',
     poojaList: 'பூஜை பட்டியல்',
     poojaEntry: 'பூஜை பதிவு',
@@ -97,6 +100,9 @@ export const navigationTranslations = {
     ledger: 'Ledger',
     newEntry: 'New Entry',
     viewEntries: 'View Entries',
+    daybook: 'Daybook',
+    daybookList: 'Daybook List',
+    daybookEntry: 'Daybook Entry',
     pooja: 'Pooja',
     poojaList: 'Pooja List',
     poojaEntry: 'Pooja Entry',
@@ -278,19 +284,40 @@ export const sidebarItems: NavItem[] = [
     tamilLabel: navigationTranslations.tamil.ledger,
     icon: CreditCardIcon,
     children: [
-      { 
-        to: 'ledger/entry', 
-        label: navigationTranslations.english.newEntry, 
-        tamilLabel: navigationTranslations.tamil.newEntry, 
-        permissionId: 'ledger_management', 
-        accessLevel: 'edit' 
+      {
+        to: 'ledger/entry',
+        label: navigationTranslations.english.newEntry,
+        tamilLabel: navigationTranslations.tamil.newEntry,
+        permissionId: 'ledger_management',
+        accessLevel: 'edit'
       },
-      { 
-        to: 'ledger/list', 
-        label: navigationTranslations.english.viewEntries, 
-        tamilLabel: navigationTranslations.tamil.viewEntries, 
-        permissionId: 'ledger_management', 
-        accessLevel: 'view' 
+      {
+        to: 'ledger/list',
+        label: navigationTranslations.english.viewEntries,
+        tamilLabel: navigationTranslations.tamil.viewEntries,
+        permissionId: 'ledger_management',
+        accessLevel: 'view'
+      },
+    ]
+  },
+  {
+    label: navigationTranslations.english.daybook,
+    tamilLabel: navigationTranslations.tamil.daybook,
+    icon: LandmarkIcon,
+    children: [
+      {
+        to: 'daybook/entry',
+        label: navigationTranslations.english.daybookEntry,
+        tamilLabel: navigationTranslations.tamil.daybookEntry,
+        permissionId: 'daybook',
+        accessLevel: 'edit'
+      },
+      {
+        to: 'daybook/list',
+        label: navigationTranslations.english.daybookList,
+        tamilLabel: navigationTranslations.tamil.daybookList,
+        permissionId: 'daybook',
+        accessLevel: 'view'
       },
     ]
   },

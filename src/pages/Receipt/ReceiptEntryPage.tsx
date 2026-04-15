@@ -56,7 +56,7 @@ export default function ReceiptEntryPage() {
     try {
       console.log('🔍 Fetching logs for receipt ID:', id);
       setLogsLoading(true);
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/receipts/${id}/logs`, {
+      const response = await fetch(`http://localhost:4000/api/receipts/${id}/logs`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -92,7 +92,7 @@ export default function ReceiptEntryPage() {
   useEffect(() => {
     const fetchPeople = async () => {
       try {
-        const res = await fetch('https://tmsapi.xesstechlink.com/api/people', {
+        const res = await fetch('http://localhost:4000/api/people', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!res.ok) throw new Error('Failed to fetch people');
@@ -117,7 +117,7 @@ export default function ReceiptEntryPage() {
       if (!id) return;
       setLoading(true);
       try {
-        const res = await fetch(`https://tmsapi.xesstechlink.com/api/receipts/${id}`, {
+        const res = await fetch(`http://localhost:4000/api/receipts/${id}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
@@ -186,7 +186,7 @@ export default function ReceiptEntryPage() {
           }
         })
       };
-            const res = await fetch(id ? `https://tmsapi.xesstechlink.com/api/receipts/${id}` : 'https://tmsapi.xesstechlink.com/api/receipts', {
+            const res = await fetch(id ? `http://localhost:4000/api/receipts/${id}` : 'http://localhost:4000/api/receipts', {
         method: id ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(payload)

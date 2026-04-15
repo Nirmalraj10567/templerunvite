@@ -10,7 +10,7 @@ async function testMobileCalendarAPI() {
     
     // Test today endpoint
     console.log('\n1. Testing /api/mobile/calendar/today');
-    const todayResponse = await fetch(`https://tmsapi.xesstechlink.com/api/mobile/calendar/today?mobile=9999999999&templeId=12`);
+    const todayResponse = await fetch(`http://localhost:4000/api/mobile/calendar/today?mobile=9999999999&templeId=12`);
     
     if (!todayResponse.ok) {
       console.log('Today endpoint not OK:', todayResponse.status, todayResponse.statusText);
@@ -23,7 +23,7 @@ async function testMobileCalendarAPI() {
     
     // Test specific date endpoint
     console.log('\n2. Testing /api/mobile/calendar/' + today);
-    const dateResponse = await fetch(`https://tmsapi.xesstechlink.com/api/mobile/calendar/${today}?mobile=9999999999&templeId=12`);
+    const dateResponse = await fetch(`http://localhost:4000/api/mobile/calendar/${today}?mobile=9999999999&templeId=12`);
     
     if (!dateResponse.ok) {
       console.log('Date endpoint not OK:', dateResponse.status, dateResponse.statusText);
@@ -36,7 +36,7 @@ async function testMobileCalendarAPI() {
     
     // Test range endpoint
     console.log('\n3. Testing /api/mobile/calendar/range');
-    const rangeResponse = await fetch(`https://tmsapi.xesstechlink.com/api/mobile/calendar/range?from=${today}&to=${today}&mobile=9999999999&templeId=12`);
+    const rangeResponse = await fetch(`http://localhost:4000/api/mobile/calendar/range?from=${today}&to=${today}&mobile=9999999999&templeId=12`);
     
     if (!rangeResponse.ok) {
       console.log('Range endpoint not OK:', rangeResponse.status, rangeResponse.statusText);

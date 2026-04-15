@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { FileDown, Trash2 } from 'lucide-react';
 import { cn, pageContainerStyles, formFieldStyles } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 
 type TaxRegistration = {
   id: number;
@@ -137,7 +138,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
     setLogs([]);
     setLogsLoading(true);
     try {
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations/${row.id}/logs`, {
+      const res = await fetch(`http://localhost:4000/api/tax-registrations/${row.id}/logs`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -195,7 +196,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
     const results = await Promise.all(
       missing.map(async (id) => {
         try {
-          const res = await fetch(`https://tmsapi.xesstechlink.com/api/admin/members/${id}`, {
+          const res = await fetch(`http://localhost:4000/api/admin/members/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data = await res.json().catch(() => ({}));
@@ -447,7 +448,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
     setAllLogsLoading(true);
     try {
       const params = new URLSearchParams({ page: String(pageNum), pageSize: String(allLogsPageSize) });
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations/logs?${params.toString()}`, {
+      const res = await fetch(`http://localhost:4000/api/tax-registrations/logs?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -746,7 +747,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
       const paidN = editForm.amount_paid?.trim() ? Number(editForm.amount_paid) : undefined;
       if (typeof taxN === 'number' && Number.isFinite(taxN)) payload.tax_amount = taxN;
       if (typeof paidN === 'number' && Number.isFinite(paidN)) payload.amount_paid = paidN;
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations/${editing.id}`, {
+      const res = await fetch(`http://localhost:4000/api/tax-registrations/${editing.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -774,7 +775,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
     const ok = window.confirm(t('Are you sure you want to delete this tax registration?', 'இந்த வரி பதிவை நிச்சயமாக நீக்க விரும்புகிறீர்களா?'));
     if (!ok) return;
     try {
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations/${row.id}`, {
+      const res = await fetch(`http://localhost:4000/api/tax-registrations/${row.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -793,7 +794,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
     const year = new Date().getFullYear();
     (async () => {
       try {
-        const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-settings/year/${year}`, {
+        const res = await fetch(`http://localhost:4000/api/tax-settings/year/${year}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -814,7 +815,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
     try {
       // Get current year's tax amount
       const currentYear = new Date().getFullYear();
-      const taxSettingsRes = await fetch(`https://tmsapi.xesstechlink.com/api/tax-settings/year/${currentYear}`, {
+      const taxSettingsRes = await fetch(`http://localhost:4000/api/tax-settings/year/${currentYear}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const taxSettings = await taxSettingsRes.json();
@@ -823,7 +824,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
       // Always fetch all tax registrations matching search (no tab filter; we will filter client-side)
       const taxParams = new URLSearchParams({ page: '1', pageSize: '1000' });
       if (search) taxParams.set('search', search);
-      const taxRes = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations?${taxParams.toString()}`, {
+      const taxRes = await fetch(`http://localhost:4000/api/tax-registrations?${taxParams.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const taxData = await taxRes.json();
@@ -875,7 +876,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
       // Fetch base registrations to include users without a tax registration yet
       const regParams = new URLSearchParams({ page: '1', pageSize: '1000' });
       if (search) regParams.set('search', search);
-      const regRes = await fetch(`https://tmsapi.xesstechlink.com/api/registrations?${regParams.toString()}`, {
+      const regRes = await fetch(`http://localhost:4000/api/registrations?${regParams.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const regData = await regRes.json();
@@ -1064,7 +1065,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
 
   const handleDownloadPdf = async (id: number) => {
     try {
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/tax-registrations/${id}/pdf`, {
+      const res = await fetch(`http://localhost:4000/api/tax-registrations/${id}/pdf`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
@@ -1087,7 +1088,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
       if (statusTab === 'paid') params.set('paid', '1');
 
       const res = await fetch(
-        `https://tmsapi.xesstechlink.com/api/tax-registrations/export/pdf?${params.toString()}`,
+        `http://localhost:4000/api/tax-registrations/export/pdf?${params.toString()}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }

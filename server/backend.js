@@ -530,6 +530,91 @@ async function logReceiptAction({ receiptId, templeId, userId, action, details }
     console.error('Failed to write receipt_logs:', e.message);
   }
 }
+
+async function generateDaybookReceiptNumber(templeId) {
+  const year = new Date().getFullYear();
+  const latest = await db('daybook_entries')
+    .where('temple_id', templeId)
+    .where('receipt_number', 'like', `${year}-%`)
+    .orderBy('id', 'desc')
+    .first();
+
+  let nextNumber = 1;
+  if (latest && latest.receipt_number) {
+    const parts = String(latest.receipt_number).split('-');
+    if (parts.length === 2 && parts[0] === String(year)) {
+      const parsed = parseInt(parts[1], 10);
+      if (!Number.isNaN(parsed)) nextNumber = parsed + 1;
+    }
+  }
+
+  return `${year}-${String(nextNumber).padStart(4, '0')}`;
+}
+
+async function calculateDaybookRunningBalance(templeId, entryDate) {
+  const entries = await db('daybook_entries')
+    .where('temple_id', templeId)
+    .andWhere('entry_date', '<=', entryDate)
+    .orderBy('entry_date', 'asc')
+    .orderBy('id', 'asc');
+
+  let balance = 0;
+  for (const entry of entries) {
+    const amount = Number(entry.amount || 0);
+    if (entry.entry_type === 'income') balance += amount;
+    if (entry.entry_type === 'expense') balance -= amount;
+  }
+  return balance;
+}
+
+async function syncMoneyDonationToDaybook({ donationId, templeId, userId, row }) {
+  try {
+    const hasDaybook = await db.schema.hasTable('daybook_entries');
+    if (!hasDaybook) return;
+
+    const entryDate = String(row.date || new Date().toISOString().slice(0, 10)).slice(0, 10);
+
+    await db('daybook_entries')
+      .where({ temple_id: templeId, reference_type: 'money_donation', reference_id: Number(donationId) })
+      .del();
+
+    const receiptNumber = await generateDaybookReceiptNumber(templeId);
+    const runningBalance = await calculateDaybookRunningBalance(templeId, entryDate);
+
+    await db('daybook_entries').insert({
+      temple_id: templeId,
+      entry_date: entryDate,
+      entry_type: 'income',
+      description: `Money Donation - ${row.name || 'Anonymous'}`,
+      reference_type: 'money_donation',
+      reference_id: Number(donationId),
+      receipt_number: receiptNumber,
+      amount: Number(row.amount || 0),
+      payment_mode: 'cash',
+      party_name: row.name || null,
+      party_mobile: row.phone || null,
+      notes: row.reason || null,
+      running_balance: runningBalance + Number(row.amount || 0),
+      created_by: userId ? Number(userId) : null,
+      created_at: db.fn.now(),
+    });
+  } catch (e) {
+    console.error('Failed to sync money donation to daybook:', e.message);
+  }
+}
+
+async function removeMoneyDonationFromDaybook({ donationId, templeId }) {
+  try {
+    const hasDaybook = await db.schema.hasTable('daybook_entries');
+    if (!hasDaybook) return;
+
+    await db('daybook_entries')
+      .where({ temple_id: templeId, reference_type: 'money_donation', reference_id: Number(donationId) })
+      .del();
+  } catch (e) {
+    console.error('Failed to remove money donation from daybook:', e.message);
+  }
+}
 // Mount users router (auth and user management endpoints)
 (() => {
   try {
@@ -661,6 +746,110 @@ async function logReceiptAction({ receiptId, templeId, userId, action, details }
       throw e; // Re-throw to let caller handle
     }
   }
+
+  async function generateDaybookReceiptNumber(templeId) {
+    const year = new Date().getFullYear();
+    const latest = await db('daybook_entries')
+      .where('temple_id', templeId)
+      .where('receipt_number', 'like', `${year}-%`)
+      .orderBy('id', 'desc')
+      .first();
+
+    let nextNumber = 1;
+    if (latest && latest.receipt_number) {
+      const parts = String(latest.receipt_number).split('-');
+      if (parts.length === 2 && parts[0] === String(year)) {
+        const parsed = parseInt(parts[1], 10);
+        if (!Number.isNaN(parsed)) nextNumber = parsed + 1;
+      }
+    }
+
+    return `${year}-${String(nextNumber).padStart(4, '0')}`;
+  }
+
+  async function calculateDaybookRunningBalance(templeId, entryDate) {
+    const entries = await db('daybook_entries')
+      .where('temple_id', templeId)
+      .andWhere('entry_date', '<=', entryDate)
+      .orderBy('entry_date', 'asc')
+      .orderBy('id', 'asc');
+
+    let balance = 0;
+    for (const entry of entries) {
+      const amount = Number(entry.amount || 0);
+      if (entry.entry_type === 'income') balance += amount;
+      if (entry.entry_type === 'expense') balance -= amount;
+    }
+    return balance;
+  }
+
+  async function syncMoneyDonationToDaybook({ donationId, templeId, userId, row }) {
+    try {
+      const hasDaybook = await db.schema.hasTable('daybook_entries');
+      if (!hasDaybook) return;
+
+      const entryDate = String(row.date || new Date().toISOString().slice(0, 10)).slice(0, 10);
+
+      await db('daybook_entries')
+        .where({ temple_id: templeId, reference_type: 'money_donation', reference_id: Number(donationId) })
+        .del();
+
+      const receiptNumber = await generateDaybookReceiptNumber(templeId);
+      const runningBalance = await calculateDaybookRunningBalance(templeId, entryDate);
+
+      await db('daybook_entries').insert({
+        temple_id: templeId,
+        entry_date: entryDate,
+        entry_type: 'income',
+        description: `Money Donation - ${row.name || 'Anonymous'}`,
+        reference_type: 'money_donation',
+        reference_id: Number(donationId),
+        receipt_number: receiptNumber,
+        amount: Number(row.amount || 0),
+        payment_mode: 'cash',
+        party_name: row.name || null,
+        party_mobile: row.phone || null,
+        notes: row.reason || null,
+        running_balance: runningBalance + Number(row.amount || 0),
+        created_by: userId ? Number(userId) : null,
+        created_at: db.fn.now(),
+      });
+    } catch (e) {
+      console.error('Failed to sync money donation to daybook:', e.message);
+    }
+  }
+
+  async function removeMoneyDonationFromDaybook({ donationId, templeId }) {
+    try {
+      const hasDaybook = await db.schema.hasTable('daybook_entries');
+      if (!hasDaybook) return;
+
+      await db('daybook_entries')
+        .where({ temple_id: templeId, reference_type: 'money_donation', reference_id: Number(donationId) })
+        .del();
+    } catch (e) {
+      console.error('Failed to remove money donation from daybook:', e.message);
+    }
+  }
+
+  (async () => {
+    try {
+      const hasDaybook = await db.schema.hasTable('daybook_entries');
+      if (!hasDaybook) return;
+
+      const donations = await db('money_donations').select('id', 'temple_id', 'date', 'name', 'phone', 'reason', 'amount', 'created_by');
+      for (const donation of donations) {
+        await syncMoneyDonationToDaybook({
+          donationId: donation.id,
+          templeId: donation.temple_id,
+          userId: donation.created_by,
+          row: donation,
+        });
+      }
+    } catch (e) {
+      console.error('Failed to backfill daybook entries for money donations:', e.message);
+    }
+  })();
 
   // GET /api/ledger/categories
   r.get('/categories', authenticateToken, async (req, res) => {
@@ -1227,10 +1416,17 @@ app.get('/api/mobile/events', async (req, res) => {
         // Do not fail the main request
       }
 
+      await syncMoneyDonationToDaybook({
+        donationId: id,
+        templeId: req.user.templeId,
+        userId: req.user.id,
+        row,
+      });
+
       res.json({ success: true, data: row });
     } catch (err) {
       console.error('Error creating /api/money-donations:', err);
-      res.status(500).json({ error: 'Failed to create money donation' });
+      res.status(500).json({ error: 'Failed to create money donation', details: err.message });
     }
   });
 
@@ -1359,6 +1555,13 @@ app.get('/api/mobile/events', async (req, res) => {
         // Don't fail the main request, but log the error
       }
 
+      await syncMoneyDonationToDaybook({
+        donationId: id,
+        templeId,
+        userId: req.user.id,
+        row,
+      });
+
       // Log update with before/after
       try {
         await logMoneyDonationAction({
@@ -1408,9 +1611,11 @@ app.get('/api/mobile/events', async (req, res) => {
         console.error('Failed to delete journal entry for donation:', journalError);
         // Don't fail the main request, but log the error
       }
-
+      
       const del = await db('money_donations').where({ id }).andWhere('temple_id', templeId).del();
       if (!del) return res.status(404).json({ error: 'Not found' });
+
+      await removeMoneyDonationFromDaybook({ donationId: id, templeId });
       
       // Log deletion with snapshot
       try {
@@ -3925,6 +4130,10 @@ app.use('/api/journal', authenticateToken, authorizeRole(['admin','superadmin'])
 // Mount donations router
 const donationsRouter = require('./donations')({ db });
 app.use('/api/donations', authenticateToken, donationsRouter);
+
+// Mount daybook router
+const daybookRouter = require('./daybook')({ db });
+app.use('/api/daybook', authenticateToken, authorizePermission('daybook', 'view'), daybookRouter);
 
 // Mount donation products router (temple-specific)
 const donationProductsRouter = require('./routes/donationProducts')({ db });

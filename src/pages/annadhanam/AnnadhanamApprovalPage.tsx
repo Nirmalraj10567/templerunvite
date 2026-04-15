@@ -269,7 +269,7 @@ export default function AnnadhanamApprovalPage() {
     setLogs([]);
     setLogsLoading(true);
     try {
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${annadhanamId}/logs`, {
+      const res = await fetch(`http://localhost:4000/api/annadhanam/${annadhanamId}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -308,7 +308,7 @@ export default function AnnadhanamApprovalPage() {
   const loadAllAnnadhanamLogs = async (pageNum: number) => {
     setAllLogsLoading(true);
     try {
-      const res = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
+      const res = await fetch(`http://localhost:4000/api/annadhanam/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -345,7 +345,7 @@ export default function AnnadhanamApprovalPage() {
   // Fetch helpers
   const fetchRequestDetails = async (requestId: number) => {
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam-approval/request/${requestId}`, {
+      const response = await fetch(`http://localhost:4000/api/annadhanam-approval/request/${requestId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -382,7 +382,7 @@ export default function AnnadhanamApprovalPage() {
     try {
       setLoading(true);
       const response = await fetch(
-        `https://tmsapi.xesstechlink.com/api/annadhanam-approval/pending?search=${searchTerm}`,
+        `http://localhost:4000/api/annadhanam-approval/pending?search=${searchTerm}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -411,7 +411,7 @@ export default function AnnadhanamApprovalPage() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('https://tmsapi.xesstechlink.com/api/annadhanam-approval/stats', {
+      const response = await fetch('http://localhost:4000/api/annadhanam-approval/stats', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -433,7 +433,7 @@ export default function AnnadhanamApprovalPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${deleteTarget.id}`, {
+      const response = await fetch(`http://localhost:4000/api/annadhanam/${deleteTarget.id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -482,7 +482,7 @@ export default function AnnadhanamApprovalPage() {
   const handleApprove = async (requestId: number) => {
     try {
       const response = await fetch(
-        `https://tmsapi.xesstechlink.com/api/annadhanam-approval/approve/${requestId}`,
+        `http://localhost:4000/api/annadhanam-approval/approve/${requestId}`,
         {
           method: 'PUT',
           headers: {
@@ -529,7 +529,7 @@ export default function AnnadhanamApprovalPage() {
   const handleReject = async (requestId: number) => {
     try {
       const response = await fetch(
-        `https://tmsapi.xesstechlink.com/api/annadhanam-approval/reject/${requestId}`,
+        `http://localhost:4000/api/annadhanam-approval/reject/${requestId}`,
         {
           method: 'PUT',
           headers: {
@@ -577,7 +577,7 @@ export default function AnnadhanamApprovalPage() {
 
   const handleBulkAction = async () => {
     try {
-      const response = await fetch('https://tmsapi.xesstechlink.com/api/annadhanam-approval/bulk-action', {
+      const response = await fetch('http://localhost:4000/api/annadhanam-approval/bulk-action', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -622,7 +622,7 @@ export default function AnnadhanamApprovalPage() {
 
   const handleSaveStats = async () => {
     try {
-      const response = await fetch('https://tmsapi.xesstechlink.com/api/annadhanam-approval/update-stats', {
+      const response = await fetch('http://localhost:4000/api/annadhanam-approval/update-stats', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1358,7 +1358,7 @@ export default function AnnadhanamApprovalPage() {
               onClick={async () => {
                 if (!selectedRequest) return;
                 try {
-                  const response = await fetch(`https://tmsapi.xesstechlink.com/api/annadhanam/${selectedRequest.id}`, {
+                  const response = await fetch(`http://localhost:4000/api/annadhanam/${selectedRequest.id}`, {
                     method: 'PUT',
                     headers: {
                       'Authorization': `Bearer ${token}`,

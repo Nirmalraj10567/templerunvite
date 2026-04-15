@@ -956,5 +956,50 @@ CREATE INDEX `idx_user_tax_registrations_temple` ON `user_tax_registrations` (`t
 
 CREATE INDEX `idx_tax_payments_user` ON `tax_payments` (`user_id`);
 
+-- Daybook tables
+DROP TABLE IF EXISTS `daybook_entries`;
+CREATE TABLE `daybook_entries` (
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `temple_id` INT NOT NULL,
+    `entry_date` DATE NOT NULL,
+    `entry_type` VARCHAR(50) NOT NULL COMMENT 'income, expense, journal',
+    `description` TEXT NOT NULL,
+    `reference_type` VARCHAR(100) COMMENT 'donation, annadhanam, pooja, ledger, journal, etc',
+    `reference_id` INT COMMENT 'Related record ID',
+    `receipt_number` VARCHAR(50) COMMENT 'Auto-generated receipt number',
+    `amount` DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    `payment_mode` VARCHAR(50) DEFAULT 'cash' COMMENT 'cash, card, upi, cheque, bank_transfer',
+    `party_name` VARCHAR(255) COMMENT 'Person associated with transaction',
+    `party_mobile` VARCHAR(20),
+    `notes` TEXT,
+    `running_balance` DECIMAL(15, 2) DEFAULT 0.00,
+    `created_by` INT,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    FOREIGN KEY (`temple_id`) REFERENCES `temples`(`id`) ON DELETE CASCADE,
+    INDEX `idx_daybook_temple` (`temple_id`),
+    INDEX `idx_daybook_date` (`entry_date`),
+    INDEX `idx_daybook_type` (`entry_type`),
+    INDEX `idx_daybook_reference` (`reference_type`, `reference_id`),
+    INDEX `idx_daybook_receipt` (`receipt_number`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `daybook_logs`;
+CREATE TABLE `daybook_logs` (
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `temple_id` INT NOT NULL,
+    `daybook_entry_id` INT NOT NULL,
+    `action` VARCHAR(50) NOT NULL COMMENT 'created, updated, deleted',
+    `details` JSON COMMENT 'Before/after snapshot of data',
+    `created_by` INT,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    FOREIGN KEY (`temple_id`) REFERENCES `temples`(`id`) ON DELETE CASCADE,
+    INDEX `idx_daybook_logs_temple` (`temple_id`),
+    INDEX `idx_daybook_logs_entry` (`daybook_entry_id`),
+    INDEX `idx_daybook_logs_action` (`action`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Re-enable foreign key checks
 SET FOREIGN_KEY_CHECKS = 1;

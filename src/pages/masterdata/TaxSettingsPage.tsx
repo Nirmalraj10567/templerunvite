@@ -120,7 +120,7 @@ export default function TaxSettingsPage() {
     
     setLoading(true);
     try {
-      const response = await fetch('https://tmsapi.xesstechlink.com/api/tax-settings', {
+      const response = await fetch('http://localhost:4000/api/tax-settings', {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -156,8 +156,8 @@ export default function TaxSettingsPage() {
 
     try {
       const url = editingId 
-        ? `https://tmsapi.xesstechlink.com/api/tax-settings/${editingId}`
-        : 'https://tmsapi.xesstechlink.com/api/tax-settings';
+        ? `http://localhost:4000/api/tax-settings/${editingId}`
+        : 'http://localhost:4000/api/tax-settings';
       
       const method = editingId ? 'PUT' : 'POST';
 
@@ -223,7 +223,7 @@ export default function TaxSettingsPage() {
     }
 
     try {
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/tax-settings/${id}`, {
+      const response = await fetch(`http://localhost:4000/api/tax-settings/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -266,7 +266,7 @@ export default function TaxSettingsPage() {
     setMsg(null);
 
     try {
-      const response = await fetch('https://tmsapi.xesstechlink.com/api/tax-settings/bulk-toggle', {
+      const response = await fetch('http://localhost:4000/api/tax-settings/bulk-toggle', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

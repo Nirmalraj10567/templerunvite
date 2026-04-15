@@ -147,7 +147,7 @@ const MasterDataPage = () => {
       const currentTab = tabs.find(t => t.key === activeTab);
       if (!currentTab) return;
 
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/master/${currentTab.endpoint}/${user.templeId}`, {
+      const response = await fetch(`http://localhost:4000/api/master/${currentTab.endpoint}/${user.templeId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -172,7 +172,7 @@ const MasterDataPage = () => {
       const currentTab = tabs.find(t => t.key === activeTab);
       if (!currentTab) return;
 
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/master/${currentTab.endpoint}`, {
+      const response = await fetch(`http://localhost:4000/api/master/${currentTab.endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -205,7 +205,7 @@ const MasterDataPage = () => {
       const currentTab = tabs.find(t => t.key === activeTab);
       if (!currentTab) return;
 
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/master/${currentTab.endpoint}/${editingItem.id}`, {
+      const response = await fetch(`http://localhost:4000/api/master/${currentTab.endpoint}/${editingItem.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -238,7 +238,7 @@ const MasterDataPage = () => {
       const currentTab = tabs.find(t => t.key === activeTab);
       if (!currentTab) return;
 
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/master/${currentTab.endpoint}/${id}`, {
+      const response = await fetch(`http://localhost:4000/api/master/${currentTab.endpoint}/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

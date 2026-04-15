@@ -607,6 +607,26 @@ router.put('/:id', authenticateToken, authorizePermission('tax_registrations', '
       return res.status(400).json({ error: 'Invalid tax registration ID' });
     }
 
+    // Fetch current row first
+    const current = await db('user_tax_registrations')
+      .where({ id: numericId, temple_id: templeId })
+      .first();
+    
+    if (!current) {
+      return res.status(404).json({ error: 'Tax registration not found' });
+    }
+
+    // VALIDATION: Require member registration before payment
+    // Check if user is trying to make a payment (amount_paid)
+    if (body.amount_paid !== undefined && !current.member_id) {
+      return res.status(400).json({
+        error: 'Member registration required',
+        message: 'Please register as a member first before making tax payment',
+        code: 'MEMBER_REGISTRATION_REQUIRED',
+        redirectUrl: '/api/registrations'
+      });
+    }
+
     // Map incoming fields (from frontend) to DB columns
     const updates = {};
     if (body.name !== undefined) updates.name = String(body.name || '');
@@ -617,14 +637,10 @@ router.put('/:id', authenticateToken, authorizePermission('tax_registrations', '
     if (body.tax_amount !== undefined) updates.tax_amount = Number(body.tax_amount) || 0;
     if (body.amount_paid !== undefined) updates.amount_paid = Number(body.amount_paid) || 0;
     if (body.outstanding_amount !== undefined) updates.outstanding_amount = Number(body.outstanding_amount);
+    if (body.note !== undefined) updates.note = body.note || null;
 
     // Recompute outstanding if not explicitly provided but tax/paid provided
     if (updates.outstanding_amount === undefined && (updates.tax_amount !== undefined || updates.amount_paid !== undefined)) {
-      // Fetch current row to compute based on latest values
-      const current = await db('user_tax_registrations')
-        .where({ id: numericId, temple_id: templeId })
-        .first();
-      if (!current) return res.status(404).json({ error: 'Tax registration not found' });
       const tax = updates.tax_amount !== undefined ? Number(updates.tax_amount) : Number(current.tax_amount || 0);
       const paid = updates.amount_paid !== undefined ? Number(updates.amount_paid) : Number(current.amount_paid || 0);
       updates.outstanding_amount = Math.max(0, tax - paid);

@@ -172,7 +172,7 @@ export default function DonationApprovalPage() {
   const fetchDonations = async () => {
     try {
       setLoading((prev) => ({ ...prev, donations: true }));
-      const response = await fetch(`https://tmsapi.xesstechlink.com/api/donations-approval/pending?page=${pagination.page}&pageSize=${pagination.pageSize}`, {
+      const response = await fetch(`http://localhost:4000/api/donations-approval/pending?page=${pagination.page}&pageSize=${pagination.pageSize}`, {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
       if (!response.ok) throw new Error('Failed');
@@ -190,7 +190,7 @@ export default function DonationApprovalPage() {
   const fetchStats = async () => {
     try {
       setLoading((prev) => ({ ...prev, stats: true }));
-      const response = await fetch('https://tmsapi.xesstechlink.com/api/donations-approval/stats', {
+      const response = await fetch('http://localhost:4000/api/donations-approval/stats', {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
       if (!response.ok) throw new Error();
@@ -257,7 +257,7 @@ export default function DonationApprovalPage() {
   const handleApprove = async (id: number) => {
     try {
       setLoading((prev) => ({ ...prev, action: true }));
-      await fetch(`https://tmsapi.xesstechlink.com/api/donations-approval/approve/${id}`, {
+      await fetch(`http://localhost:4000/api/donations-approval/approve/${id}`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ admin_notes: adminNotes })
@@ -275,7 +275,7 @@ export default function DonationApprovalPage() {
   const handleReject = async (id: number) => {
     try {
       setLoading((prev) => ({ ...prev, action: true }));
-      await fetch(`https://tmsapi.xesstechlink.com/api/donations-approval/reject/${id}`, {
+      await fetch(`http://localhost:4000/api/donations-approval/reject/${id}`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ rejection_reason: rejectionReason, admin_notes: adminNotes })
@@ -327,7 +327,7 @@ export default function DonationApprovalPage() {
           <Button size="sm" variant="outline" onClick={async()=>{
             try{
               setLoading(p=>({...p,export:true}));
-              const res=await fetch('https://tmsapi.xesstechlink.com/api/donations-approval/export',{headers:{Authorization:`Bearer ${token}`}});
+              const res=await fetch('http://localhost:4000/api/donations-approval/export',{headers:{Authorization:`Bearer ${token}`}});
               const blob=await res.blob(); const url=URL.createObjectURL(blob);
               const a=document.createElement('a');a.href=url;a.download=`donations_${new Date().toISOString().slice(0,10)}.csv`;a.click();URL.revokeObjectURL(url);
               toast({title:t('Exported','ஏற்றுமதி செய்யப்பட்டது')});

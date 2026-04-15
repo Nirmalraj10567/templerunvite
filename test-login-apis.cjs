@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-const BASE_URL = 'https://tmsapi.xesstechlink.com/api';
+const BASE_URL = 'http://localhost:4000/api';
 
 async function testMobileAuth() {
   console.log('--- Testing Mobile Auth API ---');

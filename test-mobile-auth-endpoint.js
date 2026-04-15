@@ -1,5 +1,5 @@
 async function test() {
-  const BASE_URL = 'https://tmsapi.xesstechlink.com/api';
+  const BASE_URL = 'http://localhost:4000/api';
   try {
     console.log('Testing /mobile-auth/test...');
     const res = await fetch(`${BASE_URL}/mobile-auth/test`);
