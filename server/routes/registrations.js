@@ -254,7 +254,8 @@ function createRegistrationsRouter(db) {
       res.json({ success: true, id, reference_number: nextRef });
     } catch (err) {
       console.error('Registration error:', err);
-      res.status(500).json({ error: 'Failed to save registration' });
+      console.error('Stack:', err.stack);
+      res.status(500).json({ error: 'Failed to save registration', details: err.message });
     }
   });
 

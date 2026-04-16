@@ -174,17 +174,35 @@ module.exports = function (deps = {}) {
     }
   });
 
-  // List with optional search and date filter
+  // List with optional search, date filter, status filter, and month filter
   router.get('/', async (req, res) => {
     try {
-      const { q, from, to, page = 1, pageSize = 20 } = req.query;
+      const { q, from, to, page = 1, pageSize = 20, limit, sort, status, booked, month, year, date } = req.query;
       const pg = Math.max(parseInt(page, 10) || 1, 1);
-      const ps = Math.min(Math.max(parseInt(pageSize, 10) || 20, 1), 100);
+      const ps = Math.min(Math.max(parseInt(pageSize, 10) || parseInt(limit, 10) || 20, 1), 100);
       const offset = (pg - 1) * ps;
+      const sortOrder = sort === 'asc' ? 'asc' : 'desc';
+
+      let startDate, endDate;
+      if (month && year) {
+        const m = parseInt(month, 10);
+        const y = parseInt(year, 10);
+        if (m >= 1 && m <= 12 && y) {
+          startDate = new Date(y, m - 1, 1);
+          endDate = new Date(y, m, 0);
+        }
+      } else if (month) {
+        const m = parseInt(month, 10);
+        const currentYear = new Date().getFullYear();
+        if (m >= 1 && m <= 12) {
+          startDate = new Date(currentYear, m - 1, 1);
+          endDate = new Date(currentYear, m, 0);
+        }
+      }
 
       const query = db('marriage_hall_bookings')
-        .where('temple_id', req.user.templeId)
         .modify((qb) => {
+          if (req.user?.templeId) qb.where('temple_id', req.user.templeId);
           if (q) {
             qb.andWhere((b) => {
               b.where('name', 'like', `%${q}%`)
@@ -194,10 +212,33 @@ module.exports = function (deps = {}) {
                 .orWhere('event', 'like', `%${q}%`);
             });
           }
+          if (date) {
+            const parts = date.split('-');
+            if (parts.length === 3) {
+              const formatted = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+              qb.andWhere('date', formatted);
+            } else {
+              qb.andWhere('date', date);
+            }
+          }
           if (from) qb.andWhere('date', '>=', from);
           if (to) qb.andWhere('date', '<=', to);
+          if (startDate && endDate) {
+            qb.andWhere('date', '>=', startDate.toISOString().slice(0, 10));
+            qb.andWhere('date', '<=', endDate.toISOString().slice(0, 10));
+          }
+          if (status) qb.andWhere('status', status);
+          if (booked !== undefined) {
+            if (booked === 'true' || booked === '1') {
+              qb.andWhereNotNull('register_no').andWhereNot('register_no', '');
+            } else if (booked === 'false' || booked === '0') {
+              qb.andWhere((b) => {
+                b.whereNull('register_no').orWhere('register_no', '');
+              });
+            }
+          }
         })
-        .orderBy('date', 'desc')
+        .orderBy('date', sortOrder)
         .limit(ps)
         .offset(offset);
 

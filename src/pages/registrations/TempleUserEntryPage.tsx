@@ -511,16 +511,29 @@ export default function TempleUserEntryPage() {
 
   // Helper Function: Validate Form
   // Performs basic validation. You should expand this based on your requirements.
-  const validateForm = (): boolean => {
+  const validateForm = (): Record<string, string> => {
     const newErrors: Record<string, string> = {};
+    const errRequired = t[language as 'tamil' | 'english'].errors.required;
 
-    if (!newUser.date) newErrors.date = t[language as 'tamil' | 'english'].errors.required;
-    if (!newUser.mobileNumber || newUser.mobileNumber.length !== 10) newErrors.mobileNumber = t[language as 'tamil' | 'english'].errors.required;
-    if (!newUser.name) newErrors.name = t[language as 'tamil' | 'english'].errors.required;
-    if (!newUser.fatherName) newErrors.fatherName = t[language as 'tamil' | 'english'].errors.required;
-    if (!newUser.education) newErrors.education = t[language as 'tamil' | 'english'].errors.required;
-    if (!newUser.occupation) newErrors.occupation = t[language as 'tamil' | 'english'].errors.required;
-    if (!newUser.address) newErrors.address = t[language as 'tamil' | 'english'].errors.required;
+    if (!newUser.date) newErrors.date = errRequired;
+    if (!newUser.mobileNumber) newErrors.mobileNumber = errRequired;
+    else if (newUser.mobileNumber.length !== 10 || !/^\d{10}$/.test(newUser.mobileNumber)) {
+      newErrors.mobileNumber = language === 'tamil' ? '10 இலக்க கைபேசி எண் தேவை' : 'Enter valid 10-digit mobile number';
+    }
+    if (!newUser.name) newErrors.name = errRequired;
+    if (!newUser.fatherName) newErrors.fatherName = errRequired;
+    if (!newUser.education) newErrors.education = errRequired;
+    if (!newUser.occupation) newErrors.occupation = errRequired;
+    if (!newUser.address) newErrors.address = errRequired;
+
+    // Validate education is from master list
+    if (newUser.education && masterEducations.length > 0 && !masterEducations.includes(newUser.education)) {
+      newErrors.education = language === 'tamil' ? 'படிப்பைத் தேர்வு செய்க' : 'Select from list';
+    }
+    // Validate occupation is from master list
+    if (newUser.occupation && masterOccupations.length > 0 && !masterOccupations.includes(newUser.occupation)) {
+      newErrors.occupation = language === 'tamil' ? 'தொழிலைத் தேர்வு செய்க' : 'Select from list';
+    }
 
     // Validate heirs if the section is visible or if there are heirs
     if (newUser.heirs && newUser.heirs.length > 0) {
@@ -535,7 +548,7 @@ export default function TempleUserEntryPage() {
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return newErrors;
   };
 
   // Helper Function: Clear Form
@@ -676,8 +689,10 @@ export default function TempleUserEntryPage() {
 
   // Save handler: POST on create, PUT on edit
   const handleAddUser = async () => {
-    if (!validateForm()) {
-      setErr(t[language as 'tamil' | 'english'].errors.general);
+    const validationErrors = validateForm();
+    if (Object.keys(validationErrors).length > 0) {
+      const errorFields = Object.keys(validationErrors).join(', ');
+      setErr((language === 'tamil' ? 'தவறான புலங்கள்: ' : 'Invalid fields: ') + errorFields);
       return;
     }
     setIsSubmitting(true);

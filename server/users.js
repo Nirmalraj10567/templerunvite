@@ -56,6 +56,7 @@ module.exports = function (deps = {}) {
 
       // Generate and send OTP for member users
       const otp = generateOtp();
+      console.log('📱 OTP for login:', { mobile: cleanMobile, otp });  // DEBUG
       const otpExpiry = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
 
       // Store OTP with expiry

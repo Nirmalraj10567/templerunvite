@@ -2,19 +2,66 @@ const express = require('express');
 const router = express.Router();
 
 module.exports = function({ db, authenticateToken, authorizePermission }) {
-  // All routes here require JWT and specific permission
+  // All routes here require JWT
   router.use(authenticateToken);
 
-  // List requests
-  router.get('/requests', authorizePermission('hall_approval', 'view'), async (req, res) => {
+  // List requests (same table as hall-bookings)
+  router.get('/requests', async (req, res) => {
     try {
-      const { status, mobile, date, time } = req.query;
-      let q = db('marriage_hall_bookings').select('*').orderBy('submitted_at', 'desc');
-      if (status) q = q.where('status', status);
-      if (mobile) q = q.where('mobile', 'like', `%${mobile}%`);
-      if (date) q = q.where('date', date);
-      if (time) q = q.where('time', time);
-      const rows = await q;
+      const { status, mobile, date, time, page = 1, limit = 20, q, booked, from, to, month, year } = req.query;
+      const pg = Math.max(parseInt(page, 10) || 1, 1);
+      const ps = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
+      const offset = (pg - 1) * ps;
+
+      let startDate, endDate;
+      if (month && year) {
+        const m = parseInt(month, 10);
+        const y = parseInt(year, 10);
+        if (m >= 1 && m <= 12 && y) {
+          startDate = new Date(y, m - 1, 1);
+          endDate = new Date(y, m, 0);
+        }
+      } else if (month) {
+        const m = parseInt(month, 10);
+        const currentYear = new Date().getFullYear();
+        if (m >= 1 && m <= 12) {
+          startDate = new Date(currentYear, m - 1, 1);
+          endDate = new Date(currentYear, m, 0);
+        }
+      }
+      
+      let query = db('marriage_hall_bookings')
+        .where('temple_id', req.user.templeId)
+        .modify((qb) => {
+          if (status) qb.where('status', status);
+          if (mobile) qb.where('mobile', 'like', `%${mobile}%`);
+          if (date) qb.where('date', date);
+          if (time) qb.where('time', time);
+          if (from) qb.andWhere('date', '>=', from);
+          if (to) qb.andWhere('date', '<=', to);
+          if (startDate && endDate) {
+            qb.andWhere('date', '>=', startDate.toISOString().slice(0, 10));
+            qb.andWhere('date', '<=', endDate.toISOString().slice(0, 10));
+          }
+          if (booked !== undefined) {
+            if (booked === 'true' || booked === '1') {
+              qb.andWhereNotNull('register_no').andWhereNot('register_no', '');
+            } else if (booked === 'false' || booked === '0') {
+              qb.andWhere((b) => {
+                b.whereNull('register_no').orWhere('register_no', '');
+              });
+            }
+          }
+          if (q) qb.andWhere((b) => {
+            b.where('name', 'like', `%${q}%`)
+              .orWhere('register_no', 'like', `%${q}%`)
+              .orWhere('event', 'like', `%${q}%`);
+          });
+        })
+        .orderBy('date', 'desc')
+        .limit(ps)
+        .offset(offset);
+      const rows = await query;
       res.json({ success: true, data: rows });
     } catch (err) {
       console.error('GET /api/hall-approval/requests error:', err);
@@ -23,10 +70,10 @@ module.exports = function({ db, authenticateToken, authorizePermission }) {
   });
 
   // Get single request
-  router.get('/request/:id', authorizePermission('hall_approval', 'view'), async (req, res) => {
+  router.get('/request/:id', async (req, res) => {
     try {
       const { id } = req.params;
-      const row = await db('marriage_hall_bookings').where({ id }).first();
+      const row = await db('marriage_hall_bookings').where({ id: id, temple_id: req.user.templeId }).first();
       if (!row) return res.status(404).json({ success: false, error: 'Not found' });
       const logs = await db('hall_approval_logs as l')
         .leftJoin('users as u', 'l.performed_by', 'u.id')
@@ -51,11 +98,11 @@ module.exports = function({ db, authenticateToken, authorizePermission }) {
   });
 
   // Approve a request
-  router.put('/approve/:id', authorizePermission('hall_approval', 'edit'), async (req, res) => {
+  router.put('/approve/:id', async (req, res) => {
     try {
       const { id } = req.params;
       const { notes } = req.body;
-      const existing = await db('marriage_hall_bookings').where({ id }).first();
+      const existing = await db('marriage_hall_bookings').where({ id, temple_id: req.user.templeId }).first();
       if (!existing) return res.status(404).json({ success: false, error: 'Request not found' });
       if (existing.status !== 'pending') return res.status(400).json({ success: false, error: 'Only pending requests can be approved' });
 
@@ -93,11 +140,11 @@ module.exports = function({ db, authenticateToken, authorizePermission }) {
   });
 
   // Reject a request
-  router.put('/reject/:id', authorizePermission('hall_approval', 'edit'), async (req, res) => {
+  router.put('/reject/:id', async (req, res) => {
     try {
       const { id } = req.params;
       const { reason, notes } = req.body;
-      const existing = await db('marriage_hall_bookings').where({ id }).first();
+      const existing = await db('marriage_hall_bookings').where({ id, temple_id: req.user.templeId }).first();
       if (!existing) return res.status(404).json({ success: false, error: 'Request not found' });
       if (existing.status !== 'pending') return res.status(400).json({ success: false, error: 'Only pending requests can be rejected' });
 
@@ -128,7 +175,7 @@ module.exports = function({ db, authenticateToken, authorizePermission }) {
   });
 
   // Get logs for a specific hall booking
-  router.get('/:id/logs', authorizePermission('hall_approval', 'view'), async (req, res) => {
+  router.get('/:id/logs', async (req, res) => {
     try {
       const { id } = req.params;
       const logs = await db('hall_approval_logs as l')
@@ -179,7 +226,7 @@ module.exports = function({ db, authenticateToken, authorizePermission }) {
   });
 
   // Get all hall logs with pagination
-  router.get('/logs', authorizePermission('hall_approval', 'view'), async (req, res) => {
+  router.get('/logs', async (req, res) => {
     try {
       const { page = 1, pageSize = 50 } = req.query;
       const offset = (page - 1) * pageSize;

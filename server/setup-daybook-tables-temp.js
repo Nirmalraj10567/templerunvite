@@ -1,10 +1,10 @@
 const knex = require('knex')({ 
   client: 'mysql2', 
   connection: { 
-    host: '127.0.0.1', 
-    user: 'root', 
-    password: 'root', 
-    database: 'temp' 
+    host: process.env.MYSQL_HOST || '127.0.0.1', 
+    user: process.env.MYSQL_USER || 'root', 
+    password: process.env.MYSQL_PASSWORD || 'rootroot', 
+    database: process.env.MYSQL_DATABASE || 'templexc' 
   }, 
   pool: { min: 0, max: 5 } 
 });

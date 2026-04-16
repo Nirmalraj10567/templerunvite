@@ -71,6 +71,7 @@ module.exports = ({ db, JWT_SECRET }) => {
   router.post('/send-otp', async (req, res) => {
     try {
       const { mobileNumber, name, receiptNumber } = req.body;
+      console.log('📱 MOBILE OTP REQUEST:', { mobileNumber, name, receiptNumber, otp: TEST_OTP });  // DEBUG
 
       if (!mobileNumber) {
         return res.status(400).json({
@@ -119,15 +120,8 @@ module.exports = ({ db, JWT_SECRET }) => {
       res.json({
         success: true,
         message: 'OTP sent successfully',
-        otp: TEST_OTP, // Development only
-        users: users.map(user => ({
-          id: user.id,
-          name: user.name,
-          referenceNumber: user.reference_number,
-          mobileNumber: user.mobile_number,
-          fatherName: user.father_name,
-          alternativeName: user.alternative_name
-        }))
+        otp: TEST_OTP, // Development only - REMOVE IN PRODUCTION
+        users: userDetails
       });
 
     } catch (error) {

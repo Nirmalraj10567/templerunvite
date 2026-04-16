@@ -3190,9 +3190,13 @@ app.get('/api/master-records/:templeId', authenticateToken, authorizeTempleAcces
   }
 });
 
-// Mount master data routes
+// Mount master data routes (separate hall-events/halls as public)
 const masterDataRouter = require('./components/master-data')({ db, retryOnBusy });
-app.use('/api/master', authenticateToken, authorizeRole(['admin','superadmin']), masterDataRouter);
+const masterHallEvents = require('./components/master-data/masterHallEvents')({ db, retryOnBusy });
+const masterHalls = require('./components/master-data/masterHalls')({ db, retryOnBusy });
+app.use('/api/master/hall-events', masterHallEvents);  // Public - no auth
+app.use('/api/master/halls', masterHalls);  // Public - no auth
+app.use('/api/master', authenticateToken, authorizeRole(['admin','superadmin']), masterDataRouter);  // Auth required
 
 // Master clans delete route has been moved to /api/master/clans/:id
 
@@ -4176,7 +4180,7 @@ const skipReceiptPdfAuth = (req, res, next) => {
   }
   return authenticateToken(req, res, next);
 };
-app.use('/api/hall-bookings', skipReceiptPdfAuth, authorizeRole(['admin','superadmin']), hallBookingsRouter);
+app.use('/api/hall-bookings', skipReceiptPdfAuth, authenticateToken, hallBookingsRouter);
 
 // Mount journal router
 const journalRouter = require('./routes/journal')({ db });

@@ -24,12 +24,18 @@ function authenticateToken(req, res, next) {
     (method === 'POST' && ((/\/api\/register$/.test(pathOnly)) || (/\/register$/.test(pathOnly)))) ||
     // Allow mobile-auth OTP verification (token validated internally)
     (method === 'POST' && /\/api\/mobile-auth\/verify-otp$/.test(pathOnly)) ||
+    // Allow mobile-auth send OTP endpoint
+    (method === 'POST' && /\/api\/mobile-auth\/send-otp$/.test(pathOnly)) ||
     // Allow guest login endpoint
     (method === 'POST' && /\/api\/mobile-auth\/guest-login$/.test(pathOnly)) ||
     // Allow login mode discovery endpoint
     (method === 'GET' && ((/\/api\/login\/mode$/.test(pathOnly)) || (/\/login\/mode$/.test(pathOnly)))) ||
-    // Mobile events list should be public (correct path)
+    // Allow mobile events list (correct path)
     (method === 'GET' && /\/api\/mobile\/events$/.test(pathOnly)) ||
+    // Allow hall events list public
+    (method === 'GET' && /\/api\/master\/hall-events\/\d+$/.test(pathOnly)) ||
+    // Allow hall list public
+    (method === 'GET' && /\/api\/master\/halls\/\d+$/.test(pathOnly)) ||
     // Allow PDF/receipt endpoints that validate token via query using verifyQueryToken
     // Example: /api/money-donations/:id/receipt.pdf?token=...
     //          /api/tax-registrations/:id/receipt.pdf?token=...
