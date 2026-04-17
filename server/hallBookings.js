@@ -201,8 +201,8 @@ module.exports = function (deps = {}) {
       }
 
       const query = db('marriage_hall_bookings')
+        .where('temple_id', req.query.temple_id || req.user?.templeId)
         .modify((qb) => {
-          if (req.user?.templeId) qb.where('temple_id', req.user.templeId);
           if (q) {
             qb.andWhere((b) => {
               b.where('name', 'like', `%${q}%`)
@@ -255,7 +255,7 @@ module.exports = function (deps = {}) {
     try {
       const { q, from, to } = req.query;
       const rows = await db('marriage_hall_bookings')
-        .where('temple_id', req.user.templeId)
+        .where('temple_id', req.query.temple_id || req.user?.templeId)
         .modify((qb) => {
           if (q) {
             qb.andWhere((b) => {
@@ -633,7 +633,7 @@ module.exports = function (deps = {}) {
   router.get('/latest', async (req, res) => {
     try {
       const latestBooking = await db('marriage_hall_bookings')
-        .where('temple_id', req.user.templeId)
+        .modify((qb) => { const role = req.user?.role?.toLowerCase() || ''; if (role !== 'superadmin') qb.where('temple_id', req.user?.templeId); })
         .whereNotNull('register_no')
         .orderBy('id', 'desc')
         .first();
@@ -699,7 +699,7 @@ module.exports = function (deps = {}) {
   router.get('/export', async (req, res) => {
     try {
       const rows = await db('marriage_hall_bookings')
-        .where('temple_id', req.user.templeId)
+        .modify((qb) => { const role = req.user?.role?.toLowerCase() || ''; if (role !== 'superadmin') qb.where('temple_id', req.user?.templeId); })
         .orderBy('date', 'desc');
 
       const headers = [

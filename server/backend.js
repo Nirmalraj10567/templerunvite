@@ -694,19 +694,19 @@ async function removePoojaFromDaybook({ poojaId, templeId }) {
   // Do NOT put authenticateToken here so that /api/mobile-auth/send-otp and /verify-otp remain public
   app.use('/api/mobile-auth', mobileAuthRouter);
 })();
-// Mount hall-mobile routes (public; validation via mobile number and internal checks)
+// Mount hall-mobile routes (auth required to get templeId from JWT)
 (() => {
   try {
-    const hallMobileRouter = require('./hall-mobile')({ db });
+    const hallMobileRouter = require('./hall-mobile')({ db, authenticateToken });
     app.use('/api/hall-mobile', hallMobileRouter);
   } catch (e) {
     console.error('Failed to mount hall-mobile router:', e);
   }
 })();
-// Mount pooja-mobile routes (public; validation via mobile number and internal checks)
+// Mount pooja-mobile routes
 (() => {
   try {
-    const poojaMobileRouter = require('./pooja-mobile')({ db });
+    const poojaMobileRouter = require('./pooja-mobile')({ db, authenticateToken });
     app.use('/api/pooja-mobile', poojaMobileRouter);
   } catch (e) {
     console.error('Failed to mount pooja-mobile router:', e);
@@ -719,6 +719,15 @@ async function removePoojaFromDaybook({ poojaId, templeId }) {
     app.use('/api/donations-mobile', donationsMobileRouter);
   } catch (e) {
     console.error('Failed to mount donations-mobile router:', e);
+  }
+})();
+// Mount money-donations-mobile routes (auth required)
+(() => {
+  try {
+    const router = require('./money-donations-mobile')({ db, authenticateToken });
+    app.use('/api/money-donations-mobile', router);
+  } catch (e) {
+    console.error('Failed to mount money-donations-mobile router:', e);
   }
 })();
 // Mount annadhanam-mobile routes (public; validation via mobile number and internal checks)

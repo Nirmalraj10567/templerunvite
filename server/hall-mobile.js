@@ -1,7 +1,10 @@
 const express = require('express');
 const router = express.Router();
 
-module.exports = function({ db }) {
+module.exports = function({ db, authenticateToken }) {
+  // All routes require authentication to get templeId from JWT
+  router.use(authenticateToken);
+
   // Submit hall booking request from mobile
   router.post('/submit', async (req, res) => {
     try {
@@ -29,8 +32,8 @@ module.exports = function({ db }) {
         return res.status(400).json({ success: false, error: 'Missing required fields' });
       }
 
-      // Resolve a valid templeId (accept from body if provided; validate against temples table)
-      let resolvedTempleId = Number(temple_id || templeId) || null;
+      // Use authenticated user's templeId from JWT (most secure)
+      let resolvedTempleId = req.user?.templeId || Number(temple_id || templeId) || null;
       try {
         if (resolvedTempleId) {
           const t = await db('temples').where({ id: resolvedTempleId }).first();

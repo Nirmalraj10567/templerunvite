@@ -6,9 +6,25 @@ const getProductsByTemple = async (req, res) => {
     const { templeId } = req.params;
     const db = req.app.get('db');
     
-    const products = await db('donation_products')
-      .where({ temple_id: templeId })
-      .orderBy('label', 'asc');
+    // Check table exists
+    const hasTable = await db.schema.hasTable('donation_products');
+    if (!hasTable) {
+      return res.json({ success: true, data: [] });
+    }
+    
+    // Check if temple_id column exists
+    const hasTempleId = await db.schema.hasColumn('donation_products', 'temple_id');
+    
+    let products;
+    if (hasTempleId) {
+      products = await db('donation_products')
+        .where({ temple_id: templeId })
+        .orderBy('label', 'asc');
+    } else {
+      // No temple_id - return all products
+      products = await db('donation_products')
+        .orderBy('label', 'asc');
+    }
 
     res.json({
       success: true,
@@ -40,11 +56,19 @@ const createProduct = async (req, res) => {
       });
     }
 
-    // Check for duplicate product name in this temple
-    const existing = await db('donation_products')
-      .where({ temple_id: templeId })
-      .whereRaw('LOWER(label) = ?', [label.toLowerCase()])
-      .first();
+    // Check for duplicate product name
+    const hasTempleId = await db.schema.hasColumn('donation_products', 'temple_id');
+    let existing;
+    if (hasTempleId) {
+      existing = await db('donation_products')
+        .where({ temple_id: templeId })
+        .whereRaw('LOWER(label) = ?', [label.toLowerCase()])
+        .first();
+    } else {
+      existing = await db('donation_products')
+        .whereRaw('LOWER(label) = ?', [label.toLowerCase()])
+        .first();
+    }
 
     if (existing) {
       return res.status(400).json({
@@ -54,13 +78,16 @@ const createProduct = async (req, res) => {
     }
 
     // Create new product
-    const [id] = await db('donation_products').insert({
+    const hasTempleIdCol = await db.schema.hasColumn('donation_products', 'temple_id');
+    const insertData = {
       label,
       value: value || label,
       unit,
-      temple_id: templeId,
       created_at: db.fn.now()
-    });
+    };
+    if (hasTempleIdCol) insertData.temple_id = templeId;
+    
+    const [id] = await db('donation_products').insert(insertData);
 
     const product = await db('donation_products').where({ id }).first();
 

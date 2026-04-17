@@ -3,8 +3,56 @@ const jwt = require('jsonwebtoken');
 const router = express.Router();
 
 module.exports = function(deps = {}) {
-  const { db } = deps;
+  const { db, authenticateToken } = deps;
   const JWT_SECRET = process.env.JWT_SECRET || 'dev-insecure-secret-change-me';
+
+  // Get next receipt number (auth-based)
+  if (authenticateToken) {
+    router.get('/next-receipt-no', authenticateToken, async (req, res) => {
+      try {
+        const templeId = req.user?.templeId;
+        const year = new Date().getFullYear();
+        
+        // First try to get the latest with year prefix for this temple (exclude cancelled/rejected)
+        let latest = await db('pooja')
+          .where('temple_id', templeId)
+          .whereNotNull('receipt_number')
+          .andWhere('receipt_number', '!=', '')
+          .andWhere('receipt_number', 'like', `${year}-%`)
+          .whereNotIn('status', ['cancelled', 'rejected'])
+          .select('receipt_number')
+          .orderBy('receipt_number', 'desc')
+          .first();
+
+        // If no result for this temple, check all temples (exclude cancelled/rejected)
+        if (!latest) {
+          latest = await db('pooja')
+            .whereNotNull('receipt_number')
+            .andWhere('receipt_number', '!=', '')
+            .andWhere('receipt_number', 'like', `${year}-%`)
+            .whereNotIn('status', ['cancelled', 'rejected'])
+            .select('receipt_number')
+            .orderBy('receipt_number', 'desc')
+            .first();
+        }
+
+        let nextNumber = 1;
+        if (latest?.receipt_number) {
+          const parts = latest.receipt_number.split('-');
+          if (parts.length >= 2) {
+            const num = parseInt(parts[1], 10);
+            if (!isNaN(num)) nextNumber = num + 1;
+          }
+        }
+
+        const nextReceiptNo = `${year}-${String(nextNumber).padStart(4, '0')}`;
+        res.json({ success: true, next_receipt_no: nextReceiptNo });
+      } catch (err) {
+        console.error('GET /pooja-mobile/next-receipt-no error:', err);
+        res.status(500).json({ success: false, error: 'Internal server error' });
+      }
+    });
+  }
 
   // Require mobile token like 'Bearer mobile_<userId>_<timestamp>'
   const verifyMobileToken = (req, res, next) => {

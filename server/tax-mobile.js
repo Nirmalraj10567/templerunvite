@@ -13,7 +13,7 @@ module.exports = function createTaxMobileRouter(deps = {}) {
     try {
       const templeId = Number(req.query.templeId) || null;
       const mobile = normMobile(req.query.mobile || '');
-      const year = req.query.year ? Number(req.query.year) : null;
+      const yearParam = req.query.year ? Number(req.query.year) : new Date().getFullYear();
       const pending = req.query.pending === '1' || req.query.pending === 'true';
 
       if (!templeId || !mobile) {
@@ -24,8 +24,8 @@ module.exports = function createTaxMobileRouter(deps = {}) {
         .where('temple_id', templeId)
         .andWhereRaw("REPLACE(COALESCE(mobile_number, ''), ' ', '') LIKE ?", [`%${mobile}%`]);
 
-      if (Number.isFinite(year)) {
-        q = q.andWhere('year', year);
+      if (Number.isFinite(yearParam)) {
+        q = q.andWhere('year', yearParam);
       }
 
       const rows = await q
@@ -33,7 +33,7 @@ module.exports = function createTaxMobileRouter(deps = {}) {
         .limit(100)
         .select('*');
 
-      const data = rows.map((r) => {
+      let data = rows.map((r) => {
         const tax = Number(r.tax_amount || 0);
         const paid = Number(r.amount_paid || 0);
         const outstanding = r.outstanding_amount != null ? Number(r.outstanding_amount) : Math.max(0, tax - paid);
@@ -51,6 +51,30 @@ module.exports = function createTaxMobileRouter(deps = {}) {
           status: outstanding > 0 ? 'pending' : 'paid',
         };
       });
+
+      // If no record for current year, check tax settings and return pending entry
+      const currentYear = new Date().getFullYear();
+      if (rows.length === 0 && yearParam === currentYear) {
+        const settings = await db('tax_settings').where({ temple_id: templeId, year: currentYear }).first();
+        const defaultTax = settings ? Number(settings.tax_amount || 0) : 0;
+        
+        if (defaultTax > 0) {
+          data = [{
+            id: null,
+            reference_number: null,
+            date: null,
+            year: currentYear,
+            name: null,
+            village: null,
+            mobile_number: mobile,
+            tax_amount: defaultTax,
+            amount_paid: 0,
+            outstanding_amount: defaultTax,
+            status: 'pending',
+            is_new: true
+          }];
+        }
+      }
 
       // Apply pending filter if requested
       const filteredData = pending ? data.filter(item => item.status === 'pending') : data;

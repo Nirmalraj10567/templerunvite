@@ -172,23 +172,48 @@ module.exports = function(deps = {}) {
   // Get the latest receipt number
   router.get('/latest-receipt', async (req, res) => {
     try {
-      const latestPooja = await db('pooja')
+      const year = new Date().getFullYear();
+      const templeId = req.user?.templeId;
+      
+      // Build query - first try temple-specific
+      let query = db('pooja')
         .whereNotNull('receipt_number')
-        .where('receipt_number', 'like', `${new Date().getFullYear()}%`)
-        .orderBy('id', 'desc')
-        .first();
+        .where('receipt_number', 'like', `${year}-%`)
+        .whereNotIn('status', ['cancelled', 'rejected'])
+        .orderBy('receipt_number', 'desc');
+      
+      if (templeId) {
+        query = query.where('temple_id', templeId);
+      }
+      
+      let latestPooja = await query.first();
+      
+      // If no result for this temple, check all temples
+      if (!latestPooja && templeId) {
+        latestPooja = await db('pooja')
+          .whereNotNull('receipt_number')
+          .where('receipt_number', 'like', `${year}-%`)
+          .whereNotIn('status', ['cancelled', 'rejected'])
+          .orderBy('receipt_number', 'desc')
+          .first();
+      }
       
       if (latestPooja && latestPooja.receipt_number) {
+        const parts = latestPooja.receipt_number.split('-');
+        const nextNumber = parts.length >= 2 ? parseInt(parts[1], 10) + 1 : 1;
+        const nextReceipt = `${year}-${String(nextNumber).padStart(4, '0')}`;
         return res.json({ 
           success: true, 
-          latestReceipt: latestPooja.receipt_number 
+          latestReceipt: latestPooja.receipt_number,
+          nextReceiptNo: nextReceipt
         });
       }
       
-      // If no receipt found for current year, return format with 0
+      // If no receipt found for current year, return format with 0001
       res.json({ 
         success: true, 
-        latestReceipt: `${new Date().getFullYear()}-0000`
+        latestReceipt: `${year}-0000`,
+        nextReceiptNo: `${year}-0001`
       });
     } catch (error) {
       console.error('Error fetching latest receipt:', error);
@@ -246,7 +271,10 @@ module.exports = function(deps = {}) {
         query = query.where('pooja.to_date', '<=', to);
       }
 
-      if (status) {
+      // Default to approved status unless explicitly filtered
+      if (!status) {
+        query = query.where('pooja.status', 'approved');
+      } else if (status) {
         query = query.where('pooja.status', status);
       }
 
