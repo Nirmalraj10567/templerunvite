@@ -74,7 +74,7 @@ export default function ReceiptEntryPage() {
       amount: 'தொகை',
       remarks: 'குறிப்புகள்',
       save: 'சேமிக்கவும்',
-      cancel: 'ரத்து செய்',
+     
       saveSuccess: 'ரசீது வெற்றிகரமாக சேமிக்கப்பட்டது',
       saveError: 'ரசீதை சேமிக்க முடியவில்லை',
       invalidAmount: 'செல்லுபடியான தொகையை உள்ளிடவும்',
@@ -95,7 +95,7 @@ export default function ReceiptEntryPage() {
       clear: 'அழி',
       success: 'வெற்றி',
       error: 'பிழை',
-      toNavigate: 'நகர்வதற்கு'
+      
     },
     tamil: {
       title: id ? 'Edit Receipt' : 'New Receipt',
@@ -109,7 +109,7 @@ export default function ReceiptEntryPage() {
       amount: 'Amount',
       remarks: 'Remarks',
       save: 'Save',
-      cancel: 'Cancel',
+     
       saveSuccess: 'Receipt saved successfully',
       saveError: 'Failed to save receipt',
       invalidAmount: 'Please enter a valid amount',
@@ -130,7 +130,6 @@ export default function ReceiptEntryPage() {
       clear: 'Clear',
       success: 'Success',
       error: 'Error',
-      toNavigate: 'to navigate'
     }
   };
 
@@ -523,9 +522,6 @@ export default function ReceiptEntryPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {/* Receipt Number */}
                   <div>
-                    <Label className={labelStyles} htmlFor="receiptNumber">
-                      {t('receiptNumber')}
-                    </Label>
                     <Input
                       id="receiptNumber"
                       readOnly
@@ -537,13 +533,11 @@ export default function ReceiptEntryPage() {
 
                   {/* Date */}
                   <div>
-                    <Label className={labelStyles} htmlFor="date">
-                      {t('date')} <span className="text-red-500">*</span>
-                    </Label>
                     <Input
                       id="date"
                       type="date"
                       className={fieldStyles}
+                      placeholder={t('date')}
                       {...register('date', { required: t('requiredField') })}
                       autoFocus
                     />
@@ -551,9 +545,6 @@ export default function ReceiptEntryPage() {
 
                   {/* Type */}
                   <div>
-                    <Label className={labelStyles} htmlFor="type">
-                      {t('type')} <span className="text-red-500">*</span>
-                    </Label>
                     <div className="relative">
                       <select
                         id="type"
@@ -563,6 +554,7 @@ export default function ReceiptEntryPage() {
                           onChange: handleTypeChange 
                         })}
                       >
+                        <option value="">{t('type')}</option>
                         <option value="income">{t('income')}</option>
                         <option value="expense">{t('expense')}</option>
                       </select>
@@ -576,16 +568,13 @@ export default function ReceiptEntryPage() {
 
                   {/* Amount */}
                   <div>
-                    <Label className={labelStyles} htmlFor="amount">
-                      {t('amount')} (₹) <span className="text-red-500">*</span>
-                    </Label>
                     <Input
                       id="amount"
                       type="number"
                       step="0.01"
                       min="0"
                       className={fieldStyles}
-                      placeholder={t('amount')}
+                      placeholder={`${t('amount')} (₹)`}
                       {...register('amount', { 
                         required: t('requiredField'), 
                         onBlur: handleAmountBlur 
@@ -595,16 +584,13 @@ export default function ReceiptEntryPage() {
 
                   {/* Donor */}
                   <div>
-                    <Label className={labelStyles} htmlFor="donor">
-                      {t('donor')}
-                    </Label>
                     <div className="relative">
                       <select
                         id="donor"
                         className={selectStyles}
                         {...register('donor', { onChange: handleDonorChange })}
                       >
-                        <option value="">{t('selectName')}</option>
+                        <option value="">{t('donor')}</option>
                         {ledgerNames.map((n) => (
                           <option key={n} value={n}>{n}</option>
                         ))}
@@ -625,16 +611,13 @@ export default function ReceiptEntryPage() {
 
                   {/* Receiver */}
                   <div>
-                    <Label className={labelStyles} htmlFor="receiver">
-                      {t('receiver')}
-                    </Label>
                     <div className="relative">
                       <select
                         id="receiver"
                         className={selectStyles}
                         {...register('receiver')}
                       >
-                        <option value="">{t('selectName')}</option>
+                        <option value="">{t('receiver')}</option>
                         {ledgerNames.map((n) => (
                           <option key={n} value={n}>{n}</option>
                         ))}
@@ -649,14 +632,11 @@ export default function ReceiptEntryPage() {
 
                   {/* Remarks - Full width */}
                   <div className="md:col-span-2 lg:col-span-3">
-                    <Label className={labelStyles} htmlFor="remarks">
-                      {t('remarksLabel')}
-                    </Label>
                     <Textarea
                       id="remarks"
                       rows={3}
                       className={textareaStyles}
-                      placeholder={t('additionalRemarks')}
+                      placeholder={t('remarksLabel')}
                       {...register('remarks')}
                     />
                   </div>
@@ -682,34 +662,16 @@ export default function ReceiptEntryPage() {
                 <div className="flex gap-3">
                   {/* Keyboard shortcut hint */}
                   <div className="text-sm text-gray-500 hidden md:flex items-center">
-                    <kbd className="px-2 py-1 text-xs bg-gray-100 border border-gray-300 rounded">Enter</kbd>
-                    <span className="ml-2">{t('toNavigate')}</span>
+                   
                   </div>
                 </div>
                 
                 <div className="flex gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="default"
-                    className="px-6 py-2 text-sm border hover:bg-gray-50 rounded-md"
-                    onClick={handleCancel}
-                    disabled={isSubmitting}
-                  >
-                    {t('cancel')}
-                  </Button>
 
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="default"
-                    className="px-6 py-2 text-sm border hover:bg-gray-50 rounded-md"
-                    onClick={handleGoToDailyReport}
-                    disabled={isSubmitting}
-                  >
-                    {t('goToDailyReport')}
-                  </Button>
-                  
+
+                 
+
+                 
                   {!isEdit && (
                     <Button
                       type="button"

@@ -6,9 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { FileDown, Trash2 } from 'lucide-react';
+import { FileDown, Trash2, Search } from 'lucide-react';
 import { cn, pageContainerStyles, formFieldStyles } from '@/styles/formStyles';
-import { theme } from '@/styles/theme';
+import { theme, tableClasses, buttonClasses } from '@/styles/theme';
 
 type TaxRegistration = {
   id: number;
@@ -1151,18 +1151,16 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
             {/* Search */}
           <div className={formFieldStyles.moneyDonationList.filters.searchContainer}>
             <div className={formFieldStyles.moneyDonationList.filters.searchIcon}>
-              <svg className={formFieldStyles.moneyDonationList.filters.searchIconSvg} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <Input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={t('Search by name/mobile/aadhaar/ref no', 'பெயர்/தொலைபேசி/ஆதார்/குறிப்பு எண் மூலம் தேடுக')}
-              className={formFieldStyles.moneyDonationList.filters.searchInput}
-              />
+              <Search className={formFieldStyles.moneyDonationList.filters.searchIconSvg} />
             </div>
+            <Input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('Search by name/mobile/aadhaar/ref no', 'பெயர்/தொலைபேசி/ஆதார்/குறிப்பு எண் மூலம் தேடுக')}
+              className={cn(theme.input.base, theme.input.size.sm, "pl-8")}
+            />
+          </div>
 
             {/* Status Tabs */}
             <div className="flex items-center gap-1 bg-gray-100 rounded p-0.5">
@@ -1186,7 +1184,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
             </div>
 
             {/* Family Chain Filter */}
-            <div className="flex items-center gap-1 bg-purple-50 rounded p-0.5 border border-purple-200">
+            <div className="flex items-center gap-1 bg-orange-50 rounded p-0.5 border border-orange-200">
               {([
                 { key: 'all', label: t('All Users', 'அனைத்து பயனர்கள்') },
                 { key: 'family', label: '👨‍👩‍👧‍👦 ' + t('Family Chain', 'குடும்ப சங்கிலி') },
@@ -1196,8 +1194,8 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
                   type="button"
                   onClick={() => { setFamilyFilter(tab.key); setPage(1); }}
                   className={`px-2 py-0.5 rounded text-xs transition-colors ${familyFilter === tab.key
-                      ? 'bg-purple-600 text-white shadow-sm text-xs'
-                      : 'bg-transparent text-purple-700 hover:text-purple-900 text-xs'
+                      ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-sm text-xs'
+                      : 'bg-transparent text-orange-700 hover:text-orange-900 text-xs'
                     }`}
                 >
                   {tab.label}
@@ -1207,164 +1205,153 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
 
             {/* Actions */}
           <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>
-            <Button onClick={load} className={formFieldStyles.moneyDonationList.filters.button}>{t('Search', 'தேடு')}</Button>
-            <Button variant="outline" onClick={() => setSearch('')} className={formFieldStyles.moneyDonationList.filters.button}>
-                {t('Clear', 'அழி')}
-              </Button>
-           
-            <Button variant="outline" onClick={handleExportAllPdf} className={formFieldStyles.moneyDonationList.filters.button}>
-                <FileDown className="h-3 w-3 mr-1" />
-                {t('Export All (PDF)', 'அனைத்தையும் ஏற்றுமதி (PDF)')}
-              </Button>
-            <Button variant="outline" onClick={handlePrint} className={formFieldStyles.moneyDonationList.filters.button}>
-                <FileDown className="h-3 w-3 mr-1" />
-                {t('Export PDF', 'PDF ஏற்றுமதி')}
-              </Button>
-            </div>
+            <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => setSearch('')}>
+              {t('Clear', 'அழி')}
+            </Button>
+            <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handleExportAllPdf} disabled={loading || rows.length === 0}>
+              <FileDown className="h-3 w-3 mr-1" />
+              {t('Export All (PDF)', 'அனைத்தையும் ஏற்றுமதி (PDF)')}
+            </Button>
+            <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handlePrint} disabled={loading || rows.length === 0}>
+              <FileDown className="h-3 w-3 mr-1" />
+              {t('Export PDF', 'PDF ஏற்றுமதி')}
+            </Button>
+          </div>
           </div>
       </div>
 
       {/* Table */}
-      <div
-        className={formFieldStyles.moneyDonationList.table.container}
-        onContextMenu={onContextMenu}
-      >
-        <div className={formFieldStyles.moneyDonationList.table.scrollContainer}>
-          <table className={formFieldStyles.moneyDonationList.table.table}>
-            <thead className={formFieldStyles.moneyDonationList.table.thead}>
-              <tr>
+      <div className={tableClasses.scrollContainerWrapper} onContextMenu={onContextMenu}>
+        <div className={tableClasses.scrollContainer}>
+          <Table className={tableClasses.container}>
+            <TableHeader className={tableClasses.header}>
+              <TableRow className={tableClasses.row}>
                 {allColumns.map(
                   (col) =>
                     visibleCols[col.key] && (
-                      <th
+                      <TableHead
                         key={col.key}
                         className={cn(
-                          formFieldStyles.moneyDonationList.table.th,
-                          col.align === 'right' ? formFieldStyles.moneyDonationList.table.thRight :
-                          col.align === 'center' ? formFieldStyles.moneyDonationList.table.thCenter :
-                          formFieldStyles.moneyDonationList.table.thLeft
+                          tableClasses.headerCell,
+                          col.align === 'right' ? 'text-right' :
+                          col.align === 'center' ? 'text-center' :
+                          'text-left'
                         )}
                       >
                         {col.label}
-                      </th>
+                      </TableHead>
                     )
                 )}
-                          </tr>
-                        </thead>
-            <tbody className={formFieldStyles.moneyDonationList.table.tbody}>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {loading ? (
-                <tr>
-                  <td
-                    colSpan={visibleColCount}
-                    className={formFieldStyles.moneyDonationList.table.loadingCell}
-                  >
+                <TableRow>
+                  <TableCell colSpan={visibleColCount} className={tableClasses.emptyState}>
                     {t('Loading...', 'ஏற்றுகிறது...')}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ) : filteredRows.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={visibleColCount}
-                    className={formFieldStyles.moneyDonationList.table.emptyCell}
-                  >
+                <TableRow>
+                  <TableCell colSpan={visibleColCount} className={tableClasses.emptyState}>
                     {t('No records found', 'பதிவுகள் கிடைக்கவில்லை')}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ) : (
                 filteredRows.map((r) => (
-                  <tr key={r.id} className={formFieldStyles.moneyDonationList.table.tr}>
+                  <TableRow key={r.id} className={tableClasses.row}>
                     {visibleCols.name && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                      <TableCell className={tableClasses.cell}>
                         {r.name}
                       </TableCell>
                     )}
                     {visibleCols.mobile_number && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                      <TableCell className={tableClasses.cell}>
                         {r.mobile_number || '-'}
                       </TableCell>
                     )}
                     {visibleCols.aadhaar_number && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                      <TableCell className={tableClasses.cell}>
                         {r.aadhaar_number || '-'}
                       </TableCell>
                     )}
                     {visibleCols.reference_number && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                      <TableCell className={tableClasses.cell}>
                         {r.reference_number || '-'}
                       </TableCell>
                     )}
                     {visibleCols.father_name && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                      <TableCell className={tableClasses.cell}>
                         {r.father_name || '-'}
                       </TableCell>
                     )}
                     {visibleCols.education && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                      <TableCell className={tableClasses.cell}>
                         {r.education || '-'}
                       </TableCell>
                     )}
                     {visibleCols.occupation && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                      <TableCell className={tableClasses.cell}>
                         {r.occupation || '-'}
                       </TableCell>
                     )}
                     {visibleCols.clan && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                      <TableCell className={tableClasses.cell}>
                         {r.clan || '-'}
                       </TableCell>
                     )}
                     {visibleCols.group && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                      <TableCell className={tableClasses.cell}>
                         {r.group || '-'}
                       </TableCell>
                     )}
                     {visibleCols.village && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                      <TableCell className={tableClasses.cell}>
                         {r.village || '-'}
                       </TableCell>
                     )}
                     {visibleCols.address && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                      <TableCell className={tableClasses.cell}>
                         {r.address || '-'}
                       </TableCell>
                     )}
                     {visibleCols.birth_date && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                      <TableCell className={tableClasses.cell}>
                         {r.birth_date ? new Date(r.birth_date).toLocaleDateString(language === 'tamil' ? 'ta-IN' : 'en-IN') : '-'}
                       </TableCell>
                     )}
                     {visibleCols.pan_number && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                      <TableCell className={tableClasses.cell}>
                         {r.pan_number || '-'}
                       </TableCell>
                     )}
                     {visibleCols.postal_code && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                      <TableCell className={tableClasses.cell}>
                         {r.postal_code || '-'}
                       </TableCell>
                     )}
                     {visibleCols.male_heirs && (
-                      <TableCell className={cn(formFieldStyles.moneyDonationList.table.td, formFieldStyles.moneyDonationList.table.tdCenter)}>
+                      <TableCell className={cn(tableClasses.cell, 'text-center')}>
                         {r.male_heirs || 0}
                       </TableCell>
                     )}
                     {visibleCols.female_heirs && (
-                      <TableCell className={cn(formFieldStyles.moneyDonationList.table.td, formFieldStyles.moneyDonationList.table.tdCenter)}>
+                      <TableCell className={cn(tableClasses.cell, 'text-center')}>
                         {r.female_heirs || 0}
                       </TableCell>
                     )}
                     {visibleCols.member_id && (
-                      <TableCell className={cn(formFieldStyles.moneyDonationList.table.td, formFieldStyles.moneyDonationList.table.tdCenter)}>
+                      <TableCell className={cn(tableClasses.cell, 'text-center')}>
                         {r.member_id || '-'}
                       </TableCell>
                     )}
                     {visibleCols.gender && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                      <TableCell className={tableClasses.cell}>
                         {r.gender === 'male' ? '♂️ Male' : r.gender === 'female' ? '♀️ Female' : '-'}
                       </TableCell>
                     )}
                     {visibleCols.marital_status && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                      <TableCell className={tableClasses.cell}>
                         <span className={cn(
                           'px-2 py-1 rounded text-xs font-medium',
                           r.marital_status === 'married' ? 'bg-green-100 text-green-800' : 
@@ -1375,7 +1362,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
                       </TableCell>
                     )}
                     {visibleCols.family_chain && (
-                      <TableCell className={cn(formFieldStyles.moneyDonationList.table.td, formFieldStyles.moneyDonationList.table.tdCenter)}>
+                      <TableCell className={cn(tableClasses.cell, 'text-center')}>
                         {(() => {
                           // Family chain indicator - debug info
                           const hasParent = !!(r.parent_reference_id && r.parent_reference_id !== 'null' && r.parent_reference_id !== '');
@@ -1411,14 +1398,14 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
                       </TableCell>
                     )}
                     {visibleCols.created_at && (
-                      <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                      <TableCell className={tableClasses.cell}>
                         {r.created_at
                           ? new Date(r.created_at).toLocaleDateString(language === 'tamil' ? 'ta-IN' : 'en-IN')
                           : '-'}
                       </TableCell>
                     )}
                     {visibleCols.status && (
-                      <TableCell className={cn(formFieldStyles.moneyDonationList.table.td, formFieldStyles.moneyDonationList.table.tdCenter)}>
+                      <TableCell className={cn(tableClasses.cell, 'text-center')}>
                         {(() => {
                           const tax = Number(r.tax_amount || 0);
                           const paid = Number(r.amount_paid || 0);
@@ -1441,32 +1428,31 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
                       </TableCell>
                     )}
                     {visibleCols.actions && (
-                      <TableCell className={cn(formFieldStyles.moneyDonationList.table.td, formFieldStyles.moneyDonationList.table.tdCenter)}>
-                        <div className={formFieldStyles.moneyDonationList.actionButtons.container}>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDownloadPdf(r.id)}
-                            className={formFieldStyles.moneyDonationList.actionButtons.print}
-                        >
-                          {t('PDF', 'PDF')}
-                        </Button>
-                         
+                      <TableCell className={cn(tableClasses.cell, tableClasses.actionCell)}>
+                        <div className="flex items-center justify-end gap-1">
                           <Button
-                            variant="outline"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDownloadPdf(r.id)}
+                            className={tableClasses.actionButtonSecondary}
+                          >
+                            {t('PDF', 'PDF')}
+                          </Button>
+                          <Button
+                            variant="ghost"
                             size="sm"
                             onClick={() => openEdit(r)}
                             disabled={r.id < 0}
-                            className={formFieldStyles.moneyDonationList.actionButtons.edit}
+                            className={tableClasses.actionButtonPrimary}
                           >
                             {t('Edit', 'திருத்து')}
                           </Button>
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
                             onClick={() => handleDelete(r)}
                             disabled={r.id < 0}
-                            className={formFieldStyles.moneyDonationList.actionButtons.delete}
+                            className={r.id >= 0 ? tableClasses.actionButtonDanger : 'opacity-50 cursor-not-allowed'}
                             title={t('Delete', 'நீக்கு')}
                           >
                             <Trash2 className="h-3 w-3" />
@@ -1474,64 +1460,60 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
                         </div>
                       </TableCell>
                     )}
-                  </tr>
+                  </TableRow>
                 ))
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
+
+      </div> {/* Close scrollContainerWrapper here */}
 
         {/* Footer */}
-        <div className={formFieldStyles.moneyDonationList.summary.container}>
-          <div className={formFieldStyles.moneyDonationList.summary.info}>
-            {t('Showing', 'காட்டப்படுகிறது')}{' '}
-            <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{(page - 1) * pageSize + 1}</span> {t('to', 'இலிருந்து')}{' '}
-            <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{Math.min(page * pageSize, total)}</span> {t('of', 'மொத்தம்')}{' '}
-            <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{total}</span> {t('results', 'முடிவுகள்')}
+        <div className={tableClasses.pagination}>
+          <div className="text-xs text-gray-700 flex flex-wrap gap-4">
+            <span>
+              {t('Showing', 'காட்டப்படுகிறது')} {(page - 1) * pageSize + 1} {t('to', 'இலிருந்து')} {Math.min(page * pageSize, total)} {t('of', 'மொத்தம்')} <span className="font-medium">{total}</span> {t('results', 'முடிவுகள்')}
+            </span>
+            <span>| {t('Total', 'மொத்தம்')}: <span className="font-medium">{total}</span></span>
           </div>
-          <div className={formFieldStyles.moneyDonationList.summary.total}>
-            {t('Total', 'மொத்தம்')}: <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{total}</span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className={tableClasses.paginationButton}
+            >
+              {t('Previous', 'முந்தைய')}
+            </Button>
+            <span className="text-xs flex items-center">
+              {t('Page', 'பக்கம்')} {page} {t('of', 'இல்')} {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className={tableClasses.paginationButton}
+            >
+              {t('Next', 'அடுத்தது')}
+            </Button>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(parseInt(e.target.value, 10));
+                setPage(1);
+              }}
+              className="ml-auto border rounded px-2 py-0.5 text-xs"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
           </div>
         </div>
-      </div>
-
-      {/* Pagination */}
-      <div className={formFieldStyles.moneyDonationList.pagination.container}>
-        <div className={formFieldStyles.moneyDonationList.pagination.controls}>
-        <Button
-          variant="outline"
-          disabled={page <= 1}
-          onClick={() => setPage((p) => Math.max(1, p - 1))}
-            className={formFieldStyles.moneyDonationList.pagination.button}
-        >
-          {t('Previous', 'முந்தைய')}
-        </Button>
-        <span className="text-xs">
-          {t('Page', 'பக்கம்')} {page} {t('of', 'இல்')} {totalPages}
-        </span>
-        <Button
-          variant="outline"
-          disabled={page >= totalPages}
-          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            className={formFieldStyles.moneyDonationList.pagination.button}
-        >
-          {t('Next', 'அடுத்தது')}
-        </Button>
-        <select
-          value={pageSize}
-          onChange={(e) => {
-            setPageSize(parseInt(e.target.value, 10));
-            setPage(1);
-          }}
-          className="ml-auto border rounded px-2 py-0.5 text-xs"
-        >
-          <option value={10}>10</option>
-          <option value={20}>20</option>
-          <option value={50}>50</option>
-          <option value={100}>100</option>
-        </select>
-        </div>
-      </div>
 
       {/* Context Menu */}
       {menuOpen && (

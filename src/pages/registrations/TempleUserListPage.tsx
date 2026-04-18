@@ -4,11 +4,11 @@ import { useLanguage } from '@/lib/language';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TableCell } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { FileDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn, pageContainerStyles, formFieldStyles } from '@/styles/formStyles';
-import { theme } from '@/styles/theme';
+import { theme, tableClasses, buttonClasses } from '@/styles/theme';
 
 type Registration = {
   id: number;
@@ -294,26 +294,6 @@ export default function TempleUserListPage() {
             <CardTitle className={theme.header.main}>
               {t[language].name}
             </CardTitle>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportCsv}
-                className="bg-white/20 text-white border-white/30 hover:bg-white/30"
-              >
-                <FileDown className="h-4 w-4 mr-2" />
-                {t[language].exportButton}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportAllPdf}
-                className="bg-white/20 text-white border-white/30 hover:bg-white/30"
-              >
-                <FileDown className="h-4 w-4 mr-2" />
-                {t[language].exportButton} PDF
-              </Button>
-            </div>
           </div>
         </CardHeader>
 
@@ -354,130 +334,123 @@ export default function TempleUserListPage() {
         </div>
 
         {/* Table */}
-        <div
-          className={formFieldStyles.moneyDonationList.table.container}
-          onContextMenu={onContextMenu}
-        >
-          <div className={formFieldStyles.moneyDonationList.table.scrollContainer}>
-            <table className={formFieldStyles.moneyDonationList.table.table}>
-              <thead className={formFieldStyles.moneyDonationList.table.thead}>
-                <tr>
+        <div className={tableClasses.scrollContainerWrapper} onContextMenu={onContextMenu}>
+          <div className={tableClasses.scrollContainer}>
+            <Table className={tableClasses.container}>
+              <TableHeader className={tableClasses.header}>
+                <TableRow className={tableClasses.row}>
                   {allColumns.map(
                     (col) =>
                       visibleCols[col.key] && (
-                        <th
+                        <TableHead
                           key={col.key}
                           className={cn(
-                            formFieldStyles.moneyDonationList.table.th,
-                            col.align === 'right' ? formFieldStyles.moneyDonationList.table.thRight :
-                            col.align === 'center' ? formFieldStyles.moneyDonationList.table.thCenter :
-                            formFieldStyles.moneyDonationList.table.thLeft
+                            tableClasses.headerCell,
+                            col.align === 'right' ? 'text-right' :
+                            col.align === 'center' ? 'text-center' :
+                            'text-left'
                           )}
                         >
                           {col.label}
-                        </th>
+                        </TableHead>
                       )
                   )}
-                </tr>
-              </thead>
-              <tbody className={formFieldStyles.moneyDonationList.table.tbody}>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {loading ? (
-                  <tr>
-                    <td
-                      colSpan={visibleColCount}
-                      className={formFieldStyles.moneyDonationList.table.loadingCell}
-                    >
+                  <TableRow>
+                    <TableCell colSpan={visibleColCount} className={tableClasses.emptyState}>
                       {t[language].loading}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ) : rows.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={visibleColCount}
-                      className={formFieldStyles.moneyDonationList.table.emptyCell}
-                    >
+                  <TableRow>
+                    <TableCell colSpan={visibleColCount} className={tableClasses.emptyState}>
                       {t[language].noRecords}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   rows.map((r) => (
-                    <tr key={r.id} className={formFieldStyles.moneyDonationList.table.tr}>
+                    <TableRow key={r.id} className={tableClasses.row}>
                       {visibleCols.name && (
-                        <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                        <TableCell className={tableClasses.cell}>
                           {r.name}
                         </TableCell>
                       )}
                       {visibleCols.mobile_number && (
-                        <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                        <TableCell className={tableClasses.cell}>
                           {r.mobile_number || '-'}
                         </TableCell>
                       )}
                       {visibleCols.aadhaar_number && (
-                        <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                        <TableCell className={tableClasses.cell}>
                           {r.aadhaar_number || '-'}
                         </TableCell>
                       )}
                       {visibleCols.reference_number && (
-                        <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                        <TableCell className={tableClasses.cell}>
                           {r.reference_number || '-'}
                         </TableCell>
                       )}
                       {visibleCols.village && (
-                        <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                        <TableCell className={tableClasses.cell}>
                           {r.village || '-'}
                         </TableCell>
                       )}
                       {visibleCols.created_at && (
-                        <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                        <TableCell className={tableClasses.cell}>
                           {r.created_at
                             ? new Date(r.created_at).toLocaleDateString(language === 'tamil' ? 'ta-IN' : 'en-IN')
                             : '-'}
                         </TableCell>
                       )}
                       {visibleCols.actions && (
-                        <TableCell className={cn(formFieldStyles.moneyDonationList.table.td, formFieldStyles.moneyDonationList.table.tdCenter)}>
-                          <div className={formFieldStyles.moneyDonationList.actionButtons.container}>
-                            <Button variant="outline" size="sm" onClick={() => handleEdit(r.id)} className={formFieldStyles.moneyDonationList.actionButtons.edit}>
+                        <TableCell className={cn(tableClasses.cell, tableClasses.actionCell)}>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => handleEdit(r.id)} className={tableClasses.actionButtonPrimary}>
                               Edit
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleToggleBlock(r)} className={formFieldStyles.moneyDonationList.actionButtons.logs}>
+                            <Button variant="ghost" size="sm" onClick={() => handleToggleBlock(r)} className={tableClasses.actionButtonSecondary}>
                               {r.status === 'blocked' ? t[language].unblock : t[language].block}
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleDownloadPdf(r.id)} className={formFieldStyles.moneyDonationList.actionButtons.print}>
+                            <Button variant="ghost" size="sm" onClick={() => handleDownloadPdf(r.id)} className={tableClasses.actionButtonSecondary}>
                               {t[language].exportButton}
                             </Button>
                           </div>
                         </TableCell>
                       )}
-                    </tr>
+                    </TableRow>
                   ))
                 )}
-            </tbody>
-          </table>
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Footer removed (no delete info) */}
         </div>
 
-        {/* Footer removed (no delete info) */}
-      </div>
-
         {/* Pagination */}
-        <div className={formFieldStyles.moneyDonationList.pagination.container}>
-          <div className={formFieldStyles.moneyDonationList.pagination.controls}>
+        <div className={tableClasses.pagination}>
+          <div className="flex gap-2">
             <Button
               variant="outline"
+              size="sm"
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className={formFieldStyles.moneyDonationList.pagination.button}
+              className={tableClasses.paginationButton}
             >
               {'<'}
             </Button>
-            <span className="text-xs">
+            <span className="text-xs flex items-center">
               {t[language].page} {page} {t[language].of} {totalPages}
             </span>
             <Button
               variant="outline"
+              size="sm"
               disabled={page >= totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className={formFieldStyles.moneyDonationList.pagination.button}
+              className={tableClasses.paginationButton}
             >
               {'>'}
             </Button>

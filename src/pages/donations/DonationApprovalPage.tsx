@@ -42,7 +42,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import { theme } from '@/styles/theme';
+import { theme, tableClasses, buttonClasses } from '@/styles/theme';
 import { cn } from '@/styles/formStyles';
 
 interface DonationItem {
@@ -348,37 +348,37 @@ export default function DonationApprovalPage() {
       </div>}
 
       {/* Table */}
-      <div className="bg-white border rounded" onContextMenu={onContextMenu}>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
+      <div className={tableClasses.scrollContainerWrapper} onContextMenu={onContextMenu}>
+        <div className={tableClasses.scrollContainer}>
+          <Table className={tableClasses.container}>
+            <TableHeader className={tableClasses.header}>
+              <TableRow className={tableClasses.row}>
                 {allColumns.map(col=>visibleCols[col.key]&&(
-                  <TableHead key={col.key} className={`${col.align==='right'?'text-right':col.align==='center'?'text-center':'text-left'} text-xs`}>{col.label}</TableHead>
+                  <TableHead key={col.key} className={cn(tableClasses.headerCell, col.align==='right'?'text-right':col.align==='center'?'text-center':'text-left')}>{col.label}</TableHead>
                 ))}
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading.donations?(
-                <TableRow><TableCell colSpan={visibleColCount} className="text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto"/></TableCell></TableRow>
+                <TableRow><TableCell colSpan={visibleColCount} className={tableClasses.emptyState}><Loader2 className="h-4 w-4 animate-spin mx-auto"/></TableCell></TableRow>
               ):filteredDonations.length===0?(
-                <TableRow><TableCell colSpan={visibleColCount} className="text-center text-xs">{t('No data','தரவு இல்லை')}</TableCell></TableRow>
+                <TableRow><TableCell colSpan={visibleColCount} className={tableClasses.emptyState}>{t('No data','தரவு இல்லை')}</TableCell></TableRow>
               ):filteredDonations.map(d=>(
-                <TableRow key={d.id}>
-                  {visibleCols.product&&<TableCell>{d.product_name}</TableCell>}
-                  {visibleCols.donor&&<TableCell>{d.donor_name}<div className="text-xs text-gray-500">{d.donor_contact}</div></TableCell>}
-                  {visibleCols.quantity&&<TableCell className="text-right">{d.quantity}</TableCell>}
-                  {visibleCols.date&&<TableCell>{new Date(d.donation_date).toLocaleDateString()}</TableCell>}
-                  {visibleCols.status&&<TableCell>{getStatusBadge(d.approval_status)}</TableCell>}
-                  {visibleCols.actions&&<TableCell className="text-center"><Button size="sm" variant="ghost" onClick={()=>{setSelectedRequest(d);setIsViewDialogOpen(true)}}><Eye className="h-3 w-3 mr-1"/>{t('View','பார்')}</Button></TableCell>}
+                <TableRow key={d.id} className={tableClasses.row}>
+                  {visibleCols.product&&<TableCell className={tableClasses.cell}>{d.product_name}</TableCell>}
+                  {visibleCols.donor&&<TableCell className={tableClasses.cell}>{d.donor_name}<div className="text-xs text-gray-500">{d.donor_contact}</div></TableCell>}
+                  {visibleCols.quantity&&<TableCell className={cn(tableClasses.cell, 'text-right')}>{d.quantity}</TableCell>}
+                  {visibleCols.date&&<TableCell className={tableClasses.cell}>{new Date(d.donation_date).toLocaleDateString()}</TableCell>}
+                  {visibleCols.status&&<TableCell className={tableClasses.cell}>{getStatusBadge(d.approval_status)}</TableCell>}
+                  {visibleCols.actions&&<TableCell className={cn(tableClasses.cell, 'text-center')}><Button size="sm" variant="ghost" onClick={()=>{setSelectedRequest(d);setIsViewDialogOpen(true)}}><Eye className="h-3 w-3 mr-1"/>{t('View','பார்')}</Button></TableCell>}
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
-        <div className="px-3 py-2 border-t text-xs flex justify-between">
-          <span>{t('Showing','காட்டுகிறது')} {(pagination.page-1)*pagination.pageSize+1}-{Math.min(pagination.page*pagination.pageSize,pagination.totalItems)} {t('of','மொத்தம்')} {pagination.totalItems}</span>
-          <span>{t('Page','பக்கம்')} {pagination.page}/{pagination.totalPages}</span>
+        <div className={tableClasses.pagination}>
+          <span className="text-xs text-gray-700">{t('Showing','காட்டுகிறது')} {(pagination.page-1)*pagination.pageSize+1}-{Math.min(pagination.page*pagination.pageSize,pagination.totalItems)} {t('of','மொத்தம்')} {pagination.totalItems}</span>
+          <span className="text-xs text-gray-700">{t('Page','பக்கம்')} {pagination.page}/{pagination.totalPages}</span>
         </div>
       </div>
 

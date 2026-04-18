@@ -730,39 +730,39 @@ export default function UnifiedDonationEntry() {
                     />
                   </div>
                   
-                  {/* Address, Amount, and Reason - Same row */}
+                  {/* Address */}
                   <div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div>
-                        <Input 
-                          className={fieldStyles}
-                          name="address" 
-                          value={moneyForm.address} 
-                          onChange={onMoneyChange} 
-                          placeholder={t('Enter address', 'முகவரியை உள்ளிடவும்')}
-                        />
-                      </div>
-                      <div>
-                        <Input 
-                          className={fieldStyles}
-                          name="amount" 
-                          value={moneyForm.amount} 
-                          onChange={onMoneyChange} 
-                          placeholder={t('Enter amount', 'தொகையை உள்ளிடவும்')}
-                          type="number"
-                          min="1"
-                        />
-                      </div>
-                      <div>
-                        <Input 
-                          className={fieldStyles}
-                          name="reason" 
-                          value={moneyForm.reason} 
-                          onChange={onMoneyChange} 
-                          placeholder={t('Enter reason', 'காரணத்தை உள்ளிடவும்')}
-                        />
-                      </div>
-                    </div>
+                    <Input 
+                      className={fieldStyles}
+                      name="address" 
+                      value={moneyForm.address} 
+                      onChange={onMoneyChange} 
+                      placeholder={t('Enter address', 'முகவரியை உள்ளிடவும்')}
+                    />
+                  </div>
+                  
+                  {/* Amount */}
+                  <div>
+                    <Input 
+                      className={fieldStyles}
+                      name="amount" 
+                      value={moneyForm.amount} 
+                      onChange={onMoneyChange} 
+                      placeholder={t('Enter amount', 'தொகையை உள்ளிடவும்')}
+                      type="number"
+                      min="1"
+                    />
+                  </div>
+                  
+                  {/* Reason */}
+                  <div>
+                    <Input 
+                      className={fieldStyles}
+                      name="reason" 
+                      value={moneyForm.reason} 
+                      onChange={onMoneyChange} 
+                      placeholder={t('Enter reason', 'காரணத்தை உள்ளிடவும்')}
+                    />
                   </div>
                 </div>
                 

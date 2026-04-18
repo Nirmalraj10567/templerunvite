@@ -402,13 +402,6 @@ export const sidebarItems: NavItem[] = [
     icon: BarChartIcon,
     children: [
       { 
-        to: 'reports/daily', 
-        label: navigationTranslations.english.dailyReport, 
-        tamilLabel: navigationTranslations.tamil.dailyReport, 
-        permissionId: 'reports',
-        accessLevel: 'view'
-      },
-      { 
         to: 'reports/monthly', 
         label: navigationTranslations.english.monthlyReport, 
         tamilLabel: navigationTranslations.tamil.monthlyReport, 

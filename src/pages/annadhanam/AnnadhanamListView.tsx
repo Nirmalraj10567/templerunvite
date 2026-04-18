@@ -36,7 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn, pageContainerStyles, formFieldStyles } from "@/styles/formStyles";
-import { theme } from '@/styles/theme';
+import { theme, tableClasses, buttonClasses } from '@/styles/theme';
 
 interface Annadhanam {
   id: number;
@@ -574,7 +574,7 @@ export default function AnnadhanamListView() {
         </CardHeader>
 
         {/* Table Card */}
-        <Card>
+        <Card className="mb-6">
           <CardContent className="pt-6">
             {/* Search + Export Toolbar */}
             <div className={formFieldStyles.moneyDonationList.filters.container}>
@@ -593,62 +593,68 @@ export default function AnnadhanamListView() {
                   />
                 </div>
                 <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>
-               
-                  <Button variant="outline" onClick={exportToCSV} disabled={loading || data.length === 0} className={formFieldStyles.moneyDonationList.filters.button}>
-                    <FileSpreadsheet className="h-4 w-4 mr-2" />
-                    {t("Export CSV", "CSV ஏற்றுமதி")}
+                  <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => setSearchTerm('')}>
+                    {t('Clear', 'அழி')}
                   </Button>
-                  <Button variant="outline" onClick={exportToPDF} disabled={loading || data.length === 0} className={formFieldStyles.moneyDonationList.filters.button}>
-                    <FileDown className="h-4 w-4 mr-2" />
-                    {t("Export PDF", "PDF ஏற்றுமதி")}
+                  <Button size="sm" className="h-8 text-xs" variant="outline" onClick={exportToCSV} disabled={loading || data.length === 0}>
+                    <FileDown className="h-3 w-3 mr-1" />
+                    {t('Export CSV', 'CSV ஏற்றுமதி')}
+                  </Button>
+                  <Button size="sm" className="h-8 text-xs" variant="outline" onClick={exportToPDF} disabled={loading || data.length === 0}>
+                    <FileDown className="h-3 w-3 mr-1" />
+                    {t('Export PDF', 'PDF ஏற்றுமதி')}
                   </Button>
                 </div>
               </div>
             </div>
 
             {/* Table */}
-            <div className={formFieldStyles.moneyDonationList.table.container}>
-              <div className={formFieldStyles.moneyDonationList.table.scrollContainer}>
+            <div className={tableClasses.scrollContainerWrapper}>
+              <div className={tableClasses.scrollContainer}>
                 {loading ? (
-                  <div className={formFieldStyles.moneyDonationList.table.loadingCell}>
+                  <div className={tableClasses.emptyState}>
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                   </div>
                 ) : (
-                  <Table className={formFieldStyles.moneyDonationList.table.table}>
-                    <TableHeader className={formFieldStyles.moneyDonationList.table.thead}>
-                      <TableRow className="border-b border-gray-200">
-                        <TableHead className={cn(formFieldStyles.moneyDonationList.table.th, formFieldStyles.moneyDonationList.table.thLeft)}>{t("Receipt No", "ரசீது எண்")}</TableHead>
-                        <TableHead className={formFieldStyles.moneyDonationList.table.th}>{t("Name", "பெயர்")}</TableHead>
-                        <TableHead className={formFieldStyles.moneyDonationList.table.th}>{t("Mobile", "மொபைல்")}</TableHead>
-                        <TableHead className={formFieldStyles.moneyDonationList.table.th}>{t("Food Items", "உணவு பொருட்கள்")}</TableHead>
-                        <TableHead className={cn(formFieldStyles.moneyDonationList.table.th, formFieldStyles.moneyDonationList.table.thCenter)}>{t("People", "மக்கள்")}</TableHead>
-                        <TableHead className={formFieldStyles.moneyDonationList.table.th}>{t("Date Range", "தேதி வரம்பு")}</TableHead>
-                        <TableHead className={formFieldStyles.moneyDonationList.table.th}>{t("Time", "நேரம்")}</TableHead>
-                        <TableHead className={cn(formFieldStyles.moneyDonationList.table.th, formFieldStyles.moneyDonationList.table.thRight)}>{t("Actions", "செயல்கள்")}</TableHead>
+                  <Table className={tableClasses.container}>
+                    <TableHeader className={tableClasses.header}>
+                      <TableRow className={tableClasses.row}>
+                        <TableHead className={tableClasses.headerCellSno}>{t("S.No", "எண்")}</TableHead>
+                        <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Receipt No", "ரசீது எண்")}</TableHead>
+                        <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Name", "பெயர்")}</TableHead>
+                        <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Mobile", "மொபைல்")}</TableHead>
+                        <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Food Items", "உணவு பொருட்கள்")}</TableHead>
+                        <TableHead className={cn(tableClasses.headerCell, "text-center")}>{t("People", "மக்கள்")}</TableHead>
+                        <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Date Range", "தேதி வரம்பு")}</TableHead>
+                        <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Time", "நேரம்")}</TableHead>
+                        <TableHead className={cn(tableClasses.headerCell, "text-right")}>{t("Actions", "செயல்கள்")}</TableHead>
                       </TableRow>
                     </TableHeader>
-                    <TableBody className={formFieldStyles.moneyDonationList.table.tbody}>
+                    <TableBody>
                     {data.length > 0 ? (
-                      data.map((annadhanam) => (
-                        <TableRow key={annadhanam.id} className={formFieldStyles.moneyDonationList.table.tr}>
-                          <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                      data.map((annadhanam, index) => (
+                        <TableRow key={annadhanam.id} className={tableClasses.row}>
+                          <TableCell className={tableClasses.cellSno}>
+                            {index + 1}
+                          </TableCell>
+                          <TableCell className={tableClasses.cell}>
                             {annadhanam.receipt_number}
                           </TableCell>
-                          <TableCell className={formFieldStyles.moneyDonationList.table.td}>{annadhanam.name}</TableCell>
-                          <TableCell className={formFieldStyles.moneyDonationList.table.td}>{annadhanam.mobile_number}</TableCell>
-                          <TableCell className={cn(formFieldStyles.moneyDonationList.table.td, "max-w-xs truncate")}>
+                          <TableCell className={tableClasses.cell}>{annadhanam.name}</TableCell>
+                          <TableCell className={tableClasses.cell}>{annadhanam.mobile_number}</TableCell>
+                          <TableCell className={cn(tableClasses.cell, "max-w-xs truncate")}>
                             {annadhanam.food}
                           </TableCell>
-                          <TableCell className={cn(formFieldStyles.moneyDonationList.table.td, formFieldStyles.moneyDonationList.table.tdCenter)}>
+                          <TableCell className={cn(tableClasses.cell, "text-center")}>
                             <div className="flex items-center justify-center">
-                              <Users className="h-4 w-4 mr-1" />
+                              <Users className="h-3 w-3 mr-1" />
                               {annadhanam.peoples}
                             </div>
                           </TableCell>
-                          <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                          <TableCell className={tableClasses.cell}>
                             <div className="flex items-center">
-                              <Calendar className="h-4 w-4 mr-1" />
-                              <div className="text-sm">
+                              <Calendar className="h-3 w-3 mr-1" />
+                              <div className="text-xs">
                                 <div>{formatDate(annadhanam.from_date)}</div>
                                 {annadhanam.from_date !== annadhanam.to_date && (
                                   <div className="text-muted-foreground">
@@ -658,30 +664,30 @@ export default function AnnadhanamListView() {
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell className={formFieldStyles.moneyDonationList.table.td}>
+                          <TableCell className={tableClasses.cell}>
                             <div className="flex items-center">
-                              <Clock className="h-4 w-4 mr-1" />
+                              <Clock className="h-3 w-3 mr-1" />
                               {formatTime(annadhanam.time)}
                             </div>
                           </TableCell>
-                          <TableCell className={cn(formFieldStyles.moneyDonationList.table.td, formFieldStyles.moneyDonationList.table.tdRight)}>
-                            <div className={formFieldStyles.moneyDonationList.actionButtons.container}>
+                          <TableCell className={cn(tableClasses.cell, tableClasses.actionCell)}>
+                            <div className="flex items-center justify-end gap-1">
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleViewClick(annadhanam)}
-                                className={formFieldStyles.moneyDonationList.actionButtons.print}
+                                className={cn(tableClasses.actionButtonPrimary, "h-5 w-5 p-0")}
                               >
-                                <Eye className="h-4 w-4" />
+                                <Eye className="h-3 w-3" />
                               </Button>
                              
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleEditClick(annadhanam)}
-                                className={formFieldStyles.moneyDonationList.actionButtons.edit}
+                                className={cn(tableClasses.actionButtonSecondary, "h-5 w-5 p-0")}
                               >
-                                <Edit className="h-4 w-4" />
+                                <Edit className="h-3 w-3" />
                               </Button>
                               <Button
                                 variant="ghost"
@@ -689,9 +695,9 @@ export default function AnnadhanamListView() {
                                 onClick={() => handleDeleteClick(annadhanam.id)}
                                 disabled={!isLastReceipt(annadhanam)}
                                 title={!isLastReceipt(annadhanam) ? t("Only the last receipt can be deleted", "கடைசி ரசீதை மட்டுமே நீக்க முடியும்") : ""}
-                                className={!isLastReceipt(annadhanam) ? formFieldStyles.moneyDonationList.actionButtons.deleteDisabled : formFieldStyles.moneyDonationList.actionButtons.delete}
+                                className={cn(!isLastReceipt(annadhanam) ? "opacity-50 cursor-not-allowed h-5 w-5 p-0" : tableClasses.actionButtonDanger, "h-5 w-5 p-0")}
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-3 w-3" />
                               </Button>
                             </div>
                           </TableCell>
@@ -699,7 +705,7 @@ export default function AnnadhanamListView() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={8} className={formFieldStyles.moneyDonationList.table.emptyCell}>
+                        <TableCell colSpan={9} className={tableClasses.emptyState}>
                           {t("No annadhanam entries found", "அன்னதானம் பதிவுகள் எதுவும் கிடைக்கவில்லை")}
                         </TableCell>
                       </TableRow>
@@ -710,12 +716,12 @@ export default function AnnadhanamListView() {
               </div>
 
               {/* Pagination */}
-              <div className={formFieldStyles.moneyDonationList.summary.container}>
-                <div className={formFieldStyles.moneyDonationList.summary.info}>
+              <div className={tableClasses.pagination}>
+                <div className="text-sm text-gray-700">
                   {t("Showing", "காட்டப்படுகிறது")} {data.length} {t("of", "இல்")}{" "}
-                  <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{pagination.total}</span> {t("items", "உருப்படிகள்")}
+                  <span className="font-medium">{pagination.total}</span> {t("items", "உருப்படிகள்")}
                 </div>
-                <div className={formFieldStyles.moneyDonationList.pagination.controls}>
+                <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
@@ -726,7 +732,7 @@ export default function AnnadhanamListView() {
                       }))
                     }
                     disabled={pagination.pageIndex === 0}
-                    className={formFieldStyles.moneyDonationList.pagination.button}
+                    className={tableClasses.paginationButton}
                   >
                     {t("Previous", "முந்தைய")}
                   </Button>
@@ -740,7 +746,7 @@ export default function AnnadhanamListView() {
                       }))
                     }
                     disabled={pagination.pageIndex >= pagination.totalPages - 1}
-                    className={formFieldStyles.moneyDonationList.pagination.button}
+                    className={tableClasses.paginationButton}
                   >
                     {t("Next", "அடுத்து")}
                   </Button>

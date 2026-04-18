@@ -9,7 +9,15 @@ import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Download, FileText } from 'lucide-react';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
-import { theme } from '@/styles/theme';
+import { theme, tableClasses } from '@/styles/theme';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 
 const PAGE_SIZE = 20;
 
@@ -266,7 +274,7 @@ export default function JournalLogPage() {
       <Card>
        
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+          <div className="flex flex-wrap gap-3 items-end mb-4">
             <div className="space-y-1">
               <Label htmlFor="startDate">{t('Start Date', 'தொடக்க தேதி')}</Label>
               <Input id="startDate" type="date" value={startDate} onChange={(e) => onFilterChange('startDate', e.target.value)} className={cn(theme.input.base, theme.input.size.md)} />
@@ -275,9 +283,31 @@ export default function JournalLogPage() {
               <Label htmlFor="endDate">{t('End Date', 'முடிவு தேதி')}</Label>
               <Input id="endDate" type="date" value={endDate} onChange={(e) => onFilterChange('endDate', e.target.value)} className={cn(theme.input.base, theme.input.size.md)} />
             </div>
-            <div className="space-y-1 md:col-span-2">
+            <div className="space-y-1 flex-1">
               <Label htmlFor="account">{t('Account (optional)', 'கணக்கு (விருப்பம்)')}</Label>
               <Input id="account" placeholder={t('Search account name', 'Search account name')} value={account} onChange={(e) => onFilterChange('account', e.target.value)} className={cn(theme.input.base, theme.input.size.md)} />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={exportToCSV}
+                disabled={isLoading}
+                size="sm"
+                className="h-9"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {t('Export CSV', 'CSV ஏற்றுமதி')}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={exportToPDF}
+                disabled={isLoading}
+                size="sm"
+                className="h-9"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                {t('Export PDF', 'PDF ஏற்றுமதி')}
+              </Button>
             </div>
           </div>
           <div className="flex justify-between items-center mb-3">
@@ -306,57 +336,49 @@ export default function JournalLogPage() {
               >
                 {t('Next', 'அடுத்து')}
               </Button>
-            
-              <Button 
-                variant="outline" 
-                onClick={exportToCSV}
-                disabled={isLoading}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                {t('Export CSV', 'CSV ஏற்றுமதி')}
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={exportToPDF}
-                disabled={isLoading}
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                {t('Export PDF', 'PDF ஏற்றுமதி')}
-              </Button>
-<Button variant="outline" onClick={() => navigate(-1)}>{t('Back', 'பின் செல்ல')}</Button>
-              <Button onClick={load} disabled={isLoading}>{t('Refresh', 'புதுப்பிக்க')}</Button>
             </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full border">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="text-left px-3 py-2 border-b">{t('Date', 'தேதி')}</th>
-                  <th className="text-left px-3 py-2 border-b">{t('From Account', 'வரவு கணக்கு')}</th>
-                  <th className="text-left px-3 py-2 border-b">{t('To Account', 'பெறுகை கணக்கு')}</th>
-                  <th className="text-right px-3 py-2 border-b">{t('Amount', 'தொகை')}</th>
-                  <th className="text-left px-3 py-2 border-b">{t('Reference', 'குறிப்பு')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {entries.length === 0 && !isLoading && (
-                  <tr>
-                    <td colSpan={5} className="px-3 py-6 text-center text-gray-500">{t('No entries found', 'பதிவுகள் இல்லை')}</td>
-                  </tr>
-                )}
-                {entries.map((e) => (
-                  <tr key={e.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 border-b whitespace-nowrap">{e.date?.slice(0,10)}</td>
-                    <td className="px-3 py-2 border-b">{e.from_account}</td>
-                    <td className="px-3 py-2 border-b">{e.to_account}</td>
-                    <td className="px-3 py-2 border-b text-right">{Number(e.amount).toFixed(2)}</td>
-                    <td className="px-3 py-2 border-b text-sm text-gray-700">
-                      {(e.reference_type && e.reference_id) ? `${e.reference_type}#${e.reference_id}` : (e.remarks || '')}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className={tableClasses.scrollContainerWrapper}>
+            <div className={tableClasses.scrollContainer}>
+              {isLoading ? (
+                <div className={tableClasses.emptyState}>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                </div>
+              ) : (
+                <Table className={tableClasses.container}>
+                  <TableHeader className={tableClasses.header}>
+                    <TableRow className={tableClasses.row}>
+                      <TableHead className={tableClasses.headerCell}>{t('Date', 'தேதி')}</TableHead>
+                      <TableHead className={tableClasses.headerCell}>{t('From Account', 'வரவு கணக்கு')}</TableHead>
+                      <TableHead className={tableClasses.headerCell}>{t('To Account', 'பெறுகை கணக்கு')}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-right")}>{t('Amount', 'தொகை')}</TableHead>
+                      <TableHead className={tableClasses.headerCell}>{t('Reference', 'குறிப்பு')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {entries.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className={tableClasses.emptyState}>
+                          {t('No entries found', 'பதிவுகள் இல்லை')}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      entries.map((e) => (
+                        <TableRow key={e.id} className={tableClasses.row}>
+                          <TableCell className={tableClasses.cell}>{e.date?.slice(0,10)}</TableCell>
+                          <TableCell className={tableClasses.cell}>{e.from_account}</TableCell>
+                          <TableCell className={tableClasses.cell}>{e.to_account}</TableCell>
+                          <TableCell className={cn(tableClasses.cell, "text-right")}>{Number(e.amount).toFixed(2)}</TableCell>
+                          <TableCell className={tableClasses.cell}>
+                            {(e.reference_type && e.reference_id) ? `${e.reference_type}#${e.reference_id}` : (e.remarks || '')}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
           </div>
           <div className="flex justify-between items-center mt-3">
             <div className="text-sm text-gray-600">

@@ -7,10 +7,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { getAuthToken } from '@/lib/auth';
-import { Loader2, RefreshCw, IndianRupee } from 'lucide-react';
+import { Loader2, RefreshCw, IndianRupee, FileDown, Calendar } from 'lucide-react';
 import { useLanguage } from '@/lib/language'; 
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
-import { theme } from '@/styles/theme';
+import { theme, tableClasses } from '@/styles/theme';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 
 interface Item {
   account: string;
@@ -305,6 +313,12 @@ export default function BalanceSheetPage() {
     URL.revokeObjectURL(url);
   };
 
+  const exportPDF = () => {
+    const token = getAuthToken();
+    const url = `/api/journal/balance-sheet.pdf?from=${query.startDate}&to=${query.endDate}&token=${encodeURIComponent(token)}`;
+    window.open(url, '_blank');
+  };
+
   const maxRows = useMemo(() => Math.max(sortedLiabilities.length, sortedAssets.length, sortedDebits.length), [sortedLiabilities, sortedAssets, sortedDebits]);
   const netResult = useMemo(() => (totalsRow.assets - totalsRow.liabilities) || 0, [totalsRow.assets, totalsRow.liabilities]);
   const profit = useMemo(() => Math.max(0, -netResult), [netResult]); // liabilities > assets
@@ -313,89 +327,87 @@ export default function BalanceSheetPage() {
   const obDebit = useMemo(() => Math.max(0, -openingDiff), [openingDiff]);
 
   const combinedTable = () => (
-    <div className="w-full overflow-x-auto">
-      <table className="w-full text-sm border-collapse border">
-        <thead>
-          <tr>
-            <th className="bg-purple-700 text-white px-3 py-2 text-left border-b border-gray-300">{t[language].credits}</th>
-            <th className="bg-purple-700 text-white px-3 py-2 text-right border-b border-gray-300">{t[language].amount}</th>
-            <th className="bg-purple-700 text-white px-3 py-2 text-left border-b border-gray-300">{t[language].assets}</th>
-            <th className="bg-purple-700 text-white px-3 py-2 text-right border-b border-gray-300">{t[language].amount}</th>
-            <th className="bg-purple-700 text-white px-3 py-2 text-left border-b border-gray-300">{t[language].debits}</th>
-            <th className="bg-purple-700 text-white px-3 py-2 text-right border-b border-gray-300">{t[language].amount}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {!isLoading && maxRows === 0 && (
-            <tr>
-              <td colSpan={6} className="px-3 py-3 text-center text-gray-500 border">{t[language].noData}</td>
-            </tr>
-          )}
-          {isLoading && Array.from({ length: 6 }).map((_, i) => (
-            <tr key={`sk-${i}`}>
-              <td className="px-3 py-2 border"><div className="h-3 w-32 bg-gray-200 animate-pulse rounded"></div></td>
-              <td className="px-3 py-2 border"><div className="h-3 w-16 bg-gray-200 animate-pulse rounded ml-auto"></div></td>
-              <td className="px-3 py-2 border"><div className="h-3 w-32 bg-gray-200 animate-pulse rounded"></div></td>
-              <td className="px-3 py-2 border"><div className="h-3 w-16 bg-gray-200 animate-pulse rounded ml-auto"></div></td>
-              <td className="px-3 py-2 border"><div className="h-3 w-32 bg-gray-200 animate-pulse rounded"></div></td>
-              <td className="px-3 py-2 border"><div className="h-3 w-16 bg-gray-200 animate-pulse rounded ml-auto"></div></td>
-            </tr>
-          ))}
-          {!isLoading &&
-            Array.from({ length: maxRows }).map((_, i) => {
-              const l = sortedLiabilities[i];
-              const a = sortedAssets[i];
-              const d = sortedDebits[i];
-              return (
-                <tr
-                  key={`row-${i}`}
-                  className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}
-                >
-                  <td className="px-3 py-2 border text-left">{l?.account ?? ''}</td>
-                  <td className="px-3 py-2 border text-right">{l ? nf.format(l.balance) : ''}</td>
-                  <td className="px-3 py-2 border text-left">{a?.account ?? ''}</td>
-                  <td className="px-3 py-2 border text-right">{a ? nf.format(a.balance) : ''}</td>
-                  <td className="px-3 py-2 border text-left">{d?.account ?? ''}</td>
-                  <td className="px-3 py-2 border text-right">{d ? nf.format(d.balance) : ''}</td>
-                </tr>
-              );
-            })}
-          {(sortedLiabilities.length > 0 || sortedAssets.length > 0) && (
-            <>
-              {/* Opening Balance Diff */}
-              <tr className="bg-gray-50">
-                <td className="px-3 py-2 border text-left font-medium">{t[language].openingDiff}</td>
-                <td className="px-3 py-2 border text-right">{obCredit > 0 ? nf.format(obCredit) : ''}</td>
-                <td className="px-3 py-2 border text-left font-medium">{t[language].openingDiff}</td>
-                <td className="px-3 py-2 border text-right">{obDebit > 0 ? nf.format(obDebit) : ''}</td>
-                <td className="px-3 py-2 border text-left"></td>
-                <td className="px-3 py-2 border text-right"></td>
-              </tr>
+    <Table className={tableClasses.container}>
+      <TableHeader className={tableClasses.header}>
+        <TableRow className={tableClasses.row}>
+          <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t[language].credits}</TableHead>
+          <TableHead className={cn(tableClasses.headerCell, "text-right")}>{t[language].amount}</TableHead>
+          <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t[language].assets}</TableHead>
+          <TableHead className={cn(tableClasses.headerCell, "text-right")}>{t[language].amount}</TableHead>
+          <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t[language].debits}</TableHead>
+          <TableHead className={cn(tableClasses.headerCell, "text-right")}>{t[language].amount}</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {!isLoading && maxRows === 0 && (
+          <TableRow>
+            <TableCell colSpan={6} className={tableClasses.emptyState}>{t[language].noData}</TableCell>
+          </TableRow>
+        )}
+        {isLoading && Array.from({ length: 6 }).map((_, i) => (
+          <TableRow key={`sk-${i}`} className={tableClasses.row}>
+            <TableCell className={tableClasses.cell}><div className="h-3 w-32 bg-gray-200 animate-pulse rounded"></div></TableCell>
+            <TableCell className={tableClasses.cell}><div className="h-3 w-16 bg-gray-200 animate-pulse rounded ml-auto"></div></TableCell>
+            <TableCell className={tableClasses.cell}><div className="h-3 w-32 bg-gray-200 animate-pulse rounded"></div></TableCell>
+            <TableCell className={tableClasses.cell}><div className="h-3 w-16 bg-gray-200 animate-pulse rounded ml-auto"></div></TableCell>
+            <TableCell className={tableClasses.cell}><div className="h-3 w-32 bg-gray-200 animate-pulse rounded"></div></TableCell>
+            <TableCell className={tableClasses.cell}><div className="h-3 w-16 bg-gray-200 animate-pulse rounded ml-auto"></div></TableCell>
+          </TableRow>
+        ))}
+        {!isLoading &&
+          Array.from({ length: maxRows }).map((_, i) => {
+            const l = sortedLiabilities[i];
+            const a = sortedAssets[i];
+            const d = sortedDebits[i];
+            return (
+              <TableRow
+                key={`row-${i}`}
+                className={tableClasses.row}
+              >
+                <TableCell className={tableClasses.cell}>{l?.account ?? ''}</TableCell>
+                <TableCell className={cn(tableClasses.cell, "text-right")}>{l ? nf.format(l.balance) : ''}</TableCell>
+                <TableCell className={tableClasses.cell}>{a?.account ?? ''}</TableCell>
+                <TableCell className={cn(tableClasses.cell, "text-right")}>{a ? nf.format(a.balance) : ''}</TableCell>
+                <TableCell className={tableClasses.cell}>{d?.account ?? ''}</TableCell>
+                <TableCell className={cn(tableClasses.cell, "text-right")}>{d ? nf.format(d.balance) : ''}</TableCell>
+              </TableRow>
+            );
+          })}
+        {(sortedLiabilities.length > 0 || sortedAssets.length > 0) && (
+          <>
+            {/* Opening Balance Diff */}
+            <TableRow className={tableClasses.row}>
+              <TableCell className={cn(tableClasses.cell, "font-medium")}>{t[language].openingDiff}</TableCell>
+              <TableCell className={cn(tableClasses.cell, "text-right")}>{obCredit > 0 ? nf.format(obCredit) : ''}</TableCell>
+              <TableCell className={cn(tableClasses.cell, "font-medium")}>{t[language].openingDiff}</TableCell>
+              <TableCell className={cn(tableClasses.cell, "text-right")}>{obDebit > 0 ? nf.format(obDebit) : ''}</TableCell>
+              <TableCell className={tableClasses.cell}></TableCell>
+              <TableCell className={cn(tableClasses.cell, "text-right")}></TableCell>
+            </TableRow>
 
-              {/* Net Loss / Profit */}
-              <tr>
-                <td className="px-3 py-2 border text-left font-medium text-green-600">{t[language].netProfit}</td>
-                <td className="px-3 py-2 border text-right text-green-600">{profit > 0 ? nf.format(profit) : ''}</td>
-                <td className="px-3 py-2 border text-left"></td>
-                <td className="px-3 py-2 border text-right"></td>
-                <td className="px-3 py-2 border text-left font-medium text-red-600">{t[language].netLoss}</td>
-                <td className="px-3 py-2 border text-right text-red-600">{loss > 0 ? nf.format(loss) : ''}</td>
-              </tr>
+            {/* Net Loss / Profit */}
+            <TableRow className={tableClasses.row}>
+              <TableCell className={cn(tableClasses.cell, "font-medium text-green-600")}>{t[language].netProfit}</TableCell>
+              <TableCell className={cn(tableClasses.cell, "text-right text-green-600")}>{profit > 0 ? nf.format(profit) : ''}</TableCell>
+              <TableCell className={tableClasses.cell}></TableCell>
+              <TableCell className={cn(tableClasses.cell, "text-right")}></TableCell>
+              <TableCell className={cn(tableClasses.cell, "font-medium text-red-600")}>{t[language].netLoss}</TableCell>
+              <TableCell className={cn(tableClasses.cell, "text-right text-red-600")}>{loss > 0 ? nf.format(loss) : ''}</TableCell>
+            </TableRow>
 
-              {/* Total Amount */}
-              <tr className="font-bold bg-purple-100">
-                <td className="px-3 py-2 border text-left">{t[language].totalCredits}</td>
-                <td className="px-3 py-2 border text-right">{nf.format(totalsRow.liabilities + profit + obCredit)}</td>
-                <td className="px-3 py-2 border text-left">{t[language].totalAssets}</td>
-                <td className="px-3 py-2 border text-right">{nf.format(totalsRow.assets + obDebit)}</td>
-                <td className="px-3 py-2 border text-left">{t[language].totalDebits}</td>
-                <td className="px-3 py-2 border text-right">{nf.format(totalsRow.debits + loss)}</td>
-              </tr>
-            </>
-          )}
-        </tbody>
-      </table>
-    </div>
+            {/* Total Amount */}
+            <TableRow className={cn(tableClasses.row, "font-bold bg-purple-100")}>
+              <TableCell className={tableClasses.cell}>{t[language].totalCredits}</TableCell>
+              <TableCell className={cn(tableClasses.cell, "text-right")}>{nf.format(totalsRow.liabilities + profit + obCredit)}</TableCell>
+              <TableCell className={tableClasses.cell}>{t[language].totalAssets}</TableCell>
+              <TableCell className={cn(tableClasses.cell, "text-right")}>{nf.format(totalsRow.assets + obDebit)}</TableCell>
+              <TableCell className={tableClasses.cell}>{t[language].totalDebits}</TableCell>
+              <TableCell className={cn(tableClasses.cell, "text-right")}>{nf.format(totalsRow.debits + loss)}</TableCell>
+            </TableRow>
+          </>
+        )}
+      </TableBody>
+    </Table>
   );
 
   return (
@@ -410,58 +422,54 @@ export default function BalanceSheetPage() {
          </CardHeader>
        
       <Card className="shadow-lg">
-        <CardHeader className={theme.card.header}>
-          <div className="flex justify-start items-left">
-            
-          </div>
-        </CardHeader>
         <CardContent className="p-3">
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-3 items-end">
-            <div>
-              <Label htmlFor="from" className="text-xs">{t[language].from}</Label>
-              <Input id="from" type="date" className={cn(theme.input.base, theme.input.size.sm)} value={startDate} onChange={(e) => onFilterChange('from', e.target.value)} />
-            </div>
-            <div>
-              <Label htmlFor="to" className="text-xs">{t[language].to}</Label>
-              <Input id="to" type="date" className={cn(theme.input.base, theme.input.size.sm)} value={endDate} onChange={(e) => onFilterChange('to', e.target.value)} />
-            </div>
-            <div className="md:col-span-2">
-              <Button size="sm" onClick={load} disabled={isLoading} className="flex items-center gap-1">
+          {/* Filter + Export Toolbar */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div className="flex flex-wrap gap-2 items-center">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="date"
+                  className={cn(theme.input.base, theme.input.size.sm)}
+                  value={startDate}
+                  onChange={(e) => onFilterChange('from', e.target.value)}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="date"
+                  className={cn(theme.input.base, theme.input.size.sm)}
+                  value={endDate}
+                  onChange={(e) => onFilterChange('to', e.target.value)}
+                />
+              </div>
+              <Button size="sm" onClick={load} disabled={isLoading} className="h-8 text-xs gap-1">
                 {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                <span className="sr-only md:not-sr-only">{t[language].refresh}</span>
+                {t[language].refresh}
               </Button>
-            </div>
-            <div>
-              <Button variant="outline" size="sm" onClick={() => setRange('today')} className="w-full">
+              <Button size="sm" variant="outline" onClick={() => setRange('today')} className="h-8 text-xs">
                 {t[language].today}
               </Button>
-            </div>
-            <div>
-              <Button variant="outline" size="sm" onClick={() => setRange('thisMonth')} className="w-full">
+              <Button size="sm" variant="outline" onClick={() => setRange('thisMonth')} className="h-8 text-xs">
                 {t[language].thisMonth}
               </Button>
-            </div>
-            <div>
-              <Button variant="outline" size="sm" onClick={() => setRange('fy')} className="w-full">
+              <Button size="sm" variant="outline" onClick={() => setRange('fy')} className="h-8 text-xs">
                 {t[language].fiscalYear}
               </Button>
             </div>
-          </div>
-
-          <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
-            <div className="text-xs text-gray-600">
-              {isLoading ? t[language].loading : error ? <span className="text-red-600">{error}</span> : ''}
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={exportCSV} disabled={isLoading || maxRows === 0} className="h-8 text-xs">
+                <FileDown className="h-3 w-3 mr-1" />
+                {t[language].csv}
+              </Button>
+              <Button size="sm" variant="outline" onClick={exportPDF} disabled={isLoading || maxRows === 0} className="h-8 text-xs">
+                <FileDown className="h-3 w-3 mr-1" />
+                {t[language].print}
+              </Button>
             </div>
-            <div className="flex items-center gap-3 text-xs font-medium">
-              <span>{t[language].assets}: {nf.format(totals.assets)}</span>
-              <span>{t[language].liabilities}: {nf.format(totals.liabilities)}</span>
-              <span>{t[language].debits}: {nf.format(totals.debits)}</span>
-            </div>
           </div>
-
-          <div className="mt-2">
-            {combinedTable()}
-          </div>
+          {combinedTable()}
         </CardContent>
       </Card>
     </Card>

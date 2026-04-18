@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle, XCircle, Eye, Clock, FileText, FileDown, Printer, Edit, RefreshCcw } from 'lucide-react';
+import { CheckCircle, XCircle, Eye, Clock, FileText, FileDown, Printer, Edit, RefreshCcw, Search } from 'lucide-react';
 import { cn, formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
 import { theme } from '@/styles/theme';
 // Translation object
@@ -833,58 +833,37 @@ return (
         </div>
       )}
 
-      {/* Filters */}
-      <Card className="mb-3">
-        <CardContent className="p-3">
-          <div className="flex flex-col md:flex-row gap-2 items-center">
-            {/* Search */}
-            <div className="relative flex-1 w-full">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg
-                  className="h-4 w-4 text-gray-400"
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <Input
-                type="text"
-                placeholder={t('Search by name, mobile, or receipt...', 'பெயர், மொபைல் அல்லது ரசீது மூலம் தேடுக')}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className={cn(theme.input.base, theme.input.size.sm, "pl-9")}
-              />
+      {/* Search + Export Toolbar */}
+      <div className={formFieldStyles.moneyDonationList.filters.container}>
+        <div className={formFieldStyles.moneyDonationList.filters.form}>
+          <div className={formFieldStyles.moneyDonationList.filters.searchContainer}>
+            <div className={formFieldStyles.moneyDonationList.filters.searchIcon}>
+              <Search className={formFieldStyles.moneyDonationList.filters.searchIconSvg} />
             </div>
-
-            {/* Actions */}
-            <div className="flex flex-wrap gap-2 w-full md:w-auto">
-              <Button size="sm" className="h-8 text-xs" onClick={fetchRequests}>{t('Search', 'தேடு')}</Button>
-              <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => setSearchTerm('')}>
-                {t('Clear', 'அழி')}
-              </Button>
-              <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => { fetchRequests(); fetchStats(); }} disabled={loading}>
-                <RefreshCcw className="h-3 w-3 mr-1" />
-                {t('Refresh', 'புதுப்பிக்க')}
-              </Button>
-            
-              <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handleExportCSV}>
-                <FileDown className="h-3 w-3 mr-1" />
-                {t('Export CSV', 'CSV ஏற்றுமதி')}
-              </Button>
-              <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handleExportPDF}>
-                <FileDown className="h-3 w-3 mr-1" />
-                {t('Export PDF', 'PDF ஏற்றுமதி')}
-              </Button>
-            </div>
+            <Input
+              type="search"
+              placeholder={t('Search by name, mobile, or receipt...', 'பெயர், மொபைல் அல்லது ரசீது மூலம் தேடுக')}
+              className={cn(theme.input.base, theme.input.size.sm, "pl-8")}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); fetchRequests(); } }}
+            />
           </div>
-        </CardContent>
-      </Card>
+          <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>
+            <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => setSearchTerm('')}>
+              {t('Clear', 'அழி')}
+            </Button>
+            <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handleExportCSV}>
+              <FileDown className="h-3 w-3 mr-1" />
+              {t('Export CSV', 'CSV ஏற்றுமதி')}
+            </Button>
+            <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handleExportPDF}>
+              <FileDown className="h-3 w-3 mr-1" />
+              {t('Export PDF', 'PDF ஏற்றுமதி')}
+            </Button>
+          </div>
+        </div>
+      </div>
 
       {/* Table */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">

@@ -950,20 +950,6 @@ export default function PoojaListView() {
           </table>
         </div>
 
-          {/* Footer */}
-          <div className={formFieldStyles.moneyDonationList.summary.container}>
-            <div className={formFieldStyles.moneyDonationList.summary.info}>
-              {translate("showing")} <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>
-                {pagination.pageIndex * pagination.pageSize + 1}-{
-                  Math.min((pagination.pageIndex + 1) * pagination.pageSize, pagination.total)
-                }
-              </span> {translate("of")}{" "}
-              <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{pagination.total}</span> {translate("items")}
-            </div>
-            <div className={formFieldStyles.moneyDonationList.summary.total}>
-              {translate("total")}: <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{pagination.total}</span>
-            </div>
-          </div>
       </div>
 
         {/* Pagination */}

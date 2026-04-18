@@ -7,9 +7,11 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
+import { Search } from 'lucide-react';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
-import { theme } from '@/styles/theme';
-import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { theme, tableClasses, buttonClasses } from '@/styles/theme';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 
 interface HallRequest {
   id: number;
@@ -280,86 +282,120 @@ export default function HallApprovalPage() {
         </div>
       </CardHeader>
 
-
-      <div className="flex flex-col md:flex-row gap-3 mb-4">
-        <select className={cn(theme.select.base, theme.select.size.sm)} value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="pending">{t('Pending', 'நிலுவையில்')}</option>
-          <option value="approved">{t('Approved', 'அனுமதிக்கப்பட்டது')}</option>
-          <option value="rejected">{t('Rejected', 'நிராகரிக்கப்பட்டது')}</option>
-          <option value="cancelled">{t('Cancelled', 'ரத்துசெய்யப்பட்டது')}</option>
-        </select>
-        <input
-          className={cn(theme.input.base, theme.input.size.sm)}
-          placeholder={t('Search by mobile', 'மொபைல் மூலம் தேடுக')}
-          value={mobile}
-          onChange={(e) => setMobile(e.target.value)}
-        />
-        <button className={cn(theme.input.base, "px-4 py-2 rounded")} onClick={load}>{t('Filter', 'வடிகட்டி')}</button>
-        <button className="border px-4 py-2 rounded bg-blue-50 text-blue-700 hover:bg-blue-100" onClick={openAllLogs}>
-          {t('All Logs', 'அனைத்து பதிவுகள்')}
-        </button>
-      </div>
-
       {error && <div className="text-red-700 mb-3 text-sm">{error}</div>}
       {loading ? (
-        <div>{t('Loading...', 'ஏற்றுகிறது...')}</div>
+        <div className={tableClasses.emptyState}>{t('Loading...', 'ஏற்றுகிறது...')}</div>
       ) : (
-        <div className="overflow-auto">
-          <table className="min-w-full text-sm border">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="text-left p-2 border">{t('Date', 'தேதி')}</th>
-                <th className="text-left p-2 border">{t('Time', 'நேரம்')}</th>
-                <th className="text-left p-2 border">{t('Name', 'பெயர்')}</th>
-                <th className="text-left p-2 border">{t('Mobile', 'தொலைபேசி')}</th>
-                <th className="text-left p-2 border">{t('Event', 'நிகழ்வு')}</th>
-                <th className="text-left p-2 border">{t('Status', 'நிலை')}</th>
-                <th className="text-left p-2 border">{t('Actions', 'செயல்கள்')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((it) => (
-                <tr key={it.id} className="border-b">
-                  <td className="p-2 border">{it.date}</td>
-                  <td className="p-2 border">{it.time}</td>
-                  <td className="p-2 border">{it.name}</td>
-                  <td className="p-2 border">{it.mobile}</td>
-                  <td className="p-2 border">{it.event || '-'}</td>
-                  <td className="p-2 border capitalize">{it.status}</td>
-                  <td className="p-2 border">
-                    <div className="flex flex-wrap gap-2">
-                      <Button className="px-3 py-1" variant="outline" onClick={() => onEdit(it.id)}>
-                        {t('Edit', 'திருத்து')}
-                      </Button>
-                      <Button className="px-3 py-1" variant="outline" onClick={() => openLogs(it.id)}>
-                        {t('Logs', 'பதிவுகள்')}
-                      </Button>
-                      {it.status === 'pending' ? (
-                        <>
-                          <Button className="bg-green-600 text-white px-3 py-1" onClick={() => onApprove(it.id)}>
-                            {t('Approve', 'அனுமதி')}
-                          </Button>
-                          <Button className="bg-red-600 text-white px-3 py-1" onClick={() => onReject(it.id)}>
-                            {t('Reject', 'நிராகரி')}
-                          </Button>
-                        </>
-                      ) : (
-                        <span className="text-gray-500">{t('No actions', 'செயல் இல்லை')}</span>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {items.length === 0 && (
-                <tr>
-                  <td className="p-3 text-center text-gray-500" colSpan={7}>
-                    {t('No records', 'பதிவுகள் இல்லை')}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <Card>
+          <CardContent className="pt-6">
+            {/* Search + Export Toolbar */}
+            <div className={formFieldStyles.moneyDonationList.filters.container}>
+              <div className={formFieldStyles.moneyDonationList.filters.form}>
+                <div className={formFieldStyles.moneyDonationList.filters.searchContainer}>
+                  <div className={formFieldStyles.moneyDonationList.filters.searchIcon}>
+                    <Search className={formFieldStyles.moneyDonationList.filters.searchIconSvg} />
+                  </div>
+                  <Input
+                    type="search"
+                    placeholder={t('Search by mobile...', 'மொபைல் மூலம் தேடவும்...')}
+                    className={cn(theme.input.base, theme.input.size.sm, "pl-8")}
+                    value={mobile}
+                    onChange={(e) => setMobile(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && load()}
+                  />
+                </div>
+                <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>
+                  <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => { setMobile(''); load(); }}>
+                    {t('Clear', 'அழி')}
+                  </Button>
+                  <Button size="sm" className="h-8 text-xs" variant="outline" onClick={openAllLogs}>
+                    {t('All Logs', 'அனைத்து பதிவுகள்')}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className={tableClasses.scrollContainerWrapper}>
+              <div className={tableClasses.scrollContainer}>
+                <Table className={tableClasses.container}>
+                  <TableHeader className={tableClasses.header}>
+                    <TableRow className={tableClasses.row}>
+                      <TableHead className={tableClasses.headerCell}>{t('Date', 'தேதி')}</TableHead>
+                      <TableHead className={tableClasses.headerCell}>{t('Time', 'நேரம்')}</TableHead>
+                      <TableHead className={tableClasses.headerCell}>{t('Name', 'பெயர்')}</TableHead>
+                      <TableHead className={tableClasses.headerCell}>{t('Mobile', 'தொலைபேசி')}</TableHead>
+                      <TableHead className={tableClasses.headerCell}>{t('Event', 'நிகழ்வு')}</TableHead>
+                      <TableHead className={tableClasses.headerCell}>{t('Status', 'நிலை')}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, 'text-right')}>{t('Actions', 'செயல்கள்')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((it) => (
+                      <TableRow key={it.id} className={tableClasses.row}>
+                        <TableCell className={tableClasses.cell}>{it.date}</TableCell>
+                        <TableCell className={tableClasses.cell}>{it.time}</TableCell>
+                        <TableCell className={tableClasses.cell}>{it.name}</TableCell>
+                        <TableCell className={tableClasses.cell}>{it.mobile}</TableCell>
+                        <TableCell className={tableClasses.cell}>{it.event || '-'}</TableCell>
+                        <TableCell className={cn(tableClasses.cell, 'capitalize')}>{it.status}</TableCell>
+                        <TableCell className={cn(tableClasses.cell, tableClasses.actionCell, 'py-1')}>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onEdit(it.id)}
+                              className={cn(buttonClasses.actionSecondary, 'h-6 px-2 text-xs')}
+                            >
+                              {t('Edit', 'திருத்து')}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openLogs(it.id)}
+                              className={cn(buttonClasses.actionSecondary, 'h-6 px-2 text-xs')}
+                            >
+                              {t('Logs', 'பதிவுகள்')}
+                            </Button>
+                            {it.status === 'pending' ? (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => onApprove(it.id)}
+                                  className={cn(buttonClasses.actionPrimary, 'h-6 px-2 text-xs')}
+                                >
+                                  {t('Approve', 'அனுமதி')}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => onReject(it.id)}
+                                  className={cn(buttonClasses.actionDanger, 'h-6 px-2 text-xs')}
+                                >
+                                  {t('Reject', 'நிராகரி')}
+                                </Button>
+                              </>
+                            ) : (
+                              <span className="text-gray-500 text-xs">{t('No actions', 'செயல் இல்லை')}</span>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {items.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className={tableClasses.emptyState}>
+                          {t('No records', 'பதிவுகள் இல்லை')}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
       {/* Approve Dialog */}
       <Dialog open={approveOpen} onOpenChange={setApproveOpen}>

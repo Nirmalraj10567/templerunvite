@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ledgerService, type ProfitAndLossItem as ProfitAndLossRow } from '@/services/ledgerService';
+import { cn } from '@/lib/utils';
+import { theme, tableClasses, buttonClasses } from '@/styles/theme';
 
 export default function ProfitAndLossPage() {
   const { language } = useLanguage();
@@ -169,14 +171,15 @@ export default function ProfitAndLossPage() {
             </div>
           ) : (
             <div className="space-y-8">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{groupBy === 'day' ? t('Date', 'தேதி') : t('Month', 'மாதம்')}</TableHead>
-                      <TableHead className="text-right">{t('Income', 'வருமானம்')}</TableHead>
-                      <TableHead className="text-right">{t('Expenses', 'செலவுகள்')}</TableHead>
-                      <TableHead className="text-right">{t('Net Profit/Loss', 'நிகர இலாபம்/நட்டம்')}</TableHead>
+              <div className={tableClasses.scrollContainerWrapper}>
+              <div className={tableClasses.scrollContainer}>
+                <Table className={tableClasses.container}>
+                  <TableHeader className={tableClasses.header}>
+                    <TableRow className={tableClasses.row}>
+                      <TableHead className={tableClasses.headerCell}>{groupBy === 'day' ? t('Date', 'தேதி') : t('Month', 'மாதம்')}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, 'text-right')}>{t('Income', 'வருமானம்')}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, 'text-right')}>{t('Expenses', 'செலவுகள்')}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, 'text-right')}>{t('Net Profit/Loss', 'நிகர இலாபம்/நட்டம்')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -185,17 +188,17 @@ export default function ProfitAndLossPage() {
                         ? new Date(row.period).toLocaleDateString(language === 'tamil' ? 'ta-IN' : 'en-US', { year: 'numeric', month: 'short', day: '2-digit' })
                         : new Date(row.period + '-01').toLocaleString(language === 'tamil' ? 'ta-IN' : 'en-US', { month: 'long', year: 'numeric' });
                       const isProfit = row.net_profit_loss >= 0;
-                      
+
                       return (
-                        <TableRow key={row.period}>
-                          <TableCell className="font-medium">{label}</TableCell>
-                          <TableCell className="text-right text-green-600">
+                        <TableRow key={row.period} className={tableClasses.row}>
+                          <TableCell className={cn(tableClasses.cell, 'font-medium')}>{label}</TableCell>
+                          <TableCell className={cn(tableClasses.cell, 'text-right text-green-600')}>
                             {formatCurrency(row.total_income || 0)}
                           </TableCell>
-                          <TableCell className="text-right text-red-600">
+                          <TableCell className={cn(tableClasses.cell, 'text-right text-red-600')}>
                             {formatCurrency(row.total_expenses || 0)}
                           </TableCell>
-                          <TableCell className={`text-right font-semibold ${isProfit ? 'text-green-600' : 'text-red-600'}`}>
+                          <TableCell className={cn(tableClasses.cell, `text-right font-semibold ${isProfit ? 'text-green-600' : 'text-red-600'}`)}>
                             {isProfit ? '+' : ''}{formatCurrency(row.net_profit_loss || 0)}
                           </TableCell>
                         </TableRow>
@@ -204,6 +207,7 @@ export default function ProfitAndLossPage() {
                   </TableBody>
                 </Table>
               </div>
+            </div>
 
               {/* Summary */}
               <div className="border-t pt-4">

@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { tableClasses, buttonClasses } from '@/styles/theme';
 
 interface Property {
   id: number;
@@ -173,101 +174,105 @@ const PropertyListView: React.FC = () => {
               </div>
             </div>
 
-            <div className="rounded-md border">
-              {loading ? (
-                <div className="flex items-center justify-center h-64">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Property No</TableHead>
-                      <TableHead>Survey No</TableHead>
-                      <TableHead>Ward No</TableHead>
-                      <TableHead>Owner Name</TableHead>
-                      <TableHead>Mobile</TableHead>
-                      <TableHead>Tax Status</TableHead>
-                      <TableHead className="text-right">Tax Amount</TableHead>
-                      <TableHead className="w-[150px] text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.length > 0 ? (
-                      data.map((property) => (
-                        <TableRow key={property.id}>
-                          <TableCell className="font-medium">{property.propertyNo}</TableCell>
-                          <TableCell>{property.surveyNo}</TableCell>
-                          <TableCell>{property.wardNo}</TableCell>
-                          <TableCell>{property.ownerName}</TableCell>
-                          <TableCell>{property.ownerMobile}</TableCell>
-                          <TableCell>
-                            <Badge variant={getStatusVariant(property.taxStatus) as any}>
-                              {property.taxStatus}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            ₹{property.taxAmount.toLocaleString()}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end space-x-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => navigate(`/dashboard/properties/${property.id}`)}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              {(canEdit || isSuperAdmin) && (
+            <div className={tableClasses.scrollContainerWrapper}>
+              <div className={tableClasses.scrollContainer}>
+                {loading ? (
+                  <div className="flex items-center justify-center h-64">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <Table className={tableClasses.container}>
+                    <TableHeader className={tableClasses.header}>
+                      <TableRow className={tableClasses.row}>
+                        <TableHead className={tableClasses.headerCell}>Property No</TableHead>
+                        <TableHead className={tableClasses.headerCell}>Survey No</TableHead>
+                        <TableHead className={tableClasses.headerCell}>Ward No</TableHead>
+                        <TableHead className={tableClasses.headerCell}>Owner Name</TableHead>
+                        <TableHead className={tableClasses.headerCell}>Mobile</TableHead>
+                        <TableHead className={tableClasses.headerCell}>Tax Status</TableHead>
+                        <TableHead className={cn(tableClasses.headerCell, 'text-right')}>Tax Amount</TableHead>
+                        <TableHead className={cn(tableClasses.headerCell, 'w-[150px] text-right')}>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.length > 0 ? (
+                        data.map((property) => (
+                          <TableRow key={property.id} className={tableClasses.row}>
+                            <TableCell className={cn(tableClasses.cell, 'font-medium')}>{property.propertyNo}</TableCell>
+                            <TableCell className={tableClasses.cell}>{property.surveyNo}</TableCell>
+                            <TableCell className={tableClasses.cell}>{property.wardNo}</TableCell>
+                            <TableCell className={tableClasses.cell}>{property.ownerName}</TableCell>
+                            <TableCell className={tableClasses.cell}>{property.ownerMobile}</TableCell>
+                            <TableCell className={tableClasses.cell}>
+                              <Badge variant={getStatusVariant(property.taxStatus) as any}>
+                                {property.taxStatus}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className={cn(tableClasses.cell, 'text-right')}>
+                              ₹{property.taxAmount.toLocaleString()}
+                            </TableCell>
+                            <TableCell className={cn(tableClasses.cell, tableClasses.actionCell)}>
+                              <div className="flex items-center justify-end gap-1">
                                 <Button
                                   variant="ghost"
-                                  size="icon"
-                                  onClick={() => navigate(`/dashboard/properties/${property.id}/edit`)}
+                                  size="sm"
+                                  onClick={() => navigate(`/dashboard/properties/${property.id}`)}
+                                  className={tableClasses.actionButtonSecondary}
                                 >
-                                  <Edit className="h-4 w-4" />
+                                  <Eye className="h-3 w-3" />
                                 </Button>
-                              )}
-                              {(canDelete || isSuperAdmin) && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleDelete(property.id)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
-                              )}
-                            </div>
+                                {(canEdit || isSuperAdmin) && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => navigate(`/dashboard/properties/${property.id}/edit`)}
+                                    className={tableClasses.actionButtonPrimary}
+                                  >
+                                    <Edit className="h-3 w-3" />
+                                  </Button>
+                                )}
+                                {(canDelete || isSuperAdmin) && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleDelete(property.id)}
+                                    className={tableClasses.actionButtonDanger}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={8} className={tableClasses.emptyState}>
+                            No properties found
                           </TableCell>
                         </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={8} className="h-24 text-center">
-                          No properties found
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              )}
+                      )}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
 
               {/* Pagination */}
-              <div className="flex items-center justify-between px-4 py-3 border-t">
-                <div className="text-sm text-muted-foreground">
-                  Showing <span className="font-medium">
-                    {data.length > 0 ? pagination.pageIndex * pagination.pageSize + 1 : 0}
-                  </span> to{' '}
-                  <span className="font-medium">
-                    {Math.min((pagination.pageIndex + 1) * pagination.pageSize, pagination.total)}
-                  </span>{' '}
-                  of <span className="font-medium">{pagination.total}</span> properties
+              <div className={tableClasses.pagination}>
+                <div className="text-xs text-gray-700 flex flex-wrap gap-4">
+                  <span>
+                    Showing {data.length > 0 ? pagination.pageIndex * pagination.pageSize + 1 : 0} to{' '}
+                    {Math.min((pagination.pageIndex + 1) * pagination.pageSize, pagination.total)} of{' '}
+                    <span className="font-medium">{pagination.total}</span> properties
+                  </span>
                 </div>
-                <div className="flex space-x-2">
+                <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setPagination(prev => ({ ...prev, pageIndex: Math.max(0, prev.pageIndex - 1) }))}
                     disabled={pagination.pageIndex === 0}
+                    className={tableClasses.paginationButton}
                   >
                     Previous
                   </Button>
@@ -276,6 +281,7 @@ const PropertyListView: React.FC = () => {
                     size="sm"
                     onClick={() => setPagination(prev => ({ ...prev, pageIndex: prev.pageIndex + 1 }))}
                     disabled={pagination.pageIndex >= pagination.totalPages - 1}
+                    className={tableClasses.paginationButton}
                   >
                     Next
                   </Button>

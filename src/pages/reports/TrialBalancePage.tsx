@@ -63,7 +63,7 @@ const t = {
     accounts: 'Accounts',
     from: 'From',
     to: 'To',
-    trialBalanceData: 'Trial Balance Data',
+    
     noDataFoundForCurrentFilters: 'No data found for the current filters.',
     showColumns: 'Show columns:',
     columnVisibility: 'Column visibility',
@@ -525,7 +525,7 @@ function TrialBalanceContent() {
       variant={visible[key as keyof typeof visible] ? "default" : "outline"}
       size="sm"
       onClick={() => setVisible(prev => ({ ...prev, [key]: !prev[key as keyof typeof prev] }))}
-      className="text-xs h-7"
+      className={visible[key as keyof typeof visible] ? "text-xs h-7 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white" : "text-xs h-7"}
     >
       {visible[key as keyof typeof visible] ? (
         <Eye className="mr-1 h-3 w-3" />
@@ -561,11 +561,11 @@ function TrialBalanceContent() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button 
-            variant="outline" 
+            variant="default" 
             size="sm" 
             onClick={load}
             disabled={isLoading}
-            className="gap-2"
+            className="gap-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -576,21 +576,21 @@ function TrialBalanceContent() {
           </Button>
           <div className="flex gap-2">
             <Button 
-              variant="outline" 
+              variant="default" 
               size="sm" 
               onClick={exportToCSV} 
               disabled={!sortedRows.length || isLoading}
-              className="gap-2"
+              className="gap-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
             >
               <Download className="h-4 w-4" />
               {t[language].csv}
             </Button>
             <Button 
-              variant="outline" 
+              variant="default" 
               size="sm" 
               onClick={exportToPDF} 
               disabled={!sortedRows.length || isLoading}
-              className="gap-2"
+              className="gap-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
             >
               <Printer className="h-4 w-4" />
               {t[language].pdf}
@@ -604,10 +604,10 @@ function TrialBalanceContent() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-2">
               <Button
-                variant="ghost"
+                variant="default"
                 size="sm"
                 onClick={() => setIsFiltersOpen(!isFiltersOpen)}
-                className="gap-2"
+                className="gap-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
               >
                 {isFiltersOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 {t[language].dateRange}
@@ -621,10 +621,10 @@ function TrialBalanceContent() {
             </div>
             <div className="flex gap-2">
               <Button 
-                variant="outline" 
+                variant="default" 
                 size="sm" 
                 onClick={clearFilters}
-                className="gap-2"
+                className="gap-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
               >
                 <Filter className="h-4 w-4" />
                 {t[language].clearFilters}
@@ -672,26 +672,26 @@ function TrialBalanceContent() {
                 <Label>{t[language].quickFilters}</Label>
                 <div className="flex flex-wrap gap-2">
                   <Button 
-                    variant="outline" 
+                    variant="default" 
                     size="sm" 
                     onClick={() => setPresetRange('today')}
-                    className="text-xs h-8"
+                    className="text-xs h-8 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
                   >
                     {t[language].today}
                   </Button>
                   <Button 
-                    variant="outline" 
+                    variant="default" 
                     size="sm" 
                     onClick={() => setPresetRange('thisMonth')}
-                    className="text-xs h-8"
+                    className="text-xs h-8 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
                   >
                     {t[language].thisMonth}
                   </Button>
                   <Button 
-                    variant="outline" 
+                    variant="default" 
                     size="sm" 
                     onClick={() => setPresetRange('fy')}
-                    className="text-xs h-8"
+                    className="text-xs h-8 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
                   >
                     {t[language].financialYear}
                   </Button>
@@ -703,7 +703,7 @@ function TrialBalanceContent() {
                 <Button 
                   onClick={load}
                   disabled={isLoading || !isDateRangeValid}
-                  className="w-full h-9"
+                  className="w-full h-9 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
                 >
                   {isLoading ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -779,10 +779,10 @@ function TrialBalanceContent() {
               <AlertCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
               <p className="text-red-600 mb-4">{t[language].errorLoading}: {error}</p>
               <Button 
-                variant="outline" 
+                variant="default" 
                 onClick={load} 
                 disabled={isLoading}
-                className="gap-2"
+                className="gap-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
               >
                 <RefreshCw className="h-4 w-4" />
                 {t[language].retry}

@@ -6,9 +6,11 @@ import { Modal } from '@/components/ui/modal';
 import { useNavigate } from 'react-router-dom';
 import { Trash2, Search, Loader2, FileSpreadsheet, FileDown, Printer, Pencil, History } from 'lucide-react';
 import { cn, formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
-import { theme } from '@/styles/theme';
-import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { theme, tableClasses, buttonClasses } from '@/styles/theme';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 
 interface HallBooking {
   id: number;
@@ -438,250 +440,216 @@ export default function HallListPage() {
                  </div>
                </CardHeader>
 
-      {/* Filters */}
-      <div className={formFieldStyles.moneyDonationList.filters.container}>
-        <div className={formFieldStyles.moneyDonationList.filters.form}>
-          <div className={formFieldStyles.moneyDonationList.filters.searchContainer}>
-            <div className={formFieldStyles.moneyDonationList.filters.searchIcon}>
-              <Search className={formFieldStyles.moneyDonationList.filters.searchIconSvg} />
-            </div>
-            <input
-              type="search"
-              placeholder={t('Search by name/receipt/village/phone', 'பெயர்/ரசீது/கிராமம்/தொலைபேசி மூலம் தேடுக')}
-              className={cn(theme.input.base, theme.input.size.sm, "pl-8")}
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && (setCurrentPage(1), fetchData(1))}
-            />
-          </div>
-          <div className="flex gap-2">
-            <input 
-              type="date" 
-              className={cn(theme.input.base, theme.input.size.sm)}
-              value={from} 
-              onChange={(e) => setFrom(e.target.value)} 
-            />
-            <input 
-              type="date" 
-              className={cn(theme.input.base, theme.input.size.sm)}
-              value={to} 
-              onChange={(e) => setTo(e.target.value)} 
-            />
-            <button 
-              className={formFieldStyles.moneyDonationList.filters.button}
-              onClick={() => { setCurrentPage(1); fetchData(1); }}
-            >
-              {t('Search', 'தேடுக')}
-            </button>
-            <button 
-              className={formFieldStyles.moneyDonationList.filters.button}
-              onClick={() => { setQ(''); setFrom(''); setTo(''); setCurrentPage(1); fetchData(1); }}
-            >
-              {t('Clear', 'அழி')}
-            </button>
-          </div>
-          <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>
-            <Button 
-              variant="outline" 
-              onClick={handleExportCSV} 
-              disabled={loading || rows.length === 0} 
-              className={formFieldStyles.moneyDonationList.filters.button}
-            >
-              <FileSpreadsheet className="h-4 w-4 mr-2" />
-              {t("Export CSV", "CSV ஏற்றுமதி")}
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={handleExportPDF} 
-              disabled={loading || rows.length === 0} 
-              className={formFieldStyles.moneyDonationList.filters.button}
-            >
-              <FileDown className="h-4 w-4 mr-2" />
-              {t("Export PDF", "PDF ஏற்றுமதி")}
-            </Button>
-          </div>
-        </div>
-      </div>
-
       {loading && (
-        <div className={formFieldStyles.moneyDonationList.table.loadingCell}>
+        <div className={tableClasses.emptyState}>
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       )}
       {error && <div className="text-red-600">{error}</div>}
 
-      {/* Table */}
-      <div 
-        className={formFieldStyles.moneyDonationList.table.container}
-        onContextMenu={onContextMenu}
-      >
-        <div className={formFieldStyles.moneyDonationList.table.scrollContainer}>
-          <table className={formFieldStyles.moneyDonationList.table.table}>
-            <thead className={formFieldStyles.moneyDonationList.table.thead}>
-              <tr className="border-b border-gray-200">
-                {allColumns.map(
-                  (col) =>
-                    visibleCols[col.key] && (
-                      <th
-                        key={col.key}
-                        className={cn(
-                          formFieldStyles.moneyDonationList.table.th,
-                          col.align === 'right' ? 'text-right' : 'text-left',
-                          col.key === 'register_no' && formFieldStyles.moneyDonationList.table.thLeft
-                        )}
-                      >
-                        {col.label}
-                      </th>
-                    )
-                )}
-                <th className={cn(formFieldStyles.moneyDonationList.table.th, formFieldStyles.moneyDonationList.table.thRight)}>
-                  {t('Actions', 'செயல்கள்')}
-                </th>
-              </tr>
-            </thead>
-            <tbody className={formFieldStyles.moneyDonationList.table.tbody}>
-              {rows.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={Object.values(visibleCols).filter(Boolean).length + 1}
-                    className={formFieldStyles.moneyDonationList.table.emptyCell}
-                  >
-                    {loading ? t('Loading...', 'ஏற்றுகிறது...') : t('No records found', 'பதிவுகள் கிடைக்கவில்லை')}
-                  </td>
-                </tr>
-              ) : (
-                rows.map((r, idx) => (
-                  <tr key={r.id} className={formFieldStyles.moneyDonationList.table.tr}>
-                    {visibleCols.register_no && (
-                      <td className={formFieldStyles.moneyDonationList.table.td}>
-                        {r.register_no || '-'}
-                      </td>
-                    )}
-                    {visibleCols.date && (
-                      <td className={formFieldStyles.moneyDonationList.table.td}>
-                        {r.date || '-'}
-                      </td>
-                    )}
-                    {visibleCols.time && (
-                      <td className={formFieldStyles.moneyDonationList.table.td}>
-                        {r.time || '-'}
-                      </td>
-                    )}
-                    {visibleCols.event && (
-                      <td className={formFieldStyles.moneyDonationList.table.td}>
-                        {r.event || '-'}
-                      </td>
-                    )}
-                    {visibleCols.subdivision && (
-                      <td className={formFieldStyles.moneyDonationList.table.td}>
-                        {r.subdivision || '-'}
-                      </td>
-                    )}
-                    {visibleCols.name && (
-                      <td className={formFieldStyles.moneyDonationList.table.td}>
-                        {r.name || '-'}
-                      </td>
-                    )}
-                    {visibleCols.address && (
-                      <td className={formFieldStyles.moneyDonationList.table.td}>
-                        <div className="max-w-[200px] truncate">
-                          {r.address || '-'}
-                        </div>
-                      </td>
-                    )}
-                    {visibleCols.village && (
-                      <td className={formFieldStyles.moneyDonationList.table.td}>
-                        {r.village || '-'}
-                      </td>
-                    )}
-                    {visibleCols.mobile && (
-                      <td className={formFieldStyles.moneyDonationList.table.td}>
-                        {r.mobile || '-'}
-                      </td>
-                    )}
-                    {visibleCols.advance_amount && (
-                      <td className={cn(formFieldStyles.moneyDonationList.table.td, 'text-right')}>
-                        ₹{toNum(r.advance_amount).toLocaleString()}
-                      </td>
-                    )}
-                    {visibleCols.total_amount && (
-                      <td className={cn(formFieldStyles.moneyDonationList.table.td, 'text-right')}>
-                        ₹{toNum(r.total_amount).toLocaleString()}
-                      </td>
-                    )}
-                    {visibleCols.balance_amount && (
-                      <td className={cn(formFieldStyles.moneyDonationList.table.td, 'text-right')}>
-                        ₹{toNum(r.balance_amount).toLocaleString()}
-                      </td>
-                    )}
-                    {visibleCols.remarks && (
-                      <td className={formFieldStyles.moneyDonationList.table.td}>
-                        <div className="max-w-[200px] truncate">
-                          {r.remarks || '-'}
-                        </div>
-                      </td>
-                    )}
-                    <td className={cn(formFieldStyles.moneyDonationList.table.td, formFieldStyles.moneyDonationList.table.tdRight, 'space-x-1')}>
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 p-0 text-blue-600 hover:bg-blue-50"
-                          onClick={() => {
-                            const pdfUrl = `/api/hall-bookings/${r.id}/receipt.pdf`;
-                            window.open(pdfUrl, '_blank');
-                          }}
-                          title={t('Print Receipt', 'ரசீது அச்சிடு')}
-                        >
-                          <Printer className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 p-0 text-blue-600 hover:bg-blue-50"
-                          onClick={() => handleEdit(r.id)}
-                          title={t('Edit', 'திருத்து')}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                       
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className={`h-6 w-6 p-0 text-red-600 hover:bg-red-50 ${idx !== 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          onClick={() => {
-                            if (idx === 0) {
-                              setSelectedBookingId(r.id);
-                              setShowDeleteModal(true);
-                            }
-                          }}
-                          disabled={idx !== 0}
-                          title={t('Delete', 'நீக்கு')}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+      {/* Table Card */}
+      <Card className="mb-6">
+        <CardContent className="pt-6">
+          {/* Search + Export Toolbar */}
+          <div className={formFieldStyles.moneyDonationList.filters.container}>
+            <div className={formFieldStyles.moneyDonationList.filters.form}>
+              <div className={formFieldStyles.moneyDonationList.filters.searchContainer}>
+                <div className={formFieldStyles.moneyDonationList.filters.searchIcon}>
+                  <Search className={formFieldStyles.moneyDonationList.filters.searchIconSvg} />
+                </div>
+                <Input
+                  type="search"
+                  placeholder={t('Search by name, receipt, village, or phone...', 'பெயர், ரசீது, கிராமம் அல்லது தொலைபேசி மூலம் தேடவும்...')}
+                  className={cn(theme.input.base, theme.input.size.sm, "pl-8")}
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (setCurrentPage(1), fetchData(1))}
+                />
+              </div>
+              <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>
+                <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => { setQ(''); setCurrentPage(1); fetchData(1); }}>
+                  {t('Clear', 'அழி')}
+                </Button>
+                <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handleExportCSV} disabled={loading || rows.length === 0}>
+                  <FileSpreadsheet className="h-3 w-3 mr-1" />
+                  {t('Export CSV', 'CSV ஏற்றுமதி')}
+                </Button>
+                <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handleExportPDF} disabled={loading || rows.length === 0}>
+                  <FileDown className="h-3 w-3 mr-1" />
+                  {t('Export PDF', 'PDF ஏற்றுமதி')}
+                </Button>
+              </div>
+            </div>
+          </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
-          <div className="text-sm text-gray-700">
-            {t('Showing', 'காட்டப்படுகிறது')}{' '}
-            <span className="font-medium">{(currentPage - 1) * pageSize + 1}</span> {t('to', 'இலிருந்து')}{' '}
-            <span className="font-medium">{Math.min(currentPage * pageSize, totalRecords)}</span> {t('of', 'மொத்தம்')}{' '}
-            <span className="font-medium">{totalRecords}</span> {t('results', 'முடிவுகள்')}
+          {/* Table */}
+          <div className={tableClasses.scrollContainerWrapper}>
+            <div className={tableClasses.scrollContainer}>
+              {loading ? (
+                <div className={tableClasses.emptyState}>
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <Table className={tableClasses.container}>
+                  <TableHeader className={tableClasses.header}>
+                    <TableRow className={tableClasses.row}>
+                      <TableHead className={tableClasses.headerCellSno}>{t("S.No", "எண்")}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Receipt No", "ரசீது எண்")}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Date", "தேதி")}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Time", "நேரம்")}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Function", "நிகழ்வு")}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Name", "பெயர்")}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Village", "கிராமம்")}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Phone", "தொலைபேசி")}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-right")}>{t("Advance", "முன்பணம்")}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-right")}>{t("Total", "மொத்தம்")}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-right")}>{t("Balance", "இருப்பு")}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-right")}>{t("Actions", "செயல்கள்")}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rows.length > 0 ? (
+                      rows.map((r, index) => (
+                        <TableRow key={r.id} className={tableClasses.row}>
+                          <TableCell className={tableClasses.cellSno}>
+                            {index + 1}
+                          </TableCell>
+                          <TableCell className={tableClasses.cell}>
+                            {r.register_no || '-'}
+                          </TableCell>
+                          <TableCell className={tableClasses.cell}>
+                            {r.date || '-'}
+                          </TableCell>
+                          <TableCell className={tableClasses.cell}>
+                            {r.time || '-'}
+                          </TableCell>
+                          <TableCell className={tableClasses.cell}>
+                            {r.event || '-'}
+                          </TableCell>
+                          <TableCell className={tableClasses.cell}>
+                            {r.name || '-'}
+                          </TableCell>
+                          <TableCell className={tableClasses.cell}>
+                            {r.village || '-'}
+                          </TableCell>
+                          <TableCell className={tableClasses.cell}>
+                            {r.mobile || '-'}
+                          </TableCell>
+                          <TableCell className={cn(tableClasses.cell, 'text-right')}>
+                            ₹{toNum(r.advance_amount).toLocaleString()}
+                          </TableCell>
+                          <TableCell className={cn(tableClasses.cell, 'text-right')}>
+                            ₹{toNum(r.total_amount).toLocaleString()}
+                          </TableCell>
+                          <TableCell className={cn(tableClasses.cell, 'text-right')}>
+                            ₹{toNum(r.balance_amount).toLocaleString()}
+                          </TableCell>
+                          <TableCell className={cn(tableClasses.cell, tableClasses.actionCell)}>
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  const pdfUrl = `/api/hall-bookings/${r.id}/receipt.pdf`;
+                                  window.open(pdfUrl, '_blank');
+                                }}
+                                className={buttonClasses.actionSecondary}
+                                title={t('Print Receipt', 'ரசீது அச்சிடு')}
+                              >
+                                <Printer className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEdit(r.id)}
+                                className={buttonClasses.actionPrimary}
+                                title={t('Edit', 'திருத்து')}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  if (index === 0) {
+                                    setSelectedBookingId(r.id);
+                                    setShowDeleteModal(true);
+                                  }
+                                }}
+                                disabled={index !== 0}
+                                className={index === 0 ? buttonClasses.actionDanger : 'opacity-50 cursor-not-allowed'}
+                                title={t('Delete', 'நீக்கு')}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={12} className={tableClasses.emptyState}>
+                          {t("No records found", "பதிவுகள் கிடைக்கவில்லை")}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+
+            {/* Pagination */}
+            <div className={tableClasses.pagination}>
+              <div className="text-sm text-gray-700">
+                {t("Showing", "காட்டப்படுகிறது")} {(currentPage - 1) * pageSize + 1} {t("to", "இலிருந்து")} {Math.min(currentPage * pageSize, totalRecords)} {t("of", "இல்")}{" "}
+                <span className="font-medium">{totalRecords}</span> {t("items", "உருப்படிகள்")}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === 1}
+                  onClick={() => {
+                    const newPage = currentPage - 1;
+                    setCurrentPage(newPage);
+                    fetchData(newPage);
+                  }}
+                  className={tableClasses.paginationButton}
+                >
+                  {t('Previous', 'முந்தைய')}
+                </Button>
+                <span className="text-xs flex items-center">
+                  {t('Page', 'பக்கம்')} {currentPage} {t('of', 'இல்')} {Math.ceil(totalRecords / pageSize)}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage >= Math.ceil(totalRecords / pageSize)}
+                  onClick={() => {
+                    const newPage = currentPage + 1;
+                    setCurrentPage(newPage);
+                    fetchData(newPage);
+                  }}
+                  className={tableClasses.paginationButton}
+                >
+                  {t('Next', 'அடுத்தது')}
+                </Button>
+                <select
+                  value={pageSize}
+                  onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                  className="ml-auto border rounded px-2 py-0.5 text-xs"
+                >
+                  {Array.from({ length: 10 }, (_, i) => i + 1).map(size => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
-          <div className="text-gray-700">
-            {t('Total', 'மொத்தம்')}: <span className="font-medium">{totalRecords}</span>
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Financial Totals */}
       <div className="mt-2 flex justify-end text-xs text-gray-600">
@@ -691,85 +659,6 @@ export default function HallListPage() {
           <span>{t('Balance', 'இருப்பு')}: ₹{totals.balance.toLocaleString()}</span>
         </div>
       </div>
-
-
-      {/* Pagination Controls */}
-      {totalRecords > 0 && (
-        <div className="mt-3 flex justify-center items-center gap-2">
-          <button
-            onClick={() => {
-              const newPage = currentPage - 1;
-              setCurrentPage(newPage);
-              fetchData(newPage);
-            }}
-            disabled={currentPage === 1}
-            className="border px-3 py-1 rounded text-xs hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed bg-white"
-          >
-            {t('Previous', 'முந்தைய')}
-          </button>
-          
-          <div className="flex gap-1">
-            {Array.from({ length: Math.ceil(totalRecords / pageSize) }, (_, i) => i + 1)
-              .filter(page => {
-                // Show first page, last page, current page, and pages around current page
-                return page === 1 || 
-                       page === Math.ceil(totalRecords / pageSize) || 
-                       Math.abs(page - currentPage) <= 2;
-              })
-              .map((page, index, array) => {
-                // Add ellipsis if there's a gap
-                const showEllipsis = index > 0 && page - array[index - 1] > 1;
-                return (
-                  <React.Fragment key={page}>
-                    {showEllipsis && <span className="px-2 text-gray-500">...</span>}
-                    <button
-                      onClick={() => {
-                        setCurrentPage(page);
-                        fetchData(page);
-                      }}
-                      className={`border px-2 py-1 rounded text-xs ${
-                        page === currentPage 
-                          ? 'bg-blue-500 text-white border-blue-500' 
-                          : 'hover:bg-gray-100'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  </React.Fragment>
-                );
-              })}
-          </div>
-          
-          <button
-            onClick={() => {
-              const newPage = currentPage + 1;
-              setCurrentPage(newPage);
-              fetchData(newPage);
-            }}
-            disabled={currentPage >= Math.ceil(totalRecords / pageSize)}
-            className="border px-3 py-1 rounded text-xs hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed bg-white"
-          >
-            {t('Next', 'அடுத்து')}
-          </button>
-
-          {/* Page Size Selector */}
-          <div className="flex items-center gap-1 ml-4">
-            <span className="text-xs text-gray-600">{t('Show', 'காட்டு')}:</span>
-            <select
-              value={pageSize}
-              onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-              className="border px-2 py-1 rounded text-xs bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              {Array.from({ length: 10 }, (_, i) => i + 1).map(size => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
-              ))}
-            </select>
-            <span className="text-xs text-gray-600">{t('per page', 'பக்கம்')}</span>
-          </div>
-        </div>
-      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedBookingId && (

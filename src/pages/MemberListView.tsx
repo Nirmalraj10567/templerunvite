@@ -6,10 +6,11 @@ import { useLanguage } from '@/lib/language';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileDown } from 'lucide-react';
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
+import { FileDown, Search } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
-import { theme } from '@/styles/theme';
+import { theme, tableClasses, buttonClasses } from '@/styles/theme';
 
 interface Props {
   members: Member[];
@@ -319,247 +320,225 @@ export default function MemberListView({
         </div>
       </div>
 
-      {/* Filters */}
-      <Card className="mb-3">
-        <CardContent className="p-2">
-          <div className="flex flex-col md:flex-row gap-2 items-center">
-            {/* Search */}
-            <div className="relative flex-1 w-full">
-              <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-                <svg className="h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                </svg>
+      {/* Table Card */}
+      <Card className="mb-6">
+        <CardContent className="pt-6">
+          {/* Search + Export Toolbar */}
+          <div className={formFieldStyles.moneyDonationList.filters.container}>
+            <div className={formFieldStyles.moneyDonationList.filters.form}>
+              <div className={formFieldStyles.moneyDonationList.filters.searchContainer}>
+                <div className={formFieldStyles.moneyDonationList.filters.searchIcon}>
+                  <Search className={formFieldStyles.moneyDonationList.filters.searchIconSvg} />
+                </div>
+                <Input
+                  type="search"
+                  placeholder={t('Search by name/username/mobile/email...', 'பெயர்/பயனர் பெயர்/மொபைல்/மின்னஞ்சல் மூலம் தேடுக')}
+                  className={cn(theme.input.base, theme.input.size.sm, "pl-8")}
+                  value={searchTerm}
+                  onChange={(e) => onSearch(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && onSearch(searchTerm)}
+                />
               </div>
-              <Input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => onSearch(e.target.value)}
-                placeholder={t('Search by name/username/mobile/email', 'பெயர்/பயனர் பெயர்/மொபைல்/மின்னஞ்சல் மூலம் தேடுக')}
-                className={cn(theme.input.base, theme.input.size.md, "pl-8")}
-              />
+              <div className="flex gap-2">
+                <select
+                  value={filterRole}
+                  onChange={(e) => onFilter(e.target.value)}
+                  className={cn(theme.select.base, theme.select.size.sm)}
+                >
+                  <option value="all">{t('All Roles', 'அனைத்து பங்குகள்')}</option>
+                  <option value="member">{t('Member', 'உறுப்பினர்')}</option>
+                  <option value="admin">{t('Admin', 'நிர்வாகி')}</option>
+                  <option value="superadmin">{t('Super Admin', 'முதன்மை நிர்வாகி')}</option>
+                </select>
+              </div>
+              <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>
+                <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => onSearch('')}>
+                  {t('Clear', 'அழி')}
+                </Button>
+                <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handleExportPdf}>
+                  <FileDown className="h-3 w-3 mr-1" />
+                  {t('Export PDF', 'PDF ஏற்றுமதி')}
+                </Button>
+                <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handlePrint}>
+                  <FileDown className="h-3 w-3 mr-1" />
+                  {t('Print', 'அச்சிடு')}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className={tableClasses.scrollContainerWrapper} onContextMenu={onContextMenu}>
+            <div className={tableClasses.scrollContainer}>
+              <Table className={tableClasses.container}>
+                <TableHeader className={tableClasses.header}>
+                  <TableRow className={tableClasses.row}>
+                    <TableHead className={tableClasses.headerCellSno}>{t("S.No", "எண்")}</TableHead>
+                    <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Name", "பெயர்")}</TableHead>
+                    <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Username", "பயனர் பெயர்")}</TableHead>
+                    <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Mobile", "மொபைல்")}</TableHead>
+                    <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Email", "மின்னஞ்சல்")}</TableHead>
+                    <TableHead className={cn(tableClasses.headerCell, "text-center")}>{t("Role", "பங்கு")}</TableHead>
+                    <TableHead className={cn(tableClasses.headerCell, "text-center")}>{t("Status", "நிலை")}</TableHead>
+                    <TableHead className={cn(tableClasses.headerCell, "text-right")}>{t("Actions", "செயல்கள்")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {members.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className={tableClasses.emptyState}>
+                        {t('No members found', 'உறுப்பினர்கள் இல்லை')}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    members.map((member, index) => (
+                      <TableRow key={member.id} className={tableClasses.row}>
+                        <TableCell className={tableClasses.cellSno}>
+                          {index + 1}
+                        </TableCell>
+                        <TableCell className={tableClasses.cell}>
+                          <div className="font-medium text-gray-900">{member.fullName}</div>
+                          {member.username && <div className="text-xs text-gray-500">@{member.username}</div>}
+                        </TableCell>
+                        <TableCell className={tableClasses.cell}>
+                          {member.username || '-'}
+                        </TableCell>
+                        <TableCell className={tableClasses.cell}>
+                          {member.mobile}
+                        </TableCell>
+                        <TableCell className={tableClasses.cell}>
+                          {member.email || '-'}
+                        </TableCell>
+                        <TableCell className={cn(tableClasses.cell, "text-center")}>
+                          <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full capitalize ${
+                            member.role === 'superadmin' 
+                              ? 'bg-red-100 text-red-800'
+                              : member.role === 'admin'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-green-100 text-green-800'
+                          }`}>
+                            {member.role === 'superadmin' ? t('Super Admin', 'முதன்மை நிர்வாகி') :
+                             member.role === 'admin' ? t('Admin', 'நிர்வாகி') :
+                             t('Member', 'உறுப்பினர்')}
+                          </span>
+                        </TableCell>
+                        <TableCell className={cn(tableClasses.cell, "text-center")}>
+                          <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
+                            member.isBlocked ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                          }`}>
+                            {member.isBlocked ? t('Blocked', 'தடுக்கப்பட்டது') : t('Active', 'செயலில்')}
+                          </span>
+                        </TableCell>
+                        <TableCell className={cn(tableClasses.cell, tableClasses.actionCell)}>
+                          <div className="flex items-center justify-end gap-1">
+                            {canEditMembers && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => onEdit(member)}
+                                className={cn(buttonClasses.actionSecondary, "h-5 w-5 p-0")}
+                              >
+                                <svg className="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </Button>
+                            )}
+                            {canEditMembers && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openPermissions(member)}
+                                className={cn(buttonClasses.actionSecondary, "h-5 w-5 p-0")}
+                              >
+                                <svg className="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg>
+                              </Button>
+                            )}
+                            {canBlockMembers && member.id && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => member.isBlocked ? onUnblock(member.id, member.userId!) : onBlock(member.id, member.userId!)}
+                                className={cn(buttonClasses.actionSecondary, "h-5 w-5 p-0")}
+                              >
+                                {member.isBlocked ? (
+                                  <svg className="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                                  </svg>
+                                ) : (
+                                  <svg className="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                  </svg>
+                                )}
+                              </Button>
+                            )}
+                            {canResetPasswords && member.id && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => onResetPassword(member.id)}
+                                className={cn(buttonClasses.actionSecondary, "h-5 w-5 p-0")}
+                              >
+                                <svg className="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                </svg>
+                              </Button>
+                            )}
+                            {canDeleteMembers && member.id && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => onDelete(member.id)}
+                                className={cn(buttonClasses.actionDanger, "h-5 w-5 p-0")}
+                              >
+                                <svg className="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </div>
 
-            {/* Role Filter */}
-            <select
-              value={filterRole}
-              onChange={(e) => onFilter(e.target.value)}
-              className={cn(theme.select.base, theme.select.size.md)}
-            >
-              <option value="all">{t('All Roles', 'அனைத்து பங்குகள்')}</option>
-              <option value="member">{t('Member', 'உறுப்பினர்')}</option>
-              <option value="admin">{t('Admin', 'நிர்வாகி')}</option>
-              <option value="superadmin">{t('Super Admin', 'முதன்மை நிர்வாகி')}</option>
-            </select>
-
-            {/* Actions */}
-            <div className="flex flex-wrap gap-1 w-full md:w-auto">
-              <Button variant="outline" onClick={() => onSearch('')} className="text-xs py-1 px-2">
-                {t('Clear', 'அழி')}
-              </Button>
-              <Button variant="outline" onClick={handleExportPdf} className="text-xs py-1 px-2">
-                <FileDown className="h-3 w-3 mr-1" />
-                {t('Export PDF', 'PDF ஏற்றுமதி')}
-              </Button>
-              <Button variant="outline" onClick={handlePrint} className="text-xs py-1 px-2">
-                <FileDown className="h-3 w-3 mr-1" />
-                {t('Print', 'அச்சிடு')}
-              </Button>
+            {/* Pagination */}
+            <div className={tableClasses.pagination}>
+              <div className="text-sm text-gray-700">
+                {t("Showing", "காட்டப்படுகிறது")} {(currentPage - 1) * 20 + 1} {t("to", "இலிருந்து")} {Math.min(currentPage * 20, totalMembers)} {t("of", "இல்")}{" "}
+                <span className="font-medium">{totalMembers}</span> {t("items", "உருப்படிகள்")}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage <= 1}
+                  onClick={() => onPageChange(currentPage - 1)}
+                  className={tableClasses.paginationButton}
+                >
+                  {t('Previous', 'முந்தைய')}
+                </Button>
+                <span className="text-xs flex items-center">
+                  {t('Page', 'பக்கம்')} {currentPage} {t('of', 'இல்')} {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => onPageChange(currentPage + 1)}
+                  className={tableClasses.paginationButton}
+                >
+                  {t('Next', 'அடுத்தது')}
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
-
-      {/* Table */}
-      <div
-        className="bg-white rounded border border-gray-200 overflow-hidden"
-        onContextMenu={onContextMenu}
-      >
-        <div className="overflow-x-auto text-xs max-h-[50vh]">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50 sticky top-0 z-10">
-              <tr>
-                {allColumns.map(
-                  (col) =>
-                    visibleCols[col.key] && (
-                      <th
-                        key={col.key}
-                        className={`px-2 py-1 text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                          col.align === 'right'
-                            ? 'text-right'
-                            : col.align === 'center'
-                            ? 'text-center'
-                            : 'text-left'
-                        }`}
-                      >
-                        {col.label}
-                      </th>
-                    )
-                )}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {members.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={visibleColCount}
-                    className="px-2 py-2 text-center text-xs text-gray-500"
-                  >
-                    {t('No members found', 'உறுப்பினர்கள் இல்லை')}
-                  </td>
-                </tr>
-              ) : (
-                members.map((member) => (
-                  <tr key={member.id} className="hover:bg-gray-50">
-                    {visibleCols.name && (
-                      <td className="px-2 py-1 whitespace-nowrap text-xs">
-                        <div className="font-medium text-gray-900">{member.fullName}</div>
-                        {member.username && <div className="text-xs text-gray-500">@{member.username}</div>}
-                      </td>
-                    )}
-                    {visibleCols.username && (
-                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
-                        {member.username || '-'}
-                      </td>
-                    )}
-                    {visibleCols.mobile && (
-                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
-                        {member.mobile}
-                      </td>
-                    )}
-                    {visibleCols.email && (
-                      <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
-                        {member.email || '-'}
-                      </td>
-                    )}
-                    {visibleCols.role && (
-                      <td className="px-2 py-1 whitespace-nowrap text-xs text-center">
-                        <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full capitalize ${
-                          member.role === 'superadmin' 
-                            ? 'bg-red-100 text-red-800'
-                            : member.role === 'admin'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-green-100 text-green-800'
-                        }`}>
-                          {member.role === 'superadmin' ? t('Super Admin', 'முதன்மை நிர்வாகி') :
-                           member.role === 'admin' ? t('Admin', 'நிர்வாகி') :
-                           t('Member', 'உறுப்பினர்')}
-                        </span>
-                      </td>
-                    )}
-                    {visibleCols.status && (
-                      <td className="px-2 py-1 whitespace-nowrap text-xs text-center">
-                        <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
-                          member.isBlocked ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-                        }`}>
-                          {member.isBlocked ? t('Blocked', 'தடுக்கப்பட்டது') : t('Active', 'செயலில்')}
-                        </span>
-                      </td>
-                    )}
-                    {visibleCols.actions && (canEditMembers || canDeleteMembers || canBlockMembers || canResetPasswords) && (
-                      <td className="px-2 py-1 whitespace-nowrap text-xs font-medium text-center">
-                        <div className="flex flex-wrap gap-1 justify-center">
-                          {canEditMembers && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => onEdit(member)}
-                              className="text-xs py-0.5 px-1.5 h-auto"
-                            >
-                              {t('Edit', 'திருத்து')}
-                            </Button>
-                          )}
-                          {canEditMembers && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openPermissions(member)}
-                              className="text-xs py-0.5 px-1.5 h-auto text-purple-700 border-purple-200"
-                            >
-                              {t('Permissions', 'அனுமதிகள்')}
-                            </Button>
-                          )}
-                          {canBlockMembers && member.id && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => member.isBlocked ? onUnblock(member.id, member.userId!) : onBlock(member.id, member.userId!)}
-                              className={`text-xs py-0.5 px-1.5 h-auto ${
-                                member.isBlocked 
-                                  ? 'text-green-600 hover:text-green-700 border-green-200' 
-                                  : 'text-yellow-600 hover:text-yellow-700 border-yellow-200'
-                              }`}
-                            >
-                              {member.isBlocked ? t('Unblock', 'திற') : t('Block', 'தடு')}
-                            </Button>
-                          )}
-                          {canResetPasswords && member.id && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => onResetPassword(member.id)}
-                              className="text-xs py-0.5 px-1.5 h-auto text-blue-600 hover:text-blue-700 border-blue-200"
-                            >
-                              {t('Reset PW', 'கடவுச்சொல் மீட்டமை')}
-                            </Button>
-                          )}
-                          {canDeleteMembers && member.id && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => onDelete(member.id)}
-                              className="text-xs py-0.5 px-1.5 h-auto text-red-600 hover:text-red-700 border-red-200"
-                            >
-                              {t('Delete', 'நீக்கு')}
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Footer */}
-        <div className="px-2 py-1 flex items-center justify-between border-t border-gray-200 text-xs">
-          <div className="text-gray-700">
-            {t('Showing', 'காட்டப்படுகிறது')}{' '}
-            <span className="font-medium">{(currentPage - 1) * 20 + 1}</span> {t('to', 'இலிருந்து')}{' '}
-            <span className="font-medium">{Math.min(currentPage * 20, totalMembers)}</span> {t('of', 'மொத்தம்')}{' '}
-            <span className="font-medium">{totalMembers}</span> {t('results', 'முடிவுகள்')}
-          </div>
-          <div className="text-gray-700">
-            {t('Total', 'மொத்தம்')}: <span className="font-medium">{totalMembers}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center gap-2 mt-2 text-xs">
-          <Button
-            variant="outline"
-            disabled={currentPage <= 1}
-            onClick={() => onPageChange(currentPage - 1)}
-            className="text-xs py-1 px-2"
-          >
-            {t('Previous', 'முந்தைய')}
-          </Button>
-          <span className="text-xs">
-            {t('Page', 'பக்கம்')} {currentPage} {t('of', 'இல்')} {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            disabled={currentPage >= totalPages}
-            onClick={() => onPageChange(currentPage + 1)}
-            className="text-xs py-1 px-2"
-          >
-            {t('Next', 'அடுத்தது')}
-          </Button>
-        </div>
-      )}
 
       {/* Context Menu */}
       {menuOpen && (
