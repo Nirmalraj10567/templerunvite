@@ -27,7 +27,126 @@ async function generateReceiptNumber(db, templeId) {
 }
 
 module.exports = function(deps = {}) {
-  const { db } = deps;
+  const { db, generateDaybookReceiptNumber, calculateDaybookRunningBalance } = deps;
+
+  // Helper to sync annadhanam product donations to asset management
+  async function syncAnnadhanamProductToAsset({ annadhanamId, templeId, userId, row }) {
+    try {
+      const donationType = row.donation_type || 'food';
+      
+      // Only sync product donations to assets
+      if (donationType !== 'product') return;
+
+      const hasAssets = await db.schema.hasTable('assets');
+      if (!hasAssets) return;
+
+      // Check if already synced
+      const existing = await db('assets')
+        .where({ temple_id: templeId, name: `Annadhanam - ${row.name || 'Product Donation'}` })
+        .where('details', 'like', `%reference_id:${annadhanamId}%`)
+        .first();
+      if (existing) return;
+
+      const productName = row.product_name || row.food?.replace('Product: ', '') || 'Product';
+      const quantity = row.quantity || 1;
+      const details = `Annadhanam Product Donation ID: ${annadhanamId} | ${productName} x ${quantity} | From: ${row.name} (${row.mobile_number})`;
+
+      await db('assets').insert({
+        name: `Annadhanam - ${row.name || 'Product Donation'}`,
+        details: details,
+        value: 0,
+        asset_source: 'donation',
+        donor_name: row.name || null,
+        donor_contact: row.mobile_number || null,
+        status: 'active',
+        created_by: userId ? Number(userId) : null,
+        temple_id: templeId,
+        created_at: db.fn.now(),
+        updated_at: db.fn.now(),
+      });
+      console.log(`Synced annadhanam product ${annadhanamId} to assets`);
+    } catch (e) {
+      console.error('Failed to sync annadhanam to assets:', e.message);
+    }
+  }
+
+  // Helper to sync annadhanam to daybook (money = income, food = in_kind income, product = 0)
+  async function syncAnnadhanamToDaybook({ annadhanamId, templeId, userId, row }) {
+    try {
+      const donationType = row.donation_type || 'food';
+      const amount = Number(row.amount || 0);
+      const peoples = Number(row.peoples || 1);
+
+      const hasDaybook = await db.schema.hasTable('daybook_entries');
+      if (!hasDaybook) return;
+
+      let entryDate = row.from_date;
+      if (entryDate) {
+        const d = new Date(entryDate);
+        if (d.toString() !== 'Invalid Date') {
+          entryDate = d.toISOString().slice(0, 10);
+        }
+      }
+      if (!entryDate || typeof entryDate !== 'string' || entryDate.includes(' ')) {
+        entryDate = new Date().toISOString().slice(0, 10);
+      }
+
+      // Check if already synced
+      const existing = await db('daybook_entries')
+        .where({ temple_id: templeId, reference_type: 'annadhanam', reference_id: Number(annadhanamId) })
+        .first();
+      if (existing) return;
+
+      const receiptNumber = await generateDaybookReceiptNumber(templeId);
+
+      let entryAmount = 0;
+      let paymentMode = 'in_kind';
+
+      if (donationType === 'money') {
+        entryAmount = Math.abs(amount);
+        paymentMode = 'cash';
+      } else if (donationType === 'food') {
+        entryAmount = 0;
+        paymentMode = 'in_kind';
+      } else if (donationType === 'product') {
+        entryAmount = 0;
+        paymentMode = 'in_kind';
+      }
+
+      await db('daybook_entries').insert({
+        temple_id: templeId,
+        entry_date: entryDate,
+        entry_type: 'income',
+        description: `Annadhanam - ${row.name || 'Anonymous'}`,
+        reference_type: 'annadhanam',
+        reference_id: Number(annadhanamId),
+        receipt_number: receiptNumber,
+        amount: entryAmount,
+        payment_mode: paymentMode,
+        party_name: row.name || null,
+        party_mobile: row.mobile_number || null,
+        notes: `${row.food || ''} (${peoples} people)`.trim(),
+        running_balance: 0,
+        created_by: userId ? Number(userId) : null,
+        created_at: db.fn.now(),
+      });
+    } catch (e) {
+      console.error('Failed to sync annadhanam to daybook:', e.message);
+    }
+  }
+
+  async function removeAnnadhanamFromDaybook({ annadhanamId, templeId }) {
+    try {
+      const hasDaybook = await db.schema.hasTable('daybook_entries');
+      if (!hasDaybook) return;
+
+      await db('daybook_entries')
+        .where({ temple_id: templeId, reference_type: 'annadhanam', reference_id: Number(annadhanamId) })
+        .del();
+    } catch (e) {
+      console.error('Failed to remove annadhanam from daybook:', e.message);
+    }
+  }
 
   // Helper to write annadhanam logs
   async function logAnnadhanamAction({ annadhanamId, templeId, userId, action, details }) {
@@ -271,6 +390,8 @@ module.exports = function(deps = {}) {
         from_date: p.fromDate,
         to_date: p.toDate,
         remarks: p.remarks || null,
+        amount: p.amount ? Number(p.amount) : null,
+        donation_type: p.donationType || 'food',
         created_by: req.user.id,
         created_at: db.fn.now(),
         updated_at: db.fn.now(),
@@ -300,7 +421,35 @@ module.exports = function(deps = {}) {
         console.log('Successfully logged annadhanam creation for ID:', insertedId);
       } catch (logError) {
         console.error('Failed to log annadhanam creation:', logError);
-        // Don't fail the request if logging fails, but log the error
+      }
+
+      // Sync to daybook (all annadhanam entries)
+      try {
+        if (createdRow || record) {
+          await syncAnnadhanamToDaybook({
+            annadhanamId: insertedId,
+            templeId: req.user.templeId,
+            userId: req.user.id,
+            row: createdRow || record,
+          });
+          console.log('Successfully synced annadhanam to daybook for ID:', insertedId);
+        }
+      } catch (daybookError) {
+        console.error('Failed to sync annadhanam to daybook:', daybookError);
+      }
+
+      // Sync product donations to asset management
+      try {
+        if (createdRow || record) {
+          await syncAnnadhanamProductToAsset({
+            annadhanamId: insertedId,
+            templeId: req.user.templeId,
+            userId: req.user.id,
+            row: createdRow || record,
+          });
+        }
+      } catch (assetError) {
+        console.error('Failed to sync annadhanam to assets:', assetError);
       }
 
       res.json({ success: true, data: createdRow });
@@ -430,7 +579,20 @@ module.exports = function(deps = {}) {
       } catch (logError) {
         console.error('❌ Failed to log annadhanam update:', logError);
         console.error('Log error details:', logError);
-        // Don't fail the request if logging fails, but log the error
+      }
+
+      // Sync to daybook (all entries)
+      try {
+        if (annadhanam) {
+          await syncAnnadhanamToDaybook({
+            annadhanamId: id,
+            templeId: req.user.templeId,
+            userId: req.user.id,
+            row: annadhanam,
+          });
+        }
+      } catch (daybookError) {
+        console.error('Failed to sync annadhanam update to daybook:', daybookError);
       }
 
       res.json({ success: true, data: annadhanam });
@@ -469,7 +631,16 @@ module.exports = function(deps = {}) {
         console.log('Successfully logged annadhanam deletion for ID:', id);
       } catch (logError) {
         console.error('Failed to log annadhanam deletion:', logError);
-        // Don't fail the request if logging fails, but log the error
+      }
+
+      // Remove from daybook
+      try {
+        await removeAnnadhanamFromDaybook({
+          annadhanamId: id,
+          templeId: req.user.templeId,
+        });
+      } catch (daybookError) {
+        console.error('Failed to remove annadhanam from daybook:', daybookError);
       }
       
       res.json({ success: true });

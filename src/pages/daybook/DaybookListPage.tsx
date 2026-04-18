@@ -388,7 +388,13 @@ export default function DaybookListPage() {
                             </div>
                           )}
                         </TableCell>
-                        <TableCell className="capitalize">{entry.payment_mode}</TableCell>
+                        <TableCell className="capitalize">
+                          {entry.payment_mode === 'in_kind' ? (
+                            <span className="text-green-600">{t('In Kind', 'உணவு')}</span>
+                          ) : (
+                            entry.payment_mode
+                          )}
+                        </TableCell>
                         <TableCell className="text-right font-medium">
                           {formatAmount(entry.amount)}
                         </TableCell>

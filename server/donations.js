@@ -280,7 +280,35 @@ module.exports = function(deps = {}) {
         console.log('Successfully logged donation product creation for ID:', id);
       } catch (logError) {
         console.error('Failed to log donation product creation:', logError);
-        // Don't fail the request if logging fails, but log the error
+      }
+
+      // Sync to Asset Management
+      try {
+        const hasAssets = await db.schema.hasTable('assets');
+        if (hasAssets) {
+          const existingAsset = await db('assets')
+            .where({ temple_id: req.user.templeId })
+            .where('name', 'like', `%Donation-${donation.id}%`)
+            .first();
+          if (!existingAsset) {
+            await db('assets').insert({
+              name: `Donation-${donation.id} - ${donation.donor_name || 'Anonymous'}`,
+              details: `Product: ${donation.product_name} | Qty: ${donation.quantity} | Price: ₹${donation.price}`,
+              value: donation.price || 0,
+              asset_source: 'donation',
+              donor_name: donation.donor_name,
+              donor_contact: donation.donor_contact,
+              status: donation.status === 'available' ? 'active' : 'disposed',
+              created_by: req.user.id,
+              temple_id: req.user.templeId,
+              created_at: db.fn.now(),
+              updated_at: db.fn.now(),
+            });
+            console.log('Synced donation product to assets');
+          }
+        }
+      } catch (assetError) {
+        console.error('Failed to sync donation to assets:', assetError.message);
       }
       
       res.json({ success: true, data: donation });

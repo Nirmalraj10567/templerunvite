@@ -13,16 +13,20 @@ import {
   Loader2, 
   RefreshCw, 
   ChevronDown, 
-  ChevronRight, 
-  Download, 
+  ChevronRight,
   Eye, 
   EyeOff, 
   ChevronUp,
   Calendar,
   Search,
   Filter,
-  Printer,
-  AlertCircle
+  AlertCircle,
+  Building2,
+  Scale,
+  ArrowUpCircle,
+  ArrowDownCircle,
+  CheckCircle2,
+  CalendarDays
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -44,6 +48,18 @@ const t = {
     debit: 'Debit',
     credit: 'Credit',
     total: 'Total',
+    ledgerName: 'Ledger Name',
+    reconciliation: 'Reconciliation',
+    summaryForPeriod: 'Summary for selected period',
+    period: 'Period',
+    totalDebit: 'Total Debit',
+    totalCredit: 'Total Credit',
+    difference: 'Difference',
+    booksBalanced: 'Books are Balanced',
+    debitCreditMatch: 'Debit and Credit totals match',
+    netProfit: 'Net Profit',
+    totalAmount: 'Total Amount',
+    records: 'Records',
     loading: 'Loading...',
     errorLoading: 'Error loading data',
     noData: 'No data',
@@ -63,9 +79,10 @@ const t = {
     accounts: 'Accounts',
     from: 'From',
     to: 'To',
-    
     noDataFoundForCurrentFilters: 'No data found for the current filters.',
+    tryAdjustingFilters: 'Try adjusting your filters',
     showColumns: 'Show columns:',
+    trialBalanceData: 'Trial Balance Data',
     columnVisibility: 'Column visibility',
     categoryExportNotImplementedYet: 'Category export not implemented yet',
     financialYear: 'Financial Year',
@@ -73,6 +90,7 @@ const t = {
     clearFilters: 'Clear Filters',
     dateRange: 'Date Range',
     quickFilters: 'Quick Filters',
+    filters: 'Filters',
     exportAs: 'Export As',
     csv: 'CSV',
     pdf: 'PDF',
@@ -102,6 +120,18 @@ const t = {
     debit: 'பற்று',
     credit: 'வரவு',
     total: 'மொத்தம்',
+    ledgerName: 'லெட்ஜர் பெயர்',
+    reconciliation: 'சமன்பாடு',
+    summaryForPeriod: 'தேர்ந்தெடுக்கப்பட்ட காலத்திற்கான சுருக்கம்',
+    period: 'காலம்',
+    totalDebit: 'மொத்த பற்று',
+    totalCredit: 'மொத்த வரவு',
+    difference: 'வித்தியாசம்',
+    booksBalanced: 'கணக்குகள் சமநிலையில் உள்ளன',
+    debitCreditMatch: 'பற்று மற்றும் வரவு மொத்தங்கள் பொருந்துகின்றன',
+    netProfit: 'நிகர லாபம்',
+    totalAmount: 'மொத்த தொகை',
+    records: 'பதிவுகள்',
     loading: 'ஏற்றுகிறது...',
     errorLoading: 'தரவு ஏற்றப்படும் போது பிழை',
     noData: 'தரவு இல்லை',
@@ -121,9 +151,10 @@ const t = {
     accounts: 'கணக்குகள்',
     from: 'இருந்து',
     to: 'வரை',
-    trialBalanceData: 'டிரயல் பாலன்ஸ் தரவு',
     noDataFoundForCurrentFilters: 'தற்போதைய வடிப்பான்களுக்கு தரவு இல்லை.',
+    tryAdjustingFilters: 'வடிப்பான்களை சரிசெய்ய முயற்சிக்கவும்',
     showColumns: 'நெடுவரிசைகள்:',
+    trialBalanceData: 'டிரயல் பாலன்ஸ் தரவு',
     columnVisibility: 'நெடுவரிசை தொடர்பு',
     categoryExportNotImplementedYet: 'வகை ஏற்றுமதி இன்னும் செயல்படுத்தப்படவில்லை',
     financialYear: 'நிதியாண்டு',
@@ -131,6 +162,7 @@ const t = {
     clearFilters: 'வடிப்பான்களை அழி',
     dateRange: 'தேதி வரம்பு',
     quickFilters: 'விரைவான வடிப்பான்கள்',
+    filters: 'வடிப்பான்கள்',
     exportAs: 'ஏற்றுமதி செய்',
     csv: 'CSV',
     pdf: 'PDF',
@@ -234,11 +266,11 @@ function TrialBalanceContent() {
   
   // Column visibility state
   const [visible, setVisible] = useState({ 
-    inflow: true, 
-    outflow: true, 
+    inflow: false, 
+    outflow: false, 
     debit: true, 
     credit: true, 
-    balance: true 
+    balance: false 
   });
   const visibleColumnsCount = useMemo(() => 
     Object.values(visible).filter(Boolean).length 
@@ -253,7 +285,7 @@ function TrialBalanceContent() {
   // Search state
   const [accountQuery, setAccountQuery] = useState('');
   const [categoryQuery, setCategoryQuery] = useState('');
-  const [isFiltersOpen, setIsFiltersOpen] = useState(true);
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
   // Refs for focus management
   const startDateRef = useRef<HTMLInputElement>(null);
@@ -536,229 +568,128 @@ function TrialBalanceContent() {
     </Button>
   ));
 
+  // Calculate net profit (Credit - Debit)
+  const netProfit = useMemo(() => totals.credit - totals.debit, [totals]);
+  const isBalanced = Math.abs(totals.debit - totals.credit) < 0.01;
+
+  // Format date for display
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
   return (
-
-
-
-    <div className={pageContainerStyles.container}>
-       <Card className={pageContainerStyles.content}>
-         <CardHeader className={theme.header.container}>
-           <div className={theme.header.contentSpacing}>
-             <CardTitle className={theme.header.main}>
-             {t[language].trialBalance}
-             </CardTitle>
-           </div>
-         </CardHeader>
-       
-    <div className="space-y-6">
-      {/* Header Section */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold"></h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {t[language].trialBalanceData}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button 
-            variant="default" 
-            size="sm" 
-            onClick={load}
-            disabled={isLoading}
-            className="gap-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
-          >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4" />
-            )}
-            {t[language].refresh}
-          </Button>
-          <div className="flex gap-2">
-            <Button 
-              variant="default" 
-              size="sm" 
-              onClick={exportToCSV} 
-              disabled={!sortedRows.length || isLoading}
-              className="gap-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
+    <div className="min-h-screen bg-gray-50">
+      {/* Compact Header Bar - Using Theme Colors */}
+      <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 py-3">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Building2 className="h-5 w-5" />
+            <h1 className="font-semibold text-lg">{t[language].trialBalance}</h1>
+            <span className="bg-white/20 px-2 py-0.5 rounded text-xs">
+              {sortedRows.length} {t[language].records}
+            </span>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            {/* Clickable Date Picker in Header - White Style */}
+            <div className="flex items-center gap-1">
+              <input
+                ref={startDateRef}
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+                className="bg-white text-gray-800 text-xs px-2 py-1 rounded border-0 outline-none focus:ring-2 focus:ring-white cursor-pointer"
+              />
+              <span className="text-white text-xs">-</span>
+              <input
+                ref={endDateRef}
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+                className="bg-white text-gray-800 text-xs px-2 py-1 rounded border-0 outline-none focus:ring-2 focus:ring-white cursor-pointer"
+              />
+            </div>
+            
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={load}
+              disabled={isLoading}
+              className="gap-2 bg-white/10 hover:bg-white/20 text-white border-0"
             >
-              <Download className="h-4 w-4" />
-              {t[language].csv}
-            </Button>
-            <Button 
-              variant="default" 
-              size="sm" 
-              onClick={exportToPDF} 
-              disabled={!sortedRows.length || isLoading}
-              className="gap-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
-            >
-              <Printer className="h-4 w-4" />
-              {t[language].pdf}
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              {t[language].refresh}
             </Button>
           </div>
         </div>
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => setIsFiltersOpen(!isFiltersOpen)}
-                className="gap-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
-              >
-                {isFiltersOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                {t[language].dateRange}
-              </Button>
-              {!isDateRangeValid && (
-                <span className="text-sm text-red-500 flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" />
-                  {t[language].errorLoading}
-                </span>
-              )}
+      {/* Filters Panel */}
+      {isFiltersOpen && (
+        <div className="bg-white border-b px-4 py-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">{t[language].dateFrom}</Label>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="h-9"
+              />
             </div>
-            <div className="flex gap-2">
-              <Button 
-                variant="default" 
-                size="sm" 
-                onClick={clearFilters}
-                className="gap-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
-              >
-                <Filter className="h-4 w-4" />
-                {t[language].clearFilters}
-              </Button>
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">{t[language].dateTo}</Label>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="h-9"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">{t[language].category}</Label>
+              <Input
+                placeholder={t[language].categorySearchPlaceholder}
+                value={categoryQuery}
+                onChange={(e) => setCategoryQuery(e.target.value)}
+                className="h-9"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">{t[language].account}</Label>
+              <Input
+                placeholder={t[language].accountSearchPlaceholder}
+                value={accountQuery}
+                onChange={(e) => setAccountQuery(e.target.value)}
+                className="h-9"
+              />
             </div>
           </div>
-        </CardHeader>
-        
-        {isFiltersOpen && (
-          <CardContent className="pt-0">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              {/* Date Inputs */}
-              <div className="space-y-2">
-                <Label htmlFor="start-date" className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  {t[language].dateFrom}
-                </Label>
-                <Input
-                  ref={startDateRef}
-                  type="date"
-                  id="start-date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className={cn(theme.input.base, theme.input.size.md, !isDateRangeValid && "border-red-500")}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="end-date" className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  {t[language].dateTo}
-                </Label>
-                <Input
-                  ref={endDateRef}
-                  type="date"
-                  id="end-date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className={cn(theme.input.base, theme.input.size.md, theme.input.error, !isDateRangeValid && "border-red-500")}
-                />
-              </div>
-              
-              {/* Quick Filters */}
-              <div className="space-y-2">
-                <Label>{t[language].quickFilters}</Label>
-                <div className="flex flex-wrap gap-2">
-                  <Button 
-                    variant="default" 
-                    size="sm" 
-                    onClick={() => setPresetRange('today')}
-                    className="text-xs h-8 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
-                  >
-                    {t[language].today}
-                  </Button>
-                  <Button 
-                    variant="default" 
-                    size="sm" 
-                    onClick={() => setPresetRange('thisMonth')}
-                    className="text-xs h-8 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
-                  >
-                    {t[language].thisMonth}
-                  </Button>
-                  <Button 
-                    variant="default" 
-                    size="sm" 
-                    onClick={() => setPresetRange('fy')}
-                    className="text-xs h-8 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
-                  >
-                    {t[language].financialYear}
-                  </Button>
-                </div>
-              </div>
-              
-              {/* Apply Button */}
-              <div className="flex items-end">
-                <Button 
-                  onClick={load}
-                  disabled={isLoading || !isDateRangeValid}
-                  className="w-full h-9 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
-                >
-                  {isLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Search className="mr-2 h-4 w-4" />
-                  )}
-                  {t[language].applyFilters}
-                </Button>
-              </div>
-            </div>
-            
-            {/* Search Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div className="space-y-2">
-                <Label htmlFor="categorySearch" className="flex items-center gap-2">
-                  <Search className="h-4 w-4" />
-                  {t[language].category}
-                </Label>
-                <Input 
-                  id="categorySearch" 
-                  placeholder={t[language].categorySearchPlaceholder} 
-                  value={categoryQuery}
-                  onChange={(e) => setCategoryQuery(e.target.value)}
-                  className={cn(theme.input.base, theme.input.size.sm)}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="accountSearch" className="flex items-center gap-2">
-                  <Search className="h-4 w-4" />
-                  {t[language].account}
-                </Label>
-                <Input 
-                  id="accountSearch" 
-                  placeholder={t[language].accountSearchPlaceholder} 
-                  value={accountQuery}
-                  onChange={(e) => setAccountQuery(e.target.value)}
-                  className={cn(theme.input.base, theme.input.size.sm)}
-                />
-              </div>
-            </div>
-            
-            {/* Column Visibility */}
-            <div className="pt-2">
-              <div className="flex items-center gap-2 mb-2">
-                <Eye className="h-4 w-4" />
-                <Label className="text-sm">{t[language].toggleColumns}</Label>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {columnToggleButtons}
-              </div>
-            </div>
-          </CardContent>
-        )}
-      </Card>
+          <div className="flex gap-2 mt-4">
+            <Button size="sm" onClick={() => setPresetRange('today')} className="bg-gradient-to-r from-orange-500 to-orange-600">
+              {t[language].today}
+            </Button>
+            <Button size="sm" onClick={() => setPresetRange('thisMonth')} className="bg-gradient-to-r from-orange-500 to-orange-600">
+              {t[language].thisMonth}
+            </Button>
+            <Button size="sm" onClick={() => setPresetRange('fy')} className="bg-gradient-to-r from-orange-500 to-orange-600">
+              {t[language].financialYear}
+            </Button>
+            <Button size="sm" variant="outline" onClick={clearFilters}>
+              {t[language].clearFilters}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content - Two Column Layout */}
+      <div className="p-4">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          {/* Left Column - Main Table */}
+          <div className="lg:col-span-3">
 
       {/* Results Section */}
       <Card>
@@ -920,18 +851,6 @@ function TrialBalanceContent() {
                                       ({filteredRows.length} {filteredRows.length === 1 ? t[language].account : t[language].accounts})
                                     </span>
                                   </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 text-xs"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toast.info(t[language].categoryExportNotImplementedYet);
-                                    }}
-                                  >
-                                    <Download className="h-3 w-3 mr-1" />
-                                    {t[language].exportAs}
-                                  </Button>
                                 </div>
                               </td>
                             </tr>
@@ -1056,38 +975,82 @@ function TrialBalanceContent() {
                       )}
                     </tbody>
                   </table>
-                  
-                  {/* Summary Footer */}
-                  <div className="px-4 py-3 bg-muted/30 flex flex-wrap items-center justify-between gap-4 text-sm">
-                    <div className="flex items-center gap-4">
-                      <span>
-                        {Object.keys(filteredCategories).length} {t[language].categories}, 
-                        {' '} {allFilteredRows.length} {t[language].accounts}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleAllCategories(!hasExpandedCategories)}
-                        className="h-8"
-                      >
-                        {hasExpandedCategories ? t[language].collapseAll : t[language].expandAll}
-                      </Button>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{t[language].sortBy}:</span>
-                      <span className="bg-muted px-2 py-1 rounded">
-                        {t[language][sortKey]} {sortDir === 'asc' ? t[language].ascending : t[language].descending}
-                      </span>
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
           )}
         </CardContent>
       </Card>
-    </div>
-    </Card>
+          </div>
+
+          {/* Right Column - Reconciliation Sidebar */}
+          <div className="lg:col-span-1">
+            <Card className="sticky top-4">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <Scale className="h-5 w-5 text-blue-600" />
+                  <CardTitle className="text-base">{t[language].reconciliation}</CardTitle>
+                </div>
+                <p className="text-xs text-muted-foreground">{t[language].summaryForPeriod}</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Period */}
+                <div className="bg-blue-50 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Calendar className="h-4 w-4 text-blue-600" />
+                    <span className="text-xs font-medium text-blue-900">{t[language].period}</span>
+                  </div>
+                  <p className="text-sm font-semibold text-blue-700">
+                    {formatDate(endDate)}
+                  </p>
+                </div>
+
+                {/* Total Debit */}
+                <div className="bg-red-50 rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ArrowUpCircle className="h-4 w-4 text-red-600" />
+                      <span className="text-xs font-medium text-red-900">{t[language].totalDebit}</span>
+                    </div>
+                  </div>
+                  <p className="text-lg font-bold text-red-600 mt-1">{nf.format(totals.debit)}</p>
+                </div>
+
+                {/* Total Credit */}
+                <div className="bg-green-50 rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ArrowDownCircle className="h-4 w-4 text-green-600" />
+                      <span className="text-xs font-medium text-green-900">{t[language].totalCredit}</span>
+                    </div>
+                  </div>
+                  <p className="text-lg font-bold text-green-600 mt-1">{nf.format(totals.credit)}</p>
+                </div>
+
+                {/* Difference */}
+                <div className="bg-purple-50 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Scale className="h-4 w-4 text-purple-600" />
+                    <span className="text-xs font-medium text-purple-900">{t[language].difference}</span>
+                  </div>
+                  <p className="text-lg font-bold text-purple-600">{nf.format(Math.abs(totals.debit - totals.credit))}</p>
+                </div>
+
+                {/* Balance Status */}
+                {isBalanced && (
+                  <div className="bg-green-100 border border-green-200 rounded-lg p-3">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      <span className="text-sm font-semibold text-green-800">{t[language].booksBalanced}</span>
+                    </div>
+                    <p className="text-xs text-green-700 mt-1">{t[language].debitCreditMatch}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

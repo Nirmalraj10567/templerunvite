@@ -20,7 +20,7 @@ const MasterDataPage = () => {
   const { user, token } = useAuth();
   const { language, setLanguage } = useLanguage();
   
-  const [activeTab, setActiveTab] = useState<'clans' | 'groups' | 'occupations' | 'educations' | 'halls' | 'hall-events'>('clans');
+  const [activeTab, setActiveTab] = useState<'clans' | 'groups' | 'occupations' | 'educations' | 'halls' | 'hall-events' | 'food-items' | 'product-names'>('clans');
   const [masterData, setMasterData] = useState<MasterDataItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -35,13 +35,15 @@ const MasterDataPage = () => {
   const translations = {
     tamil: {
       title: 'Master Data Management',
-      //subtitle: 'Manage clans, groups, occupations, and education levels',
+      subtitle: 'Manage master data for your temple',
       clans: 'Kootttam',
       groups: 'Groups',
       occupations: 'Occupations',
       educations: 'Educations',
       halls: 'Halls',
       hallEvents: 'Hall Events',
+      foodItems: 'Food Items',
+      productNames: 'Product Names',
       addNew: 'Add New',
       edit: 'Edit',
       delete: 'Delete',
@@ -70,6 +72,8 @@ const MasterDataPage = () => {
       educations: 'கல்வி நிலைகள்',
       halls: 'மண்டபங்கள்',
       hallEvents: 'மண்டப நிகழ்வுகள்',
+      foodItems: 'உணவு பொருட்கள்',
+      productNames: 'பொருள் பெயர்கள்',
       addNew: 'புதியதை சேர்க்கவும்',
       edit: 'திருத்து',
       delete: 'அழி',
@@ -110,7 +114,9 @@ const MasterDataPage = () => {
     { key: 'occupations', label: t.occupations, endpoint: 'occupations' },
     { key: 'educations', label: t.educations, endpoint: 'educations' },
     { key: 'halls', label: t.halls, endpoint: 'halls' },
-    { key: 'hall-events', label: t.hallEvents, endpoint: 'hall-events' }
+    { key: 'hall-events', label: t.hallEvents, endpoint: 'hall-events' },
+    { key: 'food-items', label: t.foodItems, endpoint: 'food-items' },
+    { key: 'product-names', label: t.productNames, endpoint: 'product-names' }
   ];
 
 
@@ -332,7 +338,7 @@ const MasterDataPage = () => {
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key as any)}
-                  className={`px-4 py-2 text-sm font-medium rounded-t-md transition-all duration-200 ${
+                  className={`px-4 py-2 text-sm font-medium rounded-t-md transition-all duration-200 whitespace-nowrap ${
                     activeTab === tab.key
                       ? 'bg-orange-500 text-white shadow-sm'
                       : 'text-gray-600 hover:text-orange-600 hover:bg-gray-50'

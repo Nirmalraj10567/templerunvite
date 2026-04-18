@@ -1,35 +1,22 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:4000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
-// Create axios instance with default config
 const api = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
 });
 
-// Add request interceptor to inject auth token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('authToken');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
 
-// Add response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Handle unauthorized access
       localStorage.removeItem('authToken');
       window.location.href = '/login';
     }
@@ -37,93 +24,89 @@ api.interceptors.response.use(
   }
 );
 
-interface PaginationParams {
-  page?: number;
-  pageSize?: number;
-  search?: string;
-}
-
-interface Property {
+export interface Asset {
   id: number;
   name: string;
   details: string;
-  value: string;
-  created_at: string;
-  updated_at: string;
+  value: number;
+  asset_source?: string;
+  source_details?: string;
+  donor_name?: string;
+  donor_contact?: string;
+  status?: string;
+  converted_at?: string;
+  conversion_income_id?: number;
+  created_by?: number;
+  temple_id?: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
-interface PropertyResponse<T> {
+export interface AssetLog {
+  id: number;
+  asset_id: number;
+  action: string;
+  details: string;
+  created_by: number;
+  created_at: string;
+}
+
+export interface PropertyResponse<T> {
   success: boolean;
   data: T;
   message?: string;
-  pagination?: {
-    page: number;
-    pageSize: number;
-    total: number;
-    totalPages: number;
-  };
+  pagination?: { page: number; pageSize: number; total: number };
 }
 
 const propertyService = {
-  // Get all properties with pagination and search
-  async getProperties(page = 1, pageSize = 10, search = ''): Promise<Property[]> {
-    try {
-      const response = await api.get<Property[]>('/properties', {
-        params: { page, pageSize, search },
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching properties:', error);
-      throw error;
-    }
+  async getAssets(page = 1, pageSize = 50, search = ''): Promise<Asset[]> {
+    const response = await api.get<{ success: boolean; data: Asset[] }>('/assets', {
+      params: { page, pageSize, q: search },
+    });
+    return response.data.data || [];
   },
 
-  // Get single property by ID
-  async getProperty(id: string): Promise<PropertyResponse<Property>> {
-    try {
-      const response = await api.get<PropertyResponse<Property>>(`/properties/${id}`);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching property:', error);
-      throw error;
-    }
+  async getAsset(id: string): Promise<Asset> {
+    const response = await api.get<{ success: boolean; data: Asset }>(`/assets/${id}`);
+    return response.data.data;
   },
 
-  // Create new property
-  async createProperty(propertyData: Property): Promise<PropertyResponse<Property>> {
-    try {
-      const response = await api.post<PropertyResponse<Property>>('/properties', propertyData);
-      return response.data;
-    } catch (error) {
-      console.error('Error creating property:', error);
-      throw error;
-    }
+  async createAsset(data: Partial<Asset>): Promise<{ success: boolean; assetId: number }> {
+    const response = await api.post<{ success: boolean; assetId: number }>('/assets', data);
+    return response.data;
   },
 
-  // Update existing property
-  async updateProperty(id: string, propertyData: Property): Promise<PropertyResponse<Property>> {
-    try {
-      const response = await api.put<PropertyResponse<Property>>(
-        `/properties/${id}`,
-        propertyData
-      );
-      return response.data;
-    } catch (error) {
-      console.error('Error updating property:', error);
-      throw error;
-    }
+  async updateAsset(id: string, data: Partial<Asset>): Promise<{ success: boolean }> {
+    const response = await api.put<{ success: boolean }>(`/assets/${id}`, data);
+    return response.data;
   },
 
-  // Delete property
-  async deleteProperty(id: string): Promise<PropertyResponse<void>> {
-    try {
-      const response = await api.delete<PropertyResponse<void>>(`/properties/${id}`);
-      return response.data;
-    } catch (error) {
-      console.error('Error deleting property:', error);
-      throw error;
-    }
-  }
+  async deleteAsset(id: string): Promise<{ success: boolean }> {
+    const response = await api.delete<{ success: boolean }>(`/assets/${id}`);
+    return response.data;
+  },
+
+  async convertToCash(id: string, convertValue: number): Promise<{ success: boolean }> {
+    const response = await api.post<{ success: boolean }>(`/assets/${id}/convert-to-cash`, {
+      convertValue,
+    });
+    return response.data;
+  },
+
+  async getAssetLogs(id: string): Promise<AssetLog[]> {
+    const response = await api.get<{ success: boolean; data: AssetLog[] }>(`/assets/${id}/logs`);
+    return response.data.data || [];
+  },
+
+  async getAllLogs(): Promise<AssetLog[]> {
+    const response = await api.get<{ success: boolean; data: AssetLog[] }>('/assets/logs/all');
+    return response.data.data || [];
+  },
+
+  async getStats(): Promise<{ total: number; active: number; converted: number; totalValue: number }> {
+    const response = await api.get<{ success: boolean; data: { total: number; active: number; converted: number; totalValue: number } }>('/assets/stats');
+    return response.data.data;
+  },
 };
 
 export default propertyService;

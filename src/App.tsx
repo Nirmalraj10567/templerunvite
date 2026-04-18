@@ -41,6 +41,7 @@ import TaxUserEntryPage from './pages/tax/TaxUserEntryPage';
 import TaxUserListPage from './pages/tax/TaxUserListPage';
 import TaxSettingsPage from './pages/masterdata/TaxSettingsPage';
 import PropertyRoutes from './pages/property';
+import AssetManagementPage from './pages/asset/AssetManagementPage';
 import DonationProductList from './pages/product/DonationProductList';
 import DonationProductEntry from './pages/product/DonationProductEntry';
 import MoneyDonationEntry from './pages/donations/MoneyDonationEntry';
@@ -486,7 +487,18 @@ function App() {
                       }
                     />
 
-                    {/* Kanikalar */}
+                    {/* Asset Management */}
+                    <Route
+                      path="assets"
+                      element={
+                        <PermissionGuard
+                          requiredPermission="asset_management"
+                          accessLevel="view"
+                        >
+                          <AssetManagementPage />
+                        </PermissionGuard>
+                      }
+                    />
                     <Route
                       path="kanikalar"
                       element={

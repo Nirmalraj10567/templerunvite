@@ -7,7 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { getAuthToken } from '@/lib/auth';
-import { Loader2, RefreshCw, IndianRupee, FileDown, Calendar } from 'lucide-react';
+import { Loader2, RefreshCw, IndianRupee, FileDown, Calendar, Building2, Scale, ArrowUpCircle, ArrowDownCircle, TrendingUp, AlertCircle, LayoutGrid, FileText } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { useLanguage } from '@/lib/language'; 
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
 import { theme, tableClasses } from '@/styles/theme';
@@ -57,7 +59,7 @@ export default function BalanceSheetPage() {
   };
 
   const t: Record<'english' | 'tamil', Labels> = {
-    tamil: {
+    english: {
       title: 'Balance Sheet',
       from: 'From',
       to: 'To',
@@ -83,7 +85,7 @@ export default function BalanceSheetPage() {
       errorLoading: 'Failed to load',
       balanceSheet: 'Balance Sheet',
     },
-    english: {
+    tamil: {
       balanceSheet: 'இருப்புநிலை',
       title: 'சமநிலை அறிக்கை',
       from: 'இருந்து',
@@ -314,9 +316,87 @@ export default function BalanceSheetPage() {
   };
 
   const exportPDF = () => {
-    const token = getAuthToken();
-    const url = `/api/journal/balance-sheet.pdf?from=${query.startDate}&to=${query.endDate}&token=${encodeURIComponent(token)}`;
-    window.open(url, '_blank');
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 15;
+    let y = 20;
+    
+    // Title
+    doc.setFontSize(18);
+    doc.setTextColor(249, 115, 22); // Orange color
+    doc.text(t[language].balanceSheet, pageWidth / 2, y, { align: 'center' });
+    y += 10;
+    
+    // Date range
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`${t[language].from}: ${startDate} ${t[language].to}: ${endDate}`, pageWidth / 2, y, { align: 'center' });
+    y += 15;
+    
+    // Calculate max rows for table
+    const maxRows = Math.max(sortedLiabilities.length, sortedAssets.length);
+    const tableData: any[] = [];
+    
+    for (let i = 0; i < maxRows; i++) {
+      const l = sortedLiabilities[i];
+      const a = sortedAssets[i];
+      tableData.push([
+        l?.account ?? '',
+        l ? nf.format(l.balance) : '',
+        a?.account ?? '',
+        a ? nf.format(a.balance) : ''
+      ]);
+    }
+    
+    // Add retained earnings rows
+    if (profit > 0 || obCredit > 0) {
+      if (obCredit > 0) {
+        tableData.push([t[language].openingDiff, nf.format(obCredit), '', '']);
+      }
+      if (profit > 0) {
+        tableData.push([t[language].netProfit, nf.format(profit), '', '']);
+      }
+    }
+    
+    // Main table
+    autoTable(doc, {
+      startY: y,
+      head: [[
+        { content: t[language].liabilities, styles: { fillColor: [254, 242, 242], textColor: [185, 28, 28] } },
+        { content: t[language].amount, styles: { fillColor: [254, 242, 242], textColor: [185, 28, 28] } },
+        { content: t[language].assets, styles: { fillColor: [240, 253, 244], textColor: [21, 128, 61] } },
+        { content: t[language].amount, styles: { fillColor: [240, 253, 244], textColor: [21, 128, 61] } }
+      ]],
+      body: tableData,
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 2, overflow: 'linebreak' },
+      columnStyles: {
+        0: { cellWidth: 55 },
+        1: { cellWidth: 30, halign: 'right' },
+        2: { cellWidth: 55 },
+        3: { cellWidth: 30, halign: 'right' }
+      },
+      headStyles: { fontStyle: 'bold' },
+      tableWidth: 'wrap'
+    });
+    
+    // Get final Y position
+    const finalY = (doc as any).lastAutoTable?.finalY || y + 50;
+    
+    // Summary section
+    doc.setFontSize(12);
+    doc.setTextColor(249, 115, 22);
+    doc.text('Summary', margin, finalY + 15);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`Total Assets: ${nf.format(totalAssetsValue)}`, margin, finalY + 25);
+    doc.text(`Total Liabilities + Equity: ${nf.format(totalLiabilitiesAndEquity)}`, margin, finalY + 32);
+    doc.text(`Net Profit: ${nf.format(Math.max(0, profit))}`, margin, finalY + 39);
+    doc.text(`Balance: ${nf.format(Math.abs(balance))}`, margin, finalY + 46);
+    
+    // Save PDF
+    doc.save(`balance-sheet_${query.startDate}_${query.endDate}.pdf`);
   };
 
   const maxRows = useMemo(() => Math.max(sortedLiabilities.length, sortedAssets.length, sortedDebits.length), [sortedLiabilities, sortedAssets, sortedDebits]);
@@ -325,6 +405,12 @@ export default function BalanceSheetPage() {
   const loss = useMemo(() => Math.max(0, netResult), [netResult]);     // assets > liabilities
   const obCredit = useMemo(() => Math.max(0, openingDiff), [openingDiff]);
   const obDebit = useMemo(() => Math.max(0, -openingDiff), [openingDiff]);
+  
+  // Calculate derived values for summary (used in both UI and PDF)
+  const totalLiabilitiesAndEquity = totalsRow.liabilities + profit + obCredit;
+  const totalAssetsValue = totalsRow.assets + obDebit;
+  const balance = totalLiabilitiesAndEquity - totalAssetsValue;
+  const grandTotal = totalLiabilitiesAndEquity + totalAssetsValue;
 
   const combinedTable = () => (
     <Table className={tableClasses.container}>
@@ -410,69 +496,283 @@ export default function BalanceSheetPage() {
     </Table>
   );
 
+  const isBalanced = Math.abs(totalsRow.assets - totalsRow.liabilities) < 0.01;
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
   return (
-    <div className={pageContainerStyles.container}>
-       <Card className={pageContainerStyles.content}>
-         <CardHeader className={theme.header.container}>
-           <div className={theme.header.contentSpacing}>
-             <CardTitle className={theme.header.main}>
-             {t[language].balanceSheet}
-             </CardTitle>
-           </div>
-         </CardHeader>
-       
-      <Card className="shadow-lg">
-        <CardContent className="p-3">
-          {/* Filter + Export Toolbar */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-            <div className="flex flex-wrap gap-2 items-center">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="date"
-                  className={cn(theme.input.base, theme.input.size.sm)}
-                  value={startDate}
-                  onChange={(e) => onFilterChange('from', e.target.value)}
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="date"
-                  className={cn(theme.input.base, theme.input.size.sm)}
-                  value={endDate}
-                  onChange={(e) => onFilterChange('to', e.target.value)}
-                />
-              </div>
-              <Button size="sm" onClick={load} disabled={isLoading} className="h-8 text-xs gap-1">
-                {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                {t[language].refresh}
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setRange('today')} className="h-8 text-xs">
-                {t[language].today}
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setRange('thisMonth')} className="h-8 text-xs">
-                {t[language].thisMonth}
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setRange('fy')} className="h-8 text-xs">
-                {t[language].fiscalYear}
-              </Button>
+    <div className="min-h-screen bg-gray-50">
+      {/* Compact Header Bar - Using Theme Colors */}
+      <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 py-3">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-white/20 p-2 rounded-lg">
+              <LayoutGrid className="h-5 w-5" />
             </div>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={exportCSV} disabled={isLoading || maxRows === 0} className="h-8 text-xs">
-                <FileDown className="h-3 w-3 mr-1" />
-                {t[language].csv}
-              </Button>
-              <Button size="sm" variant="outline" onClick={exportPDF} disabled={isLoading || maxRows === 0} className="h-8 text-xs">
-                <FileDown className="h-3 w-3 mr-1" />
-                {t[language].print}
-              </Button>
+            <div>
+              <h1 className="font-semibold text-lg">{t[language].balanceSheet}</h1>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="bg-white/20 px-2 py-0.5 rounded">
+                  {formatDate(endDate)}
+                </span>
+                {!isBalanced && (
+                  <span className="bg-red-500/80 px-2 py-0.5 rounded flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    Not Balanced
+                  </span>
+                )}
+                {isBalanced && (
+                  <span className="bg-green-500/80 px-2 py-0.5 rounded flex items-center gap-1">
+                    <Scale className="h-3 w-3" />
+                    Balanced
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-          {combinedTable()}
-        </CardContent>
-      </Card>
-    </Card>
+          
+          <div className="flex items-center gap-3">
+            {/* Date Pickers */}
+            <div className="flex items-center gap-1">
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => onFilterChange('from', e.target.value)}
+                onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+                className="bg-white text-gray-800 text-xs px-2 py-1 rounded border-0 outline-none cursor-pointer"
+              />
+              <span className="text-white text-xs">-</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => onFilterChange('to', e.target.value)}
+                onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+                className="bg-white text-gray-800 text-xs px-2 py-1 rounded border-0 outline-none cursor-pointer"
+              />
+            </div>
+            
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={load}
+              disabled={isLoading}
+              className="gap-2 bg-white/10 hover:bg-white/20 text-white border-0"
+            >
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              {t[language].refresh}
+            </Button>
+            
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={exportPDF}
+              disabled={isLoading || maxRows === 0}
+              className="gap-2 bg-white text-orange-600 hover:bg-white/90 border-0"
+            >
+              <FileText className="h-4 w-4" />
+              Export PDF
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content - Two Column Layout */}
+      <div className="p-4">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          {/* Left Column - Tables */}
+          <div className="lg:col-span-3 space-y-4">
+            {isLoading ? (
+              <Card>
+                <CardContent className="p-8">
+                  <div className="flex flex-col items-center justify-center gap-3">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <p className="text-muted-foreground">{t[language].loading}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : error ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <AlertCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
+                  <p className="text-red-600 mb-4">{error}</p>
+                  <Button onClick={load} disabled={isLoading} className="gap-2">
+                    <RefreshCw className="h-4 w-4" />
+                    {t[language].refresh}
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                {/* Liabilities & Assets Table */}
+                <Card>
+                  <CardContent className="p-0">
+                    <div className="grid grid-cols-2">
+                      {/* Liabilities Side */}
+                      <div className="border-r">
+                        <div className="bg-red-50 px-4 py-3 border-b">
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-semibold text-red-700">{t[language].liabilities}</h3>
+                            <span className="text-xs text-red-600">{t[language].amount}</span>
+                          </div>
+                        </div>
+                        <div className="divide-y">
+                          {/* Current Liabilities Section */}
+                          <div className="px-4 py-2 bg-red-50/50">
+                            <span className="text-sm font-medium text-red-600">Current Liabilities</span>
+                          </div>
+                          {sortedLiabilities.map((item, idx) => (
+                            <div key={`liab-${idx}`} className="px-4 py-2 flex justify-between items-center hover:bg-gray-50">
+                              <span className="text-sm text-gray-700">{item.account}</span>
+                              <span className="text-sm font-medium text-red-600">₹{nf.format(item.balance)}</span>
+                            </div>
+                          ))}
+                          
+                          {/* Retained Earnings Section */}
+                          {(profit > 0 || obCredit > 0) && (
+                            <>
+                              <div className="px-4 py-2 bg-red-50/50 mt-2">
+                                <span className="text-sm font-medium text-red-600">Retained Earnings</span>
+                              </div>
+                              {obCredit > 0 && (
+                                <div className="px-4 py-2 flex justify-between items-center">
+                                  <span className="text-sm text-gray-700">{t[language].openingDiff}</span>
+                                  <span className="text-sm font-medium text-red-600">₹{nf.format(obCredit)}</span>
+                                </div>
+                              )}
+                              {profit > 0 && (
+                                <div className="px-4 py-2 flex justify-between items-center">
+                                  <span className="text-sm text-gray-700">{t[language].netProfit}</span>
+                                  <span className="text-sm font-medium text-red-600">₹{nf.format(profit)}</span>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Assets Side */}
+                      <div>
+                        <div className="bg-green-50 px-4 py-3 border-b">
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-semibold text-green-700">{t[language].assets}</h3>
+                            <span className="text-xs text-green-600">{t[language].amount}</span>
+                          </div>
+                        </div>
+                        <div className="divide-y">
+                          {/* Current Assets Section */}
+                          <div className="px-4 py-2 bg-green-50/50">
+                            <span className="text-sm font-medium text-green-600">Current Assets</span>
+                          </div>
+                          {sortedAssets.map((item, idx) => (
+                            <div key={`asset-${idx}`} className="px-4 py-2 flex justify-between items-center hover:bg-gray-50">
+                              <span className="text-sm text-gray-700">{item.account}</span>
+                              <span className="text-sm font-medium text-green-600">₹{nf.format(item.balance)}</span>
+                            </div>
+                          ))}
+                          
+                          {/* Other Assets/Debits */}
+                          {sortedDebits.length > 0 && (
+                            <>
+                              <div className="px-4 py-2 bg-green-50/50 mt-2">
+                                <span className="text-sm font-medium text-green-600">Other Assets</span>
+                              </div>
+                              {sortedDebits.map((item, idx) => (
+                                <div key={`debit-${idx}`} className="px-4 py-2 flex justify-between items-center hover:bg-gray-50">
+                                  <span className="text-sm text-gray-700">{item.account}</span>
+                                  <span className="text-sm font-medium text-green-600">₹{nf.format(item.balance)}</span>
+                                </div>
+                              ))}
+                            </>
+                          )}
+                          
+                          {obDebit > 0 && (
+                            <div className="px-4 py-2 flex justify-between items-center">
+                              <span className="text-sm text-gray-700">{t[language].openingDiff}</span>
+                              <span className="text-sm font-medium text-green-600">₹{nf.format(obDebit)}</span>
+                            </div>
+                          )}
+                          {loss > 0 && (
+                            <div className="px-4 py-2 flex justify-between items-center">
+                              <span className="text-sm text-gray-700">{t[language].netLoss}</span>
+                              <span className="text-sm font-medium text-green-600">₹{nf.format(loss)}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </div>
+
+          {/* Right Column - Summary */}
+          <div className="lg:col-span-1 space-y-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-orange-600" />
+                  <CardTitle className="text-base">Summary</CardTitle>
+                </div>
+                <p className="text-xs text-muted-foreground">As of selected date</p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {/* Total Assets */}
+                <div className="bg-orange-50 rounded-lg p-3 border border-orange-100">
+                  <div className="flex items-center gap-2 mb-1">
+                    <LayoutGrid className="h-4 w-4 text-orange-600" />
+                    <span className="text-xs font-medium text-orange-900">Total Assets</span>
+                  </div>
+                  <p className="text-lg font-bold text-orange-600">₹{nf.format(totalAssetsValue)}</p>
+                </div>
+
+                {/* Total Liabilities + Equity */}
+                <div className="bg-orange-50 rounded-lg p-3 border border-orange-100">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Building2 className="h-4 w-4 text-orange-600" />
+                    <span className="text-xs font-medium text-orange-900">Total Liabilities + Equity</span>
+                  </div>
+                  <p className="text-lg font-bold text-orange-600">₹{nf.format(totalLiabilitiesAndEquity)}</p>
+                </div>
+
+                {/* Net Profit */}
+                <div className="bg-green-50 rounded-lg p-3 border border-green-100">
+                  <div className="flex items-center gap-2 mb-1">
+                    <TrendingUp className="h-4 w-4 text-green-600" />
+                    <span className="text-xs font-medium text-green-900">Net Profit</span>
+                  </div>
+                  <p className="text-lg font-bold text-green-600">₹{nf.format(Math.max(0, profit))}</p>
+                </div>
+
+                {/* Balance */}
+                <div className="bg-orange-50 rounded-lg p-3 border border-orange-100">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Scale className="h-4 w-4 text-orange-600" />
+                    <span className="text-xs font-medium text-orange-900">Balance</span>
+                  </div>
+                  <p className={`text-lg font-bold ${balance >= 0 ? 'text-orange-600' : 'text-red-600'}`}>
+                    ₹{nf.format(Math.abs(balance))}
+                  </p>
+                </div>
+
+                {/* Divider */}
+                <div className="border-t pt-3 mt-3">
+                  {/* Grand Total */}
+                  <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-3 text-white">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Scale className="h-4 w-4 text-white" />
+                      <span className="text-xs font-medium text-white/90">GRAND TOTAL</span>
+                    </div>
+                    <p className="text-xl font-bold text-white">₹{nf.format(grandTotal)}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

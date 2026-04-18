@@ -4208,7 +4208,7 @@ const donationProductsRouter = require('./routes/donationProducts')({ db });
 app.use('/api/donation-products', donationProductsRouter);
 
 // Mount annadhanam router
-const annadhanamRouter = require('./annadhanam')({ db });
+const annadhanamRouter = require('./annadhanam')({ db, generateDaybookReceiptNumber, calculateDaybookRunningBalance });
 app.use('/api/annadhanam', authenticateToken, authorizePermission('annadhanam_registrations', 'view'), annadhanamRouter);
 
 // Mount enhanced annadhanam router (new features based on flowchart)

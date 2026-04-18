@@ -5,7 +5,37 @@ const router = express.Router();
 const { authenticateToken, authorizePermission } = require('./middleware');
 
 // Import shared db instance
-const db = require('./db');
+let db;
+try { db = require('./db'); } catch {}
+
+// Helper to get db instance
+function getDb() {
+  if (db) return db;
+  if (global.assetDb) return global.assetDb;
+  try { return require('./db'); } catch { return null; }
+}
+
+// Helper to generate receipt number
+async function generateReceiptNumber(templeId) {
+  const database = getDb();
+  if (!database) return `2026-${Date.now()}`;
+  
+  const year = new Date().getFullYear();
+  const latest = await database('daybook_entries')
+    .where('temple_id', templeId)
+    .where('receipt_number', 'like', `${year}-%`)
+    .orderBy('id', 'desc')
+    .first();
+  
+  let nextNumber = 1;
+  if (latest && latest.receipt_number) {
+    const parts = String(latest.receipt_number).split('-');
+    if (parts.length === 2 && parts[0] === String(year)) {
+      nextNumber = parseInt(parts[1], 10) + 1;
+    }
+  }
+  return `${year}-${String(nextNumber).padStart(4, '0')}`;
+}
 
 // ==================== HELPER FUNCTIONS ====================
 
@@ -196,6 +226,30 @@ router.get('/', authenticateToken, authorizePermission('asset_management', 'view
   } catch (err) {
     console.error('Error fetching properties:', err);
     res.status(500).json({ error: 'Failed to fetch properties' });
+  }
+});
+
+/**
+ * GET /api/assets/stats
+ * Get asset statistics
+ */
+router.get('/stats', authenticateToken, authorizePermission('asset_management', 'view'), async (req, res) => {
+  try {
+    const assets = await db('assets')
+      .where('temple_id', req.user.templeId);
+    
+    const total = assets.length;
+    const active = assets.filter(a => a.status === 'active').length;
+    const converted = assets.filter(a => a.status === 'converted').length;
+    const totalValue = assets.reduce((sum, a) => sum + (parseFloat(a.value) || 0), 0);
+    
+    res.json({
+      success: true,
+      data: { total, active, converted, totalValue }
+    });
+  } catch (err) {
+    console.error('Error fetching stats:', err);
+    res.status(500).json({ error: 'Failed to fetch stats' });
   }
 });
 
@@ -419,14 +473,19 @@ router.post('/:id/convert-to-cash', authenticateToken, authorizePermission('asse
       });
     }
 
-    // Asset Value > 0?
-    const assetValue = parseFloat(asset.value);
-    if (assetValue <= 0) {
+    // Get value from request body or asset.value
+    const convertValue = req.body?.convertValue !== undefined 
+      ? parseFloat(req.body.convertValue) 
+      : parseFloat(asset.value);
+    
+    if (isNaN(convertValue) || convertValue <= 0) {
       return res.status(400).json({
-        error: 'No value',
-        message: 'Asset has no value to convert'
+        error: 'Invalid value',
+        message: 'Please provide a valid amount to convert'
       });
     }
+
+    asset.value = convertValue;
 
     // Initiate Conversion → Create Income Entry (Asset Value = Income)
     const incomeEntryId = await createIncomeEntry({
@@ -436,6 +495,39 @@ router.post('/:id/convert-to-cash', authenticateToken, authorizePermission('asse
     });
 
     // Update Ledger (done via ledger entry creation above)
+
+    // Sync to daybook
+    try {
+      const database = getDb();
+      if (!database) {
+        console.log('DB not available, skipping daybook sync');
+      } else {
+        const hasDaybook = await database.schema.hasTable('daybook_entries');
+        if (hasDaybook) {
+          const receiptNumber = await generateReceiptNumber(req.user.templeId);
+          await database('daybook_entries').insert({
+            temple_id: req.user.templeId,
+            entry_date: new Date().toISOString().slice(0, 10),
+            entry_type: 'income',
+            description: `Asset Converted - ${asset.name}`,
+            reference_type: 'asset',
+            reference_id: parseInt(id),
+            receipt_number: receiptNumber,
+            amount: convertValue,
+            payment_mode: 'cash',
+            party_name: asset.donor_name || null,
+            party_mobile: asset.donor_contact || null,
+            notes: `Asset converted to cash. Ledger Entry ID: ${incomeEntryId}`,
+            running_balance: 0,
+            created_by: req.user.id,
+            created_at: database.fn.now(),
+          });
+          console.log('Synced asset conversion to daybook');
+        }
+      }
+    } catch (daybookError) {
+      console.error('Failed to sync to daybook:', daybookError.message);
+    }
 
     // Mark Asset as Converted
     await db('assets')
@@ -466,7 +558,7 @@ router.post('/:id/convert-to-cash', authenticateToken, authorizePermission('asse
           created_by: asset.created_by
         },
         income_entry_id: incomeEntryId,
-        converted_value: assetValue,
+        converted_value: convertValue,
         message: `Asset converted to cash. Income entry created with ID ${incomeEntryId}`
       },
       userId: req.user.id
@@ -477,7 +569,7 @@ router.post('/:id/convert-to-cash', authenticateToken, authorizePermission('asse
       success: true,
       message: 'Asset successfully converted to cash',
       incomeEntryId,
-      convertedValue: assetValue
+      convertedValue: convertValue
     });
   } catch (err) {
     console.error('Error converting asset to cash:', err);
@@ -565,4 +657,12 @@ router.get('/logs/all', authenticateToken, authorizePermission('asset_management
   }
 });
 
-module.exports = router;
+module.exports = function(deps = {}) {
+  // Simple check - just set deps if provided
+  if (deps && deps.db) global.assetDb = deps.db;
+  if (deps && deps.generateDaybookReceiptNumber) global.assetGenerateReceiptNumber = deps.generateDaybookReceiptNumber;
+  return router;
+};
+
+// Export router for backward compatibility
+module.exports.router = router;

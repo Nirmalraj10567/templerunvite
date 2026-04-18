@@ -6,6 +6,8 @@ const masterOccupations = require('./masterOccupations');
 const masterEducations = require('./masterEducations');
 const masterHalls = require('./masterHalls');
 const masterHallEvents = require('./masterHallEvents');
+const masterFoodItems = require('./masterFoodItems');
+const masterProductNames = require('./masterProductNames');
 
 module.exports = function({ db, retryOnBusy }) {
   const router = express.Router();
@@ -18,6 +20,8 @@ module.exports = function({ db, retryOnBusy }) {
   router.use('/educations', masterEducations({ db, retryOnBusy }));
   router.use('/halls', masterHalls({ db, retryOnBusy }));
   router.use('/hall-events', masterHallEvents({ db, retryOnBusy }));
+  router.use('/food-items', masterFoodItems({ db, retryOnBusy }));
+  router.use('/product-names', masterProductNames({ db, retryOnBusy }));
   
   return router;
 };

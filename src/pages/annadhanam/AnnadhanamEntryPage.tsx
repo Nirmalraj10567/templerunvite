@@ -29,7 +29,10 @@ import {
   DollarSign,
   CheckCircle,
   AlertCircle,
-  Loader2
+  Loader2,
+  Search,
+  Plus,
+  ChevronDown
 } from 'lucide-react';
 
 // Custom hook for Enter key - focus save button
@@ -79,7 +82,7 @@ interface AnnadhanamLog {
 
 export default function AnnadhanamEntryPage() {
   const { id } = useParams<{ id: string }>();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const { language } = useLanguage();
   const { formRef, handleKeyDown } = useEnterKeyNavigation();
 
@@ -92,6 +95,23 @@ export default function AnnadhanamEntryPage() {
   const [logs, setLogs] = useState<AnnadhanamLog[]>([]);
   const [showLogs, setShowLogs] = useState(false);
   const [logsLoading, setLogsLoading] = useState(false);
+  
+  // Master data states
+  const [foodItems, setFoodItems] = useState<Array<{id: number; name: string}>>([]);
+  const [productNames, setProductNames] = useState<Array<{id: number; name: string}>>([]);
+  const [foodSearchQuery, setFoodSearchQuery] = useState('');
+  const [productSearchQuery, setProductSearchQuery] = useState('');
+  const [showFoodDropdown, setShowFoodDropdown] = useState(false);
+  const [showProductDropdown, setShowProductDropdown] = useState(false);
+  const [isAddingNewFood, setIsAddingNewFood] = useState(false);
+  const [isAddingNewProduct, setIsAddingNewProduct] = useState(false);
+  const [addingFoodName, setAddingFoodName] = useState<string | null>(null);
+  const [addingProductName, setAddingProductName] = useState<string | null>(null);
+  
+  const foodInputRef = useRef<HTMLInputElement>(null);
+  const productInputRef = useRef<HTMLInputElement>(null);
+  const foodDropdownRef = useRef<HTMLDivElement>(null);
+  const productDropdownRef = useRef<HTMLDivElement>(null);
   
   const normalizeDateString = (s?: string) => {
     if (!s) return '';
@@ -250,6 +270,8 @@ export default function AnnadhanamEntryPage() {
             };
             
             reset(formData as AnnadhanamFormData);
+            setFoodSearchQuery(food);
+            setProductSearchQuery(productName);
             setLastCreatedId(Number(id));
            } else {
              throw new Error(result.error || 'Failed to load data');
@@ -281,6 +303,53 @@ export default function AnnadhanamEntryPage() {
     };
     loadLogs();
   }, [id, token]);
+
+  // Load master data
+  useEffect(() => {
+    const loadMasterData = async () => {
+      if (!user?.templeId || !token) return;
+      
+      try {
+        // Load food items
+        const foodResponse = await fetch(
+          `http://localhost:4000/api/master/food-items/${user.templeId}`,
+          { headers: { 'Authorization': `Bearer ${token}` } }
+        );
+        if (foodResponse.ok) {
+          const foodData = await foodResponse.json();
+          setFoodItems(Array.isArray(foodData) ? foodData : []);
+        }
+        
+        // Load product names
+        const productResponse = await fetch(
+          `http://localhost:4000/api/master/product-names/${user.templeId}`,
+          { headers: { 'Authorization': `Bearer ${token}` } }
+        );
+        if (productResponse.ok) {
+          const productData = await productResponse.json();
+          setProductNames(Array.isArray(productData) ? productData : []);
+        }
+      } catch (error) {
+        console.error('Error loading master data:', error);
+      }
+    };
+    
+    loadMasterData();
+  }, [user?.templeId, token]);
+
+  // Handle clicks outside dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (foodDropdownRef.current && !foodDropdownRef.current.contains(event.target as Node)) {
+        setShowFoodDropdown(false);
+      }
+      if (productDropdownRef.current && !productDropdownRef.current.contains(event.target as Node)) {
+        setShowProductDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   if (isLoading) {
     return (
@@ -410,6 +479,122 @@ export default function AnnadhanamEntryPage() {
       navigate('/dashboard/annadhanam');
     } else {
       reset();
+    }
+  };
+
+  // Search food items
+  const searchFoodItems = async (query: string) => {
+    if (!user?.templeId || !token) return;
+    
+    try {
+      const response = await fetch(
+        `http://localhost:4000/api/master/food-items/${user.templeId}/search?q=${encodeURIComponent(query)}`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+      if (response.ok) {
+        const result = await response.json();
+        setFoodItems(result.data || []);
+      }
+    } catch (error) {
+      console.error('Error searching food items:', error);
+    }
+  };
+
+  // Search product names
+  const searchProductNames = async (query: string) => {
+    if (!user?.templeId || !token) return;
+    
+    try {
+      const response = await fetch(
+        `http://localhost:4000/api/master/product-names/${user.templeId}/search?q=${encodeURIComponent(query)}`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+      if (response.ok) {
+        const result = await response.json();
+        setProductNames(result.data || []);
+      }
+    } catch (error) {
+      console.error('Error searching product names:', error);
+    }
+  };
+
+  // Add new food item to master
+  const addNewFoodItem = async (name: string) => {
+    if (!user?.templeId || !token || !name.trim()) return;
+    
+    setAddingFoodName(name);
+    try {
+      const response = await fetch('http://localhost:4000/api/master/food-items', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ name: name.trim(), templeId: user.templeId })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        setFoodItems(prev => [...prev, result.data]);
+        setValue('food', name.trim(), { shouldValidate: true });
+        setFoodSearchQuery(name.trim());
+        setShowFoodDropdown(false);
+        setIsAddingNewFood(false);
+        toast({
+          title: 'Success',
+          description: `"${name}" added to master data`,
+          className: 'bg-green-50 border-green-200'
+        });
+      }
+    } catch (error) {
+      console.error('Error adding food item:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to add food item',
+        variant: 'destructive'
+      });
+    } finally {
+      setAddingFoodName(null);
+    }
+  };
+
+  // Add new product name to master
+  const addNewProductName = async (name: string) => {
+    if (!user?.templeId || !token || !name.trim()) return;
+    
+    setAddingProductName(name);
+    try {
+      const response = await fetch('http://localhost:4000/api/master/product-names', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ name: name.trim(), templeId: user.templeId })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        setProductNames(prev => [...prev, result.data]);
+        setValue('productName', name.trim(), { shouldValidate: true });
+        setProductSearchQuery(name.trim());
+        setShowProductDropdown(false);
+        setIsAddingNewProduct(false);
+        toast({
+          title: 'Success',
+          description: `"${name}" added to master data`,
+          className: 'bg-green-50 border-green-200'
+        });
+      }
+    } catch (error) {
+      console.error('Error adding product name:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to add product name',
+        variant: 'destructive'
+      });
+    } finally {
+      setAddingProductName(null);
     }
   };
 
@@ -569,12 +754,101 @@ export default function AnnadhanamEntryPage() {
                 {/* Dynamic Fields Based on Donation Type */}
                 {watch('donationType') === 'food' && (
                   <>
-                    <div>
-                      <Input
-                        id="food"
-                        className={cn(theme.input.base, theme.input.size.md, `border ${errors.food ? 'border-red-500' : ''}`)}
-                        {...register('food', { required: 'Food items is required' })} onChange={(e) => { const val = e.target.value; setValue('food', val ? val.replace(/\b\w/g, (char) => char.toUpperCase()) : val, { shouldValidate: true }); }}
-                        placeholder="Food Items *"
+                    <div className="relative" ref={foodDropdownRef}>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          ref={foodInputRef}
+                          type="text"
+                          className={cn(
+                            theme.input.base, 
+                            theme.input.size.md, 
+                            "pl-10 pr-10 w-full",
+                            errors.food ? 'border-red-500' : ''
+                          )}
+                          value={foodSearchQuery}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setFoodSearchQuery(val);
+                            setValue('food', val, { shouldValidate: true });
+                            if (val.length > 0) {
+                              searchFoodItems(val);
+                              setShowFoodDropdown(true);
+                            } else {
+                              setShowFoodDropdown(false);
+                            }
+                          }}
+                          onFocus={() => {
+                            if (foodItems.length > 0 || foodSearchQuery.length > 0) {
+                              setShowFoodDropdown(true);
+                            }
+                          }}
+                          placeholder="Food Items *"
+                        />
+                        <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                      </div>
+                      
+                      {/* Food Items Dropdown */}
+                      {showFoodDropdown && (
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                          {foodItems.length > 0 ? (
+                            <>
+                              {foodItems.map((item) => (
+                                <div
+                                  key={item.id}
+                                  className="px-4 py-2 hover:bg-orange-50 cursor-pointer text-sm text-gray-700"
+                                  onClick={() => {
+                                    setValue('food', item.name, { shouldValidate: true });
+                                    setFoodSearchQuery(item.name);
+                                    setShowFoodDropdown(false);
+                                  }}
+                                >
+                                  {item.name}
+                                </div>
+                              ))}
+                              {foodSearchQuery && !foodItems.some(i => i.name?.toLowerCase() === foodSearchQuery.toLowerCase()) && (
+                                <div
+                                  className={`px-4 py-2 cursor-pointer text-sm border-t border-gray-100 flex items-center gap-2 ${
+                                    addingFoodName === foodSearchQuery 
+                                      ? 'bg-green-100 text-green-800' 
+                                      : 'hover:bg-green-50 text-green-700'
+                                  }`}
+                                  onClick={() => !addingFoodName && addNewFoodItem(foodSearchQuery)}
+                                >
+                                  {addingFoodName === foodSearchQuery ? (
+                                    <>
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                      Adding "{foodSearchQuery}"...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Plus className="w-4 h-4" />
+                                      Add "{foodSearchQuery}" to master
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                            </>
+                          ) : foodSearchQuery ? (
+                            <div
+                              className="px-4 py-2 hover:bg-green-50 cursor-pointer text-sm text-green-700 flex items-center gap-2"
+                              onClick={() => addNewFoodItem(foodSearchQuery)}
+                            >
+                              <Plus className="w-4 h-4" />
+                              Add "{foodSearchQuery}" to master
+                            </div>
+                          ) : (
+                            <div className="px-4 py-2 text-sm text-gray-500">
+                              Type to search or add new food item
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Hidden input for form validation */}
+                      <input
+                        type="hidden"
+                        {...register('food', { required: 'Food items is required' })}
                       />
                       {errors.food && <p className="text-red-500 text-xs mt-1">{errors.food.message}</p>}
                     </div>
@@ -606,12 +880,101 @@ export default function AnnadhanamEntryPage() {
 
                 {watch('donationType') === 'product' && (
                   <>
-                    <div>
-                      <Input
-                        id="productName"
-                        className={cn(theme.input.base, theme.input.size.md, `${errors.productName ? 'border-red-500' : ''}`)}
-                        {...register('productName', { required: 'Product name is required' })} onChange={(e) => { const val = e.target.value; setValue('productName', val ? val.replace(/\b\w/g, (char) => char.toUpperCase()) : val, { shouldValidate: true }); }}
-                        placeholder="Product Name *"
+                    <div className="relative" ref={productDropdownRef}>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          ref={productInputRef}
+                          type="text"
+                          className={cn(
+                            theme.input.base, 
+                            theme.input.size.md, 
+                            "pl-10 pr-10 w-full",
+                            errors.productName ? 'border-red-500' : ''
+                          )}
+                          value={productSearchQuery}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setProductSearchQuery(val);
+                            setValue('productName', val, { shouldValidate: true });
+                            if (val.length > 0) {
+                              searchProductNames(val);
+                              setShowProductDropdown(true);
+                            } else {
+                              setShowProductDropdown(false);
+                            }
+                          }}
+                          onFocus={() => {
+                            if (productNames.length > 0 || productSearchQuery.length > 0) {
+                              setShowProductDropdown(true);
+                            }
+                          }}
+                          placeholder="Product Name *"
+                        />
+                        <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                      </div>
+                      
+                      {/* Product Names Dropdown */}
+                      {showProductDropdown && (
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                          {productNames.length > 0 ? (
+                            <>
+                              {productNames.map((item) => (
+                                <div
+                                  key={item.id}
+                                  className="px-4 py-2 hover:bg-orange-50 cursor-pointer text-sm text-gray-700"
+                                  onClick={() => {
+                                    setValue('productName', item.name, { shouldValidate: true });
+                                    setProductSearchQuery(item.name);
+                                    setShowProductDropdown(false);
+                                  }}
+                                >
+                                  {item.name}
+                                </div>
+                              ))}
+                              {productSearchQuery && !productNames.some(i => i.name?.toLowerCase() === productSearchQuery.toLowerCase()) && (
+                                <div
+                                  className={`px-4 py-2 cursor-pointer text-sm border-t border-gray-100 flex items-center gap-2 ${
+                                    addingProductName === productSearchQuery 
+                                      ? 'bg-green-100 text-green-800' 
+                                      : 'hover:bg-green-50 text-green-700'
+                                  }`}
+                                  onClick={() => !addingProductName && addNewProductName(productSearchQuery)}
+                                >
+                                  {addingProductName === productSearchQuery ? (
+                                    <>
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                      Adding "{productSearchQuery}"...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Plus className="w-4 h-4" />
+                                      Add "{productSearchQuery}" to master
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                            </>
+                          ) : productSearchQuery ? (
+                            <div
+                              className="px-4 py-2 hover:bg-green-50 cursor-pointer text-sm text-green-700 flex items-center gap-2"
+                              onClick={() => addNewProductName(productSearchQuery)}
+                            >
+                              <Plus className="w-4 h-4" />
+                              Add "{productSearchQuery}" to master
+                            </div>
+                          ) : (
+                            <div className="px-4 py-2 text-sm text-gray-500">
+                              Type to search or add new product
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Hidden input for form validation */}
+                      <input
+                        type="hidden"
+                        {...register('productName', { required: 'Product name is required' })}
                       />
                       {errors.productName && <p className="text-red-500 text-xs mt-1">{errors.productName.message}</p>}
                     </div>
@@ -687,21 +1050,27 @@ export default function AnnadhanamEntryPage() {
                   <Button 
                     type="button"
                     variant="outline"
-                    onClick={() => reset({
-              receiptNumber: '',
-              name: '',
-              mobileNumber: '',
-              donationType: 'food',
-              time: '',
-              fromDate: '',
-              toDate: '',
-              food: '',
-              peoples: '',
-              productName: '',
-              quantity: '',
-              amount: '',
-              remarks: ''
-            })}
+                    onClick={() => {
+                      reset({
+                        receiptNumber: '',
+                        name: '',
+                        mobileNumber: '',
+                        donationType: 'food',
+                        time: '',
+                        fromDate: '',
+                        toDate: '',
+                        food: '',
+                        peoples: '',
+                        productName: '',
+                        quantity: '',
+                        amount: '',
+                        remarks: ''
+                      });
+                      setFoodSearchQuery('');
+                      setProductSearchQuery('');
+                      setShowFoodDropdown(false);
+                      setShowProductDropdown(false);
+                    }}
                     className="px-6 py-2 text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm hover:shadow-md transition-all duration-200"
                   >
                     <X className="w-4 h-4 mr-2" />

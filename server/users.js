@@ -231,7 +231,7 @@ module.exports = function (deps = {}) {
       const permissions = await db('user_permissions')
         .where({ user_id: user.id })
         .select('permission_id', 'access_level');
-      const permissionsMapped = permissions.map(p => ({ id: p.permission_id, access: p.access_level }));
+      const permissionsMapped = permissions.map(p => ({ permission_id: p.permission_id, access_level: p.access_level }));
       try { console.log(`[LOGIN] user ${user.id} permissions count:`, permissionsMapped.length); } catch { }
 
       // Log session (best effort)
@@ -419,6 +419,7 @@ module.exports = function (deps = {}) {
         'setting',
         'pdf_settings',
         'property_registrations',
+        'asset_management',
         'view_donations',
         'edit_donations',
         'receipts',
@@ -453,6 +454,7 @@ module.exports = function (deps = {}) {
         setting: 'Settings',
         pdf_settings: 'PDF Settings',
         property_registrations: 'Property Registrations',
+        asset_management: 'Asset Management',
         view_donations: 'View Donations',
         edit_donations: 'Edit Donations',
         receipts: 'Receipts',

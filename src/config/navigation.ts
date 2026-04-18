@@ -78,6 +78,8 @@ export const navigationTranslations = {
     taxSettings: 'வரி அமைப்புகள்',
     properties: 'சொத்துக்கள்',
     propertiesList: 'சொத்து பட்டியல்',
+    assets: 'சொத்துகள்',
+    assetManagement: 'சொத்து மேலாண்மை',
     newProperty: 'புதிய சொத்து',
     sessionLogs: 'அமர்வு பதிவுகள்',
     settings: 'அமைப்புகள்',
@@ -136,6 +138,8 @@ export const navigationTranslations = {
     properties: 'Properties',
     propertiesList: 'Properties List',
     newProperty: 'New Property',
+    assets: 'Assets',
+    assetManagement: 'Asset Management',
     sessionLogs: 'Session Logs',
     settings: 'Settings',
     generalSettings: 'General Settings',
@@ -379,7 +383,7 @@ export const sidebarItems: NavItem[] = [
       }
     ]
   },
-  {
+{
     label: navigationTranslations.english.properties,
     tamilLabel: navigationTranslations.tamil.properties,
     icon: HomeIcon,
@@ -398,7 +402,20 @@ export const sidebarItems: NavItem[] = [
         permissionId: 'property_registrations',
         accessLevel: 'view'
       },
-    
+    ]
+  },
+  {
+    label: navigationTranslations.english.assets,
+    tamilLabel: navigationTranslations.tamil.assets,
+    icon: LandmarkIcon,
+    children: [
+      { 
+        to: 'assets', 
+        label: navigationTranslations.english.assetManagement, 
+        tamilLabel: navigationTranslations.tamil.assetManagement, 
+        permissionId: 'asset_management',
+        accessLevel: 'view'
+      },
     ]
   },
   {

@@ -21,7 +21,7 @@ export interface DaybookEntry {
   reference_id?: number | null;
   receipt_number: string;
   amount: number;
-  payment_mode: 'cash' | 'card' | 'upi' | 'cheque' | 'bank_transfer';
+  payment_mode: 'cash' | 'card' | 'upi' | 'cheque' | 'bank_transfer' | 'in_kind';
   party_name?: string | null;
   party_mobile?: string | null;
   notes?: string | null;
@@ -69,7 +69,7 @@ export interface DaybookFormData {
   entry_type: 'income' | 'expense' | 'journal';
   description: string;
   amount: string;
-  payment_mode: 'cash' | 'card' | 'upi' | 'cheque' | 'bank_transfer';
+  payment_mode: 'cash' | 'card' | 'upi' | 'cheque' | 'bank_transfer' | 'in_kind';
   party_name?: string;
   party_mobile?: string;
   reference_type?: string;
