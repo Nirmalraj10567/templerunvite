@@ -376,10 +376,12 @@ const SessionLogsPage = () => {
 
      
       <Card className={pageContainerStyles.content}>
-        <CardHeader className={theme.card.header}>
-          <CardTitle className="text-lg font-bold w-full">
-          <h1 className="text-2xl font-bold text-white-800">{translate('sessionLogs')}</h1>
-          </CardTitle>
+        <CardHeader className={theme.header.container}>
+          <div className={theme.header.contentSpacing}>
+            <CardTitle className={theme.header.main}>
+            {translate('sessionLogs')}
+            </CardTitle>
+          </div>
         </CardHeader>
 
 

@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { theme } from '@/styles/theme';
+import { cn } from '@/styles/formStyles';
 
 interface SummaryItem {
   category: string;
@@ -111,15 +113,15 @@ export default function CashflowByCategoryPage() {
       <div className="flex flex-wrap items-end gap-3 mb-4">
         <div>
           <label className="block text-sm mb-1">{t('From', 'இருந்து')}</label>
-          <input type="date" className="border p-2 rounded" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          <input type="date" className={cn(theme.input.base, theme.input.size.sm)} value={startDate} onChange={(e) => setStartDate(e.target.value)} />
         </div>
         <div>
           <label className="block text-sm mb-1">{t('To', 'வரை')}</label>
-          <input type="date" className="border p-2 rounded" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          <input type="date" className={cn(theme.input.base, theme.input.size.sm)} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
         </div>
         <div>
           <label className="block text-sm mb-1">{t('Category', 'வகை')}</label>
-          <select className="border p-2 rounded min-w-[220px]" value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
+          <select className={cn(theme.select.base, theme.select.size.sm, "min-w-[220px]")} value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
             <option value="">{t('All Categories', 'அனைத்து வகைகள்')}</option>
             {categories.map((c) => (
               <option key={c} value={c}>{c}</option>

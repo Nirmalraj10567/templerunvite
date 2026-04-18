@@ -87,23 +87,16 @@ export default function LedgerEntryPage() {
   });
 
   // Handle Enter key to move to next field
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      
-      if (!formRef.current) return;
-      
-      const focusableElements = formRef.current.querySelectorAll(
-        'input:not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled]):not([readonly]), button:not([disabled])'
-      );
-      
-      const currentElement = document.activeElement;
-      const currentIndex = Array.from(focusableElements).indexOf(currentElement as Element);
-      
-      if (currentIndex !== -1 && currentIndex < focusableElements.length - 1) {
-        const nextElement = focusableElements[currentIndex + 1] as HTMLElement;
-        nextElement.focus();
-      }
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key !== 'Enter') return;
+    const t = e.target as HTMLElement;
+    const tag = t.tagName?.toLowerCase();
+    if (!tag || ['button', 'textarea'].includes(tag)) return; // allow buttons and textareas to handle Enter normally
+    e.preventDefault();
+    // Focus the save button
+    const submitButton = e.currentTarget.querySelector('button[type="submit"]') as HTMLButtonElement;
+    if (submitButton) {
+      submitButton.focus();
     }
   };
 
@@ -116,7 +109,7 @@ export default function LedgerEntryPage() {
   // Use centralized form styles with theme focus colors
   const fieldStyles = cn(
     theme.input.base, 
-    "text-base h-11 py-2.5"
+    theme.input.size.md
   );
   const labelStyles = formFieldStyles.label;
   
@@ -453,10 +446,12 @@ export default function LedgerEntryPage() {
     <div className={pageContainerStyles.container}>
       <div className={pageContainerStyles.content}>
         <Card className={formFieldStyles.card.container}>
-          <CardHeader className={theme.card.header}>
-            <CardTitle className={cn(formFieldStyles.card.title, "text-2xl")}>
-              {t('Ledger Entry', 'பதிவேடு பதிவு')}
-            </CardTitle>
+          <CardHeader className={theme.header.container}>
+            <div className={theme.header.contentSpacing}>
+              <CardTitle className={theme.header.main}>
+                {t('Ledger Entry', 'பதிவேடு பதிவு')}
+              </CardTitle>
+            </div>
           </CardHeader>
           
           <CardContent className={formFieldStyles.card.content}>
@@ -482,6 +477,7 @@ export default function LedgerEntryPage() {
                     className={fieldStyles}
                     {...register('name', { required: t('Name is required', '') })}
                     placeholder={t('Name', '')}
+                    autoFocus
                   />
                   {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>}
                 </div>
@@ -730,6 +726,15 @@ export default function LedgerEntryPage() {
                   ) : (
                     t('Save', 'சேமிக்கவும்')
                   )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleReset}
+                  className="px-6 py-2.5 text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm hover:shadow-md transition-all duration-200"
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Clear
                 </Button>
                 </div>
               </div>

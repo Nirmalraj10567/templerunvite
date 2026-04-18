@@ -16,6 +16,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/styles/formStyles";
 import { formFieldStyles } from "@/styles/formStyles";
+import { theme } from "@/styles/theme";
 
 interface LedgerLogViewProps {
   recentOnly?: boolean;
@@ -188,7 +189,7 @@ export default function LedgerLogView({ recentOnly = false }: LedgerLogViewProps
               placeholder={t('Search logs by name, entry, or user...', 'பெயர், உள்ளீடு அல்லது பயனர் மூலம் தேடவும்...')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className={cn(theme.input.base, theme.input.size.md, "pl-10")}
               disabled={loading && debouncedSearchTerm === searchTerm}
             />
           </div>

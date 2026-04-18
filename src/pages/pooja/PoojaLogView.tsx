@@ -16,6 +16,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/styles/formStyles";
 import { formFieldStyles } from "@/styles/formStyles";
+import { theme } from "@/styles/theme";
 
 interface PoojaLogViewProps {
   recentOnly?: boolean;
@@ -190,7 +191,7 @@ export default function PoojaLogView({ recentOnly = false }: PoojaLogViewProps) 
               placeholder={t('Search logs by name, receipt, or user...', 'பெயர், ரசீது அல்லது பயனர் மூலம் தேடவும்...')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className={cn(theme.input.base, theme.input.size.md, "pl-10")}
               disabled={loading && debouncedSearchTerm === searchTerm}
             />
           </div>

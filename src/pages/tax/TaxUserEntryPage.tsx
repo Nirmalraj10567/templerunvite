@@ -4,6 +4,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from 'react-i18next'; // Import the useTranslation hook
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Modal } from '@/components/ui/modal';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { useLanguage } from '@/lib/language';
 import axios from 'axios';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
@@ -308,19 +312,17 @@ export default function TaxUserEntryPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.outstandingAmount, form.taxAmount]);
 
-  // Fast navigation: treat Enter as Tab to move to next field
+  // Fast navigation: focus save button on Enter
   const handleFormKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'Enter') return;
     const t = e.target as HTMLElement;
     const tag = t.tagName?.toLowerCase();
-    if (!tag || ['button'].includes(tag)) return; // allow buttons to click
+    if (!tag || ['button', 'textarea'].includes(tag)) return; // allow buttons and textareas to handle Enter normally
     e.preventDefault();
-    const selectors = 'input, select, textarea, button';
-    const tabbables = Array.from(document.querySelectorAll<HTMLElement>(selectors))
-      .filter(el => !el.hasAttribute('disabled') && el.tabIndex !== -1 && el.offsetParent !== null);
-    const idx = tabbables.indexOf(t);
-    if (idx > -1 && idx + 1 < tabbables.length) {
-      tabbables[idx + 1].focus();
+    // Focus the save button
+    const saveButton = document.querySelector('button[type="submit"]') as HTMLButtonElement;
+    if (saveButton) {
+      saveButton.focus();
     }
   };
 
@@ -1120,16 +1122,18 @@ export default function TaxUserEntryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-0.5 px-3">
-      <div className="max-w-7xl mx-auto">
+    <div className={pageContainerStyles.container}>
+      <div className={pageContainerStyles.content}>
         {/* Language Toggle + Header */}
         <div className="flex items-center justify-between mb-3">
           <div className="text-center flex-1">
-          <CardHeader className={theme.card.header}>
-          <CardTitle className="text-2xl font-bold text-center">
-              {L('Tax Registration', 'வரி பதிவு')}
-         </CardTitle>
-</CardHeader>
+          <CardHeader className={theme.header.container}>
+            <div className={theme.header.contentSpacing}>
+              <CardTitle className={theme.header.main}>
+                {L('Tax Registration', 'வரி பதிவு')}
+              </CardTitle>
+            </div>
+          </CardHeader>
           </div>
      
         </div>
@@ -1153,29 +1157,32 @@ export default function TaxUserEntryPage() {
               <div className="bg-gray-50 rounded-lg p-1.5">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-semibold text-gray-900">{L('Basic Information', 'அடிப்படை தகவல்')}</h3>
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="sm"
                     onClick={clearForm}
-                    className="px-2 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600"
+                    className="h-8 text-xs"
                     title={L('Clear all fields', 'அனைத்தையும் அழி')}
                   >
                     🗑️ {L('Clear', 'அழிக்க')}
-                  </button>
+                  </Button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Date', 'தேதி')}</label>
-                    <input
+                    <Label className={formFieldStyles.label}>{L('Date', 'தேதி')}</Label>
+                    <Input
                       type="date"
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={formFieldStyles.input}
                       value={form.date}
                       onChange={e => set('date', e.target.value)}
+                      autoFocus
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Year', 'வருடம்')} *</label>
+                    <Label className={formFieldStyles.label}>{L('Year', 'வருடம்')} *</Label>
                     <select
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={formFieldStyles.select}
                       value={form.year}
                       onChange={e => handleYearChange(parseInt(e.target.value))}
                     >
@@ -1185,9 +1192,10 @@ export default function TaxUserEntryPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Reference No (auto)', 'குறிப்பு எண் (தானாக)')}</label>
-                    <input
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded bg-gray-100 cursor-not-allowed", errors.referenceNumber && "border-red-500 bg-red-50")}
+                    <Label className={formFieldStyles.label}>{L('Reference No (auto)', 'குறிப்பு எண் (தானாக)')}</Label>
+                    <Input
+                      type="text"
+                      className={cn(formFieldStyles.input, errors.referenceNumber && formFieldStyles.error, "bg-gray-100 cursor-not-allowed")}
                       value={form.referenceNumber}
                       readOnly
                       title={L('Auto-generated when year changes', 'வருடம் மாற்றும் போது தானாக உருவாகும்')}
@@ -1196,27 +1204,29 @@ export default function TaxUserEntryPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">
+                    <Label className={formFieldStyles.label}>
                       {L('Reference No Search', 'குறிப்பு எண் தேடல்')}
                       {lookingUp && <span className="ml-2 text-blue-600 text-xs">🔍 {L('Searching...', 'தேடுகிறது...')}</span>}
-                    </label>
+                    </Label>
                     <div className="flex gap-1">
-                      <input
-                        className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      <Input
+                        className={formFieldStyles.input}
                         value={receiptSearch}
                         onChange={e => setReceiptSearch(e.target.value)}
                         placeholder={L('Enter reference number to search', 'குறிப்பு எண்ணைத் தட்டச்சு செய்து தேடு')}
                         title={L('Enter reference number to auto-fill details', 'குறிப்பு எண்ணை உள்ளிட்டு விவரங்களை தானாக நிரப்பு')}
                       />
-                      <button
+                      <Button
                         type="button"
+                        variant="outline"
+                        size="sm"
                         onClick={() => lookupByReceiptNumber(receiptSearch)}
                         disabled={!receiptSearch.trim() || lookingUp}
-                        className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="h-8 text-xs"
                         title={L('Search by reference number', 'குறிப்பு எண்ணால் தேடு')}
                       >
                         🔍
-                      </button>
+                      </Button>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
                       💡 {L('Search with an existing reference number to auto-fill details', 'இருந்த குறிப்பு எண்ணை உள்ளிட்டு விவரங்களை தானாக நிரப்பு')}
@@ -1230,9 +1240,9 @@ export default function TaxUserEntryPage() {
                 <h3 className="text-sm font-semibold text-blue-900 mb-2">{L('Personal Status', 'தனிப்பட்ட நிலை')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-1.5">
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Gender', 'பாலினம்')} *</label>
+                    <Label className={formFieldStyles.label}>{L('Gender', 'பாலினம்')} *</Label>
                     <select
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.gender && "border-red-500 bg-red-50")}
+                      className={cn(formFieldStyles.select, errors.gender && formFieldStyles.error)}
                       value={form.gender}
                       onChange={e => set('gender', e.target.value)}
                     >
@@ -1243,9 +1253,9 @@ export default function TaxUserEntryPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Marital Status', 'திருமண நிலை')} *</label>
+                    <Label className={formFieldStyles.label}>{L('Marital Status', 'திருமண நிலை')} *</Label>
                     <select
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.maritalStatus && "border-red-500 bg-red-50")}
+                      className={cn(formFieldStyles.select, errors.maritalStatus && formFieldStyles.error)}
                       value={form.maritalStatus}
                       onChange={e => set('maritalStatus', e.target.value)}
                     >
@@ -1265,24 +1275,26 @@ export default function TaxUserEntryPage() {
                   <h3 className="text-sm font-semibold text-amber-900 mb-2">{L('Family Reference (Father/Husband)', 'குடும்ப குறிப்பு எண் (தந்தை/கணவர்)')}</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-1.5">
                     <div>
-                      <label className="block text-xs font-medium text-gray-900 mb-1">
+                      <Label className={formFieldStyles.label}>
                         {L('Search Father\'s Tax Ref', 'தந்தையின் வரி குறிப்பு எண் தேடு')}
-                      </label>
+                      </Label>
                       <div className="flex gap-1">
-                        <input
-                          className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                        <Input
+                          className={formFieldStyles.input}
                           value={form.parentReferenceId}
                           onChange={e => set('parentReferenceId', e.target.value)}
                           placeholder={L('Enter father\'s reference', 'தந்தையின் குறிப்பு எண்ணை உள்ளிடவும்')}
                         />
-                        <button
+                        <Button
                           type="button"
+                          variant="outline"
+                          size="sm"
                           onClick={() => lookupFamilyByReference(form.parentReferenceId)}
                           disabled={!form.parentReferenceId.trim() || lookingUp}
-                          className="px-3 py-1 bg-amber-600 text-white text-xs rounded hover:bg-amber-700 disabled:opacity-50"
+                          className="h-8 text-xs"
                         >
                           🔍
-                        </button>
+                        </Button>
                       </div>
                     </div>
                     {form.parentReferenceId && (
@@ -1304,26 +1316,28 @@ export default function TaxUserEntryPage() {
               <div className="bg-gray-50 rounded-lg p-1.5">
                 <div className="flex items-center justify-between mb-1">
                   <h3 className="text-sm font-semibold text-gray-900">{L('Personal Details', 'தனிப்பட்ட விவரங்கள்')}</h3>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setAutoLocked(v => !v)}
-                    className={`text-xs px-2 py-0.5 rounded border ${autoLocked ? 'text-orange-700 border-orange-300 bg-orange-50' : 'text-gray-600 border-gray-300 bg-white'}`}
+                    className={`h-7 text-xs ${autoLocked ? 'text-orange-600' : 'text-gray-600'}`}
                     title={autoLocked ? L('Unlock to edit autofilled fields', 'தானாக நிரப்பப்பட்டவற்றை திருத்த திறக்க') : L('Lock autofilled fields', 'தானாக நிரப்பப்பட்டவற்றை பூட்டு')}
                   >
                     {autoLocked ? L('Locked', 'பூட்டப்பட்டது') : L('Unlock', 'திற')}
-                  </button>
+                  </Button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-1.5">
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">
+                    <Label className={formFieldStyles.label}>
                       {L('Mobile Number', 'கைபேசி எண்')} *
                       {lookingUp && <span className="ml-2 text-blue-600 text-xs">🔍 {L('Looking up...', 'தேடுகிறது...')}</span>}
-                    </label>
+                    </Label>
                     <div className="relative">
-                      <input
+                      <Input
                         type="tel"
                         ref={mobileInputRef}
-                        className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.mobileNumber && "border-red-500 bg-red-50")}
+                        className={cn(formFieldStyles.input, errors.mobileNumber && formFieldStyles.error)}
                         value={form.mobileNumber}
                         onChange={e => {
                           handleMobileChange(e.target.value);
@@ -1371,13 +1385,13 @@ export default function TaxUserEntryPage() {
                     {errors.mobileNumber && <p className="text-red-500 text-xs mt-1">{errors.mobileNumber}</p>}
                   </div>
                   <div className="relative">
-                    <label className="block text-xs font-medium text-gray-900 mb-1">
+                    <Label className={formFieldStyles.label}>
                       {L('Name', 'பெயர்')} *
                       {nameLookingUp && <span className="ml-2 text-blue-600 text-xs">🔍 {L('Searching...', 'தேடுகிறது...')}</span>}
-                    </label>
+                    </Label>
                     <div>
-                      <input
-                        className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.name && "border-red-500 bg-red-50")}
+                      <Input
+                        className={cn(formFieldStyles.input, errors.name && formFieldStyles.error)}
                         value={form.name}
                         onChange={e => {
                           set('name', e.target.value);
@@ -1420,11 +1434,11 @@ export default function TaxUserEntryPage() {
                     {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">
+                    <Label className={formFieldStyles.label}>
                       {L('Last Name', 'கடைசி பெயர்')}
-                    </label>
-                    <input
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                    </Label>
+                    <Input
+                      className={formFieldStyles.input}
                       value={form.alternativeName}
                       onChange={e => set('alternativeName', e.target.value)}
                     />
@@ -1434,25 +1448,25 @@ export default function TaxUserEntryPage() {
                   {form.maritalStatus === 'married' && form.gender === 'male' && (
                     <>
                       <div>
-                        <label className="block text-xs font-medium text-gray-900 mb-1">{L('Wife\'s Name', 'மனைவி பெயர்')}</label>
-                        <input
-                          className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                        <Label className={formFieldStyles.label}>{L('Wife\'s Name', 'மனைவி பெயர்')}</Label>
+                        <Input
+                          className={formFieldStyles.input}
                           value={form.wifeName}
                           onChange={e => set('wifeName', e.target.value)}
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-900 mb-1">{L('Wife\'s Father Name', 'மனைவி தந்தை பெயர்')}</label>
-                        <input
-                          className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                        <Label className={formFieldStyles.label}>{L('Wife\'s Father Name', 'மனைவி தந்தை பெயர்')}</Label>
+                        <Input
+                          className={formFieldStyles.input}
                           value={form.wifeFatherName}
                           onChange={e => set('wifeFatherName', e.target.value)}
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-900 mb-1">{L('Wife Contact', 'மனைவி தொடர்பு')}</label>
-                        <input
-                          className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                        <Label className={formFieldStyles.label}>{L('Wife Contact', 'மனைவி தொடர்பு')}</Label>
+                        <Input
+                          className={formFieldStyles.input}
                           value={form.wifeContact}
                           onChange={e => set('wifeContact', e.target.value)}
                           placeholder={L('Mobile/Phone', 'கைபேசி/தொலைபேசி')}
@@ -1479,43 +1493,43 @@ export default function TaxUserEntryPage() {
                   {/* Begin locked fields */}
                   <fieldset disabled={autoLocked} className="contents">
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Alt Name', 'மாற்று பெயர்')}</label>
-                    <input
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                    <Label className={formFieldStyles.label}>{L('Alt Name', 'மாற்று பெயர்')}</Label>
+                    <Input
+                      className={formFieldStyles.input}
                       value={form.alternativeName}
                       onChange={e => set('alternativeName', e.target.value)}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Spouse', 'மனைவி')}</label>
-                    <input
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                    <Label className={formFieldStyles.label}>{L('Spouse', 'மனைவி')}</Label>
+                    <Input
+                      className={formFieldStyles.input}
                       value={form.wifeName}
                       onChange={e => set('wifeName', e.target.value)}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Father', 'தந்தை')} *</label>
-                    <input
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.fatherName && "border-red-500 bg-red-50")}
+                    <Label className={formFieldStyles.label}>{L('Father', 'தந்தை')} *</Label>
+                    <Input
+                      className={cn(formFieldStyles.input, errors.fatherName && formFieldStyles.error)}
                       value={form.fatherName}
                       onChange={e => set('fatherName', e.target.value)}
                     />
                     {errors.fatherName && <p className="text-red-500 text-xs mt-1">{errors.fatherName}</p>}
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Birth Date', 'பிறந்த தேதி')}</label>
-                    <input
+                    <Label className={formFieldStyles.label}>{L('Birth Date', 'பிறந்த தேதி')}</Label>
+                    <Input
                       type="date"
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={formFieldStyles.input}
                       value={form.birthDate}
                       onChange={e => set('birthDate', e.target.value)}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Education', 'கல்வி')}</label>
+                    <Label className={formFieldStyles.label}>{L('Education', 'கல்வி')}</Label>
                     <select
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={formFieldStyles.select}
                       value={form.education}
                       onChange={e => set('education', e.target.value)}
                     >
@@ -1526,9 +1540,9 @@ export default function TaxUserEntryPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Village', 'கிராமம்')}</label>
-                    <input
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                    <Label className={formFieldStyles.label}>{L('Village', 'கிராமம்')}</Label>
+                    <Input
+                      className={formFieldStyles.input}
                       value={form.village}
                       onChange={e => set('village', e.target.value)}
                     />
@@ -1545,15 +1559,14 @@ export default function TaxUserEntryPage() {
               <div className="bg-gray-50 rounded-lg p-2">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-gray-900">{L('Address', 'முகவரி')} *</h3>
-                  <button type="button" className="text-xs text-blue-600" onClick={() => setShowAddress(v => !v)}>
+                  <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-orange-600" onClick={() => setShowAddress(v => !v)}>
                     {showAddress ? L('Hide', 'மறை') : L('Show', 'காட்டு')}
-                  </button>
+                  </Button>
                 </div>
                 {showAddress && (
                   <fieldset disabled={autoLocked} className="contents">
-                    <textarea
-                      className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.address ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                        }`}
+                    <Textarea
+                      className={cn(formFieldStyles.textarea, errors.address && formFieldStyles.error)}
                       rows={2}
                       value={form.address}
                       onChange={e => set('address', e.target.value)}
@@ -1567,19 +1580,18 @@ export default function TaxUserEntryPage() {
               <div className="bg-gray-50 rounded-lg p-2">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-gray-900">{L('ID & Other Details', 'அடையாள விவரங்கள்')}</h3>
-                  <button type="button" className="text-xs text-blue-600" onClick={() => setShowIdDetails(v => !v)}>
+                  <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-orange-600" onClick={() => setShowIdDetails(v => !v)}>
                     {showIdDetails ? L('Hide', 'மறை') : L('Show', 'காட்டு')}
-                  </button>
+                  </Button>
                 </div>
                 {showIdDetails && (
                   <fieldset disabled={autoLocked} className="contents">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
                   <div>
                     <label className="block text-xs font-medium text-gray-900 mb-1">{L('Aadhaar', 'ஆதார்')}</label>
-                    <input
+                    <Input
                       type="text"
-                      className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.aadhaarNumber ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                        }`}
+                      className={cn(formFieldStyles.input, errors.aadhaarNumber && formFieldStyles.error)}
                       value={form.aadhaarNumber}
                       onChange={e => handleFormattedInput('aadhaarNumber', e.target.value, formatAadhaarNumber)}
                       placeholder="XXXX-XXXX-XXXX"
@@ -1588,17 +1600,17 @@ export default function TaxUserEntryPage() {
                     {errors.aadhaarNumber && <p className="text-red-500 text-xs mt-1">{errors.aadhaarNumber}</p>}
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('PAN', 'பான்')}</label>
-                    <input
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                    <Label className={formFieldStyles.label}>{L('PAN', 'பான்')}</Label>
+                    <Input
+                      className={formFieldStyles.input}
                       value={form.panNumber}
                       onChange={e => set('panNumber', e.target.value)}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Clan', 'குலம்')}</label>
+                    <Label className={formFieldStyles.label}>{L('Clan', 'குலம்')}</Label>
                     <select
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={formFieldStyles.select}
                       value={form.clan}
                       onChange={e => set('clan', e.target.value)}
                     >
@@ -1609,9 +1621,9 @@ export default function TaxUserEntryPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Group', 'குழு')}</label>
+                    <Label className={formFieldStyles.label}>{L('Group', 'குழு')}</Label>
                     <select
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={formFieldStyles.select}
                       value={form.group}
                       onChange={e => set('group', e.target.value)}
                     >
@@ -1622,28 +1634,28 @@ export default function TaxUserEntryPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Postal Code', 'அஞ்சல் குறியீடு')}</label>
-                    <input
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                    <Label className={formFieldStyles.label}>{L('Postal Code', 'அஞ்சல் குறியீடு')}</Label>
+                    <Input
+                      className={formFieldStyles.input}
                       value={form.postalCode}
                       onChange={e => set('postalCode', e.target.value)}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Male Heirs', 'ஆண் வாரிசு')}</label>
-                    <input
+                    <Label className={formFieldStyles.label}>{L('Male Heirs', 'ஆண் வாரிசு')}</Label>
+                    <Input
                       type="number"
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={formFieldStyles.input}
                       value={form.maleHeirs}
                       onChange={e => set('maleHeirs', parseInt(e.target.value) || 0)}
                       min="0"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Female Heirs', 'பெண் வாரிசு')}</label>
-                    <input
+                    <Label className={formFieldStyles.label}>{L('Female Heirs', 'பெண் வாரிசு')}</Label>
+                    <Input
                       type="number"
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={formFieldStyles.input}
                       value={form.femaleHeirs}
                       onChange={e => set('femaleHeirs', parseInt(e.target.value) || 0)}
                       min="0"
@@ -1849,9 +1861,9 @@ export default function TaxUserEntryPage() {
               <div className="bg-gray-50 rounded-lg p-2">
                 <div className="flex items-center justify-between mb-1">
                   <h3 className="text-sm font-semibold text-gray-900">{L('Photo', 'புகைப்படம்')}</h3>
-                  <button type="button" className="text-xs text-blue-600" onClick={() => setShowPhoto(v => !v)}>
+                  <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-orange-600" onClick={() => setShowPhoto(v => !v)}>
                     {showPhoto ? L('Hide', 'மறை') : L('Show', 'காட்டு')}
-                  </button>
+                  </Button>
                 </div>
                 {showPhoto && (
                   <div className="flex flex-col items-center">
@@ -1878,13 +1890,13 @@ export default function TaxUserEntryPage() {
               {false && (
               <div className="bg-gray-50 rounded-lg p-2">
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">{L('Transfer To Account', 'எந்த கணக்கிற்கு மாற்றுவது')}</h3>
-                <label htmlFor="transfer-to" className="block text-xs font-medium text-gray-900 mb-1">
+                <Label htmlFor="transfer-to" className={formFieldStyles.label}>
                   {L('Account', 'கணக்கு')} <span className="text-red-600">*</span>
-                </label>
+                </Label>
                 <select
                   id="transfer-to"
                   required
-                  className={`w-full px-2 py-1 text-sm border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent ${errors.transferTo ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                  className={cn(formFieldStyles.select, errors.transferTo && formFieldStyles.error)}
                   value={(form as any).transferTo || ''}
                   onChange={e => set('transferTo' as any, e.target.value)}
                 >
@@ -1904,38 +1916,38 @@ export default function TaxUserEntryPage() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-2">{L('Amounts', 'தொகைகள்')}</h3>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Amount', 'தொகை')}</label>
-                    <input
+                    <Label className={formFieldStyles.label}>{L('Tax Amount', 'வரி தொகை')}</Label>
+                    <Input
                       readOnly
                       value={form.taxAmount}
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-100"
+                      className={cn(formFieldStyles.input, "bg-gray-100")}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Amount due', 'நிறுவை தொகை')}</label>
-                    <input
+                    <Label className={formFieldStyles.label}>{L('Amount due', 'நிறுவை தொகை')}</Label>
+                    <Input
                       readOnly
                       value={remainingDue.toString()}
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-100"
+                      className={cn(formFieldStyles.input, "bg-gray-100")}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Amount to be paid', 'செலுத்தும் தொகை')}</label>
-                    <input
+                    <Label className={formFieldStyles.label}>{L('Amount to be paid', 'செலுத்தும் தொகை')}</Label>
+                    <Input
                       type="number"
                       value={form.amountPaid}
                       onFocus={(e) => e.currentTarget.select()}
                       onChange={e => handleAmountPaidChange(e.target.value)}
                       ref={amountPaidRef}
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                      className={formFieldStyles.input}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Remaining due', 'மீதமுள்ள நிலுவை')}</label>
-                    <input
+                    <Label className={formFieldStyles.label}>{L('Remaining due', 'மீதமுள்ள நிலுவை')}</Label>
+                    <Input
                       readOnly
                       value={remainingDue.toString()}
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-100"
+                      className={cn(formFieldStyles.input, "bg-gray-100")}
                     />
                   </div>
                 </div>
@@ -1943,20 +1955,23 @@ export default function TaxUserEntryPage() {
 
               {/* Action Buttons - Compact */}
               <div className="space-y-2">
-                <button
+                <Button
                   disabled={saving}
                   onClick={submit}
-                  className="w-full px-4 py-2 bg-blue-600 text-white font-medium rounded shadow hover:bg-blue-700 disabled:opacity-50 text-sm"
+                  className={cn(theme.button.primary, "w-full")}
+                  size="sm"
                 >
                   {saving ? L('Saving...', 'சேமிக்கிறது...') : L('Save', 'சேமிக்க')}
-                </button>
+                </Button>
 
-                <button
+                <Button
+                  variant="outline"
                   onClick={clearForm}
-                  className="w-full px-4 py-2 bg-gray-200 text-gray-800 font-medium rounded shadow hover:bg-gray-300 text-sm"
+                  className="w-full"
+                  size="sm"
                 >
                   {L('Clear', 'அழிக்க')}
-                </button>
+                </Button>
               </div>
             </div>
           </div>

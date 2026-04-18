@@ -3,9 +3,14 @@ import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { theme } from '@/styles/theme';
 import { cn } from '@/lib/utils';
+import { pageContainerStyles, formFieldStyles } from '@/styles/formStyles';
 
 type Heir = {
   id: number;
@@ -687,6 +692,20 @@ export default function TempleUserEntryPage() {
     }
   }, [msg]);
 
+  // Handle Enter key to focus save button
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Enter') return;
+    const t = e.target as HTMLElement;
+    const tag = t.tagName?.toLowerCase();
+    if (!tag || ['button', 'textarea'].includes(tag)) return; // allow buttons and textareas to handle Enter normally
+    e.preventDefault();
+    // Focus the save button
+    const saveButton = document.querySelector('button[onClick*="handleAddUser"]') as HTMLButtonElement;
+    if (saveButton) {
+      saveButton.focus();
+    }
+  };
+
   // Save handler: POST on create, PUT on edit
   const handleAddUser = async () => {
     const validationErrors = validateForm();
@@ -862,72 +881,59 @@ export default function TempleUserEntryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={pageContainerStyles.container}>
       {/* Full width header */}
-      <div className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-6 px-6">
-        <div className="container mx-auto">
+      <div className={theme.card.header}>
+        <div className="max-w-7xl mx-auto">
           <h1 className="text-2xl font-bold text-center">
             {t[language as 'tamil' | 'english'].pageTitle}
           </h1>
         </div>
       </div>
       
-      <div className="container mx-auto p-4">
+      <div className={pageContainerStyles.content}>
       {/* Main Container */}
-      <div className="bg-white rounded-lg shadow-md border border-gray-200 p-2">
+      <div className="bg-white rounded-lg shadow-md border border-gray-200 p-2" onKeyDown={handleKeyDown}>
         {/* Status Messages */}
         {(msg || err) && (
           <div className="mb-3">
             <Alert
-              variant={err ? 'destructive' : 'default'}
-              className={err ? '' : 'border-green-500 bg-green-50 text-green-700'}
-            >
-              <AlertTitle className={err ? '' : 'text-green-800 font-semibold'}>
-                {err ? 'Error / பிழை' : 'Success / வெற்றி'}
-              </AlertTitle>
-              <AlertDescription className={err ? '' : 'text-green-700'}>
-                {err ? err : msg}
-              </AlertDescription>
-            </Alert>
-          </div>
-        )}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-          {/* Left Column - Form Fields (3/4 width) */}
-          <div className="lg:col-span-3 space-y-3">
-            {/* General Info */}
-            <div className="bg-gray-50 rounded-lg p-2">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-semibold text-gray-900">{t[language as 'tamil' | 'english'].generalInfo}</h3>
-                <button
-                  type="button"
-                  onClick={clearForm}
-                  className="px-2 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600"
-                  title={t[language as 'tamil' | 'english'].clearFormTitle}
-                >
-                  🗑️ {t[language as 'tamil' | 'english'].clearForm}
-                </button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
-                {/* Receipt number field removed as per requirement */}
+            className={err ? '' : 'border-green-500 bg-green-50 text-green-700'}
+          >
+            <AlertTitle className={err ? '' : 'text-green-800 font-semibold'}>
+              {err ? 'Error / பிழை' : 'Success / வெற்றி'}
+            </AlertTitle>
+            <AlertDescription className={err ? '' : 'text-green-700'}>
+              {err ? err : msg}
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        {/* Left Column - Form Fields (3/4 width) */}
+        <div className="lg:col-span-3 space-y-3">
+          {/* General Info */}
+          <div className="bg-gray-50 rounded-lg p-2">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-gray-900">{t[language as 'tamil' | 'english'].generalInfo}</h3>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={clearForm}
+                className="h-8 text-xs"
+                title={t[language as 'tamil' | 'english'].clearFormTitle}
+              >
+                🗑️ {t[language as 'tamil' | 'english'].clearForm}
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
                 <div>
-                  <label className="block text-xs font-medium text-gray-900 mb-1">
-                    {t[language as 'tamil' | 'english'].date} *
-                  </label>
-                  <input
-                    type="date"
-                    className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.date && "border-red-500 bg-red-50")}
-                    value={newUser.date}
-                    onChange={(e) => handleFieldChange('date', e.target.value)}
-                    required
-                  />
-                  {errors.date && <p className="text-red-500 text-xs mt-1">{errors.date}</p>}
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-900 mb-1">
+                  <Label className={formFieldStyles.label}>
                     {t[language as 'tamil' | 'english'].year}
-                  </label>
-                  <input
-                    className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                  </Label>
+                  <Input
+                    className={formFieldStyles.input}
                     value={newUser.year}
                     onChange={(e) => handleFieldChange('year', e.target.value)}
                   />
@@ -939,14 +945,14 @@ export default function TempleUserEntryPage() {
               <h3 className="text-sm font-semibold text-gray-900 mb-1">{t[language as 'tamil' | 'english'].landownerFinancials}</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
                 <div>
-                  <label className="block text-xs font-medium text-gray-900 mb-1">
+                  <Label className={formFieldStyles.label}>
                     {t[language as 'tamil' | 'english'].mobileNumber} *
                     {lookingUp && <span className="ml-2 text-blue-600 text-xs">🔍 {t[language as 'tamil' | 'english'].lookingUp}</span>}
-                  </label>
+                  </Label>
                   <div>
-                    <input
+                    <Input
                       type="tel"
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.mobileNumber && "border-red-500 bg-red-50")}
+                      className={cn(formFieldStyles.input, errors.mobileNumber && formFieldStyles.error)}
                       value={newUser.mobileNumber}
                       onChange={(e) => handleMobileChange(e.target.value)}
                       placeholder={t[language as 'tamil' | 'english'].placeholderMobile}
@@ -960,12 +966,12 @@ export default function TempleUserEntryPage() {
                   </p>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-900 mb-1">
+                  <Label className={formFieldStyles.label}>
                     {t[language as 'tamil' | 'english'].name} *
-                  </label>
-                  <input
+                  </Label>
+                  <Input
                     type="text"
-                    className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.name && "border-red-500 bg-red-50")}
+                    className={cn(formFieldStyles.input, errors.name && formFieldStyles.error)}
                     value={newUser.name}
                     onChange={(e) => handleFieldChange('name', e.target.value)}
                     required
@@ -973,49 +979,51 @@ export default function TempleUserEntryPage() {
                   {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].alternativeName}</label>
-                  <input
-                    className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                  <Label className={formFieldStyles.label}>{t[language as 'tamil' | 'english'].alternativeName}</Label>
+                  <Input
+                    className={formFieldStyles.input}
                     value={newUser.alternativeName}
                     onChange={(e) => handleFieldChange('alternativeName', e.target.value)}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].wifeName}</label>
-                  <input
-                    className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                  <Label className={formFieldStyles.label}>{t[language as 'tamil' | 'english'].wifeName}</Label>
+                  <Input
+                    className={formFieldStyles.input}
                     value={newUser.wifeName}
                     onChange={(e) => handleFieldChange('wifeName', e.target.value)}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-900 mb-1">
+                  <Label className={formFieldStyles.label}>
                     {t[language as 'tamil' | 'english'].fatherName} *
-                  </label>
+                  </Label>
                   <div className="flex gap-1">
-                    <input
-                      className={cn(theme.input.base, "flex-1 px-2 py-1 text-sm rounded", errors.fatherName && "border-red-500 bg-red-50")}
+                    <Input
+                      className={cn(formFieldStyles.input, errors.fatherName && formFieldStyles.error, "flex-1")}
                       value={newUser.fatherName}
                       onChange={(e) => handleFieldChange('fatherName', e.target.value)}
                       placeholder={language === 'tamil' ? 'தந்தையின் பெயர்' : "Father's Name"}
                       required
                     />
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
+                      size="sm"
                       onClick={() => lookupFamilyByReference(newUser.parentReferenceId || newUser.fatherName)}
                       disabled={lookingUp}
-                      className="px-2 py-1 bg-amber-600 text-white text-xs rounded hover:bg-amber-700 disabled:opacity-50"
+                      className="h-8 text-xs"
                       title={language === 'tamil' ? 'குடும்ப குறிப்பு எண் மூலம் தேடு' : 'Search by Family Reference'}
                     >
                       {lookingUp ? '...' : '🔍'}
-                    </button>
+                    </Button>
                   </div>
                   {errors.fatherName && <p className="text-red-500 text-xs mt-1">{errors.fatherName}</p>}
                   
                   {/* Family Reference Input */}
                   <div className="mt-1 flex gap-1">
-                    <input
-                      className="flex-1 px-2 py-1 text-xs border border-amber-300 rounded focus:ring-1 focus:ring-amber-500"
+                    <Input
+                      className={cn(formFieldStyles.input, "flex-1")}
                       value={newUser.parentReferenceId}
                       onChange={(e) => handleFieldChange('parentReferenceId', e.target.value)}
                       placeholder={language === 'tamil' ? 'குடும்ப குறிப்பு எண் (T-2024-XXX)' : 'Family Reference (T-2024-XXX)'}
@@ -1029,9 +1037,9 @@ export default function TempleUserEntryPage() {
                   )}
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].educationLabel} *</label>
+                  <Label className={formFieldStyles.label}>{t[language as 'tamil' | 'english'].educationLabel} *</Label>
                   <select
-                    className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.education && "border-red-500 bg-red-50")}
+                    className={cn(formFieldStyles.select, errors.education && formFieldStyles.error)}
                     value={newUser.education}
                     onChange={(e) => handleFieldChange('education', e.target.value)}
                     required
@@ -1044,9 +1052,9 @@ export default function TempleUserEntryPage() {
                   {errors.education && <p className="text-red-500 text-xs mt-1">{errors.education}</p>}
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].occupationLabel} *</label>
+                  <Label className={formFieldStyles.label}>{t[language as 'tamil' | 'english'].occupationLabel} *</Label>
                   <select
-                    className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.occupation && "border-red-500 bg-red-50")}
+                    className={cn(formFieldStyles.select, errors.occupation && formFieldStyles.error)}
                     value={newUser.occupation}
                     onChange={(e) => handleFieldChange('occupation', e.target.value)}
                     required
@@ -1064,19 +1072,22 @@ export default function TempleUserEntryPage() {
             <div className="bg-gray-50 rounded-lg p-2">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-900">{t[language as 'tamil' | 'english'].address} *</h3>
-                <button type="button" className="text-xs text-blue-600" onClick={() => setShowAddress(v => !v)}>
+                <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-orange-600" onClick={() => setShowAddress(v => !v)}>
                   {showAddress ? t[language as 'tamil' | 'english'].clearForm : t[language as 'tamil' | 'english'].register}
-                </button>
+                </Button>
               </div>
               {showAddress && (
-                <textarea
-                  className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded", errors.address && "border-red-500 bg-red-50")}
-                  rows={2}
-                  value={newUser.address}
-                  onChange={(e) => handleFieldChange('address', e.target.value)}
-                  placeholder={t[language as 'tamil' | 'english'].placeholderAddress}
-                  required
-                />
+                <div>
+                  <Label className={formFieldStyles.label}>{t[language as 'tamil' | 'english'].address} *</Label>
+                  <Textarea
+                    className={cn(formFieldStyles.textarea, errors.address && formFieldStyles.error)}
+                    rows={2}
+                    value={newUser.address}
+                    onChange={(e) => handleFieldChange('address', e.target.value)}
+                    placeholder={t[language as 'tamil' | 'english'].placeholderAddress}
+                    required
+                  />
+                </div>
               )}
               {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address}</p>}
             </div>
@@ -1084,17 +1095,17 @@ export default function TempleUserEntryPage() {
             <div className="bg-gray-50 rounded-lg p-2">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-900">{t[language as 'tamil' | 'english'].personalHeirDetails}</h3>
-                <button type="button" className="text-xs text-blue-600" onClick={() => setShowIdDetails(v => !v)}>
+                <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-orange-600" onClick={() => setShowIdDetails(v => !v)}>
                   {showIdDetails ? t[language as 'tamil' | 'english'].clearForm : t[language as 'tamil' | 'english'].register}
-                </button>
+                </Button>
               </div>
               {showIdDetails && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].aadhaarNumber}</label>
-                    <input
+                    <Label className={formFieldStyles.label}>{t[language as 'tamil' | 'english'].aadhaarNumber}</Label>
+                    <Input
                       type="text"
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={formFieldStyles.input}
                       value={newUser.aadhaarNumber}
                       onChange={(e) => handleFormattedInput('aadhaarNumber', e.target.value, formatAadhaarNumber)}
                       placeholder={t[language as 'tamil' | 'english'].placeholderAadhaar}
@@ -1102,9 +1113,9 @@ export default function TempleUserEntryPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].clan}</label>
+                    <Label className={formFieldStyles.label}>{t[language as 'tamil' | 'english'].clan}</Label>
                     <select
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={formFieldStyles.select}
                       value={newUser.clan}
                       onChange={(e) => handleFieldChange('clan', e.target.value)}
                     >
@@ -1115,9 +1126,9 @@ export default function TempleUserEntryPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].group}</label>
+                    <Label className={formFieldStyles.label}>{t[language as 'tamil' | 'english'].group}</Label>
                     <select
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={formFieldStyles.select}
                       value={newUser.group}
                       onChange={(e) => handleFieldChange('group', e.target.value)}
                     >
@@ -1128,29 +1139,29 @@ export default function TempleUserEntryPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].postalCode}</label>
-                    <input
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                    <Label className={formFieldStyles.label}>{t[language as 'tamil' | 'english'].postalCode}</Label>
+                    <Input
+                      className={formFieldStyles.input}
                       value={newUser.postalCode}
                       onChange={(e) => handleFieldChange('postalCode', e.target.value)}
                       placeholder={t[language as 'tamil' | 'english'].placeholderPostal}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].maleHeirs}</label>
-                    <input
+                    <Label className={formFieldStyles.label}>{t[language as 'tamil' | 'english'].maleHeirs}</Label>
+                    <Input
                       type="number"
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={formFieldStyles.input}
                       value={newUser.maleHeirs}
                       onChange={(e) => handleFieldChange('maleHeirs', parseInt(e.target.value) || 0)}
                       min="0"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{t[language as 'tamil' | 'english'].femaleHeirs}</label>
-                    <input
+                    <Label className={formFieldStyles.label}>{t[language as 'tamil' | 'english'].femaleHeirs}</Label>
+                    <Input
                       type="number"
-                      className={cn(theme.input.base, "w-full px-2 py-1 text-sm rounded")}
+                      className={formFieldStyles.input}
                       value={newUser.femaleHeirs}
                       onChange={(e) => handleFieldChange('femaleHeirs', parseInt(e.target.value) || 0)}
                       min="0"
@@ -1166,20 +1177,24 @@ export default function TempleUserEntryPage() {
                   {t[language as 'tamil' | 'english'].heirsTitle}
                 </h3>
                 <div className="flex items-center gap-2">
-                  <button
+                  <Button
                     type="button"
-                    className="text-xs text-blue-600"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-orange-600"
                     onClick={() => setShowHeirs(v => !v)}
                   >
                     {showHeirs ? t[language as 'tamil' | 'english'].clearForm : t[language as 'tamil' | 'english'].register}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="sm"
                     onClick={addHeir}
-                    className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+                    className="h-8 text-xs"
                   >
                     {t[language as 'tamil' | 'english'].addHeir}
-                  </button>
+                  </Button>
                 </div>
               </div>
               {showHeirs && newUser.heirs && newUser.heirs.length > 0 ? (
@@ -1201,11 +1216,11 @@ export default function TempleUserEntryPage() {
                         <tr key={heir.id} className="hover:bg-gray-50">
                           <td className="px-2 py-1 text-center border-b">{heir.serialNumber}</td>
                           <td className="px-2 py-1 border-b">
-                            <input
+                            <Input
                               type="text"
                               value={heir.name}
                               onChange={(e) => updateHeir(heir.id, 'name', e.target.value)}
-                              className={`w-full px-1 py-0.5 text-xs border rounded ${errors[`heir_${index}_name`] ? 'border-red-300' : 'border-gray-300'}`}
+                              className={cn(formFieldStyles.input, errors[`heir_${index}_name`] && formFieldStyles.error)}
                               placeholder={t[language as 'tamil' | 'english'].placeholderHeirName}
                             />
                             {errors[`heir_${index}_name`] && <p className="text-red-500 text-xs mt-1">{errors[`heir_${index}_name`]}</p>}
@@ -1214,7 +1229,7 @@ export default function TempleUserEntryPage() {
                             <select
                               value={heir.race}
                               onChange={(e) => updateHeir(heir.id, 'race', e.target.value)}
-                              className={`w-full px-1 py-0.5 text-xs border rounded ${errors[`heir_${index}_race`] ? 'border-red-300' : 'border-gray-300'}`}
+                              className={formFieldStyles.select}
                             >
                               <option value="">{t[language as 'tamil' | 'english'].selectRace}</option>
                               {masterClans.map((race) => (
@@ -1229,7 +1244,7 @@ export default function TempleUserEntryPage() {
                             <select
                               value={heir.maritalStatus}
                               onChange={(e) => updateHeir(heir.id, 'maritalStatus', e.target.value)}
-                              className="w-full px-1 py-0.5 text-xs border border-gray-300 rounded"
+                              className={formFieldStyles.select}
                             >
                               <option value="unmarried">{t[language as 'tamil' | 'english'].heirsTable.maritalStatus.unmarried}</option>
                               <option value="married">{t[language as 'tamil' | 'english'].heirsTable.maritalStatus.married}</option>
@@ -1238,30 +1253,32 @@ export default function TempleUserEntryPage() {
                             </select>
                           </td>
                           <td className="px-2 py-1 border-b">
-                            <input
+                            <Input
                               type="text"
                               value={heir.education}
                               onChange={(e) => updateHeir(heir.id, 'education', e.target.value)}
-                              className="w-full px-1 py-0.5 text-xs border border-gray-300 rounded"
+                              className={formFieldStyles.input}
                               placeholder={t[language as 'tamil' | 'english'].placeholderHeirEducation}
                             />
                           </td>
                           <td className="px-2 py-1 border-b">
-                            <input
+                            <Input
                               type="date"
                               value={heir.birthDate}
                               onChange={(e) => updateHeir(heir.id, 'birthDate', e.target.value)}
-                              className="w-full px-1 py-0.5 text-xs border border-gray-300 rounded"
+                              className={formFieldStyles.input}
                             />
                           </td>
                           <td className="px-2 py-1 border-b text-center">
-                            <button
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => removeHeir(heir.id)}
-                              className="text-red-600 hover:text-red-800 text-sm"
+                              className="h-5 w-5 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
                               title={t[language as 'tamil' | 'english'].buttons.removeHeirTitle}
                             >
                               ×
-                            </button>
+                            </Button>
                           </td>
                         </tr>
                       ))}
@@ -1283,9 +1300,9 @@ export default function TempleUserEntryPage() {
             <div className="bg-gray-50 rounded-lg p-2">
               <div className="flex items-center justify-between mb-1">
                 <h3 className="text-sm font-semibold text-gray-900">{t[language as 'tamil' | 'english'].photo}</h3>
-                <button type="button" className="text-xs text-blue-600" onClick={() => setShowPhoto(v => !v)}>
+                <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-orange-600" onClick={() => setShowPhoto(v => !v)}>
                   {showPhoto ? t[language as 'tamil' | 'english'].clearForm : t[language as 'tamil' | 'english'].register}
-                </button>
+                </Button>
               </div>
               {showPhoto && (
                 <div className="flex flex-col items-center">
@@ -1333,12 +1350,16 @@ export default function TempleUserEntryPage() {
                       </div>
                     )}
                   </div>
-                  <label
-                    htmlFor="photo-upload"
-                    className="w-full px-2 py-1 bg-blue-500 text-white text-xs rounded cursor-pointer hover:bg-blue-600 text-center"
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="w-full h-8 text-xs"
                   >
-                    {newUser.photo ? t[language as 'tamil' | 'english'].replacePhoto : t[language as 'tamil' | 'english'].uploadPhoto}
-                  </label>
+                    <label htmlFor="photo-upload" className="cursor-pointer">
+                      {newUser.photo ? t[language as 'tamil' | 'english'].replacePhoto : t[language as 'tamil' | 'english'].uploadPhoto}
+                    </label>
+                  </Button>
                   <input
                     type="file"
                     accept="image/*"
@@ -1351,19 +1372,22 @@ export default function TempleUserEntryPage() {
             </div>
             {/* Action Buttons - Compact */}
             <div className="space-y-2">
-              <button
+              <Button
                 disabled={isSubmitting}
                 onClick={handleAddUser}
-                className="w-full px-4 py-2 bg-blue-600 text-white font-medium rounded shadow hover:bg-blue-700 disabled:opacity-50 text-sm"
+                className={cn(theme.button.primary, "w-full")}
+                size="sm"
               >
                 {isSubmitting ? t[language as 'tamil' | 'english'].saving : t[language as 'tamil' | 'english'].save}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="outline"
                 onClick={clearForm}
-                className="w-full px-4 py-2 bg-gray-200 text-gray-800 font-medium rounded shadow hover:bg-gray-300 text-sm"
+                className="w-full"
+                size="sm"
               >
                 {t[language as 'tamil' | 'english'].clearForm}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

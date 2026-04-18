@@ -311,10 +311,12 @@ export default function TaxSettingsPage() {
   return (
     <div className={pageContainerStyles.container}>
       <Card className={pageContainerStyles.content}>
-        <CardHeader className={theme.card.header}>
-          <CardTitle className="text-lg font-bold w-full">
-            {translations.taxSettings}
-          </CardTitle>
+        <CardHeader className={theme.header.container}>
+          <div className={theme.header.contentSpacing}>
+            <CardTitle className={theme.header.main}>
+              {translations.taxSettings}
+            </CardTitle>
+          </div>
         </CardHeader>
         
         <CardContent className="p-6">
@@ -479,7 +481,7 @@ export default function TaxSettingsPage() {
                     <button
                       type="submit"
                       disabled={saving}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white font-medium rounded-md shadow hover:bg-blue-700 disabled:opacity-50"
+                      className="flex-1 px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium rounded-md shadow hover:from-orange-600 hover:to-orange-700 disabled:opacity-50"
                     >
                       {saving ? translations.loading : editingId ? translations.edit : translations.save}
                     </button>
@@ -488,7 +490,7 @@ export default function TaxSettingsPage() {
                       <button
                         type="button"
                         onClick={cancelEdit}
-                        className="px-4 py-2 bg-gray-500 text-white font-medium rounded-md shadow hover:bg-gray-600"
+                        className="px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium rounded-md shadow hover:from-orange-600 hover:to-orange-700"
                       >
                         {translations.cancel}
                       </button>
@@ -509,14 +511,14 @@ export default function TaxSettingsPage() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleBulkToggle(true)}
-                        className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700"
+                        className="px-3 py-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xs rounded hover:from-orange-600 hover:to-orange-700"
                         title={translations.enableOutstanding}
                       >
                         🔴 {translations.enableOutstanding}
                       </button>
                       <button
                         onClick={() => handleBulkToggle(false)}
-                        className="px-3 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700"
+                        className="px-3 py-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xs rounded hover:from-orange-600 hover:to-orange-700"
                         title={translations.disableOutstanding}
                       >
                         ⚫ {translations.disableOutstanding}

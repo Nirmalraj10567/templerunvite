@@ -8,6 +8,8 @@ import MemberListView from './MemberListView';
 import MemberEntryView from './MemberEntryView';
 import { toast } from '@/hooks/use-toast';
 import { Modal } from '@/components/ui/modal';
+import { theme } from '@/styles/theme';
+import { cn } from '@/lib/utils';
 import MemberLogsView from './MemberLogsView';
 
 export default function MembersPage() {
@@ -434,7 +436,7 @@ export default function MembersPage() {
               type="password"
               value={resetPassword}
               onChange={(e) => setResetPassword(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
+              className={cn(theme.input.base, theme.input.size.md, "w-full")}
               minLength={6}
               placeholder={t[language].newPassword}
             />

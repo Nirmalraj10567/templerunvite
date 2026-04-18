@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/lib/language";
+import { theme } from "@/styles/theme";
+import { cn } from "@/styles/formStyles";
 import AnnadhanamLogView from "./AnnadhanamLogView";
 import MoneyDonationLogView from "@/pages/donations/MoneyDonationLogView";
 import DonationProductLogView from "@/pages/product/DonationProductLogView";
@@ -21,10 +23,12 @@ export default function AnnadhanamLogsPage({}: AnnadhanamLogsPageProps) {
   return (
     <div className="container mx-auto py-6 px-4">
       <Card>
-        <CardHeader className="bg-gradient-to-r from-purple-500 to-purple-600 text-white py-4 px-6">
-          <CardTitle className="text-lg font-bold text-center">
-            {t(' Logs', 'அன்னதானம் பதிவுகள்')}
-          </CardTitle>
+        <CardHeader className={theme.header.container}>
+          <div className={theme.header.contentSpacing}>
+            <CardTitle className={theme.header.main}>
+              {t(' Logs', 'அன்னதானம் பதிவுகள்')}
+            </CardTitle>
+          </div>
         </CardHeader>
         <CardContent className="pt-6">
           <Tabs 

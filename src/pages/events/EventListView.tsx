@@ -108,8 +108,10 @@ export default function EventListView() {
 
     <div  className={pageContainerStyles.container}>
       <Card>
-        <CardHeader className={theme.card.header}>
-          <CardTitle className="text-sm font-semibold">{t.templeEvents}</CardTitle>
+        <CardHeader className={theme.header.container}>
+          <div className={theme.header.contentSpacing}>
+            <CardTitle className={theme.header.main}>{t.templeEvents}</CardTitle>
+          </div>
         </CardHeader>
         <CardContent className="p-3">
           {loading ? (

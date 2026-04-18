@@ -10,6 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
 import { poojaMobileService, PoojaMobileRequest } from '@/services/poojaMobileService';
 import { Calendar, Clock, User, Phone, FileText, CheckCircle, AlertCircle } from 'lucide-react';
+import { theme } from '@/styles/theme';
+import { cn } from '@/styles/formStyles';
 
 interface FormData {
   receipt_number: string;
@@ -192,7 +194,7 @@ export default function PoojaMobileRequestPage() {
                   id="receipt_number"
                   {...register('receipt_number', { required: true })}
                   readOnly
-                  className="flex-1"
+                  className={cn(theme.input.base, theme.input.size.md, "flex-1")}
                 />
                 <Button
                   type="button"
@@ -216,6 +218,7 @@ export default function PoojaMobileRequestPage() {
               <Input
                 id="name"
                 {...register('name', { required: true, minLength: 2 })}
+                className={cn(theme.input.base, theme.input.size.md)}
                 placeholder={t('Enter your full name', 'உங்கள் முழு பெயரை உள்ளிடவும்')}
               />
               {errors.name && (
@@ -236,6 +239,7 @@ export default function PoojaMobileRequestPage() {
               <Input
                 id="mobile_number"
                 type="tel"
+                className={cn(theme.input.base, theme.input.size.md)}
                 {...register('mobile_number', { 
                   required: true,
                   pattern: /^[6-9]\d{9}$/
@@ -262,6 +266,7 @@ export default function PoojaMobileRequestPage() {
                 <Input
                   id="from_date"
                   type="date"
+                  className={cn(theme.input.base, theme.input.size.md)}
                   {...register('from_date', { required: true })}
                   min={new Date().toISOString().split('T')[0]}
                 />
@@ -276,6 +281,7 @@ export default function PoojaMobileRequestPage() {
                 <Input
                   id="to_date"
                   type="date"
+                  className={cn(theme.input.base, theme.input.size.md)}
                   {...register('to_date', { required: true })}
                   min={fromDate || new Date().toISOString().split('T')[0]}
                 />
@@ -293,6 +299,7 @@ export default function PoojaMobileRequestPage() {
               <Input
                 id="time"
                 type="time"
+                className={cn(theme.input.base, theme.input.size.md)}
                 {...register('time', { required: true })}
               />
               {errors.time && (
@@ -355,6 +362,7 @@ export default function PoojaMobileRequestPage() {
               <Textarea
                 id="remarks"
                 {...register('remarks')}
+                className={cn(theme.textarea.base, theme.textarea.size.md)}
                 placeholder={t('Any special requirements or notes...', 'எந்தவொரு சிறப்பு தேவைகள் அல்லது குறிப்புகள்...')}
                 rows={3}
               />

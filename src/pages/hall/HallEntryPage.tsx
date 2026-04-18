@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { X } from 'lucide-react';
 import axios from 'axios';
 import { getAuthToken } from '@/lib/auth';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
@@ -154,23 +155,16 @@ const initialState: FormState = {
 const useEnterKeyNavigation = () => {
   const formRef = useRef<HTMLFormElement>(null);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      
-      if (!formRef.current) return;
-      
-      const focusableElements = formRef.current.querySelectorAll(
-        'input:not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled]):not([readonly]), button:not([disabled])'
-      );
-      
-      const currentElement = document.activeElement;
-      const currentIndex = Array.from(focusableElements).indexOf(currentElement as Element);
-      
-      if (currentIndex !== -1 && currentIndex < focusableElements.length - 1) {
-        const nextElement = focusableElements[currentIndex + 1] as HTMLElement;
-        nextElement.focus();
-      }
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key !== 'Enter') return;
+    const t = e.target as HTMLElement;
+    const tag = t.tagName?.toLowerCase();
+    if (!tag || ['button', 'textarea'].includes(tag)) return; // allow buttons and textareas to handle Enter normally
+    e.preventDefault();
+    // Focus the save button
+    const submitButton = e.currentTarget.querySelector('button[type="submit"]') as HTMLButtonElement;
+    if (submitButton) {
+      submitButton.focus();
     }
   };
 
@@ -202,9 +196,9 @@ export default function HallEntryPage() {
   const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
   // Use centralized form styles
-  const fieldStyles = cn(formFieldStyles.input, "text-lg py-3 px-4 h-12");
+  const fieldStyles = cn(theme.input.base, theme.input.size.md);
   const labelStyles = cn(formFieldStyles.label, "text-base mb-2");
-  const textareaStyles = cn(formFieldStyles.textarea, "text-lg py-3 px-4 resize-none");
+  const textareaStyles = cn(theme.textarea.base, theme.textarea.size.md, "resize-none");
 
   // Print PDF in same tab using hidden iframe
   const printPDF = (pdfUrl: string) => {
@@ -527,6 +521,10 @@ export default function HallEntryPage() {
     }
   };
 
+  const clearForm = () => {
+    setForm({ ...initialState, registerNo: '' });
+  };
+
   const handleDelete = async () => {
     try {
       const idNum = Number(id);
@@ -571,10 +569,12 @@ export default function HallEntryPage() {
     <div className={pageContainerStyles.container}>
     <div className={pageContainerStyles.content}>
       <Card className={formFieldStyles.card.container}>
-        <CardHeader className={theme.card.header}>
-          <CardTitle className="text-lg font-bold text-center">
-                {isEdit ? t('Edit Hall Booking', 'மண்டப பதிவு திருத்து') : t('Hall Booking Entry', 'மண்டப பதிவு')}
-              </CardTitle>
+        <CardHeader className={theme.header.container}>
+          <div className={theme.header.contentSpacing}>
+            <CardTitle className={theme.header.main}>
+                  {isEdit ? t('Edit Hall Booking', 'மண்டப பதிவு திருத்து') : t('Hall Booking Entry', 'மண்டப பதிவு')}
+                </CardTitle>
+          </div>
               {isEdit && (
                 <div className="flex gap-2">
                   <Button
@@ -626,7 +626,7 @@ export default function HallEntryPage() {
 
             <form ref={formRef} onSubmit={onSubmit} onKeyDown={handleKeyDown} className={formFieldStyles.form.container}>
               {/* Enhanced Grid Layout - All fields same size */}
-              <div className={cn(formFieldStyles.form.grid, "gap-6")}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 
                 {/* Date */}
                 <div>
@@ -639,6 +639,7 @@ export default function HallEntryPage() {
                     className={fieldStyles}
                     placeholder={t('Date','Date') + ' *'}
                     required
+                    autoFocus
                   />
                 </div>
 
@@ -656,7 +657,7 @@ export default function HallEntryPage() {
                 </div>
 
                 {/* Name */}
-                <div className="md:col-span-2">
+                <div>
                   <Input
                     id="name"
                     name="name"
@@ -705,17 +706,14 @@ export default function HallEntryPage() {
                 </div>
 
                 {/* Hall */}
-                <div className="md:col-span-2">
-                  <Label className={labelStyles} htmlFor="hallId">
-                    {t('Select Hall','மண்டபத்தைத் தேர்வு')}
-                  </Label>
+                <div>
                   <div className={formFieldStyles.selectDropdown.container}>
                     <select
                       id="hallId"
                       name="hallId"
                       value={form.hallId ?? ''}
                       onChange={onChange}
-                      className={cn(fieldStyles, formFieldStyles.select)}
+                      className={cn(theme.select.base, theme.select.size.md)}
                     >
                       <option value="">{t('Select hall','மண்டபத்தைத் தேர்வு')}</option>
                       {halls.length > 0 ? halls.map(h => (
@@ -736,16 +734,13 @@ export default function HallEntryPage() {
 
                 {/* Event */}
                 <div>
-                  <Label className={labelStyles} htmlFor="eventId">
-                    {t('Event','நிகழ்வு')}
-                  </Label>
                   <div className={formFieldStyles.selectDropdown.container}>
                     <select
                       id="eventId"
                       name="eventId"
                       value={form.eventId ?? ''}
                       onChange={onChange}
-                      className={cn(fieldStyles, formFieldStyles.select)}
+                      className={cn(theme.select.base, theme.select.size.md)}
                     >
                       <option value="">{t('Select event','நிகழ்வு தேர்வு')}</option>
                       {hallEvents.length > 0 ? hallEvents.map(ev => (
@@ -763,26 +758,19 @@ export default function HallEntryPage() {
                 </div>
 
                 {/* Address - Full width */}
-                <div className="md:col-span-2 lg:col-span-3 xl:col-span-4">
-                  <Label className={labelStyles} htmlFor="address">
-                    {t('Address','முகவரி')}
-                  </Label>
-                  <Textarea
+                <div>
+                  <Input
                     id="address"
                     name="address"
                     value={form.address}
                     onChange={onChange}
-                    rows={3}
-                    className={textareaStyles}
+                    className={fieldStyles}
                     placeholder={t('Enter address','முகவரியை உள்ளிடவும்')}
                   />
                 </div>
 
                 {/* Total Amount */}
                 <div>
-                  <Label className={labelStyles} htmlFor="totalAmount">
-                    {t('Total Amount','மொத்த தொகை')}
-                  </Label>
                   <Input
                     id="totalAmount"
                     name="totalAmount"
@@ -798,9 +786,6 @@ export default function HallEntryPage() {
 
                 {/* Advance Amount */}
                 <div>
-                  <Label className={labelStyles} htmlFor="advanceAmount">
-                    {t('Advance Amount','முன்பணம்')}
-                  </Label>
                   <Input
                     id="advanceAmount"
                     name="advanceAmount"
@@ -816,9 +801,6 @@ export default function HallEntryPage() {
 
                 {/* Balance Amount */}
                 <div>
-                  <Label className={labelStyles} htmlFor="balanceAmount">
-                    {t('Balance Amount','இருப்பு தொகை')}
-                  </Label>
                   <Input
                     id="balanceAmount"
                     name="balanceAmount"
@@ -850,9 +832,6 @@ export default function HallEntryPage() {
                 {showCheckInOut && (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 p-4 bg-gray-50 rounded-lg border">
                     <div>
-                      <Label className={labelStyles} htmlFor="checkInDate">
-                        {t('Check-in Date','செக்-இன் தேதி')}
-                      </Label>
                       <Input
                         id="checkInDate"
                         type="date"
@@ -863,9 +842,6 @@ export default function HallEntryPage() {
                       />
                     </div>
                     <div>
-                      <Label className={labelStyles} htmlFor="checkInTime">
-                        {t('Check-in Time','செக்-இன் நேரம்')}
-                      </Label>
                       <Input
                         id="checkInTime"
                         type="time"
@@ -876,9 +852,6 @@ export default function HallEntryPage() {
                       />
                     </div>
                     <div>
-                      <Label className={labelStyles} htmlFor="checkOutDate">
-                        {t('Check-out Date','செக்-அவுட் தேதி')}
-                      </Label>
                       <Input
                         id="checkOutDate"
                         type="date"
@@ -889,9 +862,6 @@ export default function HallEntryPage() {
                       />
                     </div>
                     <div>
-                      <Label className={labelStyles} htmlFor="checkOutTime">
-                        {t('Check-out Time','செக்-அவுட் நேரம்')}
-                      </Label>
                       <Input
                         id="checkOutTime"
                         type="time"
@@ -922,9 +892,6 @@ export default function HallEntryPage() {
                 {showAdditionalCharges && (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 p-4 bg-gray-50 rounded-lg border">
                     <div>
-                      <Label className={labelStyles} htmlFor="cleaning">
-                        {t('Cleaning (₹)','துப்புரவு (₹)')}
-                      </Label>
                       <Input
                         id="cleaning"
                         name="cleaning"
@@ -938,9 +905,6 @@ export default function HallEntryPage() {
                       />
                     </div>
                     <div>
-                      <Label className={labelStyles} htmlFor="chair">
-                        {t('Chair (₹)','நாற்காலி (₹)')}
-                      </Label>
                       <Input
                         id="chair"
                         name="chair"
@@ -954,9 +918,6 @@ export default function HallEntryPage() {
                       />
                     </div>
                     <div>
-                      <Label className={labelStyles} htmlFor="eb">
-                        {t('EB (₹)','மின்சாரம் (₹)')}
-                      </Label>
                       <Input
                         id="eb"
                         name="eb"
@@ -970,9 +931,6 @@ export default function HallEntryPage() {
                       />
                     </div>
                     <div>
-                      <Label className={labelStyles} htmlFor="gas">
-                        {t('Gas (₹)','எரிவாயு (₹)')}
-                      </Label>
                       <Input
                         id="gas"
                         name="gas"
@@ -986,9 +944,6 @@ export default function HallEntryPage() {
                       />
                     </div>
                     <div>
-                      <Label className={labelStyles} htmlFor="ac">
-                        {t('AC (₹)','ஏசி (₹)')}
-                      </Label>
                       <Input
                         id="ac"
                         name="ac"
@@ -1001,7 +956,7 @@ export default function HallEntryPage() {
                         placeholder="0.00"
                       />
                     </div>
-                    <div className="md:col-span-2 lg:col-span-3 xl:col-span-5 text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
+                    <div className="col-span-full text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
                       {t(
                         'Tip: Additional charges are automatically added to the total amount. You can also manually adjust the total above.',
                         'குறிப்பு: கூடுதல் கட்டணங்கள் தானாக மொத்த தொகையில் சேர்க்கப்படும். மேலே மொத்தத்தை கைமுறையாக மாற்றலாம்.'
@@ -1013,9 +968,6 @@ export default function HallEntryPage() {
 
               {/* Remarks */}
               <div>
-                <Label className={labelStyles} htmlFor="remarks">
-                  {t('Remarks','குறிப்புகள்')}
-                </Label>
                 <Textarea
                   id="remarks"
                   name="remarks"
@@ -1037,6 +989,15 @@ export default function HallEntryPage() {
                     disabled={saving}
                   >
                     {saving ? t('Saving...','சேமிக்கிறது...') : t(isEdit?'Update':'Save', isEdit?'புதுப்பி':'சேமி')}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={clearForm}
+                    className="px-6 py-2 text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm hover:shadow-md transition-all duration-200"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Clear
                   </Button>
                 </div>
               </div>

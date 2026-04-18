@@ -61,12 +61,81 @@ export const theme = {
     readOnly: 'bg-gray-50',
     // Complete with all padding options - SINGLE LINE
     complete: 'pl-10 border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:outline-none shadow-sm focus:shadow-md transition-all duration-200',
+    // Text field sizes (height and text size only, padding handled by withIcon/withoutIcon)
+    size: {
+      sm: 'h-8 text-sm',
+      md: 'h-10 text-base',
+      lg: 'h-12 text-lg',
+    },
   },
 
   // Select Styles - EXACT from AnnadhanamEntryPage.tsx
   select: {
     base: 'w-full pl-10 pr-10 py-2 border border-orange-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:outline-none appearance-none bg-white shadow-sm focus:shadow-md transition-all duration-200',
     error: 'border-red-500',
+    // Dropdown sizes (height and text size only)
+    size: {
+      sm: 'h-8 text-sm',
+      md: 'h-10 text-base',
+      lg: 'h-12 text-lg',
+    },
+  },
+
+  // Textarea Styles
+  textarea: {
+    base: 'w-full px-4 py-2 border border-orange-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:outline-none bg-white shadow-sm focus:shadow-md transition-all duration-200',
+    error: 'border-red-500',
+    // Textarea sizes (min-height and text size)
+    size: {
+      sm: 'min-h-[80px] text-sm',
+      md: 'min-h-[120px] text-base',
+      lg: 'min-h-[160px] text-lg',
+    },
+  },
+
+  // Checkbox Styles
+  checkbox: {
+    base: 'h-5 w-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500',
+    // Checkbox sizes
+    size: {
+      sm: 'h-4 w-4',
+      md: 'h-5 w-5',
+      lg: 'h-6 w-6',
+    },
+  },
+
+  // Calendar Styles
+  calendar: {
+    base: 'border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:outline-none',
+    // Calendar sizes (height and text size)
+    size: {
+      sm: 'h-8 text-sm',
+      md: 'h-10 text-base',
+      lg: 'h-12 text-lg',
+    },
+  },
+
+  // Switch Styles
+  switch: {
+    base: 'peer-focus:ring-2 peer-focus:ring-orange-500 peer-focus:ring-offset-2',
+    // Switch sizes
+    size: {
+      sm: 'h-5 w-9',
+      md: 'h-6 w-11',
+      lg: 'h-7 w-13',
+    },
+  },
+
+  // Tabs Styles
+  tabs: {
+    base: 'border-b border-gray-200',
+    trigger: 'px-4 py-2 text-sm font-medium text-gray-600 hover:text-orange-600 data-[state=active]:text-orange-600 data-[state=active]:border-b-2 data-[state=active]:border-orange-600',
+    // Tabs sizes (padding and text size)
+    size: {
+      sm: 'px-3 py-1.5 text-xs',
+      md: 'px-4 py-2 text-sm',
+      lg: 'px-6 py-3 text-base',
+    },
   },
 
   // Button Styles - EXACT from AnnadhanamEntryPage.tsx
@@ -74,12 +143,24 @@ export const theme = {
     primary: 'px-8 py-2 bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-600 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 font-medium',
     secondary: 'px-4 py-2 border border-orange-300 text-orange-700 hover:bg-orange-50 transition-all duration-200',
     danger: 'px-4 py-2 bg-red-600 text-white hover:bg-red-700 transition-all duration-200',
+    // Filter button
+    filter: 'px-4 py-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 shadow-sm hover:shadow-md font-medium',
+    filterActive: 'px-4 py-2 bg-orange-500 border border-orange-600 text-white hover:bg-orange-600 transition-all duration-200 shadow-sm hover:shadow-md font-medium',
+    // PDF export button
+    pdf: 'px-4 py-2 bg-red-500 border border-red-600 text-white hover:bg-red-600 transition-all duration-200 shadow-sm hover:shadow-md font-medium flex items-center gap-2',
+    // CSV export button
+    csv: 'px-4 py-2 bg-green-500 border border-green-600 text-white hover:bg-green-600 transition-all duration-200 shadow-sm hover:shadow-md font-medium flex items-center gap-2',
+    // Action buttons for tables
+    action: 'px-3 py-1.5 text-xs font-medium rounded-md transition-colors duration-150',
+    actionPrimary: 'bg-orange-500 text-white hover:bg-orange-600',
+    actionSecondary: 'bg-gray-200 text-gray-700 hover:bg-gray-300',
+    actionDanger: 'bg-red-500 text-white hover:bg-red-600',
   },
 
   // Card Styles
   card: {
     container: 'shadow-lg border-0 bg-white rounded-lg',
-    header: 'bg-gradient-to-r from-orange-500 to-orange-600 text-white py-6 px-6 rounded-t-lg',
+    header: 'bg-gradient-to-r from-orange-500 to-orange-600 text-white py-2 px-6 rounded-t-lg',
     content: 'p-6',
   },
 
@@ -88,6 +169,21 @@ export const theme = {
     size: 'w-4 h-4',
     position: 'absolute left-3 top-1/2 transform -translate-y-1/2',
     color: 'text-gray-400',
+  },
+
+  // Header Styles - EXACT from AnnadhanamEntryPage.tsx
+  header: {
+    // Complete header styling from CardHeader
+    container: 'bg-gradient-to-r from-orange-500 to-orange-600 text-white py-2 px-6 rounded-t-lg',
+    // Text sizes
+    main: 'text-xl font-bold',
+    secondary: 'text-lg font-bold',
+    // Icon size
+    icon: 'w-5 h-5',
+    // Spacing for header content
+    contentSpacing: 'flex items-center justify-between',
+    // Badge styling
+    badge: 'flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full',
   },
 
   // Layout
@@ -168,6 +264,92 @@ export const theme = {
     },
   },
 
+  // Table Styles
+  table: {
+    // Table container
+    container: 'w-full border-collapse',
+    wrapper: 'overflow-x-auto rounded-lg shadow-sm',
+    
+    // Table container with horizontal scroll support
+    scrollContainer: 'w-full overflow-x-auto',
+    scrollContainerWrapper: 'w-full border border-gray-200 rounded-lg shadow-sm',
+    tableContainer: 'px-6 pt-6',
+    
+    // Outer container size for responsive tables
+    outerContainer: 'w-full',
+    outerContainerSmall: 'w-full max-w-2xl',
+    outerContainerMedium: 'w-full max-w-4xl',
+    outerContainerLarge: 'w-full max-w-6xl',
+    outerContainerFull: 'w-full max-w-full',
+    
+    // Table header
+    header: 'bg-gradient-to-r from-orange-100 to-orange-200 text-gray-800',
+    headerCell: 'px-4 py-0 text-left text-xs font-semibold uppercase tracking-wider leading-none h-8',
+    headerCellSno: 'px-3 py-0 text-center text-xs font-semibold uppercase tracking-wider w-16 leading-none h-8',
+    
+    // Table rows
+    row: 'border-b border-gray-200 hover:bg-orange-50 transition-colors duration-150 h-8',
+    rowEven: 'bg-gray-50 h-8',
+    rowOdd: 'bg-white h-8',
+    rowHover: 'hover:bg-orange-50',
+    
+    // Table cells
+    cell: 'px-4 py-0 text-xs text-gray-700 leading-none align-middle h-8',
+    cellHeader: 'px-4 py-0 text-left text-xs font-semibold text-gray-700 bg-gray-100 border-b border-gray-300 leading-none align-middle h-8',
+    cellSno: 'px-3 py-0 text-center text-xs text-gray-700 w-16 leading-none align-middle h-8',
+    
+    // Table borders
+    border: 'border border-gray-200',
+    borderOuter: 'border border-gray-300 rounded-lg',
+    
+    // Table sizes
+    size: {
+      sm: {
+        cell: 'px-3 py-2 text-xs',
+        headerCell: 'px-3 py-2 text-xs',
+      },
+      md: {
+        cell: 'px-4 py-3 text-sm',
+        headerCell: 'px-4 py-3 text-sm',
+      },
+      lg: {
+        cell: 'px-6 py-4 text-base',
+        headerCell: 'px-6 py-4 text-base',
+      },
+    },
+    
+    // Table variants
+    variant: {
+      default: 'border border-gray-200',
+      striped: 'border border-gray-200',
+      bordered: 'border border-gray-300',
+      hover: 'border border-gray-200',
+    },
+    
+    // Action buttons in table
+    actionCell: 'px-4 py-3 text-right',
+    actionButton: 'px-3 py-1.5 text-xs font-medium rounded-md transition-colors duration-150',
+    actionButtonPrimary: 'bg-orange-500 text-white hover:bg-orange-600',
+    actionButtonSecondary: 'bg-gray-200 text-gray-700 hover:bg-gray-300',
+    actionButtonDanger: 'bg-red-500 text-white hover:bg-red-600',
+    
+    // Status badges
+    statusBadge: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
+    statusSuccess: 'bg-green-100 text-green-800',
+    statusWarning: 'bg-yellow-100 text-yellow-800',
+    statusError: 'bg-red-100 text-red-800',
+    statusInfo: 'bg-blue-100 text-blue-800',
+    
+    // Empty state
+    emptyState: 'px-4 py-8 text-center text-gray-500',
+    emptyIcon: 'w-12 h-12 mx-auto mb-2 text-gray-400',
+    
+    // Pagination
+    pagination: 'flex items-center justify-between px-4 py-3 border-t border-gray-200',
+    paginationButton: 'px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500',
+    paginationButtonActive: 'px-3 py-1 text-sm bg-orange-500 text-white border border-orange-500 rounded-md',
+  },
+
   // Spacing
   spacing: {
     fieldGap: 'gap-6',
@@ -197,6 +379,14 @@ export const buttonClasses = {
   primary: cn(theme.button.primary),
   secondary: cn(theme.button.secondary),
   danger: cn(theme.button.danger),
+  filter: cn(theme.button.filter),
+  filterActive: cn(theme.button.filterActive),
+  pdf: cn(theme.button.pdf),
+  csv: cn(theme.button.csv),
+  action: cn(theme.button.action),
+  actionPrimary: cn(theme.button.action, theme.button.actionPrimary),
+  actionSecondary: cn(theme.button.action, theme.button.actionSecondary),
+  actionDanger: cn(theme.button.action, theme.button.actionDanger),
 };
 
 export const cardClasses = {
@@ -215,6 +405,45 @@ export const sidebarClasses = {
   sectionDivider: cn(theme.sidebar.section.divider),
   footer: cn(theme.sidebar.footer.container),
   toggleButton: cn(theme.sidebar.toggle.button),
+};
+
+export const tableClasses = {
+  container: cn(theme.table.container),
+  wrapper: cn(theme.table.wrapper),
+  scrollContainer: cn(theme.table.scrollContainer),
+  scrollContainerWrapper: cn(theme.table.scrollContainerWrapper),
+  outerContainer: cn(theme.table.outerContainer),
+  outerContainerSmall: cn(theme.table.outerContainerSmall),
+  outerContainerMedium: cn(theme.table.outerContainerMedium),
+  outerContainerLarge: cn(theme.table.outerContainerLarge),
+  outerContainerFull: cn(theme.table.outerContainerFull),
+  header: cn(theme.table.header),
+  headerCell: cn(theme.table.headerCell),
+  headerCellSno: cn(theme.table.headerCellSno),
+  row: cn(theme.table.row),
+  rowEven: cn(theme.table.rowEven),
+  rowOdd: cn(theme.table.rowOdd),
+  rowHover: cn(theme.table.rowHover),
+  cell: cn(theme.table.cell),
+  cellHeader: cn(theme.table.cellHeader),
+  cellSno: cn(theme.table.cellSno),
+  border: cn(theme.table.border),
+  borderOuter: cn(theme.table.borderOuter),
+  actionCell: cn(theme.table.actionCell),
+  actionButton: cn(theme.table.actionButton),
+  actionButtonPrimary: cn(theme.table.actionButton, theme.table.actionButtonPrimary),
+  actionButtonSecondary: cn(theme.table.actionButton, theme.table.actionButtonSecondary),
+  actionButtonDanger: cn(theme.table.actionButton, theme.table.actionButtonDanger),
+  statusBadge: cn(theme.table.statusBadge),
+  statusSuccess: cn(theme.table.statusBadge, theme.table.statusSuccess),
+  statusWarning: cn(theme.table.statusBadge, theme.table.statusWarning),
+  statusError: cn(theme.table.statusBadge, theme.table.statusError),
+  statusInfo: cn(theme.table.statusBadge, theme.table.statusInfo),
+  emptyState: cn(theme.table.emptyState),
+  emptyIcon: cn(theme.table.emptyIcon),
+  pagination: cn(theme.table.pagination),
+  paginationButton: cn(theme.table.paginationButton),
+  paginationButtonActive: cn(theme.table.paginationButtonActive),
 };
 
 export default theme;

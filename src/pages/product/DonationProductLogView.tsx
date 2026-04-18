@@ -16,6 +16,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/styles/formStyles";
 import { formFieldStyles } from "@/styles/formStyles";
+import { theme } from "@/styles/theme";
 
 interface DonationProductLogViewProps {
   recentOnly?: boolean;
@@ -176,8 +177,8 @@ export default function DonationProductLogView({ recentOnly = false }: DonationP
   return (
     <div className="container mx-auto py-6 px-4">
       <Card>
-        <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center">
-          <CardTitle className="text-lg font-bold">
+        <CardHeader className={theme.card.header}>
+          <CardTitle className={cn(theme.header.main, "text-center")}>
             {t('All Donation Product Logs', 'அனைத்து பொருள் நன்கொடை பதிவுகள்')}
           </CardTitle>
         </CardHeader>

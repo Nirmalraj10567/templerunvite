@@ -7,9 +7,11 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
+import { Search } from 'lucide-react';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
-import { theme } from '@/styles/theme';
-import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { theme, tableClasses, buttonClasses } from '@/styles/theme';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 
 interface HallRequest {
   id: number;
@@ -271,94 +273,129 @@ export default function HallApprovalPage() {
 
   return (
     <Card className={pageContainerStyles.container}>
-      
-     
-        <CardHeader className={theme.card.header}>
-          <CardTitle className="text-lg font-bold w-full">
+
+      <CardHeader className={theme.header.container}>
+        <div className={theme.header.contentSpacing}>
+          <CardTitle className={theme.header.main}>
           {t('Hall Booking Approvals', 'மண்டப முன்பதிவு அனுமதிகள்')}
           </CardTitle>
-        </CardHeader>
-
-
-      <div className="flex flex-col md:flex-row gap-3 mb-4">
-        <select className={cn(theme.input.base, "p-2 rounded")} value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="pending">{t('Pending', 'நிலுவையில்')}</option>
-          <option value="approved">{t('Approved', 'அனுமதிக்கப்பட்டது')}</option>
-          <option value="rejected">{t('Rejected', 'நிராகரிக்கப்பட்டது')}</option>
-          <option value="cancelled">{t('Cancelled', 'ரத்துசெய்யப்பட்டது')}</option>
-        </select>
-        <input
-          className={cn(theme.input.base, "p-2 rounded")}
-          placeholder={t('Search by mobile', 'மொபைல் மூலம் தேடுக')}
-          value={mobile}
-          onChange={(e) => setMobile(e.target.value)}
-        />
-        <button className={cn(theme.input.base, "px-4 py-2 rounded")} onClick={load}>{t('Filter', 'வடிகட்டி')}</button>
-        <button className="border px-4 py-2 rounded bg-blue-50 text-blue-700 hover:bg-blue-100" onClick={openAllLogs}>
-          {t('All Logs', 'அனைத்து பதிவுகள்')}
-        </button>
-      </div>
+        </div>
+      </CardHeader>
 
       {error && <div className="text-red-700 mb-3 text-sm">{error}</div>}
       {loading ? (
-        <div>{t('Loading...', 'ஏற்றுகிறது...')}</div>
+        <div className={tableClasses.emptyState}>{t('Loading...', 'ஏற்றுகிறது...')}</div>
       ) : (
-        <div className="overflow-auto">
-          <table className="min-w-full text-sm border">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="text-left p-2 border">{t('Date', 'தேதி')}</th>
-                <th className="text-left p-2 border">{t('Time', 'நேரம்')}</th>
-                <th className="text-left p-2 border">{t('Name', 'பெயர்')}</th>
-                <th className="text-left p-2 border">{t('Mobile', 'தொலைபேசி')}</th>
-                <th className="text-left p-2 border">{t('Event', 'நிகழ்வு')}</th>
-                <th className="text-left p-2 border">{t('Status', 'நிலை')}</th>
-                <th className="text-left p-2 border">{t('Actions', 'செயல்கள்')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((it) => (
-                <tr key={it.id} className="border-b">
-                  <td className="p-2 border">{it.date}</td>
-                  <td className="p-2 border">{it.time}</td>
-                  <td className="p-2 border">{it.name}</td>
-                  <td className="p-2 border">{it.mobile}</td>
-                  <td className="p-2 border">{it.event || '-'}</td>
-                  <td className="p-2 border capitalize">{it.status}</td>
-                  <td className="p-2 border">
-                    <div className="flex flex-wrap gap-2">
-                      <Button className="px-3 py-1" variant="outline" onClick={() => onEdit(it.id)}>
-                        {t('Edit', 'திருத்து')}
-                      </Button>
-                      <Button className="px-3 py-1" variant="outline" onClick={() => openLogs(it.id)}>
-                        {t('Logs', 'பதிவுகள்')}
-                      </Button>
-                      {it.status === 'pending' ? (
-                        <>
-                          <Button className="bg-green-600 text-white px-3 py-1" onClick={() => onApprove(it.id)}>
-                            {t('Approve', 'அனுமதி')}
-                          </Button>
-                          <Button className="bg-red-600 text-white px-3 py-1" onClick={() => onReject(it.id)}>
-                            {t('Reject', 'நிராகரி')}
-                          </Button>
-                        </>
-                      ) : (
-                        <span className="text-gray-500">{t('No actions', 'செயல் இல்லை')}</span>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {items.length === 0 && (
-                <tr>
-                  <td className="p-3 text-center text-gray-500" colSpan={7}>
-                    {t('No records', 'பதிவுகள் இல்லை')}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <Card>
+          <CardContent className="pt-6">
+            {/* Search + Export Toolbar */}
+            <div className={formFieldStyles.moneyDonationList.filters.container}>
+              <div className={formFieldStyles.moneyDonationList.filters.form}>
+                <div className={formFieldStyles.moneyDonationList.filters.searchContainer}>
+                  <div className={formFieldStyles.moneyDonationList.filters.searchIcon}>
+                    <Search className={formFieldStyles.moneyDonationList.filters.searchIconSvg} />
+                  </div>
+                  <Input
+                    type="search"
+                    placeholder={t('Search by mobile...', 'மொபைல் மூலம் தேடவும்...')}
+                    className={cn(theme.input.base, theme.input.size.sm, "pl-8")}
+                    value={mobile}
+                    onChange={(e) => setMobile(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && load()}
+                  />
+                </div>
+                <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>
+                  <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => { setMobile(''); load(); }}>
+                    {t('Clear', 'அழி')}
+                  </Button>
+                  <Button size="sm" className="h-8 text-xs" variant="outline" onClick={openAllLogs}>
+                    {t('All Logs', 'அனைத்து பதிவுகள்')}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className={tableClasses.scrollContainerWrapper}>
+              <div className={tableClasses.scrollContainer}>
+                <Table className={tableClasses.container}>
+                  <TableHeader className={tableClasses.header}>
+                    <TableRow className={tableClasses.row}>
+                      <TableHead className={tableClasses.headerCell}>{t('Date', 'தேதி')}</TableHead>
+                      <TableHead className={tableClasses.headerCell}>{t('Time', 'நேரம்')}</TableHead>
+                      <TableHead className={tableClasses.headerCell}>{t('Name', 'பெயர்')}</TableHead>
+                      <TableHead className={tableClasses.headerCell}>{t('Mobile', 'தொலைபேசி')}</TableHead>
+                      <TableHead className={tableClasses.headerCell}>{t('Event', 'நிகழ்வு')}</TableHead>
+                      <TableHead className={tableClasses.headerCell}>{t('Status', 'நிலை')}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, 'text-right')}>{t('Actions', 'செயல்கள்')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((it) => (
+                      <TableRow key={it.id} className={tableClasses.row}>
+                        <TableCell className={tableClasses.cell}>{it.date}</TableCell>
+                        <TableCell className={tableClasses.cell}>{it.time}</TableCell>
+                        <TableCell className={tableClasses.cell}>{it.name}</TableCell>
+                        <TableCell className={tableClasses.cell}>{it.mobile}</TableCell>
+                        <TableCell className={tableClasses.cell}>{it.event || '-'}</TableCell>
+                        <TableCell className={cn(tableClasses.cell, 'capitalize')}>{it.status}</TableCell>
+                        <TableCell className={cn(tableClasses.cell, tableClasses.actionCell, 'py-1')}>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onEdit(it.id)}
+                              className={cn(buttonClasses.actionSecondary, 'h-6 px-2 text-xs')}
+                            >
+                              {t('Edit', 'திருத்து')}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openLogs(it.id)}
+                              className={cn(buttonClasses.actionSecondary, 'h-6 px-2 text-xs')}
+                            >
+                              {t('Logs', 'பதிவுகள்')}
+                            </Button>
+                            {it.status === 'pending' ? (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => onApprove(it.id)}
+                                  className={cn(buttonClasses.actionPrimary, 'h-6 px-2 text-xs')}
+                                >
+                                  {t('Approve', 'அனுமதி')}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => onReject(it.id)}
+                                  className={cn(buttonClasses.actionDanger, 'h-6 px-2 text-xs')}
+                                >
+                                  {t('Reject', 'நிராகரி')}
+                                </Button>
+                              </>
+                            ) : (
+                              <span className="text-gray-500 text-xs">{t('No actions', 'செயல் இல்லை')}</span>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {items.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className={tableClasses.emptyState}>
+                          {t('No records', 'பதிவுகள் இல்லை')}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
       {/* Approve Dialog */}
       <Dialog open={approveOpen} onOpenChange={setApproveOpen}>
@@ -368,7 +405,7 @@ export default function HallApprovalPage() {
           </DialogHeader>
           <div className="space-y-2">
             <label className="text-sm">{t('Approval notes (optional)', 'அனுமதி குறிப்புகள் (விருப்பத்தேர்வு)')}</label>
-            <Textarea value={approveNotes} onChange={(e) => setApproveNotes(e.target.value)} placeholder={t('Enter notes', 'குறிப்புகளை உள்ளிடவும்')} />
+            <Textarea value={approveNotes} onChange={(e) => setApproveNotes(e.target.value)} className={cn(theme.textarea.base, theme.textarea.size.md)} placeholder={t('Enter notes', 'குறிப்புகளை உள்ளிடவும்')} />
           </div>
           <DialogFooter>
             <Button variant="secondary" onClick={() => setApproveOpen(false)}>{t('Cancel', 'ரத்து')}</Button>
@@ -385,9 +422,9 @@ export default function HallApprovalPage() {
           </DialogHeader>
           <div className="space-y-2">
             <label className="text-sm">{t('Rejection reason', 'நிராகரிப்பிற்கான காரணம்')}</label>
-            <Input value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder={t('Enter reason', 'காரணத்தை உள்ளிடவும்')} />
+            <Input value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} className={cn(theme.input.base, theme.input.size.md)} placeholder={t('Enter reason', 'காரணத்தை உள்ளிடவும்')} />
             <label className="text-sm">{t('Admin notes (optional)', 'நிர்வாக குறிப்புகள் (விருப்பத்தேர்வு)')}</label>
-            <Textarea value={rejectNotes} onChange={(e) => setRejectNotes(e.target.value)} placeholder={t('Enter notes', 'குறிப்புகளை உள்ளிடவும்')} />
+            <Textarea value={rejectNotes} onChange={(e) => setRejectNotes(e.target.value)} className={cn(theme.textarea.base, theme.textarea.size.md)} placeholder={t('Enter notes', 'குறிப்புகளை உள்ளிடவும்')} />
           </div>
           <DialogFooter>
             <Button variant="secondary" onClick={() => setRejectOpen(false)}>{t('Cancel', 'ரத்து')}</Button>
@@ -405,47 +442,47 @@ export default function HallApprovalPage() {
           <div className="grid grid-cols-2 gap-2 text-sm">
             <label className="col-span-1">
               <div className="text-xs mb-1">{t('Date','தேதி')}</div>
-              <Input type="date" name="date" value={editForm.date || ''} onChange={onChangeEdit} />
+              <Input type="date" name="date" value={editForm.date || ''} onChange={onChangeEdit} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-1">
               <div className="text-xs mb-1">{t('Time','நேரம்')}</div>
-              <Input type="time" name="time" value={editForm.time || ''} onChange={onChangeEdit} />
+              <Input type="time" name="time" value={editForm.time || ''} onChange={onChangeEdit} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-1">
               <div className="text-xs mb-1">{t('Name','பெயர்')}</div>
-              <Input name="name" value={editForm.name || ''} onChange={onChangeEdit} />
+              <Input name="name" value={editForm.name || ''} onChange={onChangeEdit} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-1">
               <div className="text-xs mb-1">{t('Mobile','தொலைபேசி')}</div>
-              <Input name="mobile" value={editForm.mobile || ''} onChange={onChangeEdit} maxLength={10} />
+              <Input name="mobile" value={editForm.mobile || ''} onChange={onChangeEdit} maxLength={10} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-2">
               <div className="text-xs mb-1">{t('Event','நிகழ்வு')}</div>
-              <Input name="event" value={editForm.event || ''} onChange={onChangeEdit} />
+              <Input name="event" value={editForm.event || ''} onChange={onChangeEdit} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-2">
               <div className="text-xs mb-1">{t('Address','முகவரி')}</div>
-              <Textarea name="address" value={editForm.address || ''} onChange={onChangeEdit} rows={2} />
+              <Textarea name="address" value={editForm.address || ''} onChange={onChangeEdit} className={cn(theme.textarea.base, theme.textarea.size.md)} rows={2} />
             </label>
             <label className="col-span-2">
               <div className="text-xs mb-1">{t('Village','கிராமம்')}</div>
-              <Input name="village" value={editForm.village || ''} onChange={onChangeEdit} />
+              <Input name="village" value={editForm.village || ''} onChange={onChangeEdit} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-1">
               <div className="text-xs mb-1">{t('Total Amount (₹)','மொத்தம் (₹)')}</div>
-              <Input type="number" step="0.01" min="0" name="totalAmount" value={editForm.totalAmount || ''} onChange={onChangeEdit} />
+              <Input type="number" step="0.01" min="0" name="totalAmount" value={editForm.totalAmount || ''} onChange={onChangeEdit} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-1">
               <div className="text-xs mb-1">{t('Advance (₹)','முன்பணம் (₹)')}</div>
-              <Input type="number" step="0.01" min="0" name="advanceAmount" value={editForm.advanceAmount || ''} onChange={onChangeEdit} />
+              <Input type="number" step="0.01" min="0" name="advanceAmount" value={editForm.advanceAmount || ''} onChange={onChangeEdit} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-1">
               <div className="text-xs mb-1">{t('Balance (₹)','இருப்பு (₹)')}</div>
-              <Input readOnly name="balanceAmount" value={editForm.balanceAmount || ''} />
+              <Input readOnly name="balanceAmount" value={editForm.balanceAmount || ''} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-2">
               <div className="text-xs mb-1">{t('Remarks','குறிப்புகள்')}</div>
-              <Textarea name="remarks" value={editForm.remarks || ''} onChange={onChangeEdit} rows={2} />
+              <Textarea name="remarks" value={editForm.remarks || ''} onChange={onChangeEdit} className={cn(theme.textarea.base, theme.textarea.size.md)} rows={2} />
             </label>
           </div>
           <DialogFooter>

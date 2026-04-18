@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import jsPDF from 'jspdf';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
-import { theme } from '@/styles/theme';
+import { theme, tableClasses, buttonClasses } from '@/styles/theme';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -634,18 +634,18 @@ export default function DonationProductList() {
         </div>
 
         {/* Main Table */}
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden" onContextMenu={onContextMenu}>
-          <div className="overflow-x-auto">
-            <Table className="min-w-full divide-y divide-gray-200">
-              <TableHeader className="bg-gray-50">
-                <TableRow>
+        <div className={tableClasses.scrollContainerWrapper} onContextMenu={onContextMenu}>
+          <div className={tableClasses.scrollContainer}>
+            <Table className={tableClasses.container}>
+              <TableHeader className={tableClasses.header}>
+                <TableRow className={tableClasses.row}>
                   {allColumns.map(
                     (col) =>
                       visibleCols[col.key] && (
                         <TableHead
                           key={col.key}
                           className={cn(
-                            "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider",
+                            tableClasses.headerCell,
                             col.align === 'right' && "text-right",
                             col.align === 'center' && "text-center"
                           )}
@@ -656,12 +656,12 @@ export default function DonationProductList() {
                   )}
                 </TableRow>
               </TableHeader>
-              <TableBody className="bg-white divide-y divide-gray-200">
+              <TableBody>
                 {loading ? (
                   <TableRow>
                     <TableCell
                       colSpan={visibleColCount}
-                      className="px-6 py-4 text-center text-sm text-gray-500"
+                      className={tableClasses.emptyState}
                     >
                       <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
                     </TableCell>
@@ -670,93 +670,96 @@ export default function DonationProductList() {
                   <TableRow>
                     <TableCell
                       colSpan={visibleColCount}
-                      className="px-6 py-4 text-center text-sm text-gray-500"
+                      className={tableClasses.emptyState}
                     >
                       {t('No data found', 'தரவு கிடைக்கவில்லை')}
                     </TableCell>
                   </TableRow>
                 ) : (
                   items.map((item, idx) => (
-                    <TableRow key={item.id} className="hover:bg-gray-50">
+                    <TableRow key={item.id} className={tableClasses.row}>
                       {visibleCols['#'] && (
-                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <TableCell className={cn(tableClasses.cell, 'font-medium')}>
                           {idx + 1}
                         </TableCell>
                       )}
                       {visibleCols.receipt && (
-                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <TableCell className={tableClasses.cell}>
                           {item.register_no || '-'}
                         </TableCell>
                       )}
                       {visibleCols.contact && (
-                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <TableCell className={tableClasses.cell}>
                           {item.donor_contact || '-'}
                         </TableCell>
                       )}
                       {visibleCols.date && (
-                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <TableCell className={tableClasses.cell}>
                           {(item.donation_date || '').slice(0,10) || '-'}
                         </TableCell>
                       )}
                       {visibleCols.donor && (
-                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <TableCell className={tableClasses.cell}>
                           {item.donor_name || '-'}
                         </TableCell>
                       )}
                       {visibleCols.category && (
-                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <TableCell className={tableClasses.cell}>
                           {item.category || '-'}
                         </TableCell>
                       )}
                       {visibleCols.product && (
-                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <TableCell className={tableClasses.cell}>
                           {item.product_name || '-'}
                         </TableCell>
                       )}
                       {visibleCols.qty && (
-                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                        <TableCell className={cn(tableClasses.cell, 'text-right')}>
                           {toNum(item.quantity).toLocaleString()}
                         </TableCell>
                       )}
                       {visibleCols.description && (
-                        <TableCell className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
+                        <TableCell className={cn(tableClasses.cell, 'max-w-xs truncate')}>
                           {item.description || '-'}
                         </TableCell>
                       )}
                       {visibleCols.print && (
-                        <TableCell className="px-6 py-4 whitespace-nowrap text-center">
+                        <TableCell className={cn(tableClasses.cell, 'text-center')}>
                           <PrintButton onClick={() => onPrint(item)} />
                         </TableCell>
                       )}
                       {visibleCols.actions && (
-                        <TableCell className="px-6 py-4 whitespace-nowrap text-center">
-                          <div className="flex justify-center items-center gap-2">
-                            <button
-                              type="button"
+                        <TableCell className={cn(tableClasses.cell, tableClasses.actionCell)}>
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => openEdit(item)}
-                              className="text-blue-600 hover:text-blue-800 text-xs"
+                              className={tableClasses.actionButtonPrimary}
                             >
                               {t('Edit', 'திருத்த')}
-                            </button>
-                            <button
-                              type="button"
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => openLogs(item)}
-                              className="text-green-600 hover:text-green-800 text-xs"
+                              className={tableClasses.actionButtonSecondary}
                             >
                               {t('Logs', 'பதிவுகள்')}
-                            </button>
+                            </Button>
                             {(() => {
                               const canDelete = isLastReceipt(item);
                               return (
-                                <button
-                                  type="button"
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
                                   onClick={() => openDelete(item)}
-                                  className={`p-1 rounded-md ${canDelete ? 'text-red-600 hover:bg-red-50' : 'text-gray-400 cursor-not-allowed'}`}
+                                  className={canDelete ? tableClasses.actionButtonDanger : 'opacity-50 cursor-not-allowed'}
                                   title={canDelete ? undefined : t('Only the latest receipt can be deleted', 'சமீபத்திய ரசீது மட்டுமே நீக்க இயலும்')}
                                   disabled={!canDelete}
                                 >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
                               );
                             })()}
                           </div>
@@ -770,14 +773,14 @@ export default function DonationProductList() {
           </div>
 
           {/* Footer with pagination and totals */}
-          <div className="px-6 py-3 flex items-center justify-between border-t border-gray-200 bg-gray-50">
-            <div className="text-sm text-gray-700">
-              {t('Showing', 'காட்டப்படுகிறது')}{' '}
-              <span className="font-medium">1</span> {t('to', 'இலிருந்து')}{' '}
-              <span className="font-medium">{items.length}</span> {t('of', 'மொத்தம்')}{' '}
-              <span className="font-medium">{items.length}</span> {t('results', 'முடிவுகள்')}
-            </div>
-            <div className="flex gap-4 text-sm text-gray-700">
+          <div className={tableClasses.pagination}>
+            <div className="text-xs text-gray-700 flex flex-wrap gap-4">
+              <span>
+                {t('Showing', 'காட்டப்படுகிறது')}{' '}
+                <span className="font-medium">1</span> {t('to', 'இலிருந்து')}{' '}
+                <span className="font-medium">{items.length}</span> {t('of', 'மொத்தம்')}{' '}
+                <span className="font-medium">{items.length}</span> {t('results', 'முடிவுகள்')}
+              </span>
               <span>
                 {t('Total Qty', 'மொத்த அளவு')}: <span className="font-medium">{totals.qty.toLocaleString()}</span>
               </span>
@@ -846,7 +849,7 @@ export default function DonationProductList() {
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('Product','பொருள்')}</label>
                 <input
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={cn(theme.input.base, theme.input.size.md, "w-full")}
                   value={editForm.product}
                   onChange={(e)=>setEditForm(prev=>({...prev, product: e.target.value}))}
                 />
@@ -854,7 +857,7 @@ export default function DonationProductList() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('Quantity','அளவு')}</label>
                 <input
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={cn(theme.input.base, theme.input.size.md)}
                   value={editForm.quantity}
                   onChange={(e)=>{
                     const v = e.target.value;
@@ -868,7 +871,7 @@ export default function DonationProductList() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('Date','தேதி')}</label>
                 <input
                   type="date"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={cn(theme.input.base, theme.input.size.md, "w-full")}
                   value={editForm.donationDate}
                   onChange={(e)=>setEditForm(prev=>({...prev, donationDate: e.target.value}))}
                 />
@@ -876,7 +879,7 @@ export default function DonationProductList() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('Category','வகை')}</label>
                 <input
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={cn(theme.input.base, theme.input.size.md, "w-full")}
                   value={editForm.category}
                   onChange={(e)=>setEditForm(prev=>({...prev, category: e.target.value}))}
                 />
@@ -884,7 +887,7 @@ export default function DonationProductList() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('Status','நிலை')}</label>
                 <select
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={cn(theme.select.base, theme.select.size.md, "w-full")}
                   value={editForm.status}
                   onChange={(e)=>setEditForm(prev=>({...prev, status: e.target.value}))}
                 >
@@ -896,7 +899,7 @@ export default function DonationProductList() {
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('Donor','நன்கொடையாளர்')}</label>
                 <input
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={cn(theme.input.base, theme.input.size.md, "w-full")}
                   value={editForm.donorName}
                   onChange={(e)=>setEditForm(prev=>({...prev, donorName: e.target.value}))}
                 />
@@ -904,7 +907,7 @@ export default function DonationProductList() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('Contact','தொடர்பு')}</label>
                 <input
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={cn(theme.input.base, theme.input.size.md, "w-full")}
                   value={editForm.donorContact}
                   onChange={(e)=>setEditForm(prev=>({...prev, donorContact: e.target.value}))}
                 />
@@ -912,7 +915,7 @@ export default function DonationProductList() {
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('Description','விளக்கம்')}</label>
                 <textarea
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={cn(theme.textarea.base, theme.textarea.size.md, "w-full")}
                   rows={3}
                   value={editForm.description}
                   onChange={(e)=>setEditForm(prev=>({...prev, description: e.target.value}))}
@@ -921,7 +924,7 @@ export default function DonationProductList() {
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('Notes','குறிப்புகள்')}</label>
                 <textarea
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={cn(theme.textarea.base, theme.textarea.size.md, "w-full")}
                   rows={3}
                   value={editForm.notes}
                   onChange={(e)=>setEditForm(prev=>({...prev, notes: e.target.value}))}

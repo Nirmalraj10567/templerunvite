@@ -190,10 +190,12 @@ const MyPreferences: React.FC = () => {
           <div className="text-center">
 
 
-            <CardHeader className={theme.card.header}>
-            <CardTitle className="text-lg font-bold w-full">
-            {t[language].title}
-            </CardTitle>
+            <CardHeader className={theme.header.container}>
+              <div className={theme.header.contentSpacing}>
+                <CardTitle className={theme.header.main}>
+                {t[language].title}
+                </CardTitle>
+              </div>
             </CardHeader> 
           
           </div>
@@ -384,7 +386,7 @@ const MyPreferences: React.FC = () => {
                         onFocus={() => setCapturingFor(action.to)}
                         onBlur={() => setCapturingFor((prev) => (prev === action.to ? null : prev))}
                         onKeyDown={onShortcutKeyDown(action.to)}
-                        className="w-48 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className={cn(theme.input.base, theme.input.size.md, "w-48")}
                       />
                       {!!shortcutMap[action.to] && (
                         <button

@@ -10,10 +10,11 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
+import { X } from 'lucide-react';
 import { ledgerService } from '@/services/ledgerService';
 import { journalService } from '@/services/journalService';
 import { cn } from "@/lib/utils";
-import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
+import { formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
 import { theme } from '@/styles/theme';
 
 interface ReceiptFormData {
@@ -30,23 +31,16 @@ interface ReceiptFormData {
 const useEnterKeyNavigation = () => {
   const formRef = useRef<HTMLFormElement>(null);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      
-      if (!formRef.current) return;
-      
-      const focusableElements = formRef.current.querySelectorAll(
-        'input:not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled]):not([readonly]), button:not([disabled])'
-      );
-      
-      const currentElement = document.activeElement;
-      const currentIndex = Array.from(focusableElements).indexOf(currentElement as Element);
-      
-      if (currentIndex !== -1 && currentIndex < focusableElements.length - 1) {
-        const nextElement = focusableElements[currentIndex + 1] as HTMLElement;
-        nextElement.focus();
-      }
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key !== 'Enter') return;
+    const t = e.target as HTMLElement;
+    const tag = t.tagName?.toLowerCase();
+    if (!tag || ['button', 'textarea'].includes(tag)) return; // allow buttons and textareas to handle Enter normally
+    e.preventDefault();
+    // Focus the save button
+    const submitButton = e.currentTarget.querySelector('button[type="submit"]') as HTMLButtonElement;
+    if (submitButton) {
+      submitButton.focus();
     }
   };
 
@@ -61,10 +55,10 @@ export default function ReceiptEntryPage() {
   const { formRef, handleKeyDown } = useEnterKeyNavigation();
 
   // Consistent field styling
-  const fieldStyles = formFieldStyles.input;
+  const fieldStyles = cn(theme.input.base, theme.input.size.md);
   const labelStyles = formFieldStyles.label;
-  const selectStyles = formFieldStyles.select;
-  const textareaStyles = formFieldStyles.textarea;
+  const selectStyles = cn(theme.select.base, theme.select.size.md);
+  const textareaStyles = cn(theme.textarea.base, theme.textarea.size.md);
 
   // Unified translation object
   const translations = {
@@ -80,7 +74,7 @@ export default function ReceiptEntryPage() {
       amount: 'தொகை',
       remarks: 'குறிப்புகள்',
       save: 'சேமிக்கவும்',
-      cancel: 'ரத்து செய்',
+     
       saveSuccess: 'ரசீது வெற்றிகரமாக சேமிக்கப்பட்டது',
       saveError: 'ரசீதை சேமிக்க முடியவில்லை',
       invalidAmount: 'செல்லுபடியான தொகையை உள்ளிடவும்',
@@ -101,7 +95,7 @@ export default function ReceiptEntryPage() {
       clear: 'அழி',
       success: 'வெற்றி',
       error: 'பிழை',
-      toNavigate: 'நகர்வதற்கு'
+      
     },
     tamil: {
       title: id ? 'Edit Receipt' : 'New Receipt',
@@ -115,7 +109,7 @@ export default function ReceiptEntryPage() {
       amount: 'Amount',
       remarks: 'Remarks',
       save: 'Save',
-      cancel: 'Cancel',
+     
       saveSuccess: 'Receipt saved successfully',
       saveError: 'Failed to save receipt',
       invalidAmount: 'Please enter a valid amount',
@@ -136,7 +130,6 @@ export default function ReceiptEntryPage() {
       clear: 'Clear',
       success: 'Success',
       error: 'Error',
-      toNavigate: 'to navigate'
     }
   };
 
@@ -502,10 +495,12 @@ export default function ReceiptEntryPage() {
     <div className={pageContainerStyles.container}>
       <div className={pageContainerStyles.content}>
         <Card className={formFieldStyles.card.container}>
-          <CardHeader className={theme.card.header}>
-            <CardTitle className="text-2xl font-bold text-center">
-              {t('title')}
-            </CardTitle>
+          <CardHeader className={theme.header.container}>
+            <div className={theme.header.contentSpacing}>
+              <CardTitle className={theme.header.main}>
+                {t('title')}
+              </CardTitle>
+            </div>
           </CardHeader>
           
           <CardContent className="p-6">
@@ -527,9 +522,6 @@ export default function ReceiptEntryPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {/* Receipt Number */}
                   <div>
-                    <Label className={labelStyles} htmlFor="receiptNumber">
-                      {t('receiptNumber')}
-                    </Label>
                     <Input
                       id="receiptNumber"
                       readOnly
@@ -541,22 +533,18 @@ export default function ReceiptEntryPage() {
 
                   {/* Date */}
                   <div>
-                    <Label className={labelStyles} htmlFor="date">
-                      {t('date')} <span className="text-red-500">*</span>
-                    </Label>
                     <Input
                       id="date"
                       type="date"
                       className={fieldStyles}
+                      placeholder={t('date')}
                       {...register('date', { required: t('requiredField') })}
+                      autoFocus
                     />
                   </div>
 
                   {/* Type */}
                   <div>
-                    <Label className={labelStyles} htmlFor="type">
-                      {t('type')} <span className="text-red-500">*</span>
-                    </Label>
                     <div className="relative">
                       <select
                         id="type"
@@ -566,6 +554,7 @@ export default function ReceiptEntryPage() {
                           onChange: handleTypeChange 
                         })}
                       >
+                        <option value="">{t('type')}</option>
                         <option value="income">{t('income')}</option>
                         <option value="expense">{t('expense')}</option>
                       </select>
@@ -579,16 +568,13 @@ export default function ReceiptEntryPage() {
 
                   {/* Amount */}
                   <div>
-                    <Label className={labelStyles} htmlFor="amount">
-                      {t('amount')} (₹) <span className="text-red-500">*</span>
-                    </Label>
                     <Input
                       id="amount"
                       type="number"
                       step="0.01"
                       min="0"
                       className={fieldStyles}
-                      placeholder={t('amount')}
+                      placeholder={`${t('amount')} (₹)`}
                       {...register('amount', { 
                         required: t('requiredField'), 
                         onBlur: handleAmountBlur 
@@ -598,16 +584,13 @@ export default function ReceiptEntryPage() {
 
                   {/* Donor */}
                   <div>
-                    <Label className={labelStyles} htmlFor="donor">
-                      {t('donor')}
-                    </Label>
                     <div className="relative">
                       <select
                         id="donor"
                         className={selectStyles}
                         {...register('donor', { onChange: handleDonorChange })}
                       >
-                        <option value="">{t('selectName')}</option>
+                        <option value="">{t('donor')}</option>
                         {ledgerNames.map((n) => (
                           <option key={n} value={n}>{n}</option>
                         ))}
@@ -628,16 +611,13 @@ export default function ReceiptEntryPage() {
 
                   {/* Receiver */}
                   <div>
-                    <Label className={labelStyles} htmlFor="receiver">
-                      {t('receiver')}
-                    </Label>
                     <div className="relative">
                       <select
                         id="receiver"
                         className={selectStyles}
                         {...register('receiver')}
                       >
-                        <option value="">{t('selectName')}</option>
+                        <option value="">{t('receiver')}</option>
                         {ledgerNames.map((n) => (
                           <option key={n} value={n}>{n}</option>
                         ))}
@@ -652,14 +632,11 @@ export default function ReceiptEntryPage() {
 
                   {/* Remarks - Full width */}
                   <div className="md:col-span-2 lg:col-span-3">
-                    <Label className={labelStyles} htmlFor="remarks">
-                      {t('remarksLabel')}
-                    </Label>
                     <Textarea
                       id="remarks"
                       rows={3}
                       className={textareaStyles}
-                      placeholder={t('additionalRemarks')}
+                      placeholder={t('remarksLabel')}
                       {...register('remarks')}
                     />
                   </div>
@@ -685,44 +662,26 @@ export default function ReceiptEntryPage() {
                 <div className="flex gap-3">
                   {/* Keyboard shortcut hint */}
                   <div className="text-sm text-gray-500 hidden md:flex items-center">
-                    <kbd className="px-2 py-1 text-xs bg-gray-100 border border-gray-300 rounded">Enter</kbd>
-                    <span className="ml-2">{t('toNavigate')}</span>
+                   
                   </div>
                 </div>
                 
                 <div className="flex gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="default"
-                    className="px-6 py-2 text-sm border hover:bg-gray-50 rounded-md"
-                    onClick={handleCancel}
-                    disabled={isSubmitting}
-                  >
-                    {t('cancel')}
-                  </Button>
 
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="default"
-                    className="px-6 py-2 text-sm border hover:bg-gray-50 rounded-md"
-                    onClick={handleGoToDailyReport}
-                    disabled={isSubmitting}
-                  >
-                    {t('goToDailyReport')}
-                  </Button>
-                  
+
+                 
+
+                 
                   {!isEdit && (
                     <Button
                       type="button"
                       variant="outline"
-                      size="default"
-                      className="px-6 py-2 text-sm border hover:bg-gray-50 rounded-md"
                       onClick={handleClear}
+                      className="px-6 py-2 text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm hover:shadow-md transition-all duration-200"
                       disabled={isSubmitting}
                     >
-                      {t('clear')}
+                      <X className="w-4 h-4 mr-2" />
+                      Clear
                     </Button>
                   )}
                   

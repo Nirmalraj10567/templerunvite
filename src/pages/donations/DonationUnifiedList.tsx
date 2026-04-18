@@ -4,11 +4,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import { moneyDonationService, MoneyDonationItem } from '@/services/moneyDonationService';
 import { donationService, DonationItem as ProductDonationItem } from '@/services/donationService';
-import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
+import { Loader2, Trash2, Search, FileDown } from 'lucide-react';
 import { cn, pageContainerStyles, formFieldStyles } from '@/styles/formStyles';
-import { theme } from '@/styles/theme';
+import { theme, tableClasses, buttonClasses } from '@/styles/theme';
 
 // Unified type
 interface UnifiedDonationRow {
@@ -332,243 +335,215 @@ export default function DonationUnifiedList() {
   return (
     <div className={pageContainerStyles.container}>
       <Card className={pageContainerStyles.content}>
-        <CardHeader className={theme.card.header}>
-          <CardTitle className={formFieldStyles.tableHeader.title}>
-            {t('Donation List (Unified)', 'நன்கொடை பட்டியல் (ஒன்றுபட்ட)')}
-          </CardTitle>
+        <CardHeader className={theme.header.container}>
+          <div className={theme.header.contentSpacing}>
+            <CardTitle className={theme.header.main}>
+              {t('Donation List (Unified)', 'நன்கொடை பட்டியல் (ஒன்றுபட்ட)')}
+            </CardTitle>
+          </div>
         </CardHeader>
 
-        {/* Filters */}
-        <div className={formFieldStyles.moneyDonationList.filters.container}>
-          <div className={formFieldStyles.moneyDonationList.filters.form}>
-            <div className={formFieldStyles.moneyDonationList.filters.searchContainer}>
-              <div className={formFieldStyles.moneyDonationList.filters.searchIcon}>
-                <svg className={formFieldStyles.moneyDonationList.filters.searchIconSvg} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <input
-                type="text"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                onKeyDown={onKeyDownSearch}
-                placeholder={t('Search by name/phone/reason/product/receipt', 'பெயர்/தொலைபேசி/காரணம்/பொருள்/ரசீது மூலம் தேடுக')}
-                className={cn(theme.input.base, "block w-full pl-8 pr-2 py-1 border border-gray-300 rounded leading-5 bg-white placeholder-gray-500 text-xs")}
-              />
-            </div>
-
-            <div className={formFieldStyles.moneyDonationList.filters.dateContainer}>
-              <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={formFieldStyles.moneyDonationList.filters.dateInput} />
-              <span className={formFieldStyles.moneyDonationList.filters.dateLabel}>{t('to', 'வரை')}</span>
-              <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={formFieldStyles.moneyDonationList.filters.dateInput} />
-            </div>
-
-            {/* Type Filter */}
-            <div className={formFieldStyles.moneyDonationList.filters.dateContainer}>
-              <label className={formFieldStyles.moneyDonationList.filters.dateLabel} htmlFor="typeFilter">
-                {t('Type', 'வகை')}
-              </label>
-              <select
-                id="typeFilter"
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value as 'all' | 'money' | 'product')}
-                className={formFieldStyles.moneyDonationList.filters.dateInput}
-              >
-                <option value="all">{t('All', 'அனைத்து')}</option>
-                <option value="money">{t('Money', 'பணம்')}</option>
-                <option value="product">{t('Product', 'பொருள்')}</option>
-              </select>
-            </div>
-
-            <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>
-              <button onClick={load} className={formFieldStyles.moneyDonationList.filters.button} type="button">{t('Search', 'தேடு')}</button>
-              <button onClick={() => { setQ(''); setFrom(''); setTo(''); setTypeFilter('all'); load(); }} className={formFieldStyles.moneyDonationList.filters.button} type="button">{t('Clear', 'அழி')}</button>
-            </div>
-          </div>
-        </div>
-
         {/* Table */}
-        <div className={formFieldStyles.moneyDonationList.table.container} onContextMenu={onContextMenu}>
-          <div className={formFieldStyles.moneyDonationList.table.scrollContainer}>
-            <table className={formFieldStyles.moneyDonationList.table.table}>
-              <thead className={formFieldStyles.moneyDonationList.table.thead}>
-                <tr>
-                  {allColumns.map((col) => (
-                    visibleCols[col.key] && (
-                      <th key={col.key} className={cn(
-                        formFieldStyles.moneyDonationList.table.th,
-                        col.key === 'actions' ? formFieldStyles.moneyDonationList.table.thActions : 'px-3',
-                        col.align === 'right' ? formFieldStyles.moneyDonationList.table.thRight : col.align === 'center' ? formFieldStyles.moneyDonationList.table.thCenter : formFieldStyles.moneyDonationList.table.thLeft
-                      )}>
-                        {col.label}
-                      </th>
-                    )
-                  ))}
-                </tr>
-              </thead>
-              <tbody className={formFieldStyles.moneyDonationList.table.tbody}>
-                {loading ? (
-                  <tr>
-                    <td colSpan={visibleColCount} className={formFieldStyles.moneyDonationList.table.loadingCell}>
-                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    </td>
-                  </tr>
-                ) : rows.length === 0 ? (
-                  <tr>
-                    <td colSpan={visibleColCount} className={formFieldStyles.moneyDonationList.table.emptyCell}>
-                      {t('No data found', 'தரவு கிடைக்கவில்லை')}
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedRows.map((r, idx) => (
-                    <tr key={`${r.type}-${r.id}`} className={formFieldStyles.moneyDonationList.table.tr}>
-                      {visibleCols['#'] && <td className={formFieldStyles.moneyDonationList.table.td}>{startIndex + idx + 1}</td>}
-                      {visibleCols['type'] && <td className={formFieldStyles.moneyDonationList.table.td}>{r.type === 'money' ? t('Money', 'பணம்') : t('Product', 'பொருள்')}</td>}
-                      {visibleCols['receipt'] && <td className={formFieldStyles.moneyDonationList.table.td}>{r.registerNo || '-'}</td>}
-                      {visibleCols['date'] && <td className={formFieldStyles.moneyDonationList.table.td}>{(r.date || '').slice(0,10) || '-'}</td>}
-                      {visibleCols['name'] && <td className={formFieldStyles.moneyDonationList.table.td}>{r.name || '-'}</td>}
-                      {visibleCols['phone'] && <td className={formFieldStyles.moneyDonationList.table.td}>{r.phone || '-'}</td>}
-                      {visibleCols['amount'] && (
-                        <td className={cn(formFieldStyles.moneyDonationList.table.td, formFieldStyles.moneyDonationList.table.tdRight)}>
-                          {r.type === 'money' ? `₹${toNum(r.amount).toLocaleString()}` : '-'}
-                        </td>
-                      )}
-                      {visibleCols['product'] && <td className={formFieldStyles.moneyDonationList.table.td}>{r.type === 'product' ? (r.product || '-') : '-'}</td>}
-                      {visibleCols['qty'] && (
-                        <td className={cn(formFieldStyles.moneyDonationList.table.td, formFieldStyles.moneyDonationList.table.tdRight)}>
-                          {r.type === 'product' ? (toNum(r.qty).toLocaleString()) : '-'}
-                        </td>
-                      )}
-                      {visibleCols['reason'] && <td className={formFieldStyles.moneyDonationList.table.td}>{r.reason || '-'}</td>}
-                      {visibleCols['actions'] && (
-                        <td className={formFieldStyles.moneyDonationList.table.tdActions}>
-                          <div className={formFieldStyles.moneyDonationList.actionButtons.container}>
-                            <button type="button" onClick={() => onPrint(r)} className={formFieldStyles.moneyDonationList.actionButtons.print} title={t('Print Receipt', 'ரசீது அச்சிடுக')}>
-                              {t('Print', 'அச்சிடு')}
-                            </button>
-                           
-                            <button type="button" onClick={() => onEdit(r)} className={formFieldStyles.moneyDonationList.actionButtons.edit} title={t('Edit', 'திருத்து')}>
-                              {t('Edit', 'திருத்து')}
-                            </button>
-                            {(() => {
-                              const deletable = canDelete(r);
-                              const title = deletable ? t('Delete', 'நீக்கு') : t('Only the latest receipt can be deleted', 'கடைசி ரசீதை மட்டுமே நீக்க முடியும்');
-                              return (
-                                <button
-                                  type="button"
-                                  onClick={() => deletable ? askDelete(r) : undefined}
-                                  className={deletable ? formFieldStyles.moneyDonationList.actionButtons.delete : formFieldStyles.moneyDonationList.actionButtons.deleteDisabled}
-                                  title={title}
-                                  disabled={!deletable}
-                                >
-                                  <Trash2 className={formFieldStyles.moneyDonationList.actionButtons.deleteIcon} />
+        <CardContent className="pt-6">
+          {/* Search + Export Toolbar */}
+          <div className={formFieldStyles.moneyDonationList.filters.container}>
+            <div className={formFieldStyles.moneyDonationList.filters.form}>
+              <div className={formFieldStyles.moneyDonationList.filters.searchContainer}>
+                <div className={formFieldStyles.moneyDonationList.filters.searchIcon}>
+                  <Search className={formFieldStyles.moneyDonationList.filters.searchIconSvg} />
+                </div>
+                <Input
+                  type="search"
+                  placeholder={t('Search by name/phone/reason/product/receipt', 'பெயர்/தொலைபேசி/காரணம்/பொருள்/ரசீது மூலம் தேடுக')}
+                  className={cn(theme.input.base, theme.input.size.sm, "pl-8")}
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  onKeyDown={onKeyDownSearch}
+                />
+              </div>
+              <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>
+                <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => { setQ(''); setFrom(''); setTo(''); setTypeFilter('all'); load(); }}>
+                  {t('Clear', 'அழி')}
+                </Button>
+                <Button size="sm" className="h-8 text-xs" variant="outline" onClick={load}>
+                  {t('Search', 'தேடு')}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className={tableClasses.scrollContainerWrapper} onContextMenu={onContextMenu}>
+            <div className={tableClasses.scrollContainer}>
+              {loading ? (
+                <div className={tableClasses.emptyState}>
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <Table className={tableClasses.container}>
+                  <TableHeader className={tableClasses.header}>
+                    <TableRow className={tableClasses.row}>
+                      {allColumns.map((col) => (
+                        visibleCols[col.key] && (
+                          <TableHead key={col.key} className={cn(
+                            tableClasses.headerCell,
+                            col.key === '#' ? tableClasses.headerCellSno : '',
+                            col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'
+                          )}>
+                            {col.label}
+                          </TableHead>
+                        )
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rows.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={visibleColCount} className={tableClasses.emptyState}>
+                          {t('No data found', 'தரவு கிடைக்கவில்லை')}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      paginatedRows.map((r, idx) => (
+                        <TableRow key={`${r.type}-${r.id}`} className={tableClasses.row}>
+                          {visibleCols['#'] && <TableCell className={tableClasses.cellSno}>{startIndex + idx + 1}</TableCell>}
+                          {visibleCols['type'] && <TableCell className={tableClasses.cell}>{r.type === 'money' ? t('Money', 'பணம்') : t('Product', 'பொருள்')}</TableCell>}
+                          {visibleCols['receipt'] && <TableCell className={tableClasses.cell}>{r.registerNo || '-'}</TableCell>}
+                          {visibleCols['date'] && <TableCell className={tableClasses.cell}>{(r.date || '').slice(0,10) || '-'}</TableCell>}
+                          {visibleCols['name'] && <TableCell className={tableClasses.cell}>{r.name || '-'}</TableCell>}
+                          {visibleCols['phone'] && <TableCell className={tableClasses.cell}>{r.phone || '-'}</TableCell>}
+                          {visibleCols['amount'] && (
+                            <TableCell className={cn(tableClasses.cell, 'text-right')}>
+                              {r.type === 'money' ? `₹${toNum(r.amount).toLocaleString()}` : '-'}
+                            </TableCell>
+                          )}
+                          {visibleCols['product'] && <TableCell className={tableClasses.cell}>{r.type === 'product' ? (r.product || '-') : '-'}</TableCell>}
+                          {visibleCols['qty'] && (
+                            <TableCell className={cn(tableClasses.cell, 'text-right')}>
+                              {r.type === 'product' ? (toNum(r.qty).toLocaleString()) : '-'}
+                            </TableCell>
+                          )}
+                          {visibleCols['reason'] && <TableCell className={tableClasses.cell}>{r.reason || '-'}</TableCell>}
+                          {visibleCols['actions'] && (
+                            <TableCell className={cn(tableClasses.cell, tableClasses.actionCell)}>
+                              <div className="flex items-center justify-end gap-1">
+                                <button type="button" onClick={() => onPrint(r)} className={buttonClasses.pdf} title={t('Print Receipt', 'ரசீது அச்சிடுக')}>
+                                  {t('Print', 'அச்சிடு')}
                                 </button>
-                              );
-                            })()}
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Summary */}
-          <div className={formFieldStyles.moneyDonationList.summary.container}>
-            <div className={formFieldStyles.moneyDonationList.summary.info}>
-              {t('Showing', 'காட்டப்படுகிறது')} <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>
-                {rows.length > 0 ? startIndex + 1 : 0}
-              </span> {t('to', 'இலிருந்து')}{' '}
-              <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>
-                {Math.min(endIndex, rows.length)}
-              </span> {t('of', 'மொத்தம்')}{' '}
-              <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{rows.length}</span> {t('results', 'முடிவுகள்')}
+                               
+                                <button type="button" onClick={() => onEdit(r)} className={tableClasses.actionButtonSecondary} title={t('Edit', 'திருத்து')}>
+                                  {t('Edit', 'திருத்து')}
+                                </button>
+                                {(() => {
+                                  const deletable = canDelete(r);
+                                  const title = deletable ? t('Delete', 'நீக்கு') : t('Only the latest receipt can be deleted', 'கடைசி ரசீதை மட்டுமே நீக்க முடியும்');
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={() => deletable ? askDelete(r) : undefined}
+                                      className={deletable ? tableClasses.actionButtonDanger : 'opacity-50 cursor-not-allowed'}
+                                      title={title}
+                                      disabled={!deletable}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  );
+                                })()}
+                              </div>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              )}
             </div>
-            <div className={formFieldStyles.moneyDonationList.summary.total}>
-              <span style={{ marginRight: 16 }}>
-                {t('Total Amount', 'மொத்த தொகை')}: <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>₹{totals.amount.toLocaleString()}</span>
-              </span>
-              <span>
-                {t('Total Qty', 'மொத்த அளவு')}: <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{totals.qty.toLocaleString()}</span>
-              </span>
-            </div>
-          </div>
 
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-700">
-                  {t('Page', 'பக்கம்')} {currentPage} {t('of', 'இலிருந்து')} {totalPages}
+            {/* Summary */}
+            <div className={formFieldStyles.moneyDonationList.summary.container}>
+              <div className={formFieldStyles.moneyDonationList.summary.info}>
+                {t('Showing', 'காட்டப்படுகிறது')} <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>
+                  {rows.length > 0 ? startIndex + 1 : 0}
+                </span> {t('to', 'இலிருந்து')}{' '}
+                <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>
+                  {Math.min(endIndex, rows.length)}
+                </span> {t('of', 'மொத்தம்')}{' '}
+                <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{rows.length}</span> {t('results', 'முடிவுகள்')}
+              </div>
+              <div className={formFieldStyles.moneyDonationList.summary.total}>
+                <span style={{ marginRight: 16 }}>
+                  {t('Total Amount', 'மொத்த தொகை')}: <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>₹{totals.amount.toLocaleString()}</span>
+                </span>
+                <span>
+                  {t('Total Qty', 'மொத்த அளவு')}: <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{totals.qty.toLocaleString()}</span>
                 </span>
               </div>
-              
-              <div className="flex items-center gap-2">
-                {/* Previous button */}
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                  className={`px-3 py-1 text-sm rounded-md border transition-colors ${
-                    currentPage === 1
-                      ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                      : cn(theme.input.base, 'bg-white text-gray-700 hover:bg-gray-50')
-                  }`}
-                >
-                  {t('Previous', 'முந்தையது')}
-                </button>
-
-                {/* Page numbers */}
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`px-3 py-1 text-sm rounded-md border transition-colors ${
-                          currentPage === pageNum
-                            ? 'bg-blue-500 text-white border-blue-500'
-                            : cn(theme.input.base, 'bg-white text-gray-700 hover:bg-gray-50')
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Next button */}
-                <button
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                  className={`px-3 py-1 text-sm rounded-md border transition-colors ${
-                    currentPage === totalPages
-                      ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                      : cn(theme.input.base, 'bg-white text-gray-700 hover:bg-gray-50')
-                  }`}
-                >
-                  {t('Next', 'அடுத்தது')}
-                </button>
-              </div>
             </div>
-          )}
-        </div>
 
-        {/* Context menu for column toggle */}
-        {menuOpen && (
-          <div ref={menuRef} className={formFieldStyles.moneyDonationList.contextMenu.container} style={{ left: `${menuPos.x}px`, top: `${menuPos.y}px` }}>
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className={tableClasses.pagination}>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-700">
+                    {t('Page', 'பக்கம்')} {currentPage} {t('of', 'இலிருந்து')} {totalPages}
+                  </span>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  {/* Previous button */}
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className={cn(tableClasses.paginationButton, currentPage === 1 && 'opacity-50 cursor-not-allowed')}
+                  >
+                    {t('Previous', 'முந்தையது')}
+                  </button>
+
+                  {/* Page numbers */}
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={cn(tableClasses.paginationButton, currentPage === pageNum && tableClasses.paginationButtonActive)}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Next button */}
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className={cn(tableClasses.paginationButton, currentPage === totalPages && 'opacity-50 cursor-not-allowed')}
+                  >
+                    {t('Next', 'அடுத்தது')}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Context menu for column toggle */}
+      {menuOpen && (
+        <div ref={menuRef} className={formFieldStyles.moneyDonationList.contextMenu.container} style={{ left: `${menuPos.x}px`, top: `${menuPos.y}px` }}>
             <div className={formFieldStyles.moneyDonationList.contextMenu.header}>
               <h3 className={formFieldStyles.moneyDonationList.contextMenu.title}>{t('Columns', 'நெடுவரிசைகள்')}</h3>
               <p className={formFieldStyles.moneyDonationList.contextMenu.subtitle}>
@@ -617,7 +592,7 @@ export default function DonationUnifiedList() {
           <div className={formFieldStyles.moneyDonationList.modal.overlay}>
             <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeLogs} />
             <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-5xl mx-4 max-h-[90vh] flex flex-col">
-              <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 rounded-t-lg flex-shrink-0">
+              <div className={theme.card.header}>
                 <div className={formFieldStyles.moneyDonationList.modal.header}>
                   <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('Donation Logs', 'நன்கொடை பதிவுகள்')}</h2>
                   <button onClick={closeLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>
@@ -665,7 +640,6 @@ export default function DonationUnifiedList() {
             </div>
           </div>
         )}
-      </Card>
     </div>
   );
 }

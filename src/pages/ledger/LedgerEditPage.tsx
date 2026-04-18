@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ledgerService, LedgerEntry } from '@/services/ledgerService';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
+import { theme } from '@/styles/theme';
+import { cn } from '@/styles/formStyles';
 
 export default function LedgerEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -157,6 +159,7 @@ export default function LedgerEditPage() {
                   name="date"
                   value={formData.date}
                   onChange={handleChange}
+                  className={cn(theme.input.base, theme.input.size.md)}
                   required
                 />
               </div>
@@ -168,6 +171,7 @@ export default function LedgerEditPage() {
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
+                  className={cn(theme.input.base, theme.input.size.md)}
                   required
                 />
               </div>
@@ -178,7 +182,7 @@ export default function LedgerEditPage() {
                   value={formData.type} 
                   onValueChange={(value) => handleSelectChange('type', value)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className={cn(theme.select.base, theme.select.size.md)}>
                     <SelectValue placeholder={t('Select type', 'வகையைத் தேர்ந்தெடுக்கவும்')} />
                   </SelectTrigger>
                   <SelectContent>
@@ -194,7 +198,7 @@ export default function LedgerEditPage() {
                   value={formData.under} 
                   onValueChange={(value) => handleSelectChange('under', value)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className={cn(theme.select.base, theme.select.size.md)}>
                     <SelectValue placeholder={t('Select category', 'வகையைத் தேர்ந்தெடுக்கவும்')} />
                   </SelectTrigger>
                   <SelectContent>
@@ -212,6 +216,7 @@ export default function LedgerEditPage() {
                   name="amount"
                   value={formData.amount}
                   onChange={handleChange}
+                  className={cn(theme.input.base, theme.input.size.md)}
                   required
                   min="0"
                   step="0.01"
@@ -225,6 +230,7 @@ export default function LedgerEditPage() {
                 type="text" 
                 name="remarks"
                 value={formData.remarks}
+                className={cn(theme.input.base, theme.input.size.md)
                 onChange={handleChange}
               />
             </div>

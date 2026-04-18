@@ -10,7 +10,7 @@ import { useLanguage } from '@/lib/language';
 import { toast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import { formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
-import { theme } from '@/styles/theme';
+import { theme, tableClasses, buttonClasses } from '@/styles/theme';
 import { CardHeader, CardTitle } from '@/components/ui/card';
 import {
   AlertDialog,
@@ -539,12 +539,9 @@ export default function ReceiptListView() {
     <div className={cn(pageContainerStyles.container, 'max-w-7xl mx-auto')}>
       <div className={pageContainerStyles.content}>
         {/* Header */}
-        <CardHeader className={theme.card.header}>
-          <div className="flex justify-center items-center">
-            <CardTitle className={cn(
-              "text-[1rem] font-bold w-full text-center text-white",
-              formFieldStyles.donationProductList.logBadge.base
-            )} style={{ color: 'white', fontSize: 'calc(1.2rem * 1.02)' }}>
+        <CardHeader className={theme.header.container}>
+          <div className={theme.header.contentSpacing}>
+            <CardTitle className={theme.header.main}>
               {t('title')}
             </CardTitle>
           </div>
@@ -559,7 +556,7 @@ export default function ReceiptListView() {
                 <Input
                   type="search"
                   placeholder={t('search')}
-                  className={cn(theme.input.base, "pl-9 w-full")}
+                  className={cn(theme.input.base, theme.input.size.md, "pl-9 w-full")}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyDown={handleSearch}
@@ -572,7 +569,7 @@ export default function ReceiptListView() {
                   type="date" 
                   value={fromDate} 
                   onChange={(e) => setFromDate(e.target.value)}
-                  className={cn(theme.input.base, "h-9")}
+                  className={cn(theme.input.base, theme.input.size.sm)}
                 />
               </div>
               
@@ -582,14 +579,14 @@ export default function ReceiptListView() {
                   type="date" 
                   value={toDate} 
                   onChange={(e) => setToDate(e.target.value)}
-                  className={cn(theme.input.base, "h-9")}
+                  className={cn(theme.input.base, theme.input.size.sm)}
                 />
               </div>
               
               <div className="flex items-center gap-2">
                 <span className="text-sm whitespace-nowrap">{t('type')}:</span>
                 <select 
-                  className={cn(theme.input.base, "rounded h-9 px-2 text-sm")} 
+                  className={cn(theme.select.base, theme.select.size.sm, "rounded")} 
                   value={typeFilter} 
                   onChange={(e) => setTypeFilter(e.target.value as any)}
                 >
@@ -603,7 +600,6 @@ export default function ReceiptListView() {
                 <Button variant="outline" onClick={handlePrint}>
                   {t('print')}
                 </Button>
-              
                 <Button onClick={handleExportCSV}>
                   {t('exportCsv')}
                 </Button>
@@ -611,118 +607,114 @@ export default function ReceiptListView() {
             </div>
 
             {/* Table */}
-            <div className="rounded-md border">
-              {loading ? (
-                <div className="flex items-center justify-center h-64">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                <Table className="w-full">
-                  <TableHeader>
-                    <TableRow className="whitespace-nowrap">
-                      <TableHead className="w-[120px] px-3">{t('receiptNumber')}</TableHead>
-                      <TableHead className="w-[100px] px-3">{t('date')}</TableHead>
-                      <TableHead className="w-[100px] px-3">{t('type')}</TableHead>
-                      <TableHead className="px-3">{t('donor')}</TableHead>
-                      <TableHead className="px-3">{t('receiver')}</TableHead>
-                      <TableHead className="w-[120px] text-right px-3">{t('amount')}</TableHead>
-                      <TableHead className="w-[150px] text-right px-3">{t('actions')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.length > 0 ? (
-                      data.map((rec) => (
-                        <TableRow key={rec.id} className="hover:bg-gray-50">
-                          <TableCell className="px-3 py-3 font-medium">
-                            {rec.receipt_number}
-                          </TableCell>
-                          <TableCell className="px-3 py-3 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <Calendar className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
-                              {formatDate(rec.date)}
-                            </div>
-                          </TableCell>
-                          <TableCell className="px-3 py-3">
-                            <div className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                              rec.type === 'income' 
-                                ? 'bg-green-100 text-green-700' 
-                                : 'bg-red-100 text-red-700'
-                            }`}>
-                              {rec.type === 'income' ? (
-                                <ArrowDownCircle className="h-3.5 w-3.5 mr-1" />
-                              ) : (
-                                <ArrowUpCircle className="h-3.5 w-3.5 mr-1" />
-                              )}
-                              {rec.type === 'income' ? t('income') : t('expense')}
-                            </div>
-                          </TableCell>
-                          <TableCell className="px-3 py-3 max-w-[200px] truncate">
-                            {rec.donor || '-'}
-                          </TableCell>
-                          <TableCell className="px-3 py-3 max-w-[200px] truncate">
-                            {rec.receiver || '-'}
-                          </TableCell>
-                          <TableCell className="px-3 py-3 text-right">
-                            <div className={`inline-flex items-center justify-end w-full font-medium ${
-                              rec.type === 'income' ? 'text-green-600' : 'text-red-600'
-                            }`}>
-                              {formatAmount(rec.amount)}
-                            </div>
-                          </TableCell>
-                          <TableCell className="px-3 py-3">
-                            <div className="flex justify-end space-x-1">
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-8 w-8 p-0 hover:bg-gray-100"
-                                onClick={() => handleViewClick(rec)}
-                                title={t('view')}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-8 w-8 p-0 hover:bg-gray-100"
-                                onClick={() => handleEditClick(rec)}
-                                title={t('edit')}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            
-                              {/* Delete button enabled ONLY for the last (most recent) receipt */}
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className={`h-8 w-8 p-0 ${
-                                  rec.id === lastReceiptId 
-                                    ? 'text-red-500 hover:bg-red-50 hover:text-red-700' 
-                                    : 'opacity-50 cursor-not-allowed'
-                                }`}
-                                onClick={() => handleDeleteClick(rec.id)}
-                                disabled={rec.id !== lastReceiptId}
-                                title={t('delete')}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
+            <div className={tableClasses.scrollContainerWrapper}>
+              <div className={tableClasses.scrollContainer}>
+                {loading ? (
+                  <div className={tableClasses.emptyState}>
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <Table className={tableClasses.container}>
+                    <TableHeader className={tableClasses.header}>
+                      <TableRow className={tableClasses.row}>
+                        <TableHead className={tableClasses.headerCell}>{t('receiptNumber')}</TableHead>
+                        <TableHead className={tableClasses.headerCell}>{t('date')}</TableHead>
+                        <TableHead className={tableClasses.headerCell}>{t('type')}</TableHead>
+                        <TableHead className={tableClasses.headerCell}>{t('donor')}</TableHead>
+                        <TableHead className={tableClasses.headerCell}>{t('receiver')}</TableHead>
+                        <TableHead className={cn(tableClasses.headerCell, 'text-right')}>{t('amount')}</TableHead>
+                        <TableHead className={cn(tableClasses.headerCell, 'text-right')}>{t('actions')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.length > 0 ? (
+                        data.map((rec) => (
+                          <TableRow key={rec.id} className={tableClasses.row}>
+                            <TableCell className={tableClasses.cell}>
+                              {rec.receipt_number}
+                            </TableCell>
+                            <TableCell className={tableClasses.cell}>
+                              <div className="flex items-center">
+                                <Calendar className="h-3 w-3 mr-1.5 text-muted-foreground" />
+                                {formatDate(rec.date)}
+                              </div>
+                            </TableCell>
+                            <TableCell className={tableClasses.cell}>
+                              <div className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                rec.type === 'income' 
+                                  ? 'bg-green-100 text-green-700' 
+                                  : 'bg-red-100 text-red-700'
+                              }`}>
+                                {rec.type === 'income' ? (
+                                  <ArrowDownCircle className="h-3 w-3 mr-1" />
+                                ) : (
+                                  <ArrowUpCircle className="h-3 w-3 mr-1" />
+                                )}
+                                {rec.type === 'income' ? t('income') : t('expense')}
+                              </div>
+                            </TableCell>
+                            <TableCell className={tableClasses.cell}>
+                              {rec.donor || '-'}
+                            </TableCell>
+                            <TableCell className={tableClasses.cell}>
+                              {rec.receiver || '-'}
+                            </TableCell>
+                            <TableCell className={cn(tableClasses.cell, 'text-right')}>
+                              <div className={`inline-flex items-center justify-end w-full font-medium ${
+                                rec.type === 'income' ? 'text-green-600' : 'text-red-600'
+                              }`}>
+                                {formatAmount(rec.amount)}
+                              </div>
+                            </TableCell>
+                            <TableCell className={cn(tableClasses.cell, tableClasses.actionCell)}>
+                              <div className="flex items-center justify-end gap-1">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => handleViewClick(rec)}
+                                  className={tableClasses.actionButtonPrimary}
+                                  title={t('view')}
+                                >
+                                  <Eye className="h-3 w-3" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => handleEditClick(rec)}
+                                  className={tableClasses.actionButtonSecondary}
+                                  title={t('edit')}
+                                >
+                                  <Edit className="h-3 w-3" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  className={rec.id === lastReceiptId ? tableClasses.actionButtonDanger : 'opacity-50 cursor-not-allowed'}
+                                  onClick={() => handleDeleteClick(rec.id)}
+                                  disabled={rec.id !== lastReceiptId}
+                                  title={t('delete')}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={7} className={tableClasses.emptyState}>
+                            {t('noReceipts')}
                           </TableCell>
                         </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={7} className="h-24 text-center">
-                          {t('noReceipts')}
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              )}
+                      )}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
 
               {/* Footer with totals and pagination */}
-              <div className="flex flex-col gap-3 px-4 py-3 border-t">
-                <div className="text-sm text-muted-foreground flex flex-wrap gap-4">
+              <div className={tableClasses.pagination}>
+                <div className="text-xs text-gray-700 flex flex-wrap gap-4">
                   <span>
                     {t('showing')} {data.length} {t('of')} <span className="font-medium">{pagination.total}</span> {t('items')}
                   </span>
@@ -778,7 +770,7 @@ export default function ReceiptListView() {
                   type="date"
                   value={editedReceipt.date || ''}
                   onChange={(e) => setEditedReceipt({ ...editedReceipt, date: e.target.value })}
-                  className={cn(theme.input.base, formFieldStyles.taxForm.input)}
+                  className={cn(theme.input.base, theme.input.size.md, formFieldStyles.taxForm.input)}
                   disabled={!editMode}
                 />
               </div>
@@ -791,7 +783,7 @@ export default function ReceiptListView() {
                     ...editedReceipt, 
                     type: e.target.value as 'income' | 'expense' 
                   })}
-                  className={cn(theme.input.base, formFieldStyles.taxForm.select, !editMode && 'opacity-50 cursor-not-allowed')}
+                  className={cn(theme.select.base, theme.select.size.md, formFieldStyles.taxForm.select, !editMode && 'opacity-50 cursor-not-allowed')}
                   disabled={!editMode}
                 >
                   <option value="income">{t('income')}</option>
@@ -804,7 +796,7 @@ export default function ReceiptListView() {
                   id="donor" 
                   value={editedReceipt.donor || ''} 
                   onChange={(e) => setEditedReceipt({ ...editedReceipt, donor: e.target.value })} 
-                  className={cn(theme.input.base, formFieldStyles.taxForm.input)}
+                  className={cn(theme.input.base, theme.input.size.md, formFieldStyles.taxForm.input)}
                   disabled={!editMode} 
                 />
               </div>
@@ -814,7 +806,7 @@ export default function ReceiptListView() {
                   id="receiver" 
                   value={editedReceipt.receiver || ''} 
                   onChange={(e) => setEditedReceipt({ ...editedReceipt, receiver: e.target.value })} 
-                  className={cn(theme.input.base, formFieldStyles.taxForm.input)}
+                  className={cn(theme.input.base, theme.input.size.md, formFieldStyles.taxForm.input)}
                   disabled={!editMode} 
                 />
               </div>
@@ -825,7 +817,7 @@ export default function ReceiptListView() {
                   type="number"
                   value={editedReceipt.amount || ''}
                   onChange={(e) => setEditedReceipt({ ...editedReceipt, amount: Number(e.target.value) || 0 })}
-                  className={cn(theme.input.base, formFieldStyles.taxForm.input)}
+                  className={cn(theme.input.base, theme.input.size.md, formFieldStyles.taxForm.input)}
                   disabled={!editMode}
                 />
               </div>
@@ -835,7 +827,7 @@ export default function ReceiptListView() {
                   id="remarks"
                   value={editedReceipt.remarks || ''}
                   onChange={(e) => setEditedReceipt({ ...editedReceipt, remarks: e.target.value })}
-                  className={cn(theme.input.base, formFieldStyles.taxForm.input)}
+                  className={cn(theme.input.base, theme.input.size.md, formFieldStyles.taxForm.input)}
                   disabled={!editMode}
                 />
               </div>

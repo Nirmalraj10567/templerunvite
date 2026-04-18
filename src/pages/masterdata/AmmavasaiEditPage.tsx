@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { theme } from '@/styles/theme';
+import { cn } from '@/lib/utils';
 
 type Row = { id: number; village: string; group: string };
 
@@ -51,8 +53,8 @@ export default function AmmavasaiEditPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4">
       {/* Header */}
-      <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white py-3 px-4 rounded-t-lg shadow-lg">
-        <h1 className="text-xl font-bold text-center">{t[language].header}</h1>
+      <div className={theme.card.header}>
+        <h1 className={theme.header.main}>{t[language].header}</h1>
         <p className="text-center text-orange-100 mt-1 text-sm">{t[language].subtitle}</p>
       </div>
 
@@ -61,17 +63,17 @@ export default function AmmavasaiEditPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex items-center space-x-3">
             <label className="w-16 text-sm font-medium text-gray-700">{t[language].date}</label>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent" />
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={cn(theme.input.base, theme.input.size.md)} />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="flex items-center space-x-3">
               <label className="w-24 text-sm font-medium text-gray-700">{t[language].villageName}</label>
-              <input type="text" value={villageName} onChange={(e) => setVillageName(e.target.value)} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent" />
+              <input type="text" value={villageName} onChange={(e) => setVillageName(e.target.value)} className={cn(theme.input.base, theme.input.size.md, "flex-1")} />
             </div>
             <div className="flex items-center space-x-3">
               <label className="w-24 text-sm font-medium text-gray-700">{t[language].groupName}</label>
-              <input type="text" value={groupName} onChange={(e) => setGroupName(e.target.value)} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent" />
+              <input type="text" value={groupName} onChange={(e) => setGroupName(e.target.value)} className={cn(theme.input.base, theme.input.size.md, "flex-1")} />
             </div>
           </div>
 
@@ -90,10 +92,10 @@ export default function AmmavasaiEditPage() {
                   <tr key={r.id} className="border-b border-gray-200">
                     <td className="px-2 py-2 border-r border-gray-200 text-sm">{r.id}</td>
                     <td className="px-2 py-2 border-r border-gray-200 text-sm">
-                      <input value={r.village} onChange={(e) => updateRow(r.id, 'village', e.target.value)} className="w-full px-2 py-1 border rounded" />
+                      <input value={r.village} onChange={(e) => updateRow(r.id, 'village', e.target.value)} className={cn(theme.input.base, theme.input.size.md, "w-full")} />
                     </td>
                     <td className="px-2 py-2 text-sm">
-                      <input value={r.group} onChange={(e) => updateRow(r.id, 'group', e.target.value)} className="w-full px-2 py-1 border rounded" />
+                      <input value={r.group} onChange={(e) => updateRow(r.id, 'group', e.target.value)} className={cn(theme.input.base, theme.input.size.md, "w-full")} />
                     </td>
                   </tr>
                 ))}

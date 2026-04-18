@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { X } from 'lucide-react';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
 import { theme } from '@/styles/theme';
 import axios from 'axios';
@@ -293,24 +294,16 @@ export default function UnifiedDonationEntry() {
   };
 
   // Handle Enter key navigation
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      
-      const currentForm = activeTab === 'money' ? moneyFormRef.current : productFormRef.current;
-      if (!currentForm) return;
-      
-      const focusableElements = currentForm.querySelectorAll(
-        'input:not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled]):not([readonly]), button:not([disabled])'
-      );
-      
-      const currentElement = document.activeElement;
-      const currentIndex = Array.from(focusableElements).indexOf(currentElement as Element);
-      
-      if (currentIndex !== -1 && currentIndex < focusableElements.length - 1) {
-        const nextElement = focusableElements[currentIndex + 1] as HTMLElement;
-        nextElement.focus();
-      }
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key !== 'Enter') return;
+    const t = e.target as HTMLElement;
+    const tag = t.tagName?.toLowerCase();
+    if (!tag || ['button', 'textarea'].includes(tag)) return; // allow buttons and textareas to handle Enter normally
+    e.preventDefault();
+    // Focus the save button
+    const submitButton = e.currentTarget.querySelector('button[type="submit"]') as HTMLButtonElement;
+    if (submitButton) {
+      submitButton.focus();
     }
   };
 
@@ -559,28 +552,6 @@ export default function UnifiedDonationEntry() {
 
   // Clear forms
   const clearMoneyForm = () => {
-    if (isEdit) {
-      if (editId && token) {
-        moneyDonationService.getById(token, editId)
-          .then(resp => {
-            const d = resp.data;
-            setMoneyForm({
-              registerNo: d.register_no || '',
-              date: d.date || new Date().toISOString().slice(0,10),
-              name: d.name || '',
-              fatherName: d.father_name || '',
-              address: d.address || '',
-              village: d.village || '',
-              phone: d.phone || '',
-              amount: String(d.amount ?? ''),
-              reason: d.reason || '',
-              transferTo: 'INCOME A/C',
-            });
-          })
-          .catch(() => {});
-      }
-      return;
-    }
     setMoneyForm(createMoneyDonationState());
     computeNextRegisterNo().then(newRegisterNo => {
       if (newRegisterNo) {
@@ -601,12 +572,13 @@ export default function UnifiedDonationEntry() {
   // Use centralized form styles with violet theme
   const fieldStyles = cn(
     theme.input.base,
-    "w-full px-3 py-2.5 text-sm rounded-md transition-colors"
+    theme.input.size.md
   );
   const labelStyles = "block text-sm font-semibold text-gray-700 mb-2";
   const textareaStyles = cn(
-    theme.input.base,
-    "w-full px-3 py-2.5 text-sm rounded-md transition-colors resize-none"
+    theme.textarea.base,
+    theme.textarea.size.md,
+    "resize-none"
   );
 
   // Error message component
@@ -624,10 +596,12 @@ export default function UnifiedDonationEntry() {
     <div className={pageContainerStyles.container}>
       <div className={cn(pageContainerStyles.content, "max-w-6xl")}>
         <Card className={formFieldStyles.card.container}>
-          <CardHeader className={theme.card.header}>
-            <CardTitle className={formFieldStyles.header.title}>
-              {t('Donation Entry', 'நன்கொடை பதிவு')}
-            </CardTitle>
+          <CardHeader className={theme.header.container}>
+            <div className={theme.header.contentSpacing}>
+              <CardTitle className={theme.header.main}>
+                {t('Donation Entry', 'நன்கொடை பதிவு')}
+              </CardTitle>
+            </div>
           </CardHeader>
           
           <CardContent className={formFieldStyles.card.content}>
@@ -677,7 +651,7 @@ export default function UnifiedDonationEntry() {
                 onKeyDown={handleKeyDown}
                 className="space-y-6"
               >
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {/* Register No */}
                   <div>
                     <Input
@@ -698,6 +672,7 @@ export default function UnifiedDonationEntry() {
                       value={moneyForm.date} 
                       onChange={onMoneyChange}
                       placeholder={t('Date', 'தேதி')}
+                      autoFocus
                     />
                   </div>
                   
@@ -755,8 +730,8 @@ export default function UnifiedDonationEntry() {
                     />
                   </div>
                   
-                  {/* Address - Full width */}
-                  <div className="md:col-span-2 lg:col-span-3">
+                  {/* Address */}
+                  <div>
                     <Input 
                       className={fieldStyles}
                       name="address" 
@@ -779,8 +754,8 @@ export default function UnifiedDonationEntry() {
                     />
                   </div>
                   
-                  {/* Reason - Full width */}
-                  <div className="md:col-span-2 lg:col-span-2">
+                  {/* Reason */}
+                  <div>
                     <Input 
                       className={fieldStyles}
                       name="reason" 
@@ -792,13 +767,22 @@ export default function UnifiedDonationEntry() {
                 </div>
                 
                 {/* Action Buttons */}
-                <div className="flex justify-end pt-6 border-t border-gray-200">
+                <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
                   <Button 
                     disabled={saving} 
                     className="px-6 py-2.5 bg-gradient-to-r from-orange-400 to-red-500 hover:from-orange-500 hover:to-red-600 text-white font-medium rounded-md text-base transition-all duration-200"
                     type="submit"
                   >
                     {saving ? (isEdit ? t('Updating...', 'புதுப்பிக்கிறது...') : t('Saving...', 'சேமிக்கிறது...')) : (isEdit ? t('Update', 'புதுப்பிக்க') : t('Save', 'சேமிக்க'))}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={clearMoneyForm}
+                    className="px-6 py-2.5 text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm hover:shadow-md transition-all duration-200"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Clear
                   </Button>
                 </div>
               </form>
@@ -832,11 +816,11 @@ export default function UnifiedDonationEntry() {
                 </div>
 
                 <form onSubmit={onProductSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {/* Date */}
                     <div>
                       <Label className={labelStyles} htmlFor="date">
-                        {t('Date','தேதி')} <span className={formFieldStyles.required}>*</span>
+                       
                       </Label>
                       <Input
                         id="date"
@@ -849,9 +833,9 @@ export default function UnifiedDonationEntry() {
                     </div>
 
                     {/* Name */}
-                    <div className="md:col-span-2">
+                    <div>
                       <Label className={labelStyles} htmlFor="name">
-                        {t('Name','பெயர்')} <span className={formFieldStyles.required}>*</span>
+                       
                       </Label>
                       <Input
                         id="name"
@@ -868,7 +852,7 @@ export default function UnifiedDonationEntry() {
                     {/* Phone */}
                     <div>
                       <Label className={labelStyles} htmlFor="phone">
-                        {t('Phone','கைபேசி')} <span className={formFieldStyles.required}>*</span>
+                       
                       </Label>
                       <Input
                         id="phone"
@@ -896,7 +880,7 @@ export default function UnifiedDonationEntry() {
                     {/* Father Name */}
                     <div>
                       <Label className={labelStyles} htmlFor="fatherName">
-                        {t('Father Name','தந்தை பெயர்')}
+                        
                       </Label>
                       <Input
                         id="fatherName"
@@ -911,7 +895,7 @@ export default function UnifiedDonationEntry() {
                     {/* Village */}
                     <div>
                       <Label className={labelStyles} htmlFor="village">
-                        {t('Village','ஊர்')}
+                        
                       </Label>
                       <Input
                         id="village"
@@ -924,17 +908,16 @@ export default function UnifiedDonationEntry() {
                     </div>
 
                     {/* Address */}
-                    <div className="md:col-span-2">
+                    <div>
                       <Label className={labelStyles} htmlFor="address">
-                        {t('Address','முகவரி')}
+                       
                       </Label>
-                      <Textarea
+                      <Input
                         id="address"
                         name="address"
                         value={productForm.address}
                         onChange={onProductChange}
-                        rows={2}
-                        className={textareaStyles}
+                        className={fieldStyles}
                         placeholder={t('Enter address','முகவரியை உள்ளிடவும்')}
                       />
                     </div>
@@ -942,7 +925,7 @@ export default function UnifiedDonationEntry() {
                     {/* Product */}
                     <div>
                       <Label className={labelStyles} htmlFor="product">
-                        {t('Product','பொருள்')} <span className={formFieldStyles.required}>*</span>
+                       
                       </Label>
                       <div className={formFieldStyles.selectDropdown.container}>
                         <select
@@ -958,7 +941,7 @@ export default function UnifiedDonationEntry() {
                             }
                           }}
                           onBlur={onProductBlur}
-                          className={cn(formFieldStyles.select, "appearance-none pr-10 bg-white", errors.product ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
+                          className={cn(theme.select.base, theme.select.size.md, "appearance-none pr-10 bg-white", errors.product ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
                         >
                           <option value="">{t('Select Product','பொருள் தேர்வு')}</option>
                           {products.filter(p => p && p.id && p.label).map(p => 
@@ -977,7 +960,7 @@ export default function UnifiedDonationEntry() {
                     {/* Unit */}
                     <div className="relative">
                       <Label className={labelStyles} htmlFor="unit">
-                        {t('Unit','அளவு')} <span className={formFieldStyles.required}>*</span>
+                       
                       </Label>
                       <div className="relative">
                         <Input
@@ -1019,9 +1002,9 @@ export default function UnifiedDonationEntry() {
                     </div>
 
                     {/* Reason - Full width */}
-                    <div className="md:col-span-2 lg:col-span-3 xl:col-span-4">
+                    <div>
                       <Label className={labelStyles} htmlFor="reason">
-                        {t('Reason','காரணம்')}
+                        
                       </Label>
                       <Textarea
                       id="reason"
@@ -1036,7 +1019,7 @@ export default function UnifiedDonationEntry() {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex justify-end pt-6 border-t border-gray-200">
+                  <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
                     <Button
                       type="submit"
                       size="default"
@@ -1044,6 +1027,15 @@ export default function UnifiedDonationEntry() {
                       disabled={saving}
                     >
                       {saving ? t('Saving...','சேமிக்கிறது...') : t('Save','சேமி')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={clearProductForm}
+                      className="px-6 py-2.5 text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm hover:shadow-md transition-all duration-200"
+                    >
+                      <X className="w-4 h-4 mr-2" />
+                      Clear
                     </Button>
                   </div>
                 </form>

@@ -1,6 +1,7 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/lib/language";
+import { theme } from "@/styles/theme";
 import LedgerLogView from "./LedgerLogView";
 import { cn, formFieldStyles } from "@/styles/formStyles";
 
@@ -13,7 +14,7 @@ export default function LedgerLogsPage({}: LedgerLogsPageProps) {
   return (
     <div className="container mx-auto py-6 px-4">
       <Card>
-        <CardHeader className={cn(formFieldStyles.tableHeader.container, formFieldStyles.card.header)}>
+        <CardHeader className={theme.card.header}>
           <CardTitle className="text-lg font-bold">
             {t('Ledger Logs', 'பதிவேடு பதிவுகள்')}
           </CardTitle>

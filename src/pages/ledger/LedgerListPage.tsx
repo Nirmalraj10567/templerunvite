@@ -7,13 +7,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { format } from 'date-fns';
 import { ledgerService, LedgerEntry } from '@/services/ledgerService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
 import { FileDown, Search, RefreshCw, Edit, Trash2, Printer, Plus } from 'lucide-react';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
-import { theme } from '@/styles/theme';
+import { theme, tableClasses, buttonClasses } from '@/styles/theme';
 
 // Define styles using formFieldStyles
 const styles = {
@@ -446,10 +447,12 @@ export default function LedgerListPage() {
   <div className={pageContainerStyles.container}>
     <Card className={pageContainerStyles.content}>
        <div className={pageContainerStyles.content}>
-         <CardHeader className={theme.card.header}>
-           <CardTitle className="text-lg font-bold w-full">
-           {t('Ledger', 'பதிவேடு')}
-           </CardTitle>
+         <CardHeader className={theme.header.container}>
+           <div className={theme.header.contentSpacing}>
+             <CardTitle className={theme.header.main}>
+             {t('Ledger', 'பதிவேடு')}
+             </CardTitle>
+           </div>
          </CardHeader>
        
         <div className="text-xs text-gray-600">
@@ -460,256 +463,168 @@ export default function LedgerListPage() {
         </div>
       </div>
 
-      {/* Compact Filters */}
-      <Card className="mb-2">
-        <CardContent className="p-2">
-          <div className="grid grid-cols-2 md:grid-cols-6 lg:grid-cols-8 gap-2 items-center">
-            {/* Date Range */}
-            <Input
-              type="date"
-              value={filters.startDate}
-              onChange={(e) => handleFilterChange('startDate', e.target.value)}
-              className={cn(theme.input.base, "text-xs h-7")}
-              placeholder={t('From', '')}
-            />
-            <Input
-              type="date"
-              value={filters.endDate}
-              onChange={(e) => handleFilterChange('endDate', e.target.value)}
-              className={cn(theme.input.base, "text-xs h-7")}
-              placeholder={t('To', '')}
-            />
+      {/* Table Card */}
+      <Card className="mb-6">
+        <CardContent className="pt-6">
+          {/* Search + Export Toolbar */}
+          <div className={formFieldStyles.moneyDonationList.filters.container}>
+            <div className={formFieldStyles.moneyDonationList.filters.form}>
+              <div className={formFieldStyles.moneyDonationList.filters.searchContainer}>
+                <div className={formFieldStyles.moneyDonationList.filters.searchIcon}>
+                  <Search className={formFieldStyles.moneyDonationList.filters.searchIconSvg} />
+                </div>
+                <Input
+                  type="search"
+                  placeholder={t('Search by name...', 'பெயர் மூலம் தேடவும்...')}
+                  className={cn(theme.input.base, theme.input.size.sm, "pl-8")}
+                  value={filters.name}
+                  onChange={(e) => handleFilterChange('name', e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && loadData()}
+                />
+              </div>
+              <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>
+                <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => { setFilters(prev => ({ ...prev, name: '' })); }}>
+                  {t('Clear', 'அழி')}
+                </Button>
+                <Button size="sm" className="h-8 text-xs" variant="outline" onClick={onExportCSV} disabled={isLoading || entries.length === 0}>
+                  <FileDown className="h-3 w-3 mr-1" />
+                  {t('Export CSV', 'CSV ஏற்றுமதி')}
+                </Button>
+                <Button size="sm" className="h-8 text-xs" variant="outline" onClick={onExportPDF} disabled={isLoading || entries.length === 0}>
+                  <FileDown className="h-3 w-3 mr-1" />
+                  {t('Export PDF', 'PDF ஏற்றுமதி')}
+                </Button>
+              </div>
+            </div>
+          </div>
 
-            {/* Type */}
-            <Select value={filters.type} onValueChange={(v) => handleFilterChange('type', v)}>
-              <SelectTrigger className={cn(theme.input.base, "h-7 text-xs")}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('All Types', 'அனைத்து வகைகள்')}</SelectItem>
-                <SelectItem value="credit">{t('Credit', 'கடன்')}</SelectItem>
-                <SelectItem value="debit">{t('Debit', 'பற்று')}</SelectItem>
-              </SelectContent>
-            </Select>
+          {/* Table */}
+          <div className={tableClasses.scrollContainerWrapper} onContextMenu={onContextMenu}>
+            <div className={tableClasses.scrollContainer}>
+              {isLoading ? (
+                <div className={tableClasses.emptyState}>
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-orange-600 mx-auto"></div>
+                </div>
+              ) : (
+                <Table className={tableClasses.container}>
+                  <TableHeader className={tableClasses.header}>
+                    <TableRow className={tableClasses.row}>
+                      <TableHead className={tableClasses.headerCellSno}>{t("S.No", "எண்")}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Date", "தேதி")}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Name", "பெயர்")}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Category", "வகை")}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-right")}>{t("Credit", "கடன்")}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-right")}>{t("Debit", "பற்று")}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-right")}>{t("Balance", "இருப்பு")}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-right")}>{t("Actions", "செயல்கள்")}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {entries.length > 0 ? (
+                      entries.map((entry, index) => {
+                        let runningBalance = entries
+                          .slice(0, index + 1)
+                          .reduce((sum, e) => (e.type === 'credit' ? sum + e.amount : sum - e.amount), 0);
 
-            {/* Category */}
-            <Select value={filters.under} onValueChange={(v) => handleFilterChange('under', v)}>
-              <SelectTrigger className={cn(theme.input.base, "h-7 text-xs")}>
-                <SelectValue placeholder={t('Category', '')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('All Categories', 'அனைத்து வகைகள்')}</SelectItem>
-                {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Name Search */}
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400" />
-              <Input
-                placeholder={t('Search name', '')}
-                value={filters.name}
-                onChange={(e) => handleFilterChange('name', e.target.value)}
-                className={cn(theme.input.base, "text-xs h-7 pl-7")}
-              />
+                        return (
+                          <TableRow key={entry.id} className={tableClasses.row}>
+                            <TableCell className={tableClasses.cellSno}>
+                              {index + 1}
+                            </TableCell>
+                            <TableCell className={tableClasses.cell}>
+                              {format(new Date(entry.date), 'dd/MM/yy')}
+                            </TableCell>
+                            <TableCell className={cn(tableClasses.cell, "max-w-32 truncate")}>
+                              {entry.name}
+                            </TableCell>
+                            <TableCell className={cn(tableClasses.cell, "max-w-24 truncate")}>
+                              {entry.under || '-'}
+                            </TableCell>
+                            <TableCell className={cn(tableClasses.cell, "text-green-600", "text-right")}>
+                              {entry.type === 'credit' ? `₹${entry.amount.toFixed(2)}` : '-'}
+                            </TableCell>
+                            <TableCell className={cn(tableClasses.cell, "text-red-600", "text-right")}>
+                              {entry.type === 'debit' ? `₹${entry.amount.toFixed(2)}` : '-'}
+                            </TableCell>
+                            <TableCell className={cn(tableClasses.cell, "font-medium", "text-right")}>
+                              ₹{runningBalance.toFixed(2)}
+                            </TableCell>
+                            <TableCell className={cn(tableClasses.cell, tableClasses.actionCell)}>
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => onPrintEntry(entry)}
+                                  className={cn(buttonClasses.actionSecondary, "h-5 w-5 p-0")}
+                                >
+                                  <Printer className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEdit(entry)}
+                                  className={cn(buttonClasses.actionPrimary, "h-5 w-5 p-0")}
+                                >
+                                  <Edit className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDelete(entry.id!)}
+                                  className={cn(buttonClasses.actionDanger, "h-5 w-5 p-0")}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={8} className={tableClasses.emptyState}>
+                          {t("No entries found", "உள்ளீடுகள் கிடைக்கவில்லை")}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
             </div>
 
-            {/* Action Buttons */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setFilters({
-                  startDate: '',
-                  endDate: '',
-                  type: 'all',
-                  under: 'all',
-                  name: '',
-                });
-              }}
-              className="text-xs h-7 px-2"
-            >
-              <RefreshCw className="h-3 w-3 mr-1" />
-              {t('Reset', 'மீட்டமை')}
-            </Button>
-
-            <Button variant="outline" size="sm" onClick={onExportCSV} className="text-xs h-7 px-2">
-              <FileDown className="h-3 w-3 mr-1" />
-              CSV
-            </Button>
-
-            <Button variant="outline" size="sm" onClick={onExportPDF} className="text-xs h-7 px-2">
-              <FileDown className="h-3 w-3 mr-1" />
-              PDF
-            </Button>
-
-            
+            {/* Pagination */}
+            <div className={tableClasses.pagination}>
+              <div className="text-sm text-gray-700">
+                {t("Showing", "காட்டப்படுகிறது")} {(currentPage - 1) * itemsPerPage + 1} {t("to", "இலிருந்து")} {Math.min(currentPage * itemsPerPage, totalCount)} {t("of", "இல்")}{" "}
+                <span className="font-medium">{totalCount}</span> {t("items", "உருப்படிகள்")}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className={tableClasses.paginationButton}
+                >
+                  {t('Previous', 'முந்தைய')}
+                </Button>
+                <span className="text-xs flex items-center">
+                  {t('Page', 'பக்கம்')} {currentPage} {t('of', 'இல்')} {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  className={tableClasses.paginationButton}
+                >
+                  {t('Next', 'அடுத்தது')}
+                </Button>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
-
-      {/* Compact Table */}
-      <div
-        className={cn(theme.input.base, "bg-white rounded overflow-hidden")}
-        onContextMenu={onContextMenu}
-      >
-        <div className="overflow-x-auto text-xs max-h-[60vh]">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50 sticky top-0 z-10">
-              <tr>
-                {allColumns.map(
-                  (col) =>
-                    visibleCols[col.key] && (
-                      <th
-                        key={col.key}
-                        className={`px-2 py-1 text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                          col.align === 'right'
-                            ? 'text-right'
-                            : col.align === 'center'
-                            ? 'text-center'
-                            : 'text-left'
-                        }`}
-                      >
-                        {col.label}
-                      </th>
-                    )
-                )}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={visibleColCount} className="px-2 py-2 text-center text-xs text-gray-500">
-                    {t('Loading...', 'ஏற்றுகிறது...')}
-                  </td>
-                </tr>
-              ) : entries.length === 0 ? (
-                <tr>
-                  <td colSpan={visibleColCount} className="px-2 py-2 text-center text-xs text-gray-500">
-                    {t('No entries found', 'உள்ளீடுகள் கிடைக்கவில்லை')}
-                  </td>
-                </tr>
-              ) : (
-                entries.map((entry, index) => {
-                  let runningBalance = entries
-                    .slice(0, index + 1)
-                    .reduce((sum, e) => (e.type === 'credit' ? sum + e.amount : sum - e.amount), 0);
-
-                  return (
-                    <tr key={entry.id} className="hover:bg-gray-50">
-                      {visibleCols.date && (
-                        <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
-                          {format(new Date(entry.date), 'dd/MM/yy')}
-                        </td>
-                      )}
-                      {visibleCols.name && (
-                        <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-900 max-w-32 truncate">
-                          {entry.name}
-                        </td>
-                      )}
-                      {visibleCols.category && (
-                        <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-500 max-w-24 truncate">
-                          {entry.under || '-'}
-                        </td>
-                      )}
-                      {visibleCols.credit && (
-                        <td className="px-2 py-1 whitespace-nowrap text-xs text-green-600 text-right">
-                          {entry.type === 'credit' ? `₹${entry.amount.toFixed(2)}` : '-'}
-                        </td>
-                      )}
-                      {visibleCols.debit && (
-                        <td className="px-2 py-1 whitespace-nowrap text-xs text-red-600 text-right">
-                          {entry.type === 'debit' ? `₹${entry.amount.toFixed(2)}` : '-'}
-                        </td>
-                      )}
-                      {visibleCols.balance && (
-                        <td className="px-2 py-1 whitespace-nowrap text-xs font-medium text-right">
-                          ₹{runningBalance.toFixed(2)}
-                        </td>
-                      )}
-                      {visibleCols.actions && (
-                        <td className="px-2 py-1 whitespace-nowrap text-xs text-center">
-                          <div className="flex justify-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => onPrintEntry(entry)}
-                              className="h-6 w-6 p-0"
-                            >
-                              <Printer className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEdit(entry)}
-                              className="h-6 w-6 p-0"
-                            >
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDelete(entry.id!)}
-                              className="h-6 w-6 p-0 text-red-600"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Footer */}
-        <div className={cn(theme.input.base, "px-2 py-1 flex items-center justify-between text-xs")}>
-          <div className="text-gray-700">
-            {t('Showing', 'காட்டப்படுகிறது')}{' '}
-            <span className="font-medium">{totalCount === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}</span>{' '}
-            {t('to', 'இலிருந்து')}{' '}
-            <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalCount)}</span>{' '}
-            {t('of', 'மொத்தம்')}{' '}
-            <span className="font-medium">{totalCount}</span>
-          </div>
-          <div className="text-gray-700">
-            {t('Balance', 'இருப்பு')}: <span className="font-medium">₹{currentBalance.toFixed(2)}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center gap-2 mt-2 text-xs">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            className="text-xs py-1 px-2 h-7"
-          >
-            {t('Previous', 'முந்தைய')}
-          </Button>
-          <span className="text-xs">
-            {t('Page', 'பக்கம்')} {currentPage} {t('of', 'இல்')} {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={currentPage >= totalPages}
-            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            className="text-xs py-1 px-2 h-7"
-          >
-            {t('Next', 'அடுத்தது')}
-          </Button>
-        </div>
-      )}
 
       {/* Context Menu */}
       {menuOpen && (
@@ -801,7 +716,7 @@ export default function LedgerListPage() {
         <div className={formFieldStyles.moneyDonationList.modal.overlay}>
           <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeAllLogs} />
           <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-7xl mx-4 max-h-[90vh] flex flex-col">
-            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white py-6 px-6 rounded-t-lg flex-shrink-0">
+            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white py-2 px-6 rounded-t-lg flex-shrink-0">
               <div className={formFieldStyles.moneyDonationList.modal.header}>
                 <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('All Ledger Logs', 'அனைத்து பதிவேடு பதிவுகள்')}</h2>
                 <button onClick={closeAllLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>
@@ -998,7 +913,7 @@ export default function LedgerListPage() {
         <div className={formFieldStyles.moneyDonationList.modal.overlay}>
           <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeLogs} />
           <div className={formFieldStyles.moneyDonationList.modal.container}>
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-6 px-6 rounded-t-lg">
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 px-6 rounded-t-lg">
               <div className={formFieldStyles.moneyDonationList.modal.header}>
                 <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('Activity Log', 'செயல்பாட்டு பதிவு')} #{logsFor}</h2>
                 <button onClick={closeLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>

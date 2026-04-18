@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import { cn } from '@/lib/utils';
 import { formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface ReceiptItem {
@@ -152,11 +153,12 @@ export default function ReceiptListPage() {
     <div className={cn(pageContainerStyles.container, 'max-w-7xl mx-auto')}>
       <Card className={pageContainerStyles.content}>
         <CardHeader className={cn(
-          "bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 px-6 text-center",
+          theme.card.header,
+          "text-center",
           formFieldStyles.donationProductList.logBadge.create
         )}>
           <CardTitle className={cn(
-            "text-lg font-bold w-full",
+            theme.header.main,
             formFieldStyles.donationProductList.logBadge.base
           )}>
             {t('Receipt List', 'பதிவு பார்வைக்கும்')}

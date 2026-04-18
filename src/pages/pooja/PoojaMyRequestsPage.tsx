@@ -10,6 +10,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { poojaMobileService, PoojaMobileResponse } from '@/services/poojaMobileService';
 import { Eye, XCircle, Clock, CheckCircle, AlertCircle, Phone, Calendar, FileText, User } from 'lucide-react';
+import { theme } from '@/styles/theme';
+import { cn } from '@/styles/formStyles';
 
 export default function PoojaMyRequestsPage() {
   const { t } = useLanguage();
@@ -175,6 +177,7 @@ export default function PoojaMyRequestsPage() {
                 type="tel"
                 value={mobileNumber}
                 onChange={(e) => setMobileNumber(e.target.value)}
+                className={cn(theme.input.base, theme.input.size.md)}
                 placeholder={t('Enter your 10-digit mobile number', 'உங்கள் 10 இலக்க மொபைல் எண்ணை உள்ளிடவும்')}
                 maxLength={10}
               />
@@ -351,6 +354,7 @@ export default function PoojaMyRequestsPage() {
                 id="cancelReason"
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
+                className={cn(theme.input.base, theme.input.size.md)}
                 placeholder={t('Please provide a reason...', 'காரணத்தை வழங்கவும்...')}
               />
             </div>

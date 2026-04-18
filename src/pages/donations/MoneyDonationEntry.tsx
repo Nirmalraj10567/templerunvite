@@ -8,6 +8,7 @@ import { Modal } from '@/components/ui/modal';
 import { ledgerService } from '@/services/ledgerService';
 import { journalService } from '@/services/journalService';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
+import { theme } from '@/styles/theme';
 
 const createInitialState = (): MoneyDonationFormData => ({
   registerNo: '',
@@ -100,23 +101,16 @@ export default function MoneyDonationEntry() {
   };
 
   // Handle Enter key navigation
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      
-      if (!formRef.current) return;
-      
-      const focusableElements = formRef.current.querySelectorAll(
-        'input:not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled]):not([readonly]), button:not([disabled])'
-      );
-      
-      const currentElement = document.activeElement;
-      const currentIndex = Array.from(focusableElements).indexOf(currentElement as Element);
-      
-      if (currentIndex !== -1 && currentIndex < focusableElements.length - 1) {
-        const nextElement = focusableElements[currentIndex + 1] as HTMLElement;
-        nextElement.focus();
-      }
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key !== 'Enter') return;
+    const t = e.target as HTMLElement;
+    const tag = t.tagName?.toLowerCase();
+    if (!tag || ['button', 'textarea'].includes(tag)) return; // allow buttons and textareas to handle Enter normally
+    e.preventDefault();
+    // Focus the save button
+    const submitButton = e.currentTarget.querySelector('button[type="submit"]') as HTMLButtonElement;
+    if (submitButton) {
+      submitButton.focus();
     }
   };
 
@@ -390,14 +384,14 @@ export default function MoneyDonationEntry() {
   }, [isEdit, editId, token, language]);
 
   // Use centralized form styles
-  const fieldStyles = formFieldStyles.input;
+  const fieldStyles = cn(theme.input.base, theme.input.size.md);
   const labelStyles = formFieldStyles.label;
 
   return (
     <div className={pageContainerStyles.container}>
       <div className={cn(pageContainerStyles.content, "max-w-6xl")}>
         <div className={formFieldStyles.card.container}>
-          <div className={cn(formFieldStyles.card.header, formFieldStyles.header.gradient)}>
+          <div className={theme.card.header}>
             <h1 className={formFieldStyles.header.title}>
               {isEdit ? t('Edit Money Donation', 'பண நன்கொடைக் திருத்து') : t('Money Donation Entry', 'பண நன்கொடைக் பதிவு')}
             </h1>
@@ -439,6 +433,7 @@ export default function MoneyDonationEntry() {
                   name="date" 
                   value={form.date} 
                   onChange={onChange} 
+                  autoFocus
                 />
               </div>
               
