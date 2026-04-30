@@ -279,7 +279,7 @@ export default function OverviewPage() {
       {/* Stat gradient cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {/* Total Members - Blue */}
-        <div className="rounded-2xl p-5 text-white shadow-lg bg-gradient-to-br from-orange-400 via-red-400 to-orange-500 hover:shadow-xl transition-all duration-200">
+        <div className="rounded-2xl p-5 text-slate-700 shadow-lg bg-gradient-to-br from-blue-200 via-blue-300 to-indigo-300 hover:shadow-xl transition-all duration-200 hover:scale-105 border border-blue-300/50 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div className="text-sm opacity-90">{t[lang].totalMembers}</div>
             <UsersIcon className="h-6 w-6 opacity-90" />
@@ -290,7 +290,7 @@ export default function OverviewPage() {
           </div>
         </div>
         {/* Paid Members - Green */}
-        <div className="rounded-2xl p-5 text-white shadow-lg bg-gradient-to-br from-orange-300 via-red-300 to-orange-400 hover:shadow-xl transition-all duration-200">
+        <div className="rounded-2xl p-5 text-slate-700 shadow-lg bg-gradient-to-br from-emerald-200 via-green-300 to-teal-300 hover:shadow-xl transition-all duration-200 hover:scale-105 border border-emerald-300/50 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div className="text-sm opacity-90">{t[lang].paidMembers}</div>
             <CreditCardIcon className="h-6 w-6 opacity-90" />
@@ -300,8 +300,8 @@ export default function OverviewPage() {
             {loading ? t[lang].loading : t[lang].paidThisMonth}
           </div>
         </div>
-        {/* Unpaid Members - Blue */}
-        <div className="rounded-2xl p-5 text-white shadow-lg bg-gradient-to-br from-orange-400 via-red-400 to-orange-500 hover:shadow-xl transition-all duration-200">
+        {/* Unpaid Members - Orange */}
+        <div className="rounded-2xl p-5 text-slate-700 shadow-lg bg-gradient-to-br from-amber-200 via-orange-300 to-yellow-300 hover:shadow-xl transition-all duration-200 hover:scale-105 border border-amber-300/50 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div className="text-sm opacity-90">{t[lang].unpaidMembers}</div>
             <BarChartIcon className="h-6 w-6 opacity-90" />
@@ -311,8 +311,8 @@ export default function OverviewPage() {
             {loading ? t[lang].loading : t[lang].unpaidThisMonth}
           </div>
         </div>
-        {/* Upcoming Events - Green */}
-        <div className="rounded-2xl p-5 text-white shadow-lg bg-gradient-to-br from-orange-300 via-red-300 to-orange-400 hover:shadow-xl transition-all duration-200">
+        {/* Upcoming Events - Purple */}
+        <div className="rounded-2xl p-5 text-slate-700 shadow-lg bg-gradient-to-br from-purple-200 via-pink-300 to-rose-300 hover:shadow-xl transition-all duration-200 hover:scale-105 border border-purple-300/50 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div className="text-sm opacity-90">{t[lang].upcomingEvents}</div>
             <CalendarIcon className="h-6 w-6 opacity-90" />
@@ -425,7 +425,7 @@ export default function OverviewPage() {
                         try { console.debug('[QuickAction] navigate ->', c.to); } catch {}
                         navigate(c.to);
                       }}
-                      className="w-full rounded-2xl p-5 bg-white border border-slate-200 hover:shadow-md text-left transition-all duration-200"
+                      className="w-full rounded-2xl p-5 bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200/60 hover:shadow-lg hover:border-gray-300 text-left transition-all duration-200 hover:scale-105"
                     >
                       <div className="flex items-center justify-between">
                         <div className="text-sm text-slate-600">
@@ -456,7 +456,7 @@ export default function OverviewPage() {
           {hasPerm('pooja_approval', 'view') && (
             <button
               onClick={() => navigate('/dashboard/pooja/approval')}
-              className="w-full rounded-2xl p-5 bg-white border border-slate-200 hover:shadow-md text-left transition-all duration-200"
+              className="w-full rounded-2xl p-5 bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200/60 hover:shadow-lg hover:border-blue-300 text-left transition-all duration-200 hover:scale-105"
             >
               <div className="flex items-center justify-between">
                 <div className="text-sm text-slate-600">{t[lang].approvalRequests}</div>
@@ -470,7 +470,7 @@ export default function OverviewPage() {
           {hasPerm('hall_approval', 'view') && (
             <button
               onClick={() => navigate('/dashboard/hall/approvals')}
-              className="w-full rounded-2xl p-5 bg-white border border-slate-200 hover:shadow-md text-left transition-all duration-200"
+              className="w-full rounded-2xl p-5 bg-gradient-to-br from-green-50 to-green-100 border border-green-200/60 hover:shadow-lg hover:border-green-300 text-left transition-all duration-200 hover:scale-105"
             >
               <div className="flex items-center justify-between">
                 <div className="text-sm text-slate-600">{t[lang].approvalRequests}</div>
@@ -484,7 +484,7 @@ export default function OverviewPage() {
           {hasPerm('annadhanam_approval', 'view') && (
             <button
               onClick={() => navigate('/dashboard/annadhanam/approval')}
-              className="w-full rounded-2xl p-5 bg-white border border-slate-200 hover:shadow-md text-left transition-all duration-200"
+              className="w-full rounded-2xl p-5 bg-gradient-to-br from-rose-50 to-rose-100 border border-rose-200/60 hover:shadow-lg hover:border-rose-300 text-left transition-all duration-200 hover:scale-105"
             >
               <div className="flex items-center justify-between">
                 <div className="text-sm text-slate-600">{t[lang].approvalRequests}</div>
