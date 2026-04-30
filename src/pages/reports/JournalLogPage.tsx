@@ -24,7 +24,7 @@ const PAGE_SIZE = 20;
 export default function JournalLogPage() {
   const { language } = useLanguage();
   const { token } = useAuth();
-  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
 
@@ -40,18 +40,18 @@ export default function JournalLogPage() {
   useEffect(() => {
     const syncPoojaEntries = async () => {
       if (!token || hasSynced) return;
-      
+
       try {
-        const response = await fetch('http://localhost:4000/api/journal/sync-pooja', {
+        const response = await fetch('https://templeapi.agniplay.com/api/journal/sync-pooja', {
           method: 'POST',
-          headers: { 
+          headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
         const result = await response.json();
         if (result.success) {
-          const message = result.details ? 
+          const message = result.details ?
             `Synced ${result.created} entries to journal (${result.skipped} already existed)\n- Pooja: ${result.details.pooja.created} new, ${result.details.pooja.skipped} existing\n- Money Donations: ${result.details.moneyDonations.created} new, ${result.details.moneyDonations.skipped} existing` :
             `Synced ${result.created} entries to journal (${result.skipped} already existed)`;
           console.log(message);
@@ -72,8 +72,8 @@ export default function JournalLogPage() {
   const today = new Date();
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(today.getDate() - 30);
-  const startDate = params.get('startDate') || thirtyDaysAgo.toISOString().slice(0,10);
-  const endDate = params.get('endDate') || today.toISOString().slice(0,10);
+  const startDate = params.get('startDate') || thirtyDaysAgo.toISOString().slice(0, 10);
+  const endDate = params.get('endDate') || today.toISOString().slice(0, 10);
   const account = params.get('account') || '';
 
   const query = useMemo(() => ({ startDate, endDate, account }), [startDate, endDate, account]);
@@ -130,9 +130,9 @@ export default function JournalLogPage() {
         limit: 10000, // Get all entries
         excludeZero: true,
       });
-      
+
       const allEntries = res.data || [];
-      
+
       // Create CSV content
       const headers = ['Date', 'From Account', 'To Account', 'Amount', 'Reference', 'Remarks'];
       const csvContent = [
@@ -177,9 +177,9 @@ export default function JournalLogPage() {
         limit: 10000,
         excludeZero: true,
       });
-      
+
       const allEntries = res.data || [];
-      
+
       // Create HTML content for PDF
       const htmlContent = `
         <!DOCTYPE html>
@@ -262,136 +262,136 @@ export default function JournalLogPage() {
 
   return (
     <div className={pageContainerStyles.container}>
-       <Card className={pageContainerStyles.content}>
-         <CardHeader className={theme.header.container}>
-           <div className={theme.header.contentSpacing}>
-             <CardTitle className={theme.header.main}>
-             {t('Journal Log', 'ஜர்னல் பதிவு')}
-             </CardTitle>
-           </div>
-         </CardHeader>
-       
-      <Card>
-       
-        <CardContent>
-          <div className="flex flex-wrap gap-3 items-end mb-4">
-            <div className="space-y-1">
-              <Label htmlFor="startDate">{t('Start Date', 'தொடக்க தேதி')}</Label>
-              <Input id="startDate" type="date" value={startDate} onChange={(e) => onFilterChange('startDate', e.target.value)} className={cn(theme.input.base, theme.input.size.md)} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="endDate">{t('End Date', 'முடிவு தேதி')}</Label>
-              <Input id="endDate" type="date" value={endDate} onChange={(e) => onFilterChange('endDate', e.target.value)} className={cn(theme.input.base, theme.input.size.md)} />
-            </div>
-            <div className="space-y-1 flex-1">
-              <Label htmlFor="account">{t('Account (optional)', 'கணக்கு (விருப்பம்)')}</Label>
-              <Input id="account" placeholder={t('Search account name', 'Search account name')} value={account} onChange={(e) => onFilterChange('account', e.target.value)} className={cn(theme.input.base, theme.input.size.md)} />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={exportToCSV}
-                disabled={isLoading}
-                size="sm"
-                className="h-9"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                {t('Export CSV', 'CSV ஏற்றுமதி')}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={exportToPDF}
-                disabled={isLoading}
-                size="sm"
-                className="h-9"
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                {t('Export PDF', 'PDF ஏற்றுமதி')}
-              </Button>
-            </div>
+      <Card className={pageContainerStyles.content}>
+        <CardHeader className={theme.header.container}>
+          <div className={theme.header.contentSpacing}>
+            <CardTitle className={theme.header.main}>
+              {t('Journal Log', 'ஜர்னல் பதிவு')}
+            </CardTitle>
           </div>
-          <div className="flex justify-between items-center mb-3">
-            <div className="text-sm text-gray-600">
-              {isLoading ? t('Loading...', 'ஏற்றுகிறது...') : t('Total', 'மொத்தம்') + `: ${entries.length} / ${totalCount}`}
-              {error && <span className="text-red-600 ml-2">{error}</span>}
+        </CardHeader>
+
+        <Card>
+
+          <CardContent>
+            <div className="flex flex-wrap gap-3 items-end mb-4">
+              <div className="space-y-1">
+                <Label htmlFor="startDate">{t('Start Date', 'தொடக்க தேதி')}</Label>
+                <Input id="startDate" type="date" value={startDate} onChange={(e) => onFilterChange('startDate', e.target.value)} className={cn(theme.input.base, theme.input.size.md)} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="endDate">{t('End Date', 'முடிவு தேதி')}</Label>
+                <Input id="endDate" type="date" value={endDate} onChange={(e) => onFilterChange('endDate', e.target.value)} className={cn(theme.input.base, theme.input.size.md)} />
+              </div>
+              <div className="space-y-1 flex-1">
+                <Label htmlFor="account">{t('Account (optional)', 'கணக்கு (விருப்பம்)')}</Label>
+                <Input id="account" placeholder={t('Search account name', 'Search account name')} value={account} onChange={(e) => onFilterChange('account', e.target.value)} className={cn(theme.input.base, theme.input.size.md)} />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={exportToCSV}
+                  disabled={isLoading}
+                  size="sm"
+                  className="h-9"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  {t('Export CSV', 'CSV ஏற்றுமதி')}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={exportToPDF}
+                  disabled={isLoading}
+                  size="sm"
+                  className="h-9"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  {t('Export PDF', 'PDF ஏற்றுமதி')}
+                </Button>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                onClick={() => handlePageChange(page - 1)} 
-                disabled={isLoading || page <= 1}
-              >
-                {t('Previous', 'முந்தைய')}
-              </Button>
-              <Button 
-                variant="outline" 
-                disabled
-              >
-                {page}
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => handlePageChange(page + 1)} 
-                disabled={isLoading || page >= totalPages}
-              >
-                {t('Next', 'அடுத்து')}
-              </Button>
+            <div className="flex justify-between items-center mb-3">
+              <div className="text-sm text-gray-600">
+                {isLoading ? t('Loading...', 'ஏற்றுகிறது...') : t('Total', 'மொத்தம்') + `: ${entries.length} / ${totalCount}`}
+                {error && <span className="text-red-600 ml-2">{error}</span>}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => handlePageChange(page - 1)}
+                  disabled={isLoading || page <= 1}
+                >
+                  {t('Previous', 'முந்தைய')}
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled
+                >
+                  {page}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => handlePageChange(page + 1)}
+                  disabled={isLoading || page >= totalPages}
+                >
+                  {t('Next', 'அடுத்து')}
+                </Button>
+              </div>
             </div>
-          </div>
-          <div className={tableClasses.scrollContainerWrapper}>
-            <div className={tableClasses.scrollContainer}>
-              {isLoading ? (
-                <div className={tableClasses.emptyState}>
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-                </div>
-              ) : (
-                <Table className={tableClasses.container}>
-                  <TableHeader className={tableClasses.header}>
-                    <TableRow className={tableClasses.row}>
-                      <TableHead className={tableClasses.headerCell}>{t('Date', 'தேதி')}</TableHead>
-                      <TableHead className={tableClasses.headerCell}>{t('From Account', 'வரவு கணக்கு')}</TableHead>
-                      <TableHead className={tableClasses.headerCell}>{t('To Account', 'பெறுகை கணக்கு')}</TableHead>
-                      <TableHead className={cn(tableClasses.headerCell, "text-right")}>{t('Amount', 'தொகை')}</TableHead>
-                      <TableHead className={tableClasses.headerCell}>{t('Reference', 'குறிப்பு')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {entries.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className={tableClasses.emptyState}>
-                          {t('No entries found', 'பதிவுகள் இல்லை')}
-                        </TableCell>
+            <div className={tableClasses.scrollContainerWrapper}>
+              <div className={tableClasses.scrollContainer}>
+                {isLoading ? (
+                  <div className={tableClasses.emptyState}>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                  </div>
+                ) : (
+                  <Table className={tableClasses.container}>
+                    <TableHeader className={tableClasses.header}>
+                      <TableRow className={tableClasses.row}>
+                        <TableHead className={tableClasses.headerCell}>{t('Date', 'தேதி')}</TableHead>
+                        <TableHead className={tableClasses.headerCell}>{t('From Account', 'வரவு கணக்கு')}</TableHead>
+                        <TableHead className={tableClasses.headerCell}>{t('To Account', 'பெறுகை கணக்கு')}</TableHead>
+                        <TableHead className={cn(tableClasses.headerCell, "text-right")}>{t('Amount', 'தொகை')}</TableHead>
+                        <TableHead className={tableClasses.headerCell}>{t('Reference', 'குறிப்பு')}</TableHead>
                       </TableRow>
-                    ) : (
-                      entries.map((e) => (
-                        <TableRow key={e.id} className={tableClasses.row}>
-                          <TableCell className={tableClasses.cell}>{e.date?.slice(0,10)}</TableCell>
-                          <TableCell className={tableClasses.cell}>{e.from_account}</TableCell>
-                          <TableCell className={tableClasses.cell}>{e.to_account}</TableCell>
-                          <TableCell className={cn(tableClasses.cell, "text-right")}>{Number(e.amount).toFixed(2)}</TableCell>
-                          <TableCell className={tableClasses.cell}>
-                            {(e.reference_type && e.reference_id) ? `${e.reference_type}#${e.reference_id}` : (e.remarks || '')}
+                    </TableHeader>
+                    <TableBody>
+                      {entries.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className={tableClasses.emptyState}>
+                            {t('No entries found', 'பதிவுகள் இல்லை')}
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              )}
+                      ) : (
+                        entries.map((e) => (
+                          <TableRow key={e.id} className={tableClasses.row}>
+                            <TableCell className={tableClasses.cell}>{e.date?.slice(0, 10)}</TableCell>
+                            <TableCell className={tableClasses.cell}>{e.from_account}</TableCell>
+                            <TableCell className={tableClasses.cell}>{e.to_account}</TableCell>
+                            <TableCell className={cn(tableClasses.cell, "text-right")}>{Number(e.amount).toFixed(2)}</TableCell>
+                            <TableCell className={tableClasses.cell}>
+                              {(e.reference_type && e.reference_id) ? `${e.reference_type}#${e.reference_id}` : (e.remarks || '')}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
             </div>
-          </div>
-          <div className="flex justify-between items-center mt-3">
-            <div className="text-sm text-gray-600">
-              {t('Showing', 'காட்டுகிறது')} {entries.length} {t('of', 'இல்')} {totalCount}
+            <div className="flex justify-between items-center mt-3">
+              <div className="text-sm text-gray-600">
+                {t('Showing', 'காட்டுகிறது')} {entries.length} {t('of', 'இல்')} {totalCount}
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => handlePageChange(page - 1)} disabled={page === 1}>{t('Previous', 'முந்தைய')}</Button>
+                <Button onClick={() => handlePageChange(page + 1)} disabled={entries.length < PAGE_SIZE}>{t('Next', 'அடுத்த')}</Button>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => handlePageChange(page - 1)} disabled={page === 1}>{t('Previous', 'முந்தைய')}</Button>
-              <Button onClick={() => handlePageChange(page + 1)} disabled={entries.length < PAGE_SIZE}>{t('Next', 'அடுத்த')}</Button>
-            </div>
-          </div>
-        </CardContent>
+          </CardContent>
+        </Card>
       </Card>
-    </Card>
     </div>
   );
 }

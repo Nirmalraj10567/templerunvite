@@ -4,6 +4,9 @@ import { useLanguage } from '@/lib/language';
 import { PrintButton } from '@/components/ui/print-button';
 import { theme } from '@/styles/theme';
 import { cn } from '@/lib/utils';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { toast } from "@/components/ui/use-toast";
 
 interface MarriageItem {
   id: number;
@@ -140,7 +143,7 @@ export default function MarriageListPage() {
       if (q) params.append('q', q);
       if (from) params.append('from', from);
       if (to) params.append('to', to);
-      const res = await fetch(`http://localhost:4000/api/marriages?${params.toString()}`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/marriages?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -161,7 +164,7 @@ export default function MarriageListPage() {
 
   const onExport = async () => {
     try {
-      const res = await fetch('http://localhost:4000/api/marriages/export', {
+      const res = await fetch('https://templeapi.agniplay.com/api/marriages/export', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const blob = await res.blob();
@@ -178,8 +181,89 @@ export default function MarriageListPage() {
     }
   };
 
-  const onPrint = () => {
-    window.print();
+  const onExportPDF = () => {
+    try {
+      const title = t('Marriage Register List', 'திருமண பதிவு பட்டியல்');
+      const headCells = [
+        t('Reg No', 'பதிவு எண்'),
+        t('Date', 'தேதி'),
+        t('Time', 'நேரம்'),
+        t('Groom', 'வரன்'),
+        t('Bride', 'மணமகள்'),
+        t('Village', 'கிராமம்'),
+        t('Event', 'நிகழ்வு'),
+        t('Amount', 'தொகை'),
+      ];
+
+      const exportRows = items.map((r) => [
+        r.register_no || "",
+        r.date || "",
+        r.time || "",
+        r.groom_name || "",
+        r.bride_name || "",
+        r.village || "",
+        r.event || "",
+        r.amount || "0",
+      ]);
+
+      const doc = new jsPDF('landscape');
+      
+      // Add Title and Styling
+      doc.setFontSize(20);
+      doc.setTextColor(40);
+      doc.text(title, 14, 22);
+      
+      // Add metadata info
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      const now = new Date();
+      const meta = `${t('Total records', 'மொத்த பதிவுகள்')}: ${items.length} | ${t('Total amount', 'மொத்த தொகை')}: ${totalAmount.toLocaleString()}`;
+      doc.text(meta, 14, 30);
+      
+      // Horizontal line
+      doc.setDrawColor(200, 200, 200);
+      doc.line(14, 33, 283, 33);
+
+      autoTable(doc, {
+        head: [headCells],
+        body: exportRows,
+        startY: 40,
+        styles: { 
+          fontSize: 9, 
+          cellPadding: 4,
+          valign: 'middle'
+        },
+        headStyles: { 
+          fillColor: [79, 70, 229], // Indigo 600
+          textColor: [255, 255, 255], 
+          fontStyle: 'bold',
+          fontSize: 10
+        },
+        alternateRowStyles: {
+          fillColor: [249, 250, 251] // Gray 50
+        },
+        margin: { top: 40 },
+        didDrawPage: (data) => {
+          // Footer: Page Number
+          const str = `Page ${(doc as any).getNumberOfPages()}`;
+          doc.setFontSize(8);
+          doc.setTextColor(150);
+          const pageSize = doc.internal.pageSize;
+          const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
+          doc.text(str, 14, pageHeight - 10);
+        }
+      });
+
+      const stamp = now.toISOString().slice(0, 19).replace(/[:T]/g, "-");
+      doc.save(`marriage-export-${stamp}.pdf`);
+    } catch (err) {
+      console.error("PDF export failed", err);
+      toast({
+        title: t('Error', 'பிழை'),
+        description: t('Failed to export PDF.', 'PDF ஏற்றுமதி தோல்வியடைந்தது.'),
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -254,7 +338,7 @@ export default function MarriageListPage() {
               {t('Export CSV', 'CSV ஏற்றுமதி')}
             </button>
             <button
-              onClick={onPrint}
+              onClick={onExportPDF}
               className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               type="button"
             >

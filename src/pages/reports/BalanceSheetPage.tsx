@@ -10,7 +10,7 @@ import { getAuthToken } from '@/lib/auth';
 import { Loader2, RefreshCw, IndianRupee, FileDown, Calendar, Building2, Scale, ArrowUpCircle, ArrowDownCircle, TrendingUp, AlertCircle, LayoutGrid, FileText } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { useLanguage } from '@/lib/language'; 
+import { useLanguage } from '@/lib/language';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
 import { theme, tableClasses } from '@/styles/theme';
 import {
@@ -29,8 +29,8 @@ interface Item {
 
 export default function BalanceSheetPage() {
   const { language } = useLanguage();
- // const t = (en: string, ta: string) => (language === 'english' ? ta : en);
-  
+  // const t = (en: string, ta: string) => (language === 'english' ? ta : en);
+
   type Labels = {
     title: string;
     from: string;
@@ -56,10 +56,27 @@ export default function BalanceSheetPage() {
     loading: string;
     errorLoading: string;
     balanceSheet: string;
+    currentLiabilities: string;
+    retainedEarnings: string;
+    currentAssets: string;
+    lossesAndDiffs: string;
+    profitAndLossDetails: string;
+    totalIncome: string;
+    totalExpense: string;
+    netResult: string;
+    incomeSources: string;
+    expenseCategories: string;
+    noIncomeRecords: string;
+    noExpenseRecords: string;
+    summary: string;
+    asOfSelectedDate: string;
+    grandTotal: string;
+    exportPdf: string;
+    totalLiabilities: string;
   };
 
   const t: Record<'english' | 'tamil', Labels> = {
-    english: {
+    tamil: {
       title: 'Balance Sheet',
       from: 'From',
       to: 'To',
@@ -84,8 +101,25 @@ export default function BalanceSheetPage() {
       loading: 'Loading...',
       errorLoading: 'Failed to load',
       balanceSheet: 'Balance Sheet',
+      currentLiabilities: 'Current Liabilities',
+      retainedEarnings: 'Retained Earnings',
+      currentAssets: 'Current Assets',
+      lossesAndDiffs: 'Losses & Diffs',
+      profitAndLossDetails: 'Profit & Loss Details',
+      totalIncome: 'Total Income',
+      totalExpense: 'Total Expense',
+      netResult: 'Net Result',
+      incomeSources: 'Income Sources',
+      expenseCategories: 'Expense Categories',
+      noIncomeRecords: 'No income records',
+      noExpenseRecords: 'No expense records',
+      summary: 'Summary',
+      asOfSelectedDate: 'As of selected date',
+      grandTotal: 'Grand Total',
+      exportPdf: 'Export PDF',
+      totalLiabilities: 'Total Liabilities',
     },
-    tamil: {
+    english: {
       balanceSheet: 'இருப்புநிலை',
       title: 'சமநிலை அறிக்கை',
       from: 'இருந்து',
@@ -110,6 +144,23 @@ export default function BalanceSheetPage() {
       fiscalYear: 'பொருளாதார ஆண்டு',
       loading: 'ஏற்றுகிறது...',
       errorLoading: 'அறிக்கை ஏற்ற முடியவில்லை',
+      currentLiabilities: 'நடப்பு பொறுப்புகள்',
+      retainedEarnings: 'தக்கவைக்கப்பட்ட வருவாய்',
+      currentAssets: 'நடப்பு சொத்துக்கள்',
+      lossesAndDiffs: 'இழப்புகள் மற்றும் வித்தியாசங்கள்',
+      profitAndLossDetails: 'லாபம் மற்றும் நஷ்டம் விவரங்கள்',
+      totalIncome: 'மொத்த வருமானம்',
+      totalExpense: 'மொத்த செலவு',
+      netResult: 'நிகர முடிவு',
+      incomeSources: 'வருமான ஆதாரங்கள்',
+      expenseCategories: 'செலவு வகைகள்',
+      noIncomeRecords: 'வருமான பதிவுகள் இல்லை',
+      noExpenseRecords: 'செலவு பதிவுகள் இல்லை',
+      summary: 'சுருக்கம்',
+      asOfSelectedDate: 'தேர்ந்தெடுக்கப்பட்ட தேதியின்படி',
+      grandTotal: 'பெரு மொத்தம்',
+      exportPdf: 'PDF ஏற்றுமதி',
+      totalLiabilities: 'மொத்த பொறுப்புகள்',
     },
   } as const;
 
@@ -120,9 +171,13 @@ export default function BalanceSheetPage() {
 
   const [assets, setAssets] = useState<Item[]>([]);
   const [liabilities, setLiabilities] = useState<Item[]>([]);
-  const [debits, setDebits] = useState<Item[]>([]);
-  const [totals, setTotals] = useState<{ assets: number; liabilities: number; debits: number }>({ assets: 0, liabilities: 0, debits: 0 });
+  const [incomeItems, setIncomeItems] = useState<Item[]>([]);
+  const [expenseItems, setExpenseItems] = useState<Item[]>([]);
+  const [netProfit, setNetProfit] = useState<number>(0);
+  const [totals, setTotals] = useState<{ assets: number; liabilities: number; income: number; expense: number }>({ assets: 0, liabilities: 0, income: 0, expense: 0 });
   const [openingDiff, setOpeningDiff] = useState<number>(0);
+
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<keyof Item>('account');
@@ -135,50 +190,42 @@ export default function BalanceSheetPage() {
       const token = getAuthToken();
 
       // Fetch balance sheet data
-      const balanceResp = await fetch(`http://localhost:4000/api/journal/balance-sheet?from=${query.startDate}&to=${query.endDate}`, {
+      const balanceResp = await fetch(`https://templeapi.agniplay.com/api/journal/balance-sheet?from=${query.startDate}&to=${query.endDate}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!balanceResp.ok) throw new Error(t[language].errorLoading);
       const balanceData = await balanceResp.json();
 
-      // Fetch debit transactions from ledger entries (already typed credit/debit)
-      const debitResp = await fetch(`http://localhost:4000/api/ledger/entries?startDate=${query.startDate}&endDate=${query.endDate}&type=debit&limit=1000&page=1`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      let debitItems: Item[] = [];
-      if (debitResp.ok) {
-        const result = await debitResp.json();
-        const rows: any[] = result?.data || [];
-        // Group by category/under or name and sum amounts
-        const map = new Map<string, number>();
-        for (const r of rows) {
-          const key = r.under || r.name || 'Unknown';
-          const amt = Number(r.amount || 0);
-          map.set(key, (map.get(key) || 0) + (isNaN(amt) ? 0 : amt));
-        }
-        debitItems = Array.from(map.entries()).map(([account, balance]) => ({ account, balance }));
-      }
-
-      // Use server-provided assets/liabilities as-is
-      const assetsList: Item[] = balanceData?.data?.assets || [];
-      const liabilitiesList: Item[] = balanceData?.data?.liabilities || [];
+      // Use server-provided data
+      const data = balanceData?.data || {};
+      const assetsList: Item[] = data.assets || [];
+      const liabilitiesList: Item[] = data.liabilities || [];
+      const incItems: Item[] = data.incomeItems || [];
+      const expItems: Item[] = data.expenseItems || [];
+      const profitVal: number = data.netProfit || 0;
 
       setAssets(assetsList);
       setLiabilities(liabilitiesList);
-      setDebits(debitItems);
+      setIncomeItems(incItems);
+      setExpenseItems(expItems);
+      setNetProfit(profitVal);
 
-      const totalDebits = debitItems.reduce((sum, item) => sum + (item.balance || 0), 0);
-      const totalAssets = assetsList.reduce((sum, item) => sum + (item.balance || 0), 0);
-      const totalLiabilities = liabilitiesList.reduce((sum, item) => sum + (item.balance || 0), 0);
-      setTotals({ assets: totalAssets, liabilities: totalLiabilities, debits: totalDebits });
+      setTotals({ 
+        assets: data.totals?.assets || 0, 
+        liabilities: data.totals?.liabilities || 0, 
+        income: data.totals?.income || 0,
+        expense: data.totals?.expense || 0
+      });
 
-      const od = (balanceData?.data?.openingDiff ?? balanceData?.data?.opening_balance_diff ?? 0) as number;
+      const od = (data.openingDiff ?? data.opening_balance_diff ?? 0) as number;
       setOpeningDiff(Number.isFinite(od) ? od : 0);
     } catch (e: any) {
       setError(e?.message || t[language].errorLoading);
       setAssets([]);
       setLiabilities([]);
-      setDebits([]);
+      setIncomeItems([]);
+      setExpenseItems([]);
+
     } finally {
       setIsLoading(false);
     }
@@ -241,7 +288,8 @@ export default function BalanceSheetPage() {
 
   const sortedAssets = useMemo(() => sortList(assets), [assets, sortKey, sortDir]);
   const sortedLiabilities = useMemo(() => sortList(liabilities), [liabilities, sortKey, sortDir]);
-  const sortedDebits = useMemo(() => sortList(debits), [debits, sortKey, sortDir]);
+  const sortedIncome = useMemo(() => sortList(incomeItems), [incomeItems, sortKey, sortDir]);
+  const sortedExpense = useMemo(() => sortList(expenseItems), [expenseItems, sortKey, sortDir]);
 
   const onSort = (key: keyof Item) => {
     setSortKey(prev => (prev === key ? prev : key));
@@ -251,9 +299,18 @@ export default function BalanceSheetPage() {
   const totalsRow = useMemo(() => {
     const ta = sortedAssets.reduce((s, r) => s + (r.balance || 0), 0);
     const tl = sortedLiabilities.reduce((s, r) => s + (r.balance || 0), 0);
-    const td = sortedDebits.reduce((s, r) => s + (r.balance || 0), 0);
-    return { assets: ta, liabilities: tl, debits: td };
-  }, [sortedAssets, sortedLiabilities, sortedDebits]);
+    return { assets: ta, liabilities: tl };
+  }, [sortedAssets, sortedLiabilities]);
+  const maxRows = useMemo(() => Math.max(sortedLiabilities.length, sortedAssets.length), [sortedLiabilities, sortedAssets]);
+  const obCredit = useMemo(() => Math.max(0, openingDiff), [openingDiff]);
+  const obDebit = useMemo(() => Math.max(0, -openingDiff), [openingDiff]);
+
+  const totalLiabilitiesAndEquity = totalsRow.liabilities + (netProfit > 0 ? netProfit : 0) + obCredit;
+  const totalAssetsValue = totalsRow.assets + (netProfit < 0 ? Math.abs(netProfit) : 0) + obDebit;
+
+  const grandTotal = Math.abs(netProfit);
+
+
 
   const exportCSV = () => {
     const headers = [
@@ -264,22 +321,23 @@ export default function BalanceSheetPage() {
       t[language].debits,
       t[language].amount,
     ];
-    const maxRows = Math.max(sortedLiabilities.length, sortedAssets.length, sortedDebits.length);
+    const maxRows = Math.max(sortedLiabilities.length, sortedAssets.length);
+
 
     const lines = [
       headers.join(','),
       ...Array.from({ length: maxRows }).map((_, i) => {
         const l = sortedLiabilities[i];
         const a = sortedAssets[i];
-        const d = sortedDebits[i];
         return [
           l?.account ?? '',
           l ? l.balance : '',
           a?.account ?? '',
           a ? a.balance : '',
-          d?.account ?? '',
-          d ? d.balance : '',
+          '',
+          '',
         ].map(v => typeof v === 'string' ? `"${v.replace(/"/g, '""')}"` : v).join(',');
+
       }),
       [
         t[language].openingDiff,
@@ -291,20 +349,21 @@ export default function BalanceSheetPage() {
       ].map(v => typeof v === 'string' ? `"${v.replace(/"/g, '""')}"` : v).join(','),
       [
         t[language].netProfit,
-        profit > 0 ? profit : '',
+        netProfit > 0 ? netProfit : '',
         '',
         '',
         t[language].netLoss,
-        loss > 0 ? loss : '',
+        netProfit < 0 ? Math.abs(netProfit) : '',
       ].map(v => typeof v === 'string' ? `"${v.replace(/"/g, '""')}"` : v).join(','),
       [
         t[language].totalCredits,
-        totalsRow.liabilities + profit + obCredit,
+        totalLiabilitiesAndEquity,
         t[language].totalAssets,
-        totalsRow.assets + obDebit,
-        t[language].totalDebits,
-        totalsRow.debits + loss,
+        totalAssetsValue,
+        '',
+        '',
       ].map(v => typeof v === 'string' ? `"${v.replace(/"/g, '""')}"` : v).join(','),
+
     ];
     const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -320,23 +379,23 @@ export default function BalanceSheetPage() {
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 15;
     let y = 20;
-    
+
     // Title
     doc.setFontSize(18);
     doc.setTextColor(249, 115, 22); // Orange color
     doc.text(t[language].balanceSheet, pageWidth / 2, y, { align: 'center' });
     y += 10;
-    
+
     // Date range
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
     doc.text(`${t[language].from}: ${startDate} ${t[language].to}: ${endDate}`, pageWidth / 2, y, { align: 'center' });
     y += 15;
-    
+
     // Calculate max rows for table
     const maxRows = Math.max(sortedLiabilities.length, sortedAssets.length);
     const tableData: any[] = [];
-    
+
     for (let i = 0; i < maxRows; i++) {
       const l = sortedLiabilities[i];
       const a = sortedAssets[i];
@@ -347,17 +406,18 @@ export default function BalanceSheetPage() {
         a ? nf.format(a.balance) : ''
       ]);
     }
-    
+
     // Add retained earnings rows
-    if (profit > 0 || obCredit > 0) {
+    if (netProfit > 0 || obCredit > 0) {
       if (obCredit > 0) {
         tableData.push([t[language].openingDiff, nf.format(obCredit), '', '']);
       }
-      if (profit > 0) {
-        tableData.push([t[language].netProfit, nf.format(profit), '', '']);
+      if (netProfit > 0) {
+        tableData.push([t[language].netProfit, nf.format(netProfit), '', '']);
       }
     }
-    
+
+
     // Main table
     autoTable(doc, {
       startY: y,
@@ -379,38 +439,26 @@ export default function BalanceSheetPage() {
       headStyles: { fontStyle: 'bold' },
       tableWidth: 'wrap'
     });
-    
+
     // Get final Y position
     const finalY = (doc as any).lastAutoTable?.finalY || y + 50;
-    
+
     // Summary section
     doc.setFontSize(12);
     doc.setTextColor(249, 115, 22);
-    doc.text('Summary', margin, finalY + 15);
-    
+    doc.text(t[language].summary, margin, finalY + 15);
+
     doc.setFontSize(10);
     doc.setTextColor(80, 80, 80);
-    doc.text(`Total Assets: ${nf.format(totalAssetsValue)}`, margin, finalY + 25);
-    doc.text(`Total Liabilities + Equity: ${nf.format(totalLiabilitiesAndEquity)}`, margin, finalY + 32);
-    doc.text(`Net Profit: ${nf.format(Math.max(0, profit))}`, margin, finalY + 39);
-    doc.text(`Balance: ${nf.format(Math.abs(balance))}`, margin, finalY + 46);
-    
+    doc.text(`${t[language].totalAssets}: ${nf.format(totalAssetsValue)}`, margin, finalY + 25);
+    doc.text(`${t[language].totalCredits}: ${nf.format(totalLiabilitiesAndEquity)}`, margin, finalY + 32);
+    doc.text(`${t[language].netResult}: ${nf.format(netProfit)}`, margin, finalY + 39);
+
+
+
     // Save PDF
     doc.save(`balance-sheet_${query.startDate}_${query.endDate}.pdf`);
   };
-
-  const maxRows = useMemo(() => Math.max(sortedLiabilities.length, sortedAssets.length, sortedDebits.length), [sortedLiabilities, sortedAssets, sortedDebits]);
-  const netResult = useMemo(() => (totalsRow.assets - totalsRow.liabilities) || 0, [totalsRow.assets, totalsRow.liabilities]);
-  const profit = useMemo(() => Math.max(0, -netResult), [netResult]); // liabilities > assets
-  const loss = useMemo(() => Math.max(0, netResult), [netResult]);     // assets > liabilities
-  const obCredit = useMemo(() => Math.max(0, openingDiff), [openingDiff]);
-  const obDebit = useMemo(() => Math.max(0, -openingDiff), [openingDiff]);
-  
-  // Calculate derived values for summary (used in both UI and PDF)
-  const totalLiabilitiesAndEquity = totalsRow.liabilities + profit + obCredit;
-  const totalAssetsValue = totalsRow.assets + obDebit;
-  const balance = totalLiabilitiesAndEquity - totalAssetsValue;
-  const grandTotal = totalLiabilitiesAndEquity + totalAssetsValue;
 
   const combinedTable = () => (
     <Table className={tableClasses.container}>
@@ -444,7 +492,6 @@ export default function BalanceSheetPage() {
           Array.from({ length: maxRows }).map((_, i) => {
             const l = sortedLiabilities[i];
             const a = sortedAssets[i];
-            const d = sortedDebits[i];
             return (
               <TableRow
                 key={`row-${i}`}
@@ -454,11 +501,12 @@ export default function BalanceSheetPage() {
                 <TableCell className={cn(tableClasses.cell, "text-right")}>{l ? nf.format(l.balance) : ''}</TableCell>
                 <TableCell className={tableClasses.cell}>{a?.account ?? ''}</TableCell>
                 <TableCell className={cn(tableClasses.cell, "text-right")}>{a ? nf.format(a.balance) : ''}</TableCell>
-                <TableCell className={tableClasses.cell}>{d?.account ?? ''}</TableCell>
-                <TableCell className={cn(tableClasses.cell, "text-right")}>{d ? nf.format(d.balance) : ''}</TableCell>
+                <TableCell className={tableClasses.cell}></TableCell>
+                <TableCell className={cn(tableClasses.cell, "text-right")}></TableCell>
               </TableRow>
             );
           })}
+
         {(sortedLiabilities.length > 0 || sortedAssets.length > 0) && (
           <>
             {/* Opening Balance Diff */}
@@ -474,22 +522,24 @@ export default function BalanceSheetPage() {
             {/* Net Loss / Profit */}
             <TableRow className={tableClasses.row}>
               <TableCell className={cn(tableClasses.cell, "font-medium text-green-600")}>{t[language].netProfit}</TableCell>
-              <TableCell className={cn(tableClasses.cell, "text-right text-green-600")}>{profit > 0 ? nf.format(profit) : ''}</TableCell>
+              <TableCell className={cn(tableClasses.cell, "text-right text-green-600")}>{netProfit > 0 ? nf.format(netProfit) : ''}</TableCell>
+              <TableCell className={cn(tableClasses.cell, "font-medium text-red-600")}>{t[language].netLoss}</TableCell>
+              <TableCell className={cn(tableClasses.cell, "text-right text-red-600")}>{netProfit < 0 ? nf.format(Math.abs(netProfit)) : ''}</TableCell>
               <TableCell className={tableClasses.cell}></TableCell>
               <TableCell className={cn(tableClasses.cell, "text-right")}></TableCell>
-              <TableCell className={cn(tableClasses.cell, "font-medium text-red-600")}>{t[language].netLoss}</TableCell>
-              <TableCell className={cn(tableClasses.cell, "text-right text-red-600")}>{loss > 0 ? nf.format(loss) : ''}</TableCell>
             </TableRow>
+
 
             {/* Total Amount */}
             <TableRow className={cn(tableClasses.row, "font-bold bg-purple-100")}>
               <TableCell className={tableClasses.cell}>{t[language].totalCredits}</TableCell>
-              <TableCell className={cn(tableClasses.cell, "text-right")}>{nf.format(totalsRow.liabilities + profit + obCredit)}</TableCell>
+              <TableCell className={cn(tableClasses.cell, "text-right")}>{nf.format(totalLiabilitiesAndEquity)}</TableCell>
               <TableCell className={tableClasses.cell}>{t[language].totalAssets}</TableCell>
-              <TableCell className={cn(tableClasses.cell, "text-right")}>{nf.format(totalsRow.assets + obDebit)}</TableCell>
-              <TableCell className={tableClasses.cell}>{t[language].totalDebits}</TableCell>
-              <TableCell className={cn(tableClasses.cell, "text-right")}>{nf.format(totalsRow.debits + loss)}</TableCell>
+              <TableCell className={cn(tableClasses.cell, "text-right")}>{nf.format(totalAssetsValue)}</TableCell>
+              <TableCell className={tableClasses.cell}></TableCell>
+              <TableCell className={cn(tableClasses.cell, "text-right")}></TableCell>
             </TableRow>
+
           </>
         )}
       </TableBody>
@@ -517,22 +567,11 @@ export default function BalanceSheetPage() {
                 <span className="bg-white/20 px-2 py-0.5 rounded">
                   {formatDate(endDate)}
                 </span>
-                {!isBalanced && (
-                  <span className="bg-red-500/80 px-2 py-0.5 rounded flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />
-                    Not Balanced
-                  </span>
-                )}
-                {isBalanced && (
-                  <span className="bg-green-500/80 px-2 py-0.5 rounded flex items-center gap-1">
-                    <Scale className="h-3 w-3" />
-                    Balanced
-                  </span>
-                )}
+              
               </div>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-3">
             {/* Date Pickers */}
             <div className="flex items-center gap-1">
@@ -552,7 +591,7 @@ export default function BalanceSheetPage() {
                 className="bg-white text-gray-800 text-xs px-2 py-1 rounded border-0 outline-none cursor-pointer"
               />
             </div>
-            
+
             <Button
               variant="secondary"
               size="sm"
@@ -563,7 +602,7 @@ export default function BalanceSheetPage() {
               {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               {t[language].refresh}
             </Button>
-            
+
             <Button
               variant="secondary"
               size="sm"
@@ -572,7 +611,7 @@ export default function BalanceSheetPage() {
               className="gap-2 bg-white text-orange-600 hover:bg-white/90 border-0"
             >
               <FileText className="h-4 w-4" />
-              Export PDF
+              {t[language].exportPdf}
             </Button>
           </div>
         </div>
@@ -620,7 +659,7 @@ export default function BalanceSheetPage() {
                         <div className="divide-y">
                           {/* Current Liabilities Section */}
                           <div className="px-4 py-2 bg-red-50/50">
-                            <span className="text-sm font-medium text-red-600">Current Liabilities</span>
+                            <span className="text-sm font-medium text-red-600">{t[language].currentLiabilities}</span>
                           </div>
                           {sortedLiabilities.map((item, idx) => (
                             <div key={`liab-${idx}`} className="px-4 py-2 flex justify-between items-center hover:bg-gray-50">
@@ -628,12 +667,12 @@ export default function BalanceSheetPage() {
                               <span className="text-sm font-medium text-red-600">₹{nf.format(item.balance)}</span>
                             </div>
                           ))}
-                          
+
                           {/* Retained Earnings Section */}
-                          {(profit > 0 || obCredit > 0) && (
+                          {(netProfit > 0 || obCredit > 0) && (
                             <>
                               <div className="px-4 py-2 bg-red-50/50 mt-2">
-                                <span className="text-sm font-medium text-red-600">Retained Earnings</span>
+                                <span className="text-sm font-medium text-red-600">{t[language].retainedEarnings}</span>
                               </div>
                               {obCredit > 0 && (
                                 <div className="px-4 py-2 flex justify-between items-center">
@@ -641,14 +680,15 @@ export default function BalanceSheetPage() {
                                   <span className="text-sm font-medium text-red-600">₹{nf.format(obCredit)}</span>
                                 </div>
                               )}
-                              {profit > 0 && (
+                              {netProfit > 0 && (
                                 <div className="px-4 py-2 flex justify-between items-center">
                                   <span className="text-sm text-gray-700">{t[language].netProfit}</span>
-                                  <span className="text-sm font-medium text-red-600">₹{nf.format(profit)}</span>
+                                  <span className="text-sm font-medium text-red-600">₹{nf.format(netProfit)}</span>
                                 </div>
                               )}
                             </>
                           )}
+
                         </div>
                       </div>
 
@@ -663,7 +703,7 @@ export default function BalanceSheetPage() {
                         <div className="divide-y">
                           {/* Current Assets Section */}
                           <div className="px-4 py-2 bg-green-50/50">
-                            <span className="text-sm font-medium text-green-600">Current Assets</span>
+                            <span className="text-sm font-medium text-green-600">{t[language].currentAssets}</span>
                           </div>
                           {sortedAssets.map((item, idx) => (
                             <div key={`asset-${idx}`} className="px-4 py-2 flex justify-between items-center hover:bg-gray-50">
@@ -671,39 +711,99 @@ export default function BalanceSheetPage() {
                               <span className="text-sm font-medium text-green-600">₹{nf.format(item.balance)}</span>
                             </div>
                           ))}
-                          
-                          {/* Other Assets/Debits */}
-                          {sortedDebits.length > 0 && (
+
+                          {/* Other Assets Section */}
+                          {(netProfit < 0 || obDebit > 0) && (
                             <>
                               <div className="px-4 py-2 bg-green-50/50 mt-2">
-                                <span className="text-sm font-medium text-green-600">Other Assets</span>
+                                <span className="text-sm font-medium text-green-600">{t[language].lossesAndDiffs}</span>
                               </div>
-                              {sortedDebits.map((item, idx) => (
-                                <div key={`debit-${idx}`} className="px-4 py-2 flex justify-between items-center hover:bg-gray-50">
-                                  <span className="text-sm text-gray-700">{item.account}</span>
-                                  <span className="text-sm font-medium text-green-600">₹{nf.format(item.balance)}</span>
+                              {obDebit > 0 && (
+                                <div className="px-4 py-2 flex justify-between items-center">
+                                  <span className="text-sm text-gray-700">{t[language].openingDiff}</span>
+                                  <span className="text-sm font-medium text-green-600">₹{nf.format(obDebit)}</span>
                                 </div>
-                              ))}
+                              )}
+                              {netProfit < 0 && (
+                                <div className="px-4 py-2 flex justify-between items-center">
+                                  <span className="text-sm text-gray-700">{t[language].netLoss}</span>
+                                  <span className="text-sm font-medium text-red-600">₹{nf.format(Math.abs(netProfit))}</span>
+                                </div>
+                              )}
                             </>
                           )}
-                          
-                          {obDebit > 0 && (
-                            <div className="px-4 py-2 flex justify-between items-center">
-                              <span className="text-sm text-gray-700">{t[language].openingDiff}</span>
-                              <span className="text-sm font-medium text-green-600">₹{nf.format(obDebit)}</span>
-                            </div>
-                          )}
-                          {loss > 0 && (
-                            <div className="px-4 py-2 flex justify-between items-center">
-                              <span className="text-sm text-gray-700">{t[language].netLoss}</span>
-                              <span className="text-sm font-medium text-green-600">₹{nf.format(loss)}</span>
-                            </div>
-                          )}
+
                         </div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Profit & Loss Details Section */}
+                <Card>
+                  <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 py-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-indigo-600" />
+                        <CardTitle className="text-base text-indigo-900">{t[language].profitAndLossDetails}</CardTitle>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <p className="text-[10px] uppercase tracking-wider text-indigo-600 font-semibold">{t[language].totalIncome}</p>
+                          <p className="text-sm font-bold text-green-600">₹{nf.format(totals.income)}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] uppercase tracking-wider text-indigo-600 font-semibold">{t[language].totalExpense}</p>
+                          <p className="text-sm font-bold text-red-600">₹{nf.format(totals.expense)}</p>
+                        </div>
+                        <div className="bg-white px-3 py-1 rounded-full border border-indigo-100 shadow-sm">
+                           <p className="text-[10px] uppercase tracking-wider text-indigo-600 font-semibold">{t[language].netResult}</p>
+                           <p className={cn("text-sm font-bold", netProfit >= 0 ? "text-green-600" : "text-red-600")}>
+                             {netProfit >= 0 ? "+" : ""}₹{nf.format(Math.abs(netProfit))}
+                           </p>
+                        </div>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="grid grid-cols-2 divide-x">
+                      {/* Income Column */}
+                      <div className="bg-white">
+                        <div className="px-4 py-2 bg-green-50/30 border-b flex justify-between">
+                          <span className="text-xs font-semibold text-green-700 uppercase tracking-tight">{t[language].incomeSources}</span>
+                        </div>
+                        <div className="divide-y max-h-[300px] overflow-y-auto">
+                          {sortedIncome.length === 0 ? (
+                            <div className="px-4 py-4 text-center text-gray-400 text-xs italic">{t[language].noIncomeRecords}</div>
+                          ) : sortedIncome.map((item, idx) => (
+                            <div key={`inc-${idx}`} className="px-4 py-2 flex justify-between items-center hover:bg-green-50/20 transition-colors">
+                              <span className="text-sm text-gray-600">{item.account}</span>
+                              <span className="text-sm font-medium text-green-600">₹{nf.format(item.balance)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Expense Column */}
+                      <div className="bg-white">
+                        <div className="px-4 py-2 bg-red-50/30 border-b flex justify-between">
+                          <span className="text-xs font-semibold text-red-700 uppercase tracking-tight">{t[language].expenseCategories}</span>
+                        </div>
+                        <div className="divide-y max-h-[300px] overflow-y-auto">
+                          {sortedExpense.length === 0 ? (
+                            <div className="px-4 py-4 text-center text-gray-400 text-xs italic">{t[language].noExpenseRecords}</div>
+                          ) : sortedExpense.map((item, idx) => (
+                            <div key={`exp-${idx}`} className="px-4 py-2 flex justify-between items-center hover:bg-red-50/20 transition-colors">
+                              <span className="text-sm text-gray-600">{item.account}</span>
+                              <span className="text-sm font-medium text-red-600">₹{nf.format(item.balance)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
               </>
             )}
           </div>
@@ -714,48 +814,45 @@ export default function BalanceSheetPage() {
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">
                   <FileText className="h-5 w-5 text-orange-600" />
-                  <CardTitle className="text-base">Summary</CardTitle>
+                  <CardTitle className="text-base">{t[language].summary}</CardTitle>
                 </div>
-                <p className="text-xs text-muted-foreground">As of selected date</p>
+                <p className="text-xs text-muted-foreground">{t[language].asOfSelectedDate}</p>
               </CardHeader>
               <CardContent className="space-y-3">
                 {/* Total Assets */}
                 <div className="bg-orange-50 rounded-lg p-3 border border-orange-100">
                   <div className="flex items-center gap-2 mb-1">
                     <LayoutGrid className="h-4 w-4 text-orange-600" />
-                    <span className="text-xs font-medium text-orange-900">Total Assets</span>
+                    <span className="text-xs font-medium text-orange-900">{t[language].totalAssets}</span>
                   </div>
                   <p className="text-lg font-bold text-orange-600">₹{nf.format(totalAssetsValue)}</p>
                 </div>
 
-                {/* Total Liabilities + Equity */}
-                <div className="bg-orange-50 rounded-lg p-3 border border-orange-100">
+                {/* Total Liabilities */}
+                <div className="bg-red-50 rounded-lg p-3 border border-red-100">
                   <div className="flex items-center gap-2 mb-1">
-                    <Building2 className="h-4 w-4 text-orange-600" />
-                    <span className="text-xs font-medium text-orange-900">Total Liabilities + Equity</span>
+                    <Building2 className="h-4 w-4 text-red-600" />
+                    <span className="text-xs font-medium text-red-900">{t[language].totalLiabilities}</span>
                   </div>
-                  <p className="text-lg font-bold text-orange-600">₹{nf.format(totalLiabilitiesAndEquity)}</p>
+                  <p className="text-lg font-bold text-red-600">₹{nf.format(totalsRow.liabilities)}</p>
                 </div>
 
-                {/* Net Profit */}
-                <div className="bg-green-50 rounded-lg p-3 border border-green-100">
-                  <div className="flex items-center gap-2 mb-1">
-                    <TrendingUp className="h-4 w-4 text-green-600" />
-                    <span className="text-xs font-medium text-green-900">Net Profit</span>
-                  </div>
-                  <p className="text-lg font-bold text-green-600">₹{nf.format(Math.max(0, profit))}</p>
-                </div>
 
-                {/* Balance */}
-                <div className="bg-orange-50 rounded-lg p-3 border border-orange-100">
+                {/* Net Profit/Loss */}
+                <div className={cn("rounded-lg p-3 border", netProfit >= 0 ? "bg-green-50 border-green-100" : "bg-red-50 border-red-100")}>
                   <div className="flex items-center gap-2 mb-1">
-                    <Scale className="h-4 w-4 text-orange-600" />
-                    <span className="text-xs font-medium text-orange-900">Balance</span>
+                    <TrendingUp className={cn("h-4 w-4", netProfit >= 0 ? "text-green-600" : "text-red-600")} />
+                    <span className={cn("text-xs font-medium", netProfit >= 0 ? "text-green-900" : "text-red-900")}>
+                      {netProfit >= 0 ? t[language].netProfit : t[language].netLoss}
+                    </span>
                   </div>
-                  <p className={`text-lg font-bold ${balance >= 0 ? 'text-orange-600' : 'text-red-600'}`}>
-                    ₹{nf.format(Math.abs(balance))}
+                  <p className={cn("text-lg font-bold", netProfit >= 0 ? "text-green-600" : "text-red-600")}>
+                    ₹{nf.format(Math.abs(netProfit))}
                   </p>
                 </div>
+
+
+
 
                 {/* Divider */}
                 <div className="border-t pt-3 mt-3">
@@ -763,9 +860,10 @@ export default function BalanceSheetPage() {
                   <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-3 text-white">
                     <div className="flex items-center gap-2 mb-1">
                       <Scale className="h-4 w-4 text-white" />
-                      <span className="text-xs font-medium text-white/90">GRAND TOTAL</span>
+                      <span className="text-xs font-medium text-white/90">{netProfit >= 0 ? t[language].netProfit : t[language].netLoss} ({t[language].grandTotal})</span>
                     </div>
                     <p className="text-xl font-bold text-white">₹{nf.format(grandTotal)}</p>
+
                   </div>
                 </div>
               </CardContent>

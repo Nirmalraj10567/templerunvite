@@ -8,21 +8,21 @@ The login was failing with "Internal server error" because:
 
 ## ✅ Correct Login Endpoint
 
-**URL:** `http://localhost:4000/api/users/login`
+**URL:** `https://templeapi.agniplay.com/api/users/login`
 
-**NOT** `http://localhost:4000/api/login` (this doesn't exist!)
+**NOT** `https://templeapi.agniplay.com/api/login` (this doesn't exist!)
 
 ## 📝 Working cURL Command
 
 ```bash
-curl -X POST http://localhost:4000/api/users/login \
+curl -X POST https://templeapi.agniplay.com/api/users/login \
   -H "Content-Type: application/json" \
   -d '{"mobile":"test_admin","username":"test_admin","password":"test123"}'
 ```
 
 ### Windows CMD:
 ```cmd
-curl -X POST http://localhost:4000/api/users/login -H "Content-Type: application/json" -d "{\"mobile\":\"test_admin\",\"username\":\"test_admin\",\"password\":\"test123\"}"
+curl -X POST https://templeapi.agniplay.com/api/users/login -H "Content-Type: application/json" -d "{\"mobile\":\"test_admin\",\"username\":\"test_admin\",\"password\":\"test123\"}"
 ```
 
 ### Expected Response:
@@ -63,7 +63,7 @@ curl -X POST http://localhost:4000/api/users/login -H "Content-Type: application
 
 For your frontend at `http://localhost:8080` or `http://localhost:5173`:
 
-The frontend should call: `http://localhost:4000/api/users/login`
+The frontend should call: `https://templeapi.agniplay.com/api/users/login`
 
 If your frontend is using `/api/login`, you need to update it to `/api/users/login`
 
@@ -80,7 +80,7 @@ Search for `/api/login` and change it to `/api/users/login`
 Once logged in, use the token to test daybook:
 
 ```bash
-curl -X GET http://localhost:4000/api/daybook \
+curl -X GET https://templeapi.agniplay.com/api/daybook \
   -H "Authorization: Bearer YOUR_TOKEN_HERE"
 ```
 

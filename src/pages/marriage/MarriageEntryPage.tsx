@@ -1,6 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { 
+  Calendar, 
+  Clock, 
+  User, 
+  MapPin, 
+  PartyPopper, 
+  IndianRupee, 
+  Hash,
+  MessageSquare,
+  Users
+} from 'lucide-react';
+import { theme } from '@/styles/theme';
+import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
 
 interface FormState {
   registerNo: string;
@@ -21,7 +39,10 @@ interface FormState {
 const initialState: FormState = {
   registerNo: '',
   date: '',
-  time: '',
+  time: (() => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  })(),
   event: '',
   groomName: '',
   brideName: '',
@@ -40,6 +61,8 @@ export default function MarriageEntryPage() {
   const [form, setForm] = useState<FormState>(initialState);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string|undefined>();
+  const [isError, setIsError] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const t = (en: string, ta: string) => language === 'tamil' ? ta : en;
 
@@ -48,14 +71,12 @@ export default function MarriageEntryPage() {
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
-  // Enter key handler: focus save button when Enter is pressed
   const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
     if (e.key !== 'Enter') return;
-    const t = e.target as HTMLElement;
-    const tag = t.tagName?.toLowerCase();
-    if (!tag || ['button', 'textarea'].includes(tag)) return; // allow buttons and textareas to handle Enter normally
+    const target = e.target as HTMLElement;
+    const tag = target.tagName?.toLowerCase();
+    if (!tag || ['button', 'textarea'].includes(tag)) return;
     e.preventDefault();
-    // Focus the save button
     const submitButton = e.currentTarget.querySelector('button[type="submit"]') as HTMLButtonElement;
     if (submitButton) {
       submitButton.focus();
@@ -66,90 +87,250 @@ export default function MarriageEntryPage() {
     e.preventDefault();
     setSaving(true);
     setMessage(undefined);
+    setIsError(false);
     try {
-      const res = await fetch('http://localhost:4000/api/marriages', {
+      const res = await fetch('https://templeapi.agniplay.com/api/marriages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(form)
       });
       if (!res.ok) throw new Error('Failed');
-      setForm(initialState);
+      setForm({
+        ...initialState,
+        time: (() => {
+          const now = new Date();
+          return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        })()
+      });
       setMessage(t('Saved successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது'));
     } catch (err) {
+      setIsError(true);
       setMessage(t('Save failed', 'சேமிப்பில் தோல்வி'));
     } finally {
       setSaving(false);
     }
   };
 
+  const fieldStyles = cn(
+    theme.input.base,
+    theme.input.size.md,
+    "w-full bg-white transition-all duration-200 pl-10"
+  );
+
   return (
-    <div className="max-w-3xl mx-auto bg-white p-4 rounded shadow">
-      <h1 className="text-xl font-semibold mb-4">{t('Marriage Register Entry', 'திருமண பதிவு பதிவு')}</h1>
-      {message && (
-        <div className="mb-3 text-sm text-blue-700">{message}</div>
-      )}
-      <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4" onKeyDown={handleKeyDown}>
-        <div>
-          <label className="block text-sm mb-1">{t('Register No', 'பதிவு எண்')}</label>
-          <input className="w-full border p-2 rounded" name="registerNo" value={form.registerNo} onChange={onChange} autoFocus />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">{t('Date', 'தேதி')}</label>
-          <input type="date" className="w-full border p-2 rounded" name="date" value={form.date} onChange={onChange} />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">{t('Time', 'நேரம்')}</label>
-          <input type="time" className="w-full border p-2 rounded" name="time" value={form.time} onChange={onChange} />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">{t('Event', 'நிகழ்வு')}</label>
-          <input className="w-full border p-2 rounded" name="event" value={form.event} onChange={onChange} />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">{t('Amount', 'தொகை')}</label>
-          <input type="number" min="0" className="w-full border p-2 rounded" name="amount" value={form.amount} onChange={onChange} />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">{t('Groom Name', 'வரன் பெயர்')}</label>
-          <input className="w-full border p-2 rounded" name="groomName" value={form.groomName} onChange={onChange} />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">{t('Bride Name', 'மணமகள் பெயர்')}</label>
-          <input className="w-full border p-2 rounded" name="brideName" value={form.brideName} onChange={onChange} />
-        </div>
-        <div className="md:col-span-2">
-          <label className="block text-sm mb-1">{t('Address', 'முகவரி')}</label>
-          <textarea className="w-full border p-2 rounded" name="address" value={form.address} onChange={onChange} />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">{t('Village', 'கிராமம்')}</label>
-          <input className="w-full border p-2 rounded" name="village" value={form.village} onChange={onChange} />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">{t('Guardian Name', 'ஊரார்/கவனிப்பாளர்')}</label>
-          <input className="w-full border p-2 rounded" name="guardianName" value={form.guardianName} onChange={onChange} />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">{t('Witness 1', 'சாட்சி 1')}</label>
-          <input className="w-full border p-2 rounded" name="witnessOne" value={form.witnessOne} onChange={onChange} />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">{t('Witness 2', 'சாட்சி 2')}</label>
-          <input className="w-full border p-2 rounded" name="witnessTwo" value={form.witnessTwo} onChange={onChange} />
-        </div>
-        <div className="md:col-span-2">
-          <label className="block text-sm mb-1">{t('Remarks', 'குறிப்புகள்')}</label>
-          <textarea className="w-full border p-2 rounded" name="remarks" value={form.remarks} onChange={onChange} />
-        </div>
-        <div className="md:col-span-2 flex gap-2">
-          <button disabled={saving} className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700" type="submit">
-            {saving ? t('Saving...', 'சேமிக்கிறது...') : t('Save', 'சேமிக்க')}
-          </button>
-          <button type="button" className="border px-4 py-2 rounded" onClick={() => setForm(initialState)}>
-            {t('Clear', 'அழிக்க')}
-          </button>
-        </div>
-      </form>
+    <div className={pageContainerStyles.container}>
+      <div className={pageContainerStyles.content}>
+        <Card className={formFieldStyles.card.container}>
+          <CardHeader className={theme.header.container}>
+            <div className={theme.header.contentSpacing}>
+              <CardTitle className={theme.header.main}>
+                <PartyPopper className="inline-block mr-2 w-6 h-6" />
+                {t('Marriage Register Entry', 'திருமண பதிவு பதிவு')}
+              </CardTitle>
+            </div>
+          </CardHeader>
+
+          <CardContent className="p-6">
+            {message && (
+              <div className={cn(
+                "mb-6 p-4 rounded-lg border flex items-center text-sm font-medium",
+                isError ? "bg-red-50 text-red-700 border-red-200" : "bg-green-50 text-green-700 border-green-200"
+              )}>
+                {isError ? "❌" : "✅"} {message}
+              </div>
+            )}
+
+            <form ref={formRef} onSubmit={onSubmit} className="space-y-6" onKeyDown={handleKeyDown}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                
+                {/* Register No */}
+                <div className="relative">
+                  <Hash className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
+                  <Input 
+                    className={fieldStyles} 
+                    name="registerNo" 
+                    value={form.registerNo} 
+                    onChange={onChange} 
+                    placeholder={t('Register No *', 'பதிவு எண் *')}
+                    required
+                    autoFocus 
+                  />
+                </div>
+
+                {/* Date */}
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
+                  <Input 
+                    type="date" 
+                    className={fieldStyles} 
+                    name="date" 
+                    value={form.date} 
+                    onChange={onChange}
+                    required 
+                  />
+                </div>
+
+                {/* Time */}
+                <div className="relative">
+                  <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
+                  <input 
+                    type="time" 
+                    className={fieldStyles} 
+                    name="time" 
+                    value={form.time} 
+                    onChange={onChange} 
+                    onClick={(e) => (e.target as any).showPicker?.()} 
+                  />
+                </div>
+
+                {/* Event */}
+                <div className="relative">
+                  <PartyPopper className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
+                  <Input 
+                    className={fieldStyles} 
+                    name="event" 
+                    value={form.event} 
+                    onChange={onChange} 
+                    placeholder={t('Event *', 'நிகழ்வு *')}
+                    required
+                  />
+                </div>
+
+                {/* Amount */}
+                <div className="relative">
+                  <IndianRupee className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
+                  <Input 
+                    type="number" 
+                    min="0" 
+                    className={fieldStyles} 
+                    name="amount" 
+                    value={form.amount} 
+                    onChange={onChange} 
+                    placeholder={t('Amount *', 'தொகை *')}
+                    required
+                  />
+                </div>
+
+                {/* Groom Name */}
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-blue-400 z-10" />
+                  <Input 
+                    className={fieldStyles} 
+                    name="groomName" 
+                    value={form.groomName} 
+                    onChange={onChange} 
+                    placeholder={t('Groom Name *', 'வரன் பெயர் *')}
+                    required
+                  />
+                </div>
+
+                {/* Bride Name */}
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-pink-400 z-10" />
+                  <Input 
+                    className={fieldStyles} 
+                    name="brideName" 
+                    value={form.brideName} 
+                    onChange={onChange} 
+                    placeholder={t('Bride Name *', 'மணமகள் பெயர் *')}
+                    required
+                  />
+                </div>
+
+                {/* Village */}
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
+                  <Input 
+                    className={fieldStyles} 
+                    name="village" 
+                    value={form.village} 
+                    onChange={onChange} 
+                    placeholder={t('Village', 'கிராமம்')}
+                  />
+                </div>
+
+                {/* Guardian Name */}
+                <div className="relative">
+                  <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
+                  <Input 
+                    className={fieldStyles} 
+                    name="guardianName" 
+                    value={form.guardianName} 
+                    onChange={onChange} 
+                    placeholder={t('Guardian Name', 'ஊரார்/கவனிப்பாளர்')}
+                  />
+                </div>
+
+                {/* Witness 1 */}
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
+                  <Input 
+                    className={fieldStyles} 
+                    name="witnessOne" 
+                    value={form.witnessOne} 
+                    onChange={onChange} 
+                    placeholder={t('Witness 1', 'சாட்சி 1')}
+                  />
+                </div>
+
+                {/* Witness 2 */}
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
+                  <Input 
+                    className={fieldStyles} 
+                    name="witnessTwo" 
+                    value={form.witnessTwo} 
+                    onChange={onChange} 
+                    placeholder={t('Witness 2', 'சாட்சி 2')}
+                  />
+                </div>
+
+                {/* Address - Full width */}
+                <div className="relative md:col-span-2 lg:col-span-1">
+                  <MapPin className="absolute left-3 top-3 w-4 h-4 text-gray-400 z-10" />
+                  <Textarea 
+                    className={cn(theme.textarea.base, theme.textarea.size.sm, "pl-10 min-h-[40px] py-2")} 
+                    name="address" 
+                    value={form.address} 
+                    onChange={onChange} 
+                    placeholder={t('Address', 'முகவரி')}
+                  />
+                </div>
+
+                {/* Remarks - Full width */}
+                <div className="relative md:col-span-2 lg:col-span-3">
+                  <MessageSquare className="absolute left-3 top-3 w-4 h-4 text-gray-400 z-10" />
+                  <Textarea 
+                    className={cn(theme.textarea.base, theme.textarea.size.sm, "pl-10 min-h-[80px] py-2")} 
+                    name="remarks" 
+                    value={form.remarks} 
+                    onChange={onChange} 
+                    placeholder={t('Remarks', 'குறிப்புகள்')}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-6 border-t border-gray-100">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setForm(initialState)}
+                  className="px-6"
+                >
+                  {t('Clear', 'அழிக்க')}
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={saving}
+                  className={cn(theme.button.primary, "px-10")}
+                >
+                  {saving ? t('Saving...', 'சேமிக்கிறது...') : t('Save', 'சேமிக்க')}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

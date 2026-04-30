@@ -23,6 +23,8 @@ dotenv.config({ path: path.join(__dirname, 'env') });
 const assetsRouter = require('./properties');  // Asset management per flowchart
 const propertyTaxRouter = require('./routes/properties');  // Property tax registrations
 const ledgerRouter = require('./routes/ledger');
+const appUpdateRouter = require('./routes/app-update');
+const testNotificationRouter = require('./routes/test-notification');
 
 // JWT Secret (in production, use environment variable)
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-insecure-secret-change-me';
@@ -43,6 +45,12 @@ app.use(bodyParser.json());
 
 // Serve static files from the project's public directory (../public)
 app.use('/public', express.static(path.join(__dirname, '../public')));
+
+// App update routes (public - no auth required)
+app.use('/api/app', appUpdateRouter);
+
+// Test notification routes (no auth for testing - REMOVE in production)
+app.use('/api/test-notification', testNotificationRouter);
 
 // Knex config for SQLite (database in server directory)
 const db = require('./db');
@@ -68,35 +76,35 @@ app.get('/api/ledger/accounts', authenticateToken, async (req, res) => {
       used = [];
     }
 
-// Helper to write money donation logs (top-level to avoid ReferenceError from inner scopes)
-async function logMoneyDonationAction({ donationId, templeId, userId, action, details }) {
-  try {
-    const has = await db.schema.hasTable('money_donation_logs');
-    if (!has) {
-      await db.schema.createTable('money_donation_logs', (table) => {
-        table.increments('id').primary();
-        table.integer('temple_id').notNullable().index();
-        table.integer('donation_id').notNullable().index();
-        table.string('action').notNullable(); // create | update | delete
-        table.text('details'); // JSON string with full snapshot/diff
-        table.integer('created_by').nullable().index();
-        table.timestamp('created_at').defaultTo(db.fn.now());
-      });
-    }
+    // Helper to write money donation logs (top-level to avoid ReferenceError from inner scopes)
+    async function logMoneyDonationAction({ donationId, templeId, userId, action, details }) {
+      try {
+        const has = await db.schema.hasTable('money_donation_logs');
+        if (!has) {
+          await db.schema.createTable('money_donation_logs', (table) => {
+            table.increments('id').primary();
+            table.integer('temple_id').notNullable().index();
+            table.integer('donation_id').notNullable().index();
+            table.string('action').notNullable(); // create | update | delete
+            table.text('details'); // JSON string with full snapshot/diff
+            table.integer('created_by').nullable().index();
+            table.timestamp('created_at').defaultTo(db.fn.now());
+          });
+        }
 
-    const logData = {
-      donation_id: Number(donationId),
-      temple_id: Number(templeId),
-      created_by: userId ? Number(userId) : null,
-      action,
-      details: details ? JSON.stringify(details) : null,
-      created_at: db.fn.now(),
-    };
-    await db('money_donation_logs').insert(logData);
-  } catch (e) {
-    console.error('Failed to write money_donation_logs:', e.message);
-  }
-}
+        const logData = {
+          donation_id: Number(donationId),
+          temple_id: Number(templeId),
+          created_by: userId ? Number(userId) : null,
+          action,
+          details: details ? JSON.stringify(details) : null,
+          created_at: db.fn.now(),
+        };
+        await db('money_donation_logs').insert(logData);
+      } catch (e) {
+        console.error('Failed to write money_donation_logs:', e.message);
+      }
+    }
 
     let master = [];
     try {
@@ -167,7 +175,7 @@ const retryOnBusy = async (fn, maxRetries = 5, delay = 100) => {
       return await fn();
     } catch (err) {
       if (err.code === 'SQLITE_BUSY' && i < maxRetries - 1) {
-        console.log(`Database busy, retrying (${i+1}/${maxRetries})...`);
+        console.log(`Database busy, retrying (${i + 1}/${maxRetries})...`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
@@ -279,7 +287,11 @@ app.get('/api/journal/balance', authenticateToken, async (req, res) => {
 // POST /api/journal/sync-pooja - manually sync existing pooja and money donation entries to journal
 app.post('/api/journal/sync-pooja', authenticateToken, async (req, res) => {
   try {
+    console.log('Starting journal sync for temple:', req.user.templeId);
+
     const hasJournal = await db.schema.hasTable('journal_entries');
+    console.log('Has journal_entries table:', hasJournal);
+
     if (!hasJournal) {
       return res.status(400).json({ error: 'journal_entries table does not exist' });
     }
@@ -293,6 +305,7 @@ app.post('/api/journal/sync-pooja', authenticateToken, async (req, res) => {
       .where('temple_id', templeId)
       .whereNotNull('amount')
       .where('amount', '>', 0);
+    console.log('Found poojas:', poojas.length);
 
     let poojaCreated = 0;
     let poojaSkipped = 0;
@@ -303,30 +316,39 @@ app.post('/api/journal/sync-pooja', authenticateToken, async (req, res) => {
         .first();
 
       if (!existing) {
-        await db('journal_entries').insert({
-          date: new Date().toISOString().slice(0,10),
-          from_account: 'POOJA A/C',
-          to_account: pooja.transfer_to_account || 'INCOME A/C',
-          amount: Number(pooja.amount),
-          entry_type: 'transfer',
-          remarks: pooja.remarks || null,
-          reference_type: 'pooja',
-          reference_id: pooja.id,
-          temple_id: pooja.temple_id,
-          created_by: pooja.created_by,
-          created_at: db.fn.now(),
-        });
-        poojaCreated++;
+        try {
+          const refNum = `JE-${pooja.id}-${Date.now()}`;
+          await db('journal_entries').insert({
+            date: new Date().toISOString().slice(0, 10),
+            from_account: 'POOJA A/C',
+            to_account: pooja.transfer_to_account || 'INCOME A/C',
+            amount: Number(pooja.amount),
+            total_amount: Number(pooja.amount),
+            entry_type: 'transfer',
+            remarks: pooja.remarks || null,
+            reference_type: 'pooja',
+            reference_id: pooja.id,
+            reference_number: refNum,
+            temple_id: pooja.temple_id,
+            created_by: pooja.created_by || req.user.id,
+            created_at: db.fn.now(),
+          });
+          poojaCreated++;
+        } catch (insertErr) {
+          console.error('Error inserting pooja journal entry:', insertErr.message);
+        }
       } else {
         poojaSkipped++;
       }
     }
+    console.log('Pooja sync complete:', { created: poojaCreated, skipped: poojaSkipped });
 
     // Sync money donation entries
     const moneyDonations = await db('money_donations')
       .where('temple_id', templeId)
       .whereNotNull('amount')
       .where('amount', '>', 0);
+    console.log('Found money donations:', moneyDonations.length);
 
     let donationCreated = 0;
     let donationSkipped = 0;
@@ -337,32 +359,40 @@ app.post('/api/journal/sync-pooja', authenticateToken, async (req, res) => {
         .first();
 
       if (!existing) {
-        await db('journal_entries').insert({
-          date: donation.date || new Date().toISOString().slice(0,10),
-          from_account: 'DONATION A/C',
-          to_account: donation.transfer_to_account || 'INCOME A/C',
-          amount: Number(donation.amount),
-          entry_type: 'transfer',
-          remarks: donation.reason || null,
-          reference_type: 'money_donation',
-          reference_id: donation.id,
-          temple_id: donation.temple_id,
-          created_by: donation.created_by,
-          created_at: db.fn.now(),
-        });
-        donationCreated++;
+        try {
+          const refNum = `JE-${donation.id}-${Date.now()}`;
+          await db('journal_entries').insert({
+            date: donation.date || new Date().toISOString().slice(0, 10),
+            from_account: 'DONATION A/C',
+            to_account: donation.transfer_to_account || 'INCOME A/C',
+            amount: Number(donation.amount),
+            total_amount: Number(donation.amount),
+            entry_type: 'transfer',
+            remarks: donation.reason || null,
+            reference_type: 'money_donation',
+            reference_id: donation.id,
+            reference_number: refNum,
+            temple_id: donation.temple_id,
+            created_by: donation.created_by || req.user.id,
+            created_at: db.fn.now(),
+          });
+          donationCreated++;
+        } catch (insertErr) {
+          console.error('Error inserting donation journal entry:', insertErr.message);
+        }
       } else {
         donationSkipped++;
       }
     }
+    console.log('Donation sync complete:', { created: donationCreated, skipped: donationSkipped });
 
     totalCreated = poojaCreated + donationCreated;
     totalSkipped = poojaSkipped + donationSkipped;
 
-    res.json({ 
-      success: true, 
-      created: totalCreated, 
-      skipped: totalSkipped, 
+    res.json({
+      success: true,
+      created: totalCreated,
+      skipped: totalSkipped,
       total: poojas.length + moneyDonations.length,
       details: {
         pooja: { created: poojaCreated, skipped: poojaSkipped, total: poojas.length },
@@ -371,7 +401,7 @@ app.post('/api/journal/sync-pooja', authenticateToken, async (req, res) => {
     });
   } catch (err) {
     console.error('Error syncing entries to journal:', err);
-    res.status(500).json({ error: 'Failed to sync entries' });
+    res.status(500).json({ error: 'Failed to sync entries: ' + err.message });
   }
 });
 
@@ -495,7 +525,7 @@ const authorizePermission = (permissionId, requiredLevel = 'view') => {
 const hallApprovalRouter = require('./hall-approval')({ db, authenticateToken, authorizePermission });
 
 // Mount routes
-app.use('/api/assets', assetsRouter);           // Asset management per flowchart (convert to cash, source tracking)
+app.use('/api/assets', assetsRouter({ db }));           // Asset management per flowchart (convert to cash, source tracking)
 app.use('/api/property-tax', propertyTaxRouter); // Property tax registrations
 app.use('/api/ledger', ledgerRouter);
 app.use('/api/hall-approval', hallApprovalRouter);
@@ -741,14 +771,24 @@ async function removePoojaFromDaybook({ poojaId, templeId }) {
 })();
 
 // Mount enhanced annadhanam-mobile routes (new flowchart-based features)
-(() => {
-  try {
-    const annadhanamMobileEnhancedRouter = require('./annadhanam-mobile-enhanced')({ db });
-    app.use('/api/annadhanam-mobile-enhanced', annadhanamMobileEnhancedRouter);
-  } catch (e) {
-    console.error('Failed to mount annadhanam-mobile-enhanced router:', e);
-  }
-})();
+  (() => {
+    try {
+      const annadhanamMobileEnhancedRouter = require('./annadhanam-mobile-enhanced')({ db });
+      app.use('/api/annadhanam-mobile-enhanced', authenticateToken, annadhanamMobileEnhancedRouter);
+    } catch (e) {
+      console.error('Failed to mount annadhanam-mobile-enhanced router:', e);
+    }
+  })();
+
+  // Mount annadhanam-mobile routes (with authentication)
+  (() => {
+    try {
+      const annadhanamMobileRouter = require('./annadhanam-mobile')({ db });
+      app.use('/api/annadhanam-mobile', authenticateToken, annadhanamMobileRouter);
+    } catch (e) {
+      console.error('Failed to mount annadhanam-mobile router:', e);
+    }
+  })();
 // Mount tax-mobile routes (public; validation via mobile and templeId in query)
 (() => {
   try {
@@ -790,7 +830,7 @@ async function removePoojaFromDaybook({ poojaId, templeId }) {
         });
         console.log('Created money_donation_logs table');
       }
-      
+
       const logData = {
         donation_id: Number(donationId),
         temple_id: Number(templeId),
@@ -799,7 +839,7 @@ async function removePoojaFromDaybook({ poojaId, templeId }) {
         details: details ? JSON.stringify(details) : null,
         created_at: db.fn.now(),
       };
-      
+
       console.log('Inserting money donation log:', logData);
       await db('money_donation_logs').insert(logData);
       console.log('Successfully inserted money donation log');
@@ -900,17 +940,121 @@ async function removePoojaFromDaybook({ poojaId, templeId }) {
       const hasDaybook = await db.schema.hasTable('daybook_entries');
       if (!hasDaybook) return;
 
-      const donations = await db('money_donations').select('id', 'temple_id', 'date', 'name', 'phone', 'reason', 'amount', 'created_by');
+      const donations = await db('money_donations').select('id', 'temple_id', 'date', 'name', 'phone', 'reason', 'amount');
       for (const donation of donations) {
         await syncMoneyDonationToDaybook({
           donationId: donation.id,
           templeId: donation.temple_id,
-          userId: donation.created_by,
+          userId: null,
           row: donation,
         });
       }
     } catch (e) {
       console.error('Failed to backfill daybook entries for money donations:', e.message);
+    }
+  })();
+
+  // Backfill daybook entries for pooja
+  (async () => {
+    try {
+      const hasDaybook = await db.schema.hasTable('daybook_entries');
+      if (!hasDaybook) return;
+
+      const poojas = await db('pooja').select('id', 'temple_id', 'from_date', 'name', 'mobile_number', 'amount', 'remarks');
+      for (const pooja of poojas) {
+        await syncPoojaToDaybook({
+          poojaId: pooja.id,
+          templeId: pooja.temple_id,
+          userId: null,
+        });
+      }
+    } catch (e) {
+      console.error('Failed to backfill daybook entries for pooja:', e.message);
+    }
+  })();
+
+  // Annadhanam → Daybook sync function
+  async function syncAnnadhanamToDaybook({ annadhanamId, templeId, userId, row }) {
+    try {
+      const donationType = row.donation_type || 'food';
+      const amount = Number(row.amount || 0);
+      const peoples = Number(row.peoples || 1);
+
+      const hasDaybook = await db.schema.hasTable('daybook_entries');
+      if (!hasDaybook) return;
+
+      let entryDate = row.from_date;
+      if (entryDate) {
+        const d = new Date(entryDate);
+        if (d.toString() !== 'Invalid Date') {
+          entryDate = d.toISOString().slice(0, 10);
+        }
+      }
+      if (!entryDate || typeof entryDate !== 'string' || entryDate.includes(' ')) {
+        entryDate = new Date().toISOString().slice(0, 10);
+      }
+
+      // Check if already synced
+      const existing = await db('daybook_entries')
+        .where({ temple_id: templeId, reference_type: 'annadhanam', reference_id: Number(annadhanamId) })
+        .first();
+      if (existing) return;
+
+      const receiptNumber = await generateDaybookReceiptNumber(templeId);
+
+      let entryAmount = 0;
+      let paymentMode = 'in_kind';
+
+      if (donationType === 'money') {
+        entryAmount = Math.abs(amount);
+        paymentMode = 'cash';
+      } else if (donationType === 'food') {
+        entryAmount = 0;
+        paymentMode = 'in_kind';
+      } else if (donationType === 'product') {
+        entryAmount = 0;
+        paymentMode = 'in_kind';
+      }
+
+      await db('daybook_entries').insert({
+        temple_id: templeId,
+        entry_date: entryDate,
+        entry_type: 'income',
+        description: `Annadhanam - ${row.name || 'Anonymous'}`,
+        reference_type: 'annadhanam',
+        reference_id: Number(annadhanamId),
+        receipt_number: receiptNumber,
+        amount: entryAmount,
+        payment_mode: paymentMode,
+        party_name: row.name || null,
+        party_mobile: row.mobile_number || null,
+        notes: `${row.food || ''} (${peoples} people)`.trim(),
+        running_balance: 0,
+        created_by: userId ? Number(userId) : null,
+        created_at: db.fn.now(),
+      });
+    } catch (e) {
+      console.error('Failed to sync annadhanam to daybook:', e.message);
+    }
+  }
+
+  // Backfill daybook entries for annadhanam
+  (async () => {
+    try {
+      const hasDaybook = await db.schema.hasTable('daybook_entries');
+      if (!hasDaybook) return;
+
+      const annadhanams = await db('annadhanam').select('id', 'temple_id', 'from_date', 'name', 'mobile_number', 'amount', 'donation_type', 'food', 'peoples', 'created_by');
+      for (const annadhanam of annadhanams) {
+        await syncAnnadhanamToDaybook({
+          annadhanamId: annadhanam.id,
+          templeId: annadhanam.temple_id,
+          userId: annadhanam.created_by,
+          row: annadhanam,
+        });
+      }
+    } catch (e) {
+      console.error('Failed to backfill daybook entries for annadhanam:', e.message);
     }
   })();
 
@@ -935,7 +1079,7 @@ async function removePoojaFromDaybook({ poojaId, templeId }) {
     try {
       const { value, label, templeId } = req.body || {};
       const userTempleId = req.user.templeId || templeId || 1;
-      
+
       if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
 
       const exists = await db('ledger_categories')
@@ -944,11 +1088,11 @@ async function removePoojaFromDaybook({ poojaId, templeId }) {
         .first();
       if (exists) return res.status(400).json({ error: 'Category already exists' });
 
-      const [id] = await db('ledger_categories').insert({ 
-        value, 
-        label, 
+      const [id] = await db('ledger_categories').insert({
+        value,
+        label,
         temple_id: userTempleId,
-        created_at: db.fn.now() 
+        created_at: db.fn.now()
       });
       res.status(201).json({ id, value, label });
     } catch (err) {
@@ -962,7 +1106,7 @@ async function removePoojaFromDaybook({ poojaId, templeId }) {
     try {
       const { value, label, templeId } = req.body || {};
       const userTempleId = req.user.templeId || templeId || 1;
-      
+
       if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
 
       const existing = await db('ledger_categories')
@@ -971,11 +1115,11 @@ async function removePoojaFromDaybook({ poojaId, templeId }) {
         .first();
       if (existing) return res.json({ id: existing.id, value: existing.value, label: existing.label });
 
-      const [id] = await db('ledger_categories').insert({ 
-        value, 
-        label, 
+      const [id] = await db('ledger_categories').insert({
+        value,
+        label,
         temple_id: userTempleId,
-        created_at: db.fn.now() 
+        created_at: db.fn.now()
       });
       res.status(201).json({ id, value, label });
     } catch (err) {
@@ -984,23 +1128,23 @@ async function removePoojaFromDaybook({ poojaId, templeId }) {
     }
   });
 
-// Provide /api/ledger/balance for compatibility (computed from journal_entries)
-app.get('/api/ledger/balance', authenticateToken, async (req, res) => {
-  try {
-    const account = (req.query.account ? String(req.query.account) : 'CASH A/C').trim();
-    const hasJournal = await db.schema.hasTable('journal_entries');
-    if (!hasJournal) return res.json({ balance: 0, account });
-    const inflowRow = await db('journal_entries').where({ temple_id: req.user.templeId, to_account: account }).sum({ s: 'amount' }).first();
-    const outflowRow = await db('journal_entries').where({ temple_id: req.user.templeId, from_account: account }).sum({ s: 'amount' }).first();
-    const inflow = Number(inflowRow?.s || inflowRow?.sum || 0);
-    const outflow = Number(outflowRow?.s || outflowRow?.sum || 0);
-    const balance = inflow - outflow;
-    res.json({ balance, account });
-  } catch (err) {
-    console.error('Error in /api/ledger/balance:', err);
-    res.status(500).json({ error: 'Failed to compute balance' });
-  }
-});
+  // Provide /api/ledger/balance for compatibility (computed from journal_entries)
+  app.get('/api/ledger/balance', authenticateToken, async (req, res) => {
+    try {
+      const account = (req.query.account ? String(req.query.account) : 'CASH A/C').trim();
+      const hasJournal = await db.schema.hasTable('journal_entries');
+      if (!hasJournal) return res.json({ balance: 0, account });
+      const inflowRow = await db('journal_entries').where({ temple_id: req.user.templeId, to_account: account }).sum({ s: 'amount' }).first();
+      const outflowRow = await db('journal_entries').where({ temple_id: req.user.templeId, from_account: account }).sum({ s: 'amount' }).first();
+      const inflow = Number(inflowRow?.s || inflowRow?.sum || 0);
+      const outflow = Number(outflowRow?.s || outflowRow?.sum || 0);
+      const balance = inflow - outflow;
+      res.json({ balance, account });
+    } catch (err) {
+      console.error('Error in /api/ledger/balance:', err);
+      res.status(500).json({ error: 'Failed to compute balance' });
+    }
+  });
 
   // PUT /api/ledger/categories/:id
   r.put('/categories/:id', authenticateToken, async (req, res) => {
@@ -1008,18 +1152,18 @@ app.get('/api/ledger/balance', authenticateToken, async (req, res) => {
       const { id } = req.params;
       const { value, label, templeId } = req.body || {};
       const userTempleId = req.user.templeId || templeId || 1;
-      
+
       if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
-      
+
       // Check if category belongs to the user's temple
       const existing = await db('ledger_categories')
         .where({ id: Number(id), temple_id: userTempleId })
         .first();
-      
+
       if (!existing) {
         return res.status(404).json({ error: 'Category not found or access denied' });
       }
-      
+
       await db('ledger_categories')
         .where({ id: Number(id), temple_id: userTempleId })
         .update({ value, label });
@@ -1035,16 +1179,16 @@ app.get('/api/ledger/balance', authenticateToken, async (req, res) => {
     try {
       const { id } = req.params;
       const templeId = req.user.templeId || req.query.templeId || 1;
-      
+
       // Check if category belongs to the user's temple
       const existing = await db('ledger_categories')
         .where({ id: Number(id), temple_id: templeId })
         .first();
-      
+
       if (!existing) {
         return res.status(404).json({ error: 'Category not found or access denied' });
       }
-      
+
       await db('ledger_categories')
         .where({ id: Number(id), temple_id: templeId })
         .del();
@@ -1072,17 +1216,17 @@ app.get('/api/superadmin/tenants/stats', authenticateToken, authorizeRole(['supe
         try {
           const c = await k('user_registrations').count({ c: '*' }).first();
           out.totalMembers = Number(c?.c || c?.count || 0);
-        } catch {}
+        } catch { }
         // Count money donations
         try {
           const c2 = await k('money_donations').count({ c: '*' }).first();
           out.moneyDonations = Number(c2?.c || c2?.count || 0);
-        } catch {}
+        } catch { }
         // Count pooja
         try {
           const c3 = await k('pooja').count({ c: '*' }).first();
           out.poojaCount = Number(c3?.c || c3?.count || 0);
-        } catch {}
+        } catch { }
         // Active sessions (if sessions table exists, where logout_time is null or last_activity recent)
         try {
           const hasSessions = await k.schema.hasTable('sessions');
@@ -1090,7 +1234,7 @@ app.get('/api/superadmin/tenants/stats', authenticateToken, authorizeRole(['supe
             const act = await k('sessions').whereNull('logout_time').count({ c: '*' }).first();
             out.activeSessions = Number(act?.c || act?.count || 0);
           }
-        } catch {}
+        } catch { }
         // Latest receipt date
         try {
           const hasReceipts = await k.schema.hasTable('receipts');
@@ -1098,18 +1242,18 @@ app.get('/api/superadmin/tenants/stats', authenticateToken, authorizeRole(['supe
             const row = await k('receipts').max({ d: 'date' }).first();
             out.latestReceiptDate = row?.d || row?.max || null;
           }
-        } catch {}
+        } catch { }
         // DB file size
         try {
           const fs = require('fs');
           const stat = fs.statSync(t.db_path);
           out.dbSizeBytes = stat.size;
-        } catch {}
+        } catch { }
       } catch (e) {
         console.error(`Failed to aggregate for ${t.name}:`, e.message);
       } finally {
         if (k && typeof k?.destroy === 'function') {
-          try { await k.destroy(); } catch {}
+          try { await k.destroy(); } catch { }
         }
       }
       results.push(out);
@@ -1131,7 +1275,7 @@ app.get('/api/superadmin/tenants/:id/health', authenticateToken, authorizeRole([
     let k = null;
     try {
       k = knex({ client: 'sqlite3', connection: { filename: t.db_path }, useNullAsDefault: true });
-      const requiredTables = ['users','temples','user_registrations','receipts'];
+      const requiredTables = ['users', 'temples', 'user_registrations', 'receipts'];
       for (const tbl of requiredTables) {
         try {
           const has = await k.schema.hasTable(tbl);
@@ -1146,20 +1290,20 @@ app.get('/api/superadmin/tenants/:id/health', authenticateToken, authorizeRole([
       try {
         const r = await k('receipts').max({ d: 'date' }).first();
         report.lastReceiptDate = r?.d || r?.max || null;
-      } catch {}
+      } catch { }
       try {
         const hasSessions = await k.schema.hasTable('sessions');
         if (hasSessions) {
           const s = await k('sessions').max({ d: 'last_activity' }).first();
           report.lastSessionActivity = s?.d || s?.max || null;
         }
-      } catch {}
+      } catch { }
     } catch (e) {
       report.ok = false;
       report.error = e.message;
     } finally {
       if (k && typeof k?.destroy === 'function') {
-        try { await k.destroy(); } catch {}
+        try { await k.destroy(); } catch { }
       }
     }
     res.json({ success: true, data: report });
@@ -1187,14 +1331,14 @@ app.get('/api/mobile/events', async (req, res) => {
       }
       if (!templeId) {
         let row = null;
-        try { row = await db('temples').min({ id: 'id' }).first(); } catch {}
+        try { row = await db('temples').min({ id: 'id' }).first(); } catch { }
         templeId = Number(row?.id) || 1;
       }
     } catch { templeId = 1; }
 
     // Check for events.temple_id column
     let hasTempleCol = false;
-    try { hasTempleCol = await db.schema.hasColumn('events', 'temple_id'); } catch {}
+    try { hasTempleCol = await db.schema.hasColumn('events', 'temple_id'); } catch { }
 
     // Build query with optional filters
     let query = db('events');
@@ -1339,7 +1483,7 @@ app.get('/api/mobile/events', async (req, res) => {
         });
         console.log('Created money_donation_logs table');
       }
-      
+
       const logData = {
         donation_id: Number(donationId),
         temple_id: Number(templeId),
@@ -1348,7 +1492,7 @@ app.get('/api/mobile/events', async (req, res) => {
         details: details ? JSON.stringify(details) : null,
         created_at: db.fn.now(),
       };
-      
+
       console.log('Inserting money donation log:', logData);
       await db('money_donation_logs').insert(logData);
       console.log('Successfully inserted money donation log');
@@ -1377,7 +1521,7 @@ app.get('/api/mobile/events', async (req, res) => {
   r.get('/next-register-no', authenticateToken, async (req, res) => {
     try {
       const currentYear = new Date().getFullYear();
-      
+
       // Get the highest register number for current year
       const lastRecord = await db('money_donations')
         .where('temple_id', req.user.templeId)
@@ -1387,7 +1531,7 @@ app.get('/api/mobile/events', async (req, res) => {
         .first();
 
       let nextNumber = 1;
-      
+
       if (lastRecord && lastRecord.register_no) {
         // Extract the number part after the year
         const parts = lastRecord.register_no.split('-');
@@ -1400,9 +1544,9 @@ app.get('/api/mobile/events', async (req, res) => {
       }
 
       const nextRegisterNo = `${currentYear}-${String(nextNumber).padStart(4, '0')}`;
-      
-      res.json({ 
-        success: true, 
+
+      res.json({
+        success: true,
         nextRegisterNo,
         currentYear,
         nextNumber
@@ -1421,7 +1565,7 @@ app.get('/api/mobile/events', async (req, res) => {
       if (!amount || isNaN(amount)) return res.status(400).json({ error: 'Valid amount is required' });
       const payload = {
         register_no: b.registerNo || '',
-        date: b.date || new Date().toISOString().slice(0,10),
+        date: b.date || new Date().toISOString().slice(0, 10),
         name: b.name || '',
         father_name: b.fatherName || '',
         address: b.address || '',
@@ -1459,12 +1603,18 @@ app.get('/api/mobile/events', async (req, res) => {
         const toAccount = row.transfer_to_account || b.transferTo || 'INCOME A/C';
         const hasJournal = await db.schema.hasTable('journal_entries');
         if (hasJournal) {
+          const entryDate = row.date instanceof Date
+            ? row.date.toISOString().slice(0, 10)
+            : String(row.date).split('T')[0];
+
           await db('journal_entries').insert({
-            date: row.date,
+            date: entryDate,
+            reference_number: 'JE-' + row.id + '-' + Date.now(),
+            description: 'Donation from ' + (row.name || 'Anonymous'),
             from_account: fromAccount,
             to_account: toAccount,
-            amount: row.amount,
-            // Use 'transfer' to satisfy DB CHECK constraint reliably
+            amount: Number(row.amount),
+            total_amount: Number(row.amount),
             entry_type: 'transfer',
             remarks: row.reason || null,
             reference_type: 'money_donation',
@@ -1549,14 +1699,14 @@ app.get('/api/mobile/events', async (req, res) => {
       console.log('Request params:', req.params);
       console.log('Request body:', req.body);
       console.log('User:', req.user);
-      
+
       const { id } = req.params;
       const b = req.body || {};
       const templeId = req.user.templeId;
       // BEFORE snapshot
       const beforeRow = await db('money_donations').where({ id }).andWhere('temple_id', templeId).first();
       if (!beforeRow) return res.status(404).json({ error: 'Not found' });
-      
+
       const update = {
         register_no: b.registerNo,
         date: b.date,
@@ -1582,10 +1732,10 @@ app.get('/api/mobile/events', async (req, res) => {
         if (hasJournal) {
           // First, delete existing journal entries for this donation
           await db('journal_entries')
-            .where({ 
-              reference_type: 'money_donation', 
+            .where({
+              reference_type: 'money_donation',
               reference_id: Number(id),
-              temple_id: templeId 
+              temple_id: templeId
             })
             .del();
 
@@ -1594,6 +1744,9 @@ app.get('/api/mobile/events', async (req, res) => {
           if (amountNum > 0) {
             const entryData = {
               date: row.date || new Date().toISOString().slice(0, 10),
+              reference_number: 'JE-' + id + '-' + Date.now(),
+              description: 'Donation from ' + row.name,
+              total_amount: amountNum,
               from_account: 'DONATION A/C',
               to_account: row.transfer_to_account || 'INCOME A/C',
               amount: amountNum,
@@ -1659,10 +1812,10 @@ app.get('/api/mobile/events', async (req, res) => {
         const hasJournal = await db.schema.hasTable('journal_entries');
         if (hasJournal) {
           const deletedJournalEntries = await db('journal_entries')
-            .where({ 
-              reference_type: 'money_donation', 
+            .where({
+              reference_type: 'money_donation',
               reference_id: Number(id),
-              temple_id: templeId 
+              temple_id: templeId
             })
             .del();
 
@@ -1674,12 +1827,12 @@ app.get('/api/mobile/events', async (req, res) => {
         console.error('Failed to delete journal entry for donation:', journalError);
         // Don't fail the main request, but log the error
       }
-      
+
       const del = await db('money_donations').where({ id }).andWhere('temple_id', templeId).del();
       if (!del) return res.status(404).json({ error: 'Not found' });
 
       await removeMoneyDonationFromDaybook({ donationId: id, templeId });
-      
+
       // Log deletion with snapshot
       try {
         await logMoneyDonationAction({
@@ -1758,7 +1911,7 @@ app.get('/api/main-logs', authenticateToken, async (req, res) => {
           if (actionFilter) q = q.andWhere('l.action', actionFilter);
           taxRows = await q.orderBy('l.created_at', 'desc').orderBy('l.id', 'desc').limit(pageSize * 5);
         }
-      } catch {}
+      } catch { }
     }
 
     // Fetch donation logs
@@ -1777,7 +1930,7 @@ app.get('/api/main-logs', authenticateToken, async (req, res) => {
           if (actionFilter) q = q.andWhere('l.action', actionFilter);
           donationRows = await q.orderBy('l.created_at', 'desc').orderBy('l.id', 'desc').limit(pageSize * 5);
         }
-      } catch {}
+      } catch { }
     }
 
     // Normalize and merge
@@ -1872,6 +2025,14 @@ try {
   console.error('Failed to mount user settings router:', e);
 }
 
+// Mount organization settings API
+try {
+  const orgSettingsRouter = require('./routes/org-settings')({ db, authenticateToken, authorizePermission });
+  app.use('/api/org-settings', orgSettingsRouter);
+} catch (e) {
+  console.error('Failed to mount org settings router:', e);
+}
+
 // Mount tax registration receipt route (PDF)
 try {
   const taxRegistrationReceiptRouter = require('./routes/tax-registration-receipt')({ db, verifyQueryToken });
@@ -1938,7 +2099,7 @@ const ledgerCategoriesCompat = (() => {
     try {
       const { value, label, templeId } = req.body || {};
       const userTempleId = req.user.templeId || templeId || 1;
-      
+
       if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
 
       const exists = await db('ledger_categories')
@@ -1947,11 +2108,11 @@ const ledgerCategoriesCompat = (() => {
         .first();
       if (exists) return res.status(400).json({ error: 'Category already exists' });
 
-      const [id] = await db('ledger_categories').insert({ 
-        value, 
-        label, 
+      const [id] = await db('ledger_categories').insert({
+        value,
+        label,
         temple_id: userTempleId,
-        created_at: db.fn.now() 
+        created_at: db.fn.now()
       });
       res.status(201).json({ id, value, label });
     } catch (err) {
@@ -1965,7 +2126,7 @@ const ledgerCategoriesCompat = (() => {
     try {
       const { value, label, templeId } = req.body || {};
       const userTempleId = req.user.templeId || templeId || 1;
-      
+
       if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
 
       const existing = await db('ledger_categories')
@@ -1974,11 +2135,11 @@ const ledgerCategoriesCompat = (() => {
         .first();
       if (existing) return res.json({ id: existing.id, value: existing.value, label: existing.label });
 
-      const [id] = await db('ledger_categories').insert({ 
-        value, 
-        label, 
+      const [id] = await db('ledger_categories').insert({
+        value,
+        label,
         temple_id: userTempleId,
-        created_at: db.fn.now() 
+        created_at: db.fn.now()
       });
       res.status(201).json({ id, value, label });
     } catch (err) {
@@ -1993,18 +2154,18 @@ const ledgerCategoriesCompat = (() => {
       const { id } = req.params;
       const { value, label, templeId } = req.body || {};
       const userTempleId = req.user.templeId || templeId || 1;
-      
+
       if (!value || !label) return res.status(400).json({ error: 'Value and label are required' });
-      
+
       // Check if category belongs to the user's temple
       const existing = await db('ledger_categories')
         .where({ id: Number(id), temple_id: userTempleId })
         .first();
-      
+
       if (!existing) {
         return res.status(404).json({ error: 'Category not found or access denied' });
       }
-      
+
       // In this simplified model, just return the updated object
       res.json({ id: Number(id), value, label });
     } catch (err) {
@@ -2018,16 +2179,16 @@ const ledgerCategoriesCompat = (() => {
     try {
       const { id } = req.params;
       const templeId = req.user.templeId || req.query.templeId || 1;
-      
+
       // Check if category belongs to the user's temple
       const existing = await db('ledger_categories')
         .where({ id: Number(id), temple_id: templeId })
         .first();
-      
+
       if (!existing) {
         return res.status(404).json({ error: 'Category not found or access denied' });
       }
-      
+
       // No-op in this simplified model
       res.json({ success: true });
     } catch (err) {
@@ -2055,7 +2216,7 @@ const ledgerCategoriesCompat = (() => {
       if (!Number.isFinite(amount) || amount < 0) return res.status(400).json({ error: 'Amount cannot be negative' });
 
       // Normalize entry_type to MySQL ENUM set
-      const allowedTypes = new Set(['transfer','receipt','payment','donation','adjustment']);
+      const allowedTypes = new Set(['transfer', 'receipt', 'payment', 'donation', 'adjustment']);
       let normalizedType = (b.entry_type || '').toString().toLowerCase();
       if (normalizedType === 'income' || normalizedType === 'credit') normalizedType = 'receipt';
       else if (normalizedType === 'expense' || normalizedType === 'debit') normalizedType = 'payment';
@@ -2100,7 +2261,7 @@ const ledgerCategoriesCompat = (() => {
         try {
           const rows = await db('ledger_entries').distinct('under as name').whereNotNull('under').andWhere('under', '!=', '');
           accounts = rows.map(r => ({ name: r.name }));
-        } catch {}
+        } catch { }
       }
       res.json({ data: accounts });
     } catch (err) {
@@ -2162,23 +2323,23 @@ const ledgerCategoriesCompat = (() => {
         .distinct('from_account as account')
         .whereNotNull('from_account')
         .where('from_account', '!=', '');
-      
+
       const toAccounts = await base
         .clone()
         .distinct('to_account as account')
         .whereNotNull('to_account')
         .where('to_account', '!=', '');
-      
+
       // Combine and deduplicate accounts
       const allAccounts = [...new Set([...fromAccounts, ...toAccounts].map(a => a.account))];
-      
+
       // Get categories for all accounts
       const accountCategories = await db('ledger_entries')
         .distinct('under as category', 'name as account')
         .whereIn('name', allAccounts)
         .whereNotNull('under')
         .where('under', '!=', '');
-      
+
       // Create a map of account to category
       const accountToCategory = new Map();
       accountCategories.forEach(ac => {
@@ -2201,20 +2362,36 @@ const ledgerCategoriesCompat = (() => {
         .sum({ outflow: 'amount' })
         .groupBy('from_account');
 
+      // Fetch individual transactions to show "source" details
+      const transactions = await base.clone()
+        .select('from_account', 'to_account', 'description', 'amount', 'date', 'reference_type', 'reference_id', 'reference_number');
+
       const map = new Map();
       inflows.forEach((r) => {
         const k = r.account || '';
         if (!k) return;
-        const prev = map.get(k) || { account: k, category: accountToCategory.get(k) || 'Uncategorized', inflow: 0, outflow: 0 };
+        const prev = map.get(k) || { account: k, category: accountToCategory.get(k) || 'Uncategorized', inflow: 0, outflow: 0, transactions: [] };
         prev.inflow += Number(r.inflow || r.sum || 0);
         map.set(k, prev);
       });
       outflows.forEach((r) => {
         const k = r.account || '';
         if (!k) return;
-        const prev = map.get(k) || { account: k, category: accountToCategory.get(k) || 'Uncategorized', inflow: 0, outflow: 0 };
+        const prev = map.get(k) || { account: k, category: accountToCategory.get(k) || 'Uncategorized', inflow: 0, outflow: 0, transactions: [] };
         prev.outflow += Number(r.outflow || r.sum || 0);
         map.set(k, prev);
+      });
+
+      // Attach transactions to accounts
+      transactions.forEach(t => {
+        if (t.from_account && map.has(t.from_account)) {
+          const acc = map.get(t.from_account);
+          acc.transactions.push({ ...t, type: 'outflow' });
+        }
+        if (t.to_account && map.has(t.to_account)) {
+          const acc = map.get(t.to_account);
+          acc.transactions.push({ ...t, type: 'inflow' });
+        }
       });
 
       // Convert map to array and calculate balances
@@ -2228,6 +2405,7 @@ const ledgerCategoriesCompat = (() => {
           balance: Math.round((net + Number.EPSILON) * 100) / 100,
           debit: net < 0 ? Math.round((Math.abs(net) + Number.EPSILON) * 100) / 100 : 0,
           credit: net > 0 ? Math.round((net + Number.EPSILON) * 100) / 100 : 0,
+          transactions: r.transactions || [],
         };
       });
 
@@ -2257,9 +2435,9 @@ const ledgerCategoriesCompat = (() => {
         credit: Object.values(categoryTotals).reduce((sum, cat) => sum + cat.credit, 0)
       };
 
-      res.json({ 
-        success: true, 
-        data: categories, 
+      res.json({
+        success: true,
+        data: categories,
         categoryTotals,
         totals,
         allRows: rows // Keep flat list for backward compatibility
@@ -2346,7 +2524,7 @@ const ledgerCategoriesCompat = (() => {
       // Header
       drawRow(headers, true);
       // Divider
-      doc.moveTo(startX, y - 4).lineTo(startX + colWidths.reduce((a,b)=>a+b,0), y - 4).strokeColor('#999').stroke();
+      doc.moveTo(startX, y - 4).lineTo(startX + colWidths.reduce((a, b) => a + b, 0), y - 4).strokeColor('#999').stroke();
 
       // Body
       rows.forEach(r => drawRow([r.account, r.inflow, r.outflow, r.debit, r.credit, r.balance]));
@@ -2369,7 +2547,7 @@ const ledgerCategoriesCompat = (() => {
     try {
       const { from, to } = req.query;
       const base = db('journal_entries').where('temple_id', req.user.templeId);
-      if (from) base.andWhere('date', '>=', String(from));
+      // if (from) base.andWhere('date', '>=', String(from));
       if (to) base.andWhere('date', '<=', String(to));
 
       const inflows = await base
@@ -2400,22 +2578,64 @@ const ledgerCategoriesCompat = (() => {
         map.set(k, prev);
       });
 
+      const accountNames = Array.from(map.keys());
+      const ledgers = await db('ledger_entries')
+        .whereIn('name', accountNames)
+        .andWhere('temple_id', req.user.templeId)
+        .select('name', 'under');
+      
+      const ledgerMap = {};
+      ledgers.forEach(l => ledgerMap[l.name] = (l.under || '').toLowerCase());
+
       const assets = [];
       const liabilities = [];
+      const incomeItems = [];
+      const expenseItems = [];
+
+      const controlAccounts = ['CASH A/C', 'BANK A/C', 'INCOME A/C', 'EXPENSE A/C', 'CASH', 'BANK', 'TOTAL'];
+
       Array.from(map.values()).forEach((r) => {
         const net = (r.inflow || 0) - (r.outflow || 0);
+        if (Math.abs(net) < 0.01) return;
+
         const item = {
           account: r.account,
-          balance: Math.round((net + Number.EPSILON) * 100) / 100,
+          balance: Math.round((Math.abs(net) + Number.EPSILON) * 100) / 100,
         };
-        if (net >= 0) assets.push(item); else liabilities.push({ account: r.account, balance: Math.round((Math.abs(net) + Number.EPSILON) * 100) / 100 });
+        
+        const category = ledgerMap[r.account] || '';
+        const isControl = controlAccounts.includes(r.account.toUpperCase());
+        
+        if (category === 'income' || (category === '' && !isControl && net < 0)) {
+           incomeItems.push(item);
+        } else if (category === 'expense' || (category === '' && !isControl && net > 0)) {
+           expenseItems.push(item);
+        } else {
+           if (net >= 0) assets.push(item); else liabilities.push(item);
+        }
       });
 
       const sum = (list) => Math.round((list.reduce((s, x) => s + (x.balance || 0), 0) + Number.EPSILON) * 100) / 100;
-      const totalAssets = sum(assets);
-      const totalLiabilities = sum(liabilities);
+      const totalIncome = sum(incomeItems);
+      const totalExpense = sum(expenseItems);
+      const netProfit = Math.round((totalIncome - totalExpense + Number.EPSILON) * 100) / 100;
 
-      res.json({ success: true, data: { assets, liabilities, totals: { assets: totalAssets, liabilities: totalLiabilities } } });
+      res.json({ 
+        success: true, 
+        data: { 
+          assets, 
+          liabilities, 
+          incomeItems,
+          expenseItems,
+          netProfit,
+          totals: { 
+            assets: sum(assets), 
+            liabilities: sum(liabilities),
+            income: totalIncome,
+            expense: totalExpense
+          } 
+        } 
+      });
     } catch (err) {
       console.error('Error computing balance sheet:', err);
       res.status(500).json({ error: 'Failed to compute balance sheet' });
@@ -2428,7 +2648,7 @@ const ledgerCategoriesCompat = (() => {
 // Function to generate the next receipt number in format YYYY-XXXX
 async function generateReceiptNumber(db, templeId) {
   const year = new Date().getFullYear();
-  
+
   // Get the latest receipt number for this year and temple
   const latest = await db('receipts')
     .where('temple_id', templeId)
@@ -2437,14 +2657,14 @@ async function generateReceiptNumber(db, templeId) {
     .first();
 
   let nextNumber = 1;
-  
+
   if (latest && latest.register_no) {
     const parts = latest.register_no.split('-');
     if (parts.length === 2 && parts[0] === year.toString()) {
       nextNumber = parseInt(parts[1], 10) + 1;
     }
   }
-  
+
   // Format with leading zeros
   return `${year}-${String(nextNumber).padStart(4, '0')}`;
 }
@@ -2487,8 +2707,8 @@ app.post('/api/receipts', authenticateToken, authorizePermission('receipts', 'ed
     // Reflect into journal so balances are accurate
     try {
       const isExpense = row.type === 'payment';
-      const fromAccount = isExpense ? (row.from_person || 'CASH A/C') : (row.from_person || 'INCOME A/C');
-      const toAccount = isExpense ? (row.to_person || 'EXPENSE A/C') : (row.to_person || 'CASH A/C');
+      const fromAccount = isExpense ? 'CASH A/C' : 'INCOME A/C';
+      const toAccount = isExpense ? (row.to_person || 'EXPENSE A/C') : 'CASH A/C';
       const hasJournal = await db.schema.hasTable('journal_entries');
       if (hasJournal) {
         const existing = await db('journal_entries')
@@ -2497,10 +2717,12 @@ app.post('/api/receipts', authenticateToken, authorizePermission('receipts', 'ed
         if (!existing) {
           await db('journal_entries').insert({
             date: row.date,
+            reference_number: 'RCP-' + row.register_no,
+            description: `Receipt: ${row.type} - ${row.from_person || '-'} to ${row.to_person || '-'}`,
+            total_amount: row.amount,
             from_account: fromAccount,
             to_account: toAccount,
             amount: row.amount,
-            // Use 'transfer' to satisfy DB CHECK constraint reliably
             entry_type: 'transfer',
             remarks: row.remarks || null,
             reference_type: 'receipt',
@@ -2513,7 +2735,35 @@ app.post('/api/receipts', authenticateToken, authorizePermission('receipts', 'ed
       }
     } catch (e) {
       console.error('Failed to mirror receipt into journal_entries:', e);
-      // don't fail the main response
+    }
+    // Sync to daybook
+    try {
+      const hasDaybook = await db.schema.hasTable('daybook_entries');
+      if (hasDaybook) {
+        await db('daybook_entries')
+          .where({ temple_id: req.user.templeId, reference_type: 'receipt', reference_id: row.id })
+          .del();
+        const entryType = row.type === 'payment' ? 'expense' : 'income';
+        const partyName = row.type === 'payment' ? (row.to_person || 'Unknown') : (row.from_person || 'Unknown');
+        await db('daybook_entries').insert({
+          temple_id: req.user.templeId,
+          entry_date: row.date,
+          entry_type: entryType,
+          description: `Receipt - ${partyName}`,
+          reference_type: 'receipt',
+          reference_id: row.id,
+          receipt_number: row.register_no,
+          amount: Number(row.amount),
+          payment_mode: row.type === 'payment' ? (row.from_person || 'cash') : (row.to_person || 'cash'),
+          party_name: partyName !== 'Unknown' ? partyName : null,
+          party_mobile: null,
+          notes: row.remarks || null,
+          created_by: req.user.id,
+          created_at: db.fn.now(),
+        });
+      }
+    } catch (daybookError) {
+      console.error('Failed to sync receipt to daybook:', daybookError);
     }
     // Log creation
     try {
@@ -2524,7 +2774,7 @@ app.post('/api/receipts', authenticateToken, authorizePermission('receipts', 'ed
         action: 'create',
         details: row || payload,
       });
-    } catch (_) {}
+    } catch (_) { }
     res.json({ success: true, data: row });
   } catch (err) {
     console.error('Error creating receipt:', err);
@@ -2567,6 +2817,65 @@ app.put('/api/receipts/:id', authenticateToken, authorizePermission('receipts', 
     if (!changed) return res.status(404).json({ success: false, error: 'Receipt not found' });
     const row = await db('receipts').where({ id }).first();
     try {
+      const hasJournal = await db.schema.hasTable('journal_entries');
+      if (hasJournal) {
+        await db('journal_entries')
+          .where({ reference_type: 'receipt', reference_id: Number(id), temple_id: req.user.templeId })
+          .del();
+        const amountNum = Number(row.amount || 0);
+        if (amountNum > 0) {
+          const isExpense = row.type === 'payment';
+          const fromAccount = isExpense ? 'CASH A/C' : 'INCOME A/C';
+          const toAccount = isExpense ? (row.to_person || 'EXPENSE A/C') : (row.to_person || 'CASH A/C');
+          await db('journal_entries').insert({
+            date: row.date,
+            reference_number: 'RCP-' + row.register_no,
+            description: `Receipt: ${row.type} - ${row.from_person || '-'} to ${row.to_person || '-'}`,
+            total_amount: amountNum,
+            from_account: fromAccount,
+            to_account: toAccount,
+            amount: amountNum,
+            entry_type: 'transfer',
+            remarks: row.remarks || null,
+            reference_type: 'receipt',
+            reference_id: row.id,
+            temple_id: req.user.templeId,
+            created_by: req.user.id,
+            created_at: db.fn.now(),
+          });
+        }
+      }
+    } catch (e) { }
+    // Sync to daybook
+    try {
+      const hasDaybook = await db.schema.hasTable('daybook_entries');
+      if (hasDaybook) {
+        await db('daybook_entries')
+          .where({ temple_id: req.user.templeId, reference_type: 'receipt', reference_id: row.id })
+          .del();
+        const entryType = row.type === 'payment' ? 'expense' : 'income';
+        const partyName = row.type === 'payment' ? (row.to_person || 'Unknown') : (row.from_person || 'Unknown');
+        await db('daybook_entries').insert({
+          temple_id: req.user.templeId,
+          entry_date: row.date,
+          entry_type: entryType,
+          description: `Receipt - ${partyName}`,
+          reference_type: 'receipt',
+          reference_id: row.id,
+          receipt_number: row.register_no,
+          amount: Number(row.amount),
+          payment_mode: row.type === 'payment' ? (row.from_person || 'cash') : (row.to_person || 'cash'),
+          party_name: partyName !== 'Unknown' ? partyName : null,
+          party_mobile: null,
+          notes: row.remarks || null,
+          created_by: req.user.id,
+          created_at: db.fn.now(),
+        });
+      }
+    } catch (daybookError) {
+      console.error('Failed to sync receipt to daybook on update:', daybookError);
+    }
+    try {
       await logReceiptAction({
         receiptId: row.id,
         templeId: req.user.templeId,
@@ -2574,7 +2883,7 @@ app.put('/api/receipts/:id', authenticateToken, authorizePermission('receipts', 
         action: 'update',
         details: { before: beforeRow || null, after: row || null },
       });
-    } catch (_) {}
+    } catch (_) { }
     res.json({ success: true, data: row });
   } catch (err) {
     console.error('Error updating receipt:', err);
@@ -2660,7 +2969,7 @@ app.delete('/api/receipts/:id', authenticateToken, authorizePermission('receipts
         action: 'delete',
         details: existing || { id: Number(id) },
       });
-    } catch (_) {}
+    } catch (_) { }
     res.json({ success: true });
   } catch (err) {
     console.error('Error deleting receipt:', err);
@@ -2737,7 +3046,7 @@ app.get('/api/receipts/logs', authenticateToken, authorizePermission('receipts',
 // Reports: Daily aggregation
 app.get('/api/reports/daily', authenticateToken, async (req, res) => {
   try {
-    const date = (req.query.date || new Date().toISOString().slice(0,10)).toString();
+    const date = (req.query.date || new Date().toISOString().slice(0, 10)).toString();
     const templeId = req.user.templeId;
 
     // Receipts
@@ -3018,17 +3327,17 @@ app.get('/api/public/temples', async (req, res) => {
     const temples = await db('temples')
       .select('id', 'name', 'registration_id', 'address', 'phone', 'email')
       .orderBy('name');
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       data: temples,
       message: 'Temple information retrieved successfully'
     });
   } catch (err) {
     console.error('GET /api/public/temples error:', err);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Internal server error while fetching temple information' 
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error while fetching temple information'
     });
   }
 });
@@ -3036,28 +3345,28 @@ app.get('/api/public/temples', async (req, res) => {
 // Public API endpoint to list annadhanam entries (no authentication required)
 app.get('/api/public/annadhanam', async (req, res) => {
   try {
-    const { 
-      q, 
-      from, 
-      to, 
-      page = 1, 
-      pageSize = 20, 
-      mobile_number, 
+    const {
+      q,
+      from,
+      to,
+      page = 1,
+      pageSize = 20,
+      mobile_number,
       temple_id,
       status = 'approved' // Only show approved entries by default
     } = req.query;
-    
+
     const pg = Math.max(parseInt(page, 10) || 1, 1);
     const ps = Math.min(Math.max(parseInt(pageSize, 10) || 20, 1), 100);
     const offset = (pg - 1) * ps;
 
     let query = db('annadhanam');
-    
+
     // Filter by temple_id if provided
     if (temple_id) {
       query = query.where('temple_id', temple_id);
     }
-    
+
     // Filter by mobile_number if provided
     if (mobile_number) {
       query = query.where('mobile_number', mobile_number);
@@ -3078,25 +3387,25 @@ app.get('/api/public/annadhanam', async (req, res) => {
       if (from) qb.andWhere('from_date', '>=', from);
       if (to) qb.andWhere('to_date', '<=', to);
     })
-    .orderBy('from_date', 'desc')
-    .limit(ps)
-    .offset(offset);
+      .orderBy('from_date', 'desc')
+      .limit(ps)
+      .offset(offset);
 
     const rows = await query;
-    
+
     // Get total count for pagination
     let countQuery = db('annadhanam');
     if (temple_id) countQuery = countQuery.where('temple_id', temple_id);
     if (mobile_number) countQuery = countQuery.where('mobile_number', mobile_number);
     countQuery = countQuery.where('status', status);
-    
+
     const totalResult = await countQuery.count('* as count').first();
     const total = totalResult.count;
 
-    res.json({ 
-      success: true, 
-      data: rows, 
-      page: pg, 
+    res.json({
+      success: true,
+      data: rows,
+      page: pg,
       pageSize: ps,
       total: total,
       totalPages: Math.ceil(total / ps),
@@ -3104,9 +3413,9 @@ app.get('/api/public/annadhanam', async (req, res) => {
     });
   } catch (err) {
     console.error('GET /api/public/annadhanam error:', err);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Internal server error while fetching annadhanam entries' 
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error while fetching annadhanam entries'
     });
   }
 });
@@ -3138,19 +3447,19 @@ app.get('/api/permissions', authenticateToken, authorizeRole(['admin', 'superadm
 
 // Endpoint to save Master Record (authenticated users)
 app.post('/api/master-records', authenticateToken, authorizeTempleAccess, async (req, res) => {
-  const { 
-    templeId, 
-    date, 
-    name, 
-    under, 
-    openingBalance, 
-    balanceType, 
-    address, 
-    village, 
-    telephone, 
-    mobile, 
-    email, 
-    note 
+  const {
+    templeId,
+    date,
+    name,
+    under,
+    openingBalance,
+    balanceType,
+    address,
+    village,
+    telephone,
+    mobile,
+    email,
+    note
   } = req.body;
 
   if (!templeId || !date || !name || !under) {
@@ -3199,13 +3508,17 @@ app.get('/api/master-records/:templeId', authenticateToken, authorizeTempleAcces
   }
 });
 
-// Mount master data routes (separate hall-events/halls as public)
+// Mount master data routes (separate hall-events/halls/product-names as public)
 const masterDataRouter = require('./components/master-data')({ db, retryOnBusy });
 const masterHallEvents = require('./components/master-data/masterHallEvents')({ db, retryOnBusy });
 const masterHalls = require('./components/master-data/masterHalls')({ db, retryOnBusy });
+const masterProductNames = require('./components/master-data/masterProductNames')({ db, retryOnBusy });
+const masterFoodItems = require('./components/master-data/masterFoodItems')({ db, retryOnBusy });
 app.use('/api/master/hall-events', masterHallEvents);  // Public - no auth
 app.use('/api/master/halls', masterHalls);  // Public - no auth
-app.use('/api/master', authenticateToken, authorizeRole(['admin','superadmin']), masterDataRouter);  // Auth required
+app.use('/api/master/product-names', masterProductNames);  // Public - no auth
+app.use('/api/master/food-items', masterFoodItems);  // Public - no auth
+app.use('/api/master', authenticateToken, authorizeRole(['admin', 'superadmin']), masterDataRouter);  // Auth required
 
 // Master clans delete route has been moved to /api/master/clans/:id
 
@@ -3227,7 +3540,7 @@ app.post('/api/master-villages', authenticateToken, authorizeTempleAccess, async
       created_at: db.fn.now(),
       updated_at: db.fn.now()
     }));
-    
+
     console.log('Successfully saved master village:', newVillage);
     res.status(201).json({ success: true, id: newVillage[0] });
   } catch (err) {
@@ -3243,7 +3556,7 @@ app.get('/api/master-villages/:templeId', authenticateToken, authorizeTempleAcce
     const villages = await db('master_villages')
       .where('temple_id', templeId)
       .orderBy('name', 'asc');
-    
+
     res.json(villages);
   } catch (err) {
     console.error('Error fetching master villages:', err);
@@ -3307,8 +3620,8 @@ app.delete('/api/master-villages/:id', authenticateToken, authorizeTempleAccess,
       .first();
 
     if (usersWithVillage) {
-      return res.status(400).json({ 
-        error: 'Cannot delete village. It is currently being used by registered users.' 
+      return res.status(400).json({
+        error: 'Cannot delete village. It is currently being used by registered users.'
       });
     }
 
@@ -3356,7 +3669,7 @@ app.post('/api/users', authenticateToken, authorizeTempleAccess, async (req, res
   }
 
   try {
-          const newUser = await retryOnBusy(() => db('user_registrations').insert({
+    const newUser = await retryOnBusy(() => db('user_registrations').insert({
       reference_number: referenceNumber || '',
       date: date || new Date().toISOString().slice(0, 10),
       subdivision: subdivision || '',
@@ -3547,25 +3860,25 @@ async function generateRegistrationReceipt(db, templeId, dateStr) {
 // Registration create/update/delete/payment routes moved to module 'server/registrations.js'
 
 // Member registration endpoint with pure permission check
-app.post('/api/members', 
-  authenticateToken, 
-  authorizePermission('member_entry', 'full'), 
+app.post('/api/members',
+  authenticateToken,
+  authorizePermission('member_entry', 'full'),
   async (req, res) => {
     try {
       console.log('Member creation request body:', req.body);
       console.log('User info:', req.user);
-      
+
       const { name, username, mobile, email, createLogin, password, permissionLevel, customPermissions, role } = req.body;
-      
+
       if (!name || !mobile) {
         return res.status(400).json({ error: 'Name and mobile are required' });
       }
-      
+
       // Check if username is provided when createLogin is true
       if (createLogin && !username) {
         return res.status(400).json({ error: 'Username is required when creating login' });
       }
-      
+
       // Check if username already exists when creating login
       if (createLogin && username) {
         const existingUser = await db('users').where({ username }).first();
@@ -3573,9 +3886,9 @@ app.post('/api/members',
           return res.status(409).json({ error: 'Username already exists' });
         }
       }
-      
+
       const safeEmail = email && String(email).trim() !== '' ? String(email).trim() : null;
-      
+
       const newMember = await db.transaction(async trx => {
         console.log('Creating member record with data:', {
           name,
@@ -3584,7 +3897,7 @@ app.post('/api/members',
           email: safeEmail,
           temple_id: req.user.templeId
         });
-        
+
         // Create member record
         const [member] = await trx('user_registrations')
           .insert({
@@ -3596,7 +3909,7 @@ app.post('/api/members',
             created_at: db.fn.now()
           })
           .returning('*');
-        
+
         // Create login if requested
         if (createLogin) {
           // Ensure required permissions exist in the database
@@ -3629,7 +3942,7 @@ app.post('/api/members',
             { id: 'activity_logs', name: 'Activity Logs', description: 'View activity logs' },
             { id: 'view_session_logs', name: 'View Session Logs', description: 'View session logs' }
           ];
-          
+
           // Insert permissions if they don't exist
           for (const perm of requiredPermissions) {
             await trx('permissions')
@@ -3637,9 +3950,9 @@ app.post('/api/members',
               .onConflict('id')
               .ignore();
           }
-          
+
           const hashedPassword = await bcrypt.hash(password, 10);
-          const [createdUser] = await trx('users')
+          const [insertId] = await trx('users')
             .insert({
               username,
               full_name: name,
@@ -3648,9 +3961,15 @@ app.post('/api/members',
               password: hashedPassword,
               temple_id: req.user.templeId,
               role: mobile === '9999999999' ? 'superadmin' : role || 'member'
-            })
-            .returning('*');
-          
+            });
+
+          // Fetch the created user to ensure we have the full object
+          const createdUser = await trx('users').where({ id: insertId }).first();
+
+          if (!createdUser) {
+            throw new Error('Failed to retrieve created user');
+          }
+
           // Assign provided custom permissions to the newly created user
           if (mobile === '9999999999') {
             // Grant all permissions for superadmin mobile
@@ -3662,78 +3981,65 @@ app.post('/api/members',
             }));
             await trx('user_permissions').insert(superPerms);
           } else {
-            // For regular members, assign default permissions if they exist
+            // Define default permission IDs
             const defaultPermissionIds = [
-              'dashboard', 'member_entry', 'master_data', 'ledger_management', 
-              'reports', 'balance_sheet', 'setting', 'pdf_settings', 
+              'dashboard', 'member_entry', 'master_data', 'ledger_management',
+              'reports', 'balance_sheet', 'setting', 'pdf_settings',
               'user_registrations', 'tax_registrations', 'property_registrations',
               'view_donations', 'edit_donations', 'donation_approval',
-              'view_events', 'edit_events', 'pooja_registrations', 
+              'view_events', 'edit_events', 'pooja_registrations',
               'pooja_mobile_submit', 'pooja_approval', 'annadhanam_registrations',
               'annadhanam_approval', 'hall_booking', 'hall_approval',
               'marriage_register', 'session_management', 'activity_logs',
               'view_session_logs'
             ];
-            
-            // Check which permissions actually exist in the database
-            const existingPermissions = await trx('permissions')
-              .select('id')
-              .whereIn('id', defaultPermissionIds);
-            
-            const existingPermissionIds = existingPermissions.map(p => p.id);
-            
-            // Only insert permissions that actually exist
-            if (existingPermissionIds.length > 0) {
-              const defaultPerms = existingPermissionIds.map(pid => ({
+
+            // Use custom permissions if provided, otherwise fallback to defaults
+            let permissionsToAssign = [];
+            if (customPermissions && Array.isArray(customPermissions) && customPermissions.length > 0) {
+              permissionsToAssign = customPermissions.map(p => ({
+                user_id: createdUser.id,
+                permission_id: p.id || p.permission_id,
+                access_level: p.access || p.access_level || 'view'
+              }));
+            } else {
+              permissionsToAssign = defaultPermissionIds.map(pid => ({
                 user_id: createdUser.id,
                 permission_id: pid,
-                access_level: 'view',
-                created_at: trx.fn.now(),
-                updated_at: trx.fn.now()
+                access_level: 'view'
               }));
+            }
+
+            if (permissionsToAssign.length > 0) {
+              // Ensure we only insert valid permissions (that exist in permissions table)
+              const validPerms = await trx('permissions').select('id');
+              const validIds = new Set(validPerms.map(p => p.id));
+              const finalPerms = permissionsToAssign.filter(p => validIds.has(p.permission_id));
               
-              await trx('user_permissions')
-                .insert(defaultPerms)
-                .onConflict(['user_id', 'permission_id'])
-                .merge(['access_level', 'updated_at']);
+              if (finalPerms.length > 0) {
+                await trx('user_permissions').insert(finalPerms);
+              }
             }
           }
           
-          if (customPermissions && Array.isArray(customPermissions)) {
-            // De-duplicate by permission_id and upsert to avoid UNIQUE constraint errors
-            const uniqueMap = new Map();
-            for (const perm of customPermissions) {
-              if (!perm?.id) continue;
-              uniqueMap.set(perm.id, perm.access || 'view');
-            }
-            const permissionRecords = Array.from(uniqueMap.entries()).map(([pid, access]) => ({
-              user_id: createdUser.id,
-              permission_id: pid,
-              access_level: access,
-              created_at: trx.fn.now(),
-              updated_at: trx.fn.now(),
-            }));
-
-            if (permissionRecords.length) {
-              await trx('user_permissions')
-                .insert(permissionRecords)
-                .onConflict(['user_id', 'permission_id'])
-                .merge(['access_level', 'updated_at']);
-            }
-          }
+          return { member, createdUserId: createdUser.id };
         }
         
-        return member;
+        return { member };
       });
 
-      res.json({ success: true, member: newMember });
+      res.status(201).json({ 
+        message: 'Member created successfully', 
+        member: newMember.member,
+        createdUserId: newMember.createdUserId
+      });
     } catch (err) {
       console.error('Member registration error:', err);
       console.error('Error details:', err.message);
       console.error('Error stack:', err.stack);
       res.status(500).json({ error: 'Error registering member', details: err.message });
     }
-});
+  });
 
 // Superadmin endpoint: grant all permissions to a user by mobile
 app.post('/api/admin/grant-all-permissions', authenticateToken, authorizeRole(['superadmin']), async (req, res) => {
@@ -3792,18 +4098,18 @@ app.post('/api/admin/grant-all-permissions', authenticateToken, authorizeRole(['
 });
 
 // Member list endpoint with pure permission check
-app.get('/api/members', 
-  authenticateToken, 
-  authorizePermission('member_entry', 'full') || 
+app.get('/api/members',
+  authenticateToken,
+  authorizePermission('member_entry', 'full') ||
   authorizePermission('member_view', 'view')
-  , 
+  ,
   async (req, res) => {
     try {
       const members = await db('user_registrations')
         .join('users', 'user_registrations.mobile_number', 'users.mobile')
         .where('user_registrations.temple_id', req.user.templeId)
         .select('user_registrations.*', 'users.id as userId', 'users.status as is_blocked');
-      
+
       res.json({ success: true, members });
     } catch (err) {
       console.error('Member list error:', err);
@@ -3857,8 +4163,8 @@ app.get('/api/activity-logs', authenticateToken, authorizePermission('activity_l
 const taxSettingsRouter = require('./routes/tax-settings');
 
 // Mount tax settings routes with middleware
-app.use('/api/tax-settings', 
-  authenticateToken, 
+app.use('/api/tax-settings',
+  authenticateToken,
   authorizePermission('tax_registrations', 'view'),
   (req, res, next) => {
     // Add db to the request object
@@ -3871,9 +4177,9 @@ app.use('/api/tax-settings',
 // Import tax calculations routes
 const taxCalculationsRouter = require('./routes/tax-calculations');
 
-// Mount tax calculations routes with middleware - mounted at /api/tax-settings
-// because taxCalculationsRouter handles /tax-settings/* routes
-app.use('/api/tax-settings',
+// Mount tax calculations routes with middleware - mounted at /api
+// because taxCalculationsRouter handles /tax-settings/* and /tax-calculations/* routes
+app.use('/api',
   authenticateToken,
   authorizePermission('tax_registrations', 'view'),
   (req, res, next) => {
@@ -3892,7 +4198,7 @@ app.get('/', async (req, res) => {
 const authRouter = require('./routes/auth');
 
 // Mount auth routes with middleware - make it more specific
-app.use('/api/auth', 
+app.use('/api/auth',
   authenticateToken,
   (req, res, next) => {
     // Add db to the request object
@@ -3948,7 +4254,7 @@ app.use('/api/calendar',
 app.use((req, res, next) => {
   if (req.user?.mobile === '9999999999') {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-    
+
     // Log to database
     db('superadmin_logs').insert({
       user_id: req.user.id,
@@ -3974,7 +4280,7 @@ app.get('/api/superadmin-logs', authenticateToken, (req, res) => {
   if (req.user.mobile !== '9999999999') {
     return res.status(403).json({ error: 'Access denied' });
   }
-  
+
   db('superadmin_logs')
     .orderBy('timestamp', 'desc')
     .limit(100)
@@ -3993,14 +4299,14 @@ app.get('/api/session-logs', authenticateToken, authorizePermission('session_log
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
-    
+
     const totalCount = await db('session_logs').count('* as count').first();
-    
+
     const logs = await db('session_logs')
       .orderBy('login_time', 'desc')
       .limit(limit)
       .offset(offset);
-    
+
     res.json({
       success: true,
       data: logs,
@@ -4021,25 +4327,25 @@ app.get('/api/session-logs', authenticateToken, authorizePermission('session_log
 app.get('/api/session-logs/export', authenticateToken, authorizePermission('session_logs', 'view'), async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    
+
     let query = db('session_logs').orderBy('login_time', 'desc');
-    
+
     if (startDate) {
       query = query.where('login_time', '>=', new Date(startDate));
     }
-    
+
     if (endDate) {
       query = query.where('login_time', '<=', new Date(endDate));
     }
-    
+
     const logs = await query;
-    
+
     // Calculate statistics
     const totalSessions = logs.length;
     const activeSessions = logs.filter(log => !log.logout_time).length;
     const totalDuration = logs.reduce((sum, log) => sum + (log.duration_seconds || 0), 0);
     const avgDuration = totalSessions > 0 ? totalDuration / totalSessions : 0;
-    
+
     res.json({
       success: true,
       data: logs,
@@ -4060,21 +4366,21 @@ app.get('/api/session-logs/export', authenticateToken, authorizePermission('sess
 app.get('/api/session-logs/export-pdf', authenticateToken, authorizePermission('session_logs', 'view'), async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    
+
     let query = db('session_logs').orderBy('login_time', 'desc');
-    
+
     if (startDate) {
       query = query.where('login_time', '>=', new Date(startDate));
     }
-    
+
     if (endDate) {
       query = query.where('login_time', '<=', new Date(endDate));
     }
-    
+
     const logs = await query;
     const PDFDocument = require('pdfkit');
     const doc = new PDFDocument();
-    
+
     // Set response headers
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=session-logs.pdf`);
@@ -4085,7 +4391,7 @@ app.get('/api/session-logs/export-pdf', authenticateToken, authorizePermission('
     // Add title
     doc.fontSize(20).text('Session Logs Report', { align: 'center' });
     doc.moveDown(0.5);
-    
+
     // Add date range if specified
     if (startDate || endDate) {
       doc.fontSize(12).text(
@@ -4094,40 +4400,40 @@ app.get('/api/session-logs/export-pdf', authenticateToken, authorizePermission('
       );
       doc.moveDown();
     }
-    
+
     // Add statistics
     const totalSessions = logs.length;
     const activeSessions = logs.filter(log => !log.logout_time).length;
     const totalDuration = logs.reduce((sum, log) => sum + (log.duration_seconds || 0), 0);
     const avgDuration = totalSessions > 0 ? totalDuration / totalSessions : 0;
-    
+
     doc.fontSize(14).text('Summary Statistics', { underline: true });
     doc.fontSize(12).text(`Total Sessions: ${totalSessions}`);
     doc.text(`Active Sessions: ${activeSessions}`);
     doc.text(`Average Duration: ${Math.round(avgDuration)} seconds`);
     doc.text(`Total Duration: ${Math.round(totalDuration)} seconds`);
     doc.moveDown();
-    
+
     // Add table headers
     doc.fontSize(14).text('Session Details', { underline: true });
     doc.moveDown();
-    
+
     const headers = ['ID', 'User ID', 'Login Time', 'Logout Time', 'IP Address', 'Duration'];
     const columnWidths = [50, 60, 120, 120, 100, 60];
-    
+
     // Add table rows
     let y = doc.y;
     headers.forEach((header, i) => {
       doc.font('Helvetica-Bold').fontSize(10)
-         .text(header, 50 + columnWidths.slice(0, i).reduce((a, b) => a + b, 0), y, 
-               { width: columnWidths[i], align: 'left' });
+        .text(header, 50 + columnWidths.slice(0, i).reduce((a, b) => a + b, 0), y,
+          { width: columnWidths[i], align: 'left' });
     });
-    
+
     y += 20;
-    
+
     logs.forEach(log => {
       doc.font('Helvetica').fontSize(10);
-      
+
       const row = [
         log.id.toString(),
         log.user_id.toString(),
@@ -4136,21 +4442,21 @@ app.get('/api/session-logs/export-pdf', authenticateToken, authorizePermission('
         log.ip_address,
         log.duration_seconds ? `${log.duration_seconds}s` : 'N/A'
       ];
-      
+
       row.forEach((cell, i) => {
-        doc.text(cell, 50 + columnWidths.slice(0, i).reduce((a, b) => a + b, 0), y, 
-                { width: columnWidths[i], align: 'left' });
+        doc.text(cell, 50 + columnWidths.slice(0, i).reduce((a, b) => a + b, 0), y,
+          { width: columnWidths[i], align: 'left' });
       });
-      
+
       y += 20;
-      
+
       // Add new page if we're at the bottom
       if (y > doc.page.height - 50) {
         doc.addPage();
         y = 50;
       }
     });
-    
+
     doc.end();
   } catch (err) {
     console.error('Error generating PDF:', err);
@@ -4172,15 +4478,15 @@ app.use('/api/admin/members', adminMembersRouter);
 
 // Mount marriages router
 const createMarriagesRouter = require('./routes/marriages');
-const marriagesRouter = createMarriagesRouter({ 
-  db, 
-  authenticateToken, 
-  authorizeRole 
+const marriagesRouter = createMarriagesRouter({
+  db,
+  authenticateToken,
+  authorizeRole
 });
 app.use('/api/marriages', marriagesRouter);
 
 // Mount hall bookings router with special PDF receipt handling
-const hallBookingsRouter = require('./hallBookings')({ db });
+const hallBookingsRouter = require('./hallBookings')({ db, generateDaybookReceiptNumber, calculateDaybookRunningBalance });
 const skipReceiptPdfAuth = (req, res, next) => {
   const url = req.originalUrl || req.url || '';
   // If this is a request to the receipt PDF, let the specific router handle JWT via query token
@@ -4193,7 +4499,7 @@ app.use('/api/hall-bookings', skipReceiptPdfAuth, authenticateToken, hallBooking
 
 // Mount journal router
 const journalRouter = require('./routes/journal')({ db });
-app.use('/api/journal', authenticateToken, authorizeRole(['admin','superadmin']), journalRouter);
+app.use('/api/journal', authenticateToken, authorizeRole(['admin', 'superadmin']), journalRouter);
 
 // Mount donations router
 const donationsRouter = require('./donations')({ db });
@@ -4248,7 +4554,7 @@ const registrationsRouter = createRegistrationsRouter(db);
 app.use((req, res, next) => {
   if (req.method !== 'GET') {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-    
+
     // Log to database
     db('superadmin_logs').insert({
       user_id: req.user?.id || null,
@@ -4285,7 +4591,7 @@ try {
   console.warn('Could not create temp upload dir:', tempUploadDir, e.message);
 }
 
-const upload = multer({ 
+const upload = multer({
   dest: tempUploadDir,
   limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit, backend will compress
 });
@@ -4299,27 +4605,27 @@ app.use('/api/registrations', upload.single('photo'), compressImage, registratio
 app.post('/api/public/profile-photo/mobile', upload.single('photo'), async (req, res) => {
   try {
     const { mobile_number } = req.body;
-    
+
     if (!mobile_number) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Mobile number is required' 
+      return res.status(400).json({
+        success: false,
+        error: 'Mobile number is required'
       });
     }
 
     if (!req.file) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Photo file is required' 
+      return res.status(400).json({
+        success: false,
+        error: 'Photo file is required'
       });
     }
 
     // Validate mobile number format (10 digits)
     const cleanMobile = mobile_number.replace(/\D/g, '');
     if (cleanMobile.length !== 10) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Invalid mobile number format' 
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid mobile number format'
       });
     }
 
@@ -4329,9 +4635,9 @@ app.post('/api/public/profile-photo/mobile', upload.single('photo'), async (req,
       .first();
 
     if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'User not found with this mobile number' 
+      return res.status(404).json({
+        success: false,
+        error: 'User not found with this mobile number'
       });
     }
 
@@ -4339,13 +4645,13 @@ app.post('/api/public/profile-photo/mobile', upload.single('photo'), async (req,
     const photoPath = `/uploads/profiles/${req.file.filename}`;
     await db('user_registrations')
       .where('id', user.id)
-      .update({ 
+      .update({
         photo_path: photoPath,
         updated_at: new Date()
       });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: 'Profile photo updated successfully',
       data: {
         user_id: user.id,
@@ -4356,9 +4662,9 @@ app.post('/api/public/profile-photo/mobile', upload.single('photo'), async (req,
     });
   } catch (err) {
     console.error('POST /api/public/profile-photo/mobile error:', err);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Internal server error while updating profile photo' 
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error while updating profile photo'
     });
   }
 });
@@ -4368,18 +4674,18 @@ app.post('/api/public/profile-photo/member/:id', upload.single('photo'), async (
   try {
     const { id } = req.params;
     const memberId = parseInt(id);
-    
+
     if (Number.isNaN(memberId)) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Invalid member ID format' 
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid member ID format'
       });
     }
 
     if (!req.file) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Photo file is required' 
+      return res.status(400).json({
+        success: false,
+        error: 'Photo file is required'
       });
     }
 
@@ -4389,9 +4695,9 @@ app.post('/api/public/profile-photo/member/:id', upload.single('photo'), async (
       .first();
 
     if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'User not found with this member ID' 
+      return res.status(404).json({
+        success: false,
+        error: 'User not found with this member ID'
       });
     }
 
@@ -4399,13 +4705,13 @@ app.post('/api/public/profile-photo/member/:id', upload.single('photo'), async (
     const photoPath = `/uploads/profiles/${req.file.filename}`;
     await db('user_registrations')
       .where('id', memberId)
-      .update({ 
+      .update({
         photo_path: photoPath,
         updated_at: new Date()
       });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: 'Profile photo updated successfully',
       data: {
         user_id: memberId,
@@ -4416,9 +4722,9 @@ app.post('/api/public/profile-photo/member/:id', upload.single('photo'), async (
     });
   } catch (err) {
     console.error('POST /api/public/profile-photo/member/:id error:', err);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Internal server error while updating profile photo' 
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error while updating profile photo'
     });
   }
 });
@@ -4427,13 +4733,13 @@ app.post('/api/public/profile-photo/member/:id', upload.single('photo'), async (
 app.get('/api/public/profile-photo/mobile/:mobile_number', async (req, res) => {
   try {
     const { mobile_number } = req.params;
-    
+
     // Validate mobile number format
     const cleanMobile = mobile_number.replace(/\D/g, '');
     if (cleanMobile.length !== 10) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Invalid mobile number format' 
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid mobile number format'
       });
     }
 
@@ -4444,18 +4750,18 @@ app.get('/api/public/profile-photo/mobile/:mobile_number', async (req, res) => {
       .first();
 
     if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'User not found with this mobile number' 
+      return res.status(404).json({
+        success: false,
+        error: 'User not found with this mobile number'
       });
     }
 
-    const photoUrl = user.photo_path ? 
-      `${req.protocol}://${req.get('host')}/public${user.photo_path}` : 
+    const photoUrl = user.photo_path ?
+      `${req.protocol}://${req.get('host')}/public${user.photo_path}` :
       null;
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       data: {
         user_id: user.id,
         mobile_number: user.mobile_number,
@@ -4466,9 +4772,9 @@ app.get('/api/public/profile-photo/mobile/:mobile_number', async (req, res) => {
     });
   } catch (err) {
     console.error('GET /api/public/profile-photo/mobile/:mobile_number error:', err);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Internal server error while fetching profile photo' 
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error while fetching profile photo'
     });
   }
 });
@@ -4478,11 +4784,11 @@ app.get('/api/public/profile-photo/member/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const memberId = parseInt(id);
-    
+
     if (Number.isNaN(memberId)) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Invalid member ID format' 
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid member ID format'
       });
     }
 
@@ -4493,18 +4799,18 @@ app.get('/api/public/profile-photo/member/:id', async (req, res) => {
       .first();
 
     if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'User not found with this member ID' 
+      return res.status(404).json({
+        success: false,
+        error: 'User not found with this member ID'
       });
     }
 
-    const photoUrl = user.photo_path ? 
-      `${req.protocol}://${req.get('host')}/public${user.photo_path}` : 
+    const photoUrl = user.photo_path ?
+      `${req.protocol}://${req.get('host')}/public${user.photo_path}` :
       null;
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       data: {
         user_id: user.id,
         mobile_number: user.mobile_number,
@@ -4515,9 +4821,9 @@ app.get('/api/public/profile-photo/member/:id', async (req, res) => {
     });
   } catch (err) {
     console.error('GET /api/public/profile-photo/member/:id error:', err);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Internal server error while fetching profile photo' 
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error while fetching profile photo'
     });
   }
 });

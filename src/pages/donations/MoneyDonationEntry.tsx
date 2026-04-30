@@ -12,7 +12,7 @@ import { theme } from '@/styles/theme';
 
 const createInitialState = (): MoneyDonationFormData => ({
   registerNo: '',
-  date: new Date().toISOString().slice(0,10),
+  date: new Date().toISOString().slice(0, 10),
   name: '',
   fatherName: '',
   address: '',
@@ -33,7 +33,7 @@ export default function MoneyDonationEntry() {
   const isEdit = typeof editId === 'number' && !isNaN(editId);
   const [form, setForm] = useState<MoneyDonationFormData>(createInitialState());
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string|undefined>();
+  const [message, setMessage] = useState<string | undefined>();
   const [isError, setIsError] = useState(false);
   const [accounts, setAccounts] = useState<Array<{ id?: number; value: string; label: string }>>([]);
   const [lastCreatedId, setLastCreatedId] = useState<number | null>(null);
@@ -78,14 +78,14 @@ export default function MoneyDonationEntry() {
     };
   }, []);
 
-  const t = (en: string, ta: string) => language === 'english' ? ta : en;
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);;
 
   // Function to refresh journal after money donation operations
   const refreshJournal = async () => {
     try {
-      await fetch('http://localhost:4000/api/journal/sync-pooja', {
+      await fetch('https://templeapi.agniplay.com/api/journal/sync-pooja', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
@@ -139,7 +139,7 @@ export default function MoneyDonationEntry() {
     const loadLogs = async () => {
       try {
         if (!lastCreatedId || !token) return;
-        const res = await fetch(`http://localhost:4000/api/donations-approval/request/${lastCreatedId}`, {
+        const res = await fetch(`https://templeapi.agniplay.com/api/donations-approval/request/${lastCreatedId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!res.ok) return;
@@ -156,9 +156,9 @@ export default function MoneyDonationEntry() {
   const computeNextRegisterNo = useCallback(async (): Promise<string | null> => {
     try {
       // Determine Financial Year (Apr–Mar) based on selected date or today
-      const dStr = form.date && form.date.length >= 4 ? form.date : new Date().toISOString().slice(0,10);
-      const yyyy = Number(dStr.slice(0,4));
-      const mm = Number(dStr.slice(5,7));
+      const dStr = form.date && form.date.length >= 4 ? form.date : new Date().toISOString().slice(0, 10);
+      const yyyy = Number(dStr.slice(0, 4));
+      const mm = Number(dStr.slice(5, 7));
       if (!yyyy || isNaN(yyyy) || !mm || isNaN(mm)) return null;
 
       // FY start year: if month >= 4 use current year, else previous year
@@ -169,7 +169,7 @@ export default function MoneyDonationEntry() {
       // Fetch existing donations and compute the next sequence for the FY
       const resp = await moneyDonationService.list(token);
       const items = resp?.data || [];
-      const sameFY = items.filter((it:any) => {
+      const sameFY = items.filter((it: any) => {
         const d = (it.date || '');
         return d >= fyStart && d <= fyEnd; // compare ISO strings
       });
@@ -185,7 +185,7 @@ export default function MoneyDonationEntry() {
         }
       }
       const nextSeq = maxSeq > 0 ? maxSeq + 1 : sameFY.length + 1;
-      return `${fyStartYear}-${String(nextSeq).padStart(4,'0')}`;
+      return `${fyStartYear}-${String(nextSeq).padStart(4, '0')}`;
     } catch (e) {
       console.warn('Failed to compute register number', e);
       return null;
@@ -199,8 +199,8 @@ export default function MoneyDonationEntry() {
       const rn = await computeNextRegisterNo();
       if (rn) {
         setForm(prev => {
-          const year = rn.slice(0,4);
-          const prevYear = (prev.registerNo || '').slice(0,4);
+          const year = rn.slice(0, 4);
+          const prevYear = (prev.registerNo || '').slice(0, 4);
           if (!prev.registerNo || prevYear !== year) return { ...prev, registerNo: rn };
           return prev;
         });
@@ -223,7 +223,7 @@ export default function MoneyDonationEntry() {
             const d = resp.data;
             setForm({
               registerNo: d.register_no || '',
-              date: d.date || new Date().toISOString().slice(0,10),
+              date: d.date || new Date().toISOString().slice(0, 10),
               name: d.name || '',
               fatherName: d.father_name || '',
               address: d.address || '',
@@ -234,7 +234,7 @@ export default function MoneyDonationEntry() {
               transferTo: 'INCOME A/C',
             });
           })
-          .catch(() => {});
+          .catch(() => { });
       }
       return;
     }
@@ -262,7 +262,7 @@ export default function MoneyDonationEntry() {
       console.log('DEBUG: form.date:', form.date);
       console.log('DEBUG: form.amount:', form.amount);
       console.log('DEBUG: form.name:', form.name);
-      
+
       if (!form.date) {
         console.log('DEBUG: Date validation failed - no date');
         setIsError(true);
@@ -288,7 +288,7 @@ export default function MoneyDonationEntry() {
 
         try {
           if (token) {
-            const res = await fetch(`http://localhost:4000/api/donations-approval/request/${editId}`, {
+            const res = await fetch(`https://templeapi.agniplay.com/api/donations-approval/request/${editId}`, {
               headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
@@ -317,7 +317,7 @@ export default function MoneyDonationEntry() {
         console.log('DEBUG: Token exists:', !!token);
         console.log('DEBUG: Token length:', token ? token.length : 0);
         console.log('DEBUG: Service method exists:', typeof moneyDonationService.create);
-        
+
         let resp;
         try {
           resp = await moneyDonationService.create(token, payload);
@@ -338,10 +338,10 @@ export default function MoneyDonationEntry() {
         }
         setIsError(false);
         setMessage(t('Saved successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது'));
-        
+
         // Refresh journal after successful create
         await refreshJournal();
-        
+
         if (createdId != null) {
           setShowPrintPrompt(true);
         }
@@ -364,7 +364,7 @@ export default function MoneyDonationEntry() {
         const d = resp.data;
         setForm({
           registerNo: d.register_no || '',
-          date: d.date || new Date().toISOString().slice(0,10),
+          date: d.date || new Date().toISOString().slice(0, 10),
           name: d.name || '',
           fatherName: d.father_name || '',
           address: d.address || '',
@@ -396,7 +396,7 @@ export default function MoneyDonationEntry() {
               {isEdit ? t('Edit Money Donation', 'பண நன்கொடைக் திருத்து') : t('Money Donation Entry', 'பண நன்கொடைக் பதிவு')}
             </h1>
           </div>
-          
+
           <div className={formFieldStyles.card.content}>
             {message && (
               <div className="mb-6">
@@ -406,10 +406,10 @@ export default function MoneyDonationEntry() {
                 </Alert>
               </div>
             )}
-            
-            <form 
-              ref={formRef} 
-              onSubmit={onSubmit} 
+
+            <form
+              ref={formRef}
+              onSubmit={onSubmit}
               onKeyDown={handleKeyDown}
               className={formFieldStyles.moneyDonationForm.container}
             >
@@ -423,40 +423,40 @@ export default function MoneyDonationEntry() {
                   readOnly
                 />
               </div>
-              
+
               {/* Date */}
               <div>
                 <label className={labelStyles}>{t('Date', 'தேதி')} <span className={formFieldStyles.required}>*</span></label>
-                <input 
-                  type="date" 
+                <input
+                  type="date"
                   className={fieldStyles}
-                  name="date" 
-                  value={form.date} 
-                  onChange={onChange} 
+                  name="date"
+                  value={form.date}
+                  onChange={onChange}
                   autoFocus
                 />
               </div>
-              
+
               {/* Name */}
               <div>
                 <label className={labelStyles}>{t('Name', 'பெயர்')} <span className={formFieldStyles.required}>*</span></label>
-                <input 
+                <input
                   className={fieldStyles}
-                  name="name" 
-                  value={form.name} 
-                  onChange={onChange} 
+                  name="name"
+                  value={form.name}
+                  onChange={onChange}
                   placeholder={t('Enter name', 'பெயரை உள்ளிடவும்')}
                 />
               </div>
-                
+
               {/* Phone */}
               <div>
                 <label className={labelStyles}>{t('Phone', 'கைபேசி எண்')}</label>
-                <input 
+                <input
                   className={fieldStyles}
-                  name="phone" 
-                  value={form.phone} 
-                  onChange={onChange} 
+                  name="phone"
+                  value={form.phone}
+                  onChange={onChange}
                   placeholder={t('Enter phone', 'கைபேசி எண்ணை உள்ளிடவும்')}
                   inputMode="numeric"
                   maxLength={10}
@@ -473,84 +473,84 @@ export default function MoneyDonationEntry() {
               {/* Father Name */}
               <div>
                 <label className={labelStyles}>{t('Father Name', 'தந்தை பெயர்')}</label>
-                <input 
+                <input
                   className={fieldStyles}
-                  name="fatherName" 
-                  value={form.fatherName} 
-                  onChange={onChange} 
+                  name="fatherName"
+                  value={form.fatherName}
+                  onChange={onChange}
                   placeholder={t('Enter father name', 'தந்தை பெயரை உள்ளிடவும்')}
                 />
               </div>
-              
+
               {/* Village */}
               <div>
                 <label className={labelStyles}>{t('Village', 'ஊர்')}</label>
-                <input 
+                <input
                   className={fieldStyles}
-                  name="village" 
-                  value={form.village} 
-                  onChange={onChange} 
+                  name="village"
+                  value={form.village}
+                  onChange={onChange}
                   placeholder={t('Enter village', 'ஊரை உள்ளிடவும்')}
                 />
               </div>
-            
-              
+
+
               {/* Address - Full width */}
               <div className="md:col-span-2 lg:col-span-3">
                 <label className={labelStyles}>{t('Address', 'முகவரி')}</label>
-                <input 
+                <input
                   className={fieldStyles}
-                  name="address" 
-                  value={form.address} 
-                  onChange={onChange} 
+                  name="address"
+                  value={form.address}
+                  onChange={onChange}
                   placeholder={t('Enter address', 'முகவரியை உள்ளிடவும்')}
                 />
               </div>
-              
+
               {/* Amount */}
               <div>
                 <label className={labelStyles}>{t('Amount', 'தொகை')} <span className={formFieldStyles.required}>*</span></label>
-                <input 
+                <input
                   className={fieldStyles}
-                  name="amount" 
-                  value={form.amount} 
-                  onChange={onChange} 
+                  name="amount"
+                  value={form.amount}
+                  onChange={onChange}
                   placeholder={t('Enter amount', 'தொகையை உள்ளிடவும்')}
                   type="number"
                   min="1"
                 />
               </div>
-              
+
               {/* Reason - Full width */}
               <div className="md:col-span-2 lg:col-span-2">
                 <label className={labelStyles}>{t('Reason', 'காரணம்')}</label>
-                <input 
+                <input
                   className={fieldStyles}
-                  name="reason" 
-                  value={form.reason} 
-                  onChange={onChange} 
+                  name="reason"
+                  value={form.reason}
+                  onChange={onChange}
                   placeholder={t('Enter reason', 'காரணத்தை உள்ளிடவும்')}
                 />
               </div>
-              
+
               {/* Action Buttons - Full width */}
               <div className={formFieldStyles.moneyDonationForm.actions}>
-                <button 
-                  disabled={saving} 
+                <button
+                  disabled={saving}
                   className={formFieldStyles.moneyDonationButton.primary}
                   type="submit"
                 >
                   {saving ? (isEdit ? t('Updating...', 'புதுப்பிக்கிறது...') : t('Saving...', 'சேமிக்கிறது...')) : (isEdit ? t('Update', 'புதுப்பிக்க') : t('Save', 'சேமிக்க'))}
                 </button>
-                
-               
-                
-              
+
+
+
+
               </div>
             </form>
           </div>
         </div>
-        
+
         {showPrintPrompt && lastCreatedId != null && (
           <Modal
             title={t('Print Receipt', 'ரசீதை அச்சிடவா?')}
@@ -561,8 +561,8 @@ export default function MoneyDonationEntry() {
                 {t('Do you want to open the PDF receipt for printing?', 'PDF ரசீதை அச்சிட திறக்க விரும்புகிறீர்களா?')}
               </p>
               <div className={formFieldStyles.modal.actions}>
-                <button 
-                  className={formFieldStyles.modal.button.cancel} 
+                <button
+                  className={formFieldStyles.modal.button.cancel}
                   onClick={() => setShowPrintPrompt(false)}
                 >
                   {t('No', 'இல்லை')}
@@ -588,13 +588,13 @@ export default function MoneyDonationEntry() {
                         window.open(url, '_blank');
                       } finally {
                         setTimeout(() => {
-                          try { document.body.removeChild(iframe); } catch {}
+                          try { document.body.removeChild(iframe); } catch { }
                         }, 1000);
                       }
                     };
                     document.body.appendChild(iframe);
                     setShowPrintPrompt(false);
-                  }} 
+                  }}
                 >
                   {t('Yes, Print', 'ஆம், அச்சிடு')}
                 </button>

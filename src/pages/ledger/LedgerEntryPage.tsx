@@ -56,6 +56,107 @@ type Category = {
 
 export default function LedgerEntryPage() {
   const { language } = useLanguage();
+
+  const translations = {
+    tamil: {
+      "error": "Error",
+      "failedToLoadCurrentBalance": "Failed to load current balance",
+      "failedToLoadCategories": "Failed to load categories",
+      "nameIsRequired": "Name is required",
+      "amountCannotBeNegative": "Amount cannot be negative",
+      "success": "Success",
+      "ledgerEntrySavedSuccessfully": "Ledger entry saved successfully",
+      "failedToSaveLedgerEntry": "Failed to save ledger entry",
+      "templeIdNotAvailable": "Temple ID not available",
+      "categoryCreated": "Category created",
+      "failedToCreateCategory": "Failed to create category",
+      "categoryDeleted": "Category deleted",
+      "failedToDeleteCategory": "Failed to delete category",
+      "ledgerEntry": "Ledger Entry",
+      "balance": "Balance",
+      "name": "Name",
+      "selectCategory": "Select category",
+      "search": "Search...",
+      "createNewCategory": "Create new category",
+      "credit": "Credit",
+      "debit": "Debit",
+      "amountIsRequired": "Amount is required",
+      "newBalance": "New Balance",
+      "additionalDetails": "Additional Details",
+      "hide": "Hide",
+      "show": "Show",
+      "phone": "Phone",
+      "enterPhone": "Enter phone",
+      "mobile": "Mobile",
+      "enterMobile": "Enter mobile",
+      "email": "Email",
+      "enterEmail": "Enter email",
+      "city": "City",
+      "enterCity": "Enter city",
+      "address": "Address",
+      "enterAddress": "Enter address",
+      "notes": "Notes",
+      "enterNotes": "Enter notes",
+      "saving": "Saving...",
+      "save": "Save",
+      "clear": "Clear",
+      "savedSuccessfully": "Saved Successfully",
+      "ledgerEntryHasBeenSavedSuccessfully": "Ledger entry has been saved successfully.",
+      "ok": "OK"
+    },
+    english: {
+      "error": "பிழை",
+      "failedToLoadCurrentBalance": "தற்போதைய இருப்பை ஏற்ற முடியவில்லை",
+      "failedToLoadCategories": "வகைகளை ஏற்ற முடியவில்லை",
+      "nameIsRequired": "பெயர் தேவை",
+      "amountCannotBeNegative": "தொகை மைனஸாக இருக்கக்கூடாது",
+      "success": "வெற்றி",
+      "ledgerEntrySavedSuccessfully": "பதிவேடு பதிவு வெற்றிகரமாக சேமிக்கப்பட்டது",
+      "failedToSaveLedgerEntry": "பதிவேடு பதிவை சேமிக்க முடியவில்லை",
+      "templeIdNotAvailable": "கோவில் ஐடி கிடைக்கவில்லை",
+      "categoryCreated": "புதிய வகை உருவாக்கப்பட்டது",
+      "failedToCreateCategory": "வகையை உருவாக்க முடியவில்லை",
+      "categoryDeleted": "வகை நீக்கப்பட்டது",
+      "failedToDeleteCategory": "வகையை நீக்க முடியவில்லை",
+      "ledgerEntry": "பதிவேடு பதிவு",
+      "balance": "இருப்பு",
+      "name": "பெயர்",
+      "selectCategory": "வகையைத் தேர்ந்தெடுக்கவும்",
+      "search": "தேடு...",
+      "createNewCategory": "புதிய வகையை உருவாக்கவும்",
+      "credit": "கடன்",
+      "debit": "பற்று",
+      "amountIsRequired": "தொகை தேவை",
+      "newBalance": "புதிய இருப்பு",
+      "additionalDetails": "கூடுதல் விவரங்கள்",
+      "hide": "மறை",
+      "show": "காட்டு",
+      "phone": "தொலைபேசி",
+      "enterPhone": "தொலைபேசி எண்ணை உள்ளிடவும்",
+      "mobile": "கைபேசி",
+      "enterMobile": "கைபேசி எண்ணை உள்ளிடவும்",
+      "email": "மின்னஞ்சல்",
+      "enterEmail": "மின்னஞ்சலை உள்ளிடவும்",
+      "city": "ஊர்",
+      "enterCity": "ஊரை உள்ளிடவும்",
+      "address": "முகவரி",
+      "enterAddress": "முகவரியை உள்ளிடவும்",
+      "notes": "குறிப்பு",
+      "enterNotes": "குறிப்புகளை உள்ளிடவும்",
+      "saving": "சேமிக்கிறது...",
+      "save": "சேமிக்கவும்",
+      "clear": "அழி",
+      "savedSuccessfully": "வெற்றிகரமாக சேமிக்கப்பட்டது",
+      "ledgerEntryHasBeenSavedSuccessfully": "பதிவேடு பதிவு வெற்றிகரமாக சேமிக்கப்பட்டது.",
+      "ok": "சரி"
+    }
+  };
+
+  const t = (key: keyof typeof translations.english): string => {
+    const currentTranslations = translations[language as keyof typeof translations] || translations.english;
+    return currentTranslations[key] || translations.english[key] || key;
+  };
+
   const { user } = useAuth();
   const navigate = useNavigate();
   const [currentBalance, setCurrentBalance] = useState(0);
@@ -69,16 +170,16 @@ export default function LedgerEntryPage() {
   const categoryInputRef = useRef<HTMLButtonElement | null>(null);
   const [showSavedModal, setShowSavedModal] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
-  
+
   const templeId = user?.templeId;
-  
-  const { 
-    register, 
-    handleSubmit, 
-    setValue, 
-    watch, 
+
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
     reset,
-    formState: { errors, isDirty } 
+    formState: { errors, isDirty }
   } = useForm<LedgerEntry>({
     defaultValues: {
       type: 'credit',
@@ -100,19 +201,17 @@ export default function LedgerEntryPage() {
     }
   };
 
-  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
-
   // Watch common fields
   const watchedValues = watch();
   const watchType = watch('type');
-  
+
   // Use centralized form styles with theme focus colors
   const fieldStyles = cn(
-    theme.input.base, 
+    theme.input.base,
     theme.input.size.md
   );
   const labelStyles = formFieldStyles.label;
-  
+
   // Button variants
   const buttonVariants = {
     primary: cn(
@@ -136,8 +235,8 @@ export default function LedgerEntryPage() {
       } catch (error) {
         console.error('Error fetching balance:', error);
         toast({
-          title: t('Error', 'பிழை'),
-          description: t('Failed to load current balance', 'தற்போதைய இருப்பை ஏற்ற முடியவில்லை'),
+          title: t('error'),
+          description: t('failedToLoadCurrentBalance'),
           variant: 'destructive',
         });
       }
@@ -152,7 +251,7 @@ export default function LedgerEntryPage() {
       setIsLoadingCategories(true);
       try {
         // Pass templeId as a query parameter
-        const resp1 = await axios.get<any>(`http://localhost:4000/api/ledger/categories?templeId=${templeId}`, {
+        const resp1 = await axios.get<any>(`https://templeapi.agniplay.com/api/ledger/categories?templeId=${templeId}`, {
           headers: { Authorization: `Bearer ${getAuthToken()}` }
         });
         const data1 = (resp1?.data && Array.isArray(resp1.data.data)) ? resp1.data.data : (Array.isArray(resp1?.data) ? resp1.data : []);
@@ -161,7 +260,7 @@ export default function LedgerEntryPage() {
         if (!combined || combined.length === 0) {
           try {
             // Pass templeId as a query parameter
-            const resp2 = await axios.get<any>(`http://localhost:4000/api/ledger/categories-used?templeId=${templeId}`, {
+            const resp2 = await axios.get<any>(`https://templeapi.agniplay.com/api/ledger/categories-used?templeId=${templeId}`, {
               headers: { Authorization: `Bearer ${getAuthToken()}` }
             });
             const data2: any[] = (resp2?.data && Array.isArray(resp2.data.data)) ? resp2.data.data : (Array.isArray(resp2?.data) ? resp2.data : []);
@@ -192,8 +291,8 @@ export default function LedgerEntryPage() {
       } catch (error) {
         console.error('Error fetching categories:', error);
         toast({
-          title: t('Error', 'பிழை'),
-          description: t('Failed to load categories', 'வகைகளை ஏற்ற முடியவில்லை'),
+          title: t('error'),
+          description: t('failedToLoadCategories'),
           variant: 'destructive',
         });
         setCategories([]);
@@ -213,10 +312,10 @@ export default function LedgerEntryPage() {
     try {
       // Validate required fields
       if (!data.name) {
-        throw new Error(t('Name is required', 'பெயர் தேவை'));
+        throw new Error(t('nameIsRequired'));
       }
       if (Number.isNaN(Number(data.amount)) || Number(data.amount) < 0) {
-        throw new Error(t('Amount cannot be negative', 'தொகை மைனஸாக இருக்கக்கூடாது'));
+        throw new Error(t('amountCannotBeNegative'));
       }
 
       // Build payload for /api/ledger/entries which stores 'under'
@@ -236,7 +335,7 @@ export default function LedgerEntryPage() {
         templeId: templeId || undefined,
       } as const;
 
-      await axios.post('http://localhost:4000/api/ledger/entries', payload, {
+      await axios.post('https://templeapi.agniplay.com/api/ledger/entries', payload, {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });
 
@@ -267,20 +366,20 @@ export default function LedgerEntryPage() {
       handleReset();
 
       toast({
-        title: t('Success', 'வெற்றி'),
-        description: t('Ledger entry saved successfully', 'பதிவேடு பதிவு வெற்றிகரமாக சேமிக்கப்பட்டது'),
+        title: t('success'),
+        description: t('ledgerEntrySavedSuccessfully'),
       });
 
       // Show success modal
       setShowSavedModal(true);
     } catch (error) {
       console.error('Error saving ledger entry:', error);
-      let errorMessage = t('Failed to save ledger entry', 'பதிவேடு பதிவை சேமிக்க முடியவில்லை');
+      let errorMessage = t('failedToSaveLedgerEntry');
       if (error instanceof Error) {
         errorMessage = error.message;
       }
       toast({
-        title: t('Error', 'பிழை'),
+        title: t('error'),
         description: errorMessage,
         variant: 'destructive',
       });
@@ -293,16 +392,16 @@ export default function LedgerEntryPage() {
     if (isLoadingCategories) return;
     if (!templeId) {
       toast({
-        title: t('Error', 'பிழை'),
-        description: t('Temple ID not available', 'கோவில் ஐடி கிடைக்கவில்லை'),
+        title: t('error'),
+        description: t('templeIdNotAvailable'),
         variant: 'destructive',
       });
       return;
     }
-    
+
     const cleanVal = searchValue.trim().toLowerCase().replace(/\s+/g, '_');
     if (!cleanVal) return;
-    
+
     const existingCategory = categories.find(c => c.value.toLowerCase() === cleanVal);
     if (existingCategory) {
       setSelectedCategory(existingCategory);
@@ -312,7 +411,7 @@ export default function LedgerEntryPage() {
     }
     try {
       setIsLoadingCategories(true);
-      const response = await axios.post<Category>('http://localhost:4000/api/ledger/categories/find-or-create', {
+      const response = await axios.post<Category>('https://templeapi.agniplay.com/api/ledger/categories/find-or-create', {
         value: cleanVal,
         label: searchValue,
         templeId: templeId
@@ -321,7 +420,7 @@ export default function LedgerEntryPage() {
           Authorization: `Bearer ${getAuthToken()}`
         }
       });
-      
+
       const created = (response?.data && (response.data as any).data)
         ? (response.data as any).data
         : response.data;
@@ -332,16 +431,16 @@ export default function LedgerEntryPage() {
       };
       setCategories(prev => [...prev.filter(Boolean), normalized]);
       setValue('under', normalized.value || cleanVal);
-      
+
       toast({
-        title: t('Success', 'வெற்றி'),
-        description: t('Category created', 'புதிய வகை உருவாக்கப்பட்டது'),
+        title: t('success'),
+        description: t('categoryCreated'),
       });
     } catch (error) {
       console.error('Error creating category:', error);
       toast({
-        title: t('Error', 'பிழை'),
-        description: t('Failed to create category', 'வகையை உருவாக்க முடியவில்லை'),
+        title: t('error'),
+        description: t('failedToCreateCategory'),
         variant: 'destructive',
       });
     } finally {
@@ -370,29 +469,29 @@ export default function LedgerEntryPage() {
   const handleDeleteCategory = async (id: number) => {
     if (!templeId) {
       toast({
-        title: t('Error', 'பிழை'),
-        description: t('Temple ID not available', 'கோவில் ஐடி கிடைக்கவில்லை'),
+        title: t('error'),
+        description: t('templeIdNotAvailable'),
         variant: 'destructive',
       });
       return;
     }
-    
+
     try {
-      await axios.delete(`http://localhost:4000/api/ledger/categories/${id}?templeId=${templeId}`, {
+      await axios.delete(`https://templeapi.agniplay.com/api/ledger/categories/${id}?templeId=${templeId}`, {
         headers: {
           Authorization: `Bearer ${getAuthToken()}`
         }
       });
       setCategories(categories.filter(c => c.id !== id));
       toast({
-        title: t('Success', 'வெற்றி'),
-        description: t('Category deleted', 'வகை நீக்கப்பட்டது'),
+        title: t('success'),
+        description: t('categoryDeleted'),
       });
     } catch (error) {
       console.error('Error deleting category:', error);
       toast({
-        title: t('Error', 'பிழை'),
-        description: t('Failed to delete category', 'வகையை நீக்க முடியவில்லை'),
+        title: t('error'),
+        description: t('failedToDeleteCategory'),
         variant: 'destructive',
       });
     }
@@ -449,22 +548,22 @@ export default function LedgerEntryPage() {
           <CardHeader className={theme.header.container}>
             <div className={theme.header.contentSpacing}>
               <CardTitle className={theme.header.main}>
-                {t('Ledger Entry', 'பதிவேடு பதிவு')}
+                {t('ledgerEntry')}
               </CardTitle>
             </div>
           </CardHeader>
-          
+
           <CardContent className={formFieldStyles.card.content}>
             <div className="mb-6 flex justify-between items-center">
-                <div className={formFieldStyles.ledgerForm.balanceText}>
-                  {t('Balance', 'இருப்பு')}: <span className={formFieldStyles.ledgerForm.balanceAmount}>₹{formatINR(currentBalance)}</span>
-                </div>
+              <div className={formFieldStyles.ledgerForm.balanceText}>
+                {t('balance')}: <span className={formFieldStyles.ledgerForm.balanceAmount}>₹{formatINR(currentBalance)}</span>
+              </div>
               <CategoryManager categories={categories} setCategories={setCategories} />
             </div>
 
-            <form 
-              ref={formRef} 
-              onSubmit={handleSubmit(onSubmit)} 
+            <form
+              ref={formRef}
+              onSubmit={handleSubmit(onSubmit)}
               onKeyDown={handleKeyDown}
               className={formFieldStyles.form.container}
             >
@@ -475,8 +574,8 @@ export default function LedgerEntryPage() {
                   <Input
                     id="name"
                     className={fieldStyles}
-                    {...register('name', { required: t('Name is required', '') })}
-                    placeholder={t('Name', '')}
+                    {...register('name', { required: t('nameIsRequired') })}
+                    placeholder={t('name')}
                     autoFocus
                   />
                   {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>}
@@ -498,17 +597,17 @@ export default function LedgerEntryPage() {
                         <span className="truncate">
                           {watch('under')
                             ? categories.find(
-                                (category) => category.value === watch('under')
-                              )?.label || watch('under')
-                            : t('Select category', 'வகையைத் தேர்ந்தெடுக்கவும்')}
+                              (category) => category.value === watch('under')
+                            )?.label || watch('under')
+                            : t('selectCategory')}
                         </span>
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-[250px] p-0">
                       <Command>
-                        <CommandInput 
-                          placeholder={t('Search...', 'தேடு...')} 
+                        <CommandInput
+                          placeholder={t('search')}
                           className="h-9"
                         />
                         <CommandEmpty>
@@ -520,7 +619,7 @@ export default function LedgerEntryPage() {
                               if (input?.value) handleCreateCategory(input.value);
                             }}
                           >
-                            {t('Create new category', 'புதிய வகையை உருவாக்கவும்')}
+                            {t('createNewCategory')}
                           </Button>
                         </CommandEmpty>
                         <CommandGroup className="max-h-48 overflow-y-auto">
@@ -560,7 +659,7 @@ export default function LedgerEntryPage() {
                         "w-full"
                       )}
                     >
-                      {t('Credit', 'கடன்')}
+                      {t('credit')}
                     </Button>
                     <Button
                       type="button"
@@ -571,7 +670,7 @@ export default function LedgerEntryPage() {
                         "w-full"
                       )}
                     >
-                      {t('Debit', 'பற்று')}
+                      {t('debit')}
                     </Button>
                   </div>
                 </div>
@@ -586,12 +685,12 @@ export default function LedgerEntryPage() {
                       type="number"
                       id="amount"
                       className={cn(buttonVariants.outline, "pl-9 pr-4 py-2")}
-                      {...register('amount', { 
-                        min: { 
-                          value: 0, 
-                          message: t('Amount cannot be negative', 'தொகை மைனஸாக இருக்கக்கூடாது') 
+                      {...register('amount', {
+                        min: {
+                          value: 0,
+                          message: t('amountCannotBeNegative')
                         },
-                        required: t('Amount is required', 'தொகை தேவை')
+                        required: t('amountIsRequired')
                       })}
                       placeholder="0.00"
                       min={0}
@@ -600,15 +699,15 @@ export default function LedgerEntryPage() {
                     />
                   </div>
                   {errors.amount && <p className="text-red-500 text-sm mt-1">{errors.amount.message}</p>}
-                  
+
                   {watch('amount') && (
                     <div className={cn(
                       formFieldStyles.ledgerForm.newBalance,
-                      calculatedBalance >= 0 
-                        ? formFieldStyles.ledgerForm.newBalancePositive 
+                      calculatedBalance >= 0
+                        ? formFieldStyles.ledgerForm.newBalancePositive
                         : formFieldStyles.ledgerForm.newBalanceNegative
                     )}>
-                      {t('New Balance', 'புதிய இருப்பு')}: <span className="font-semibold">₹{displayAmount(calculatedBalance, watch('type'))}</span>
+                      {t('newBalance')}: <span className="font-semibold">₹{displayAmount(calculatedBalance, watch('type'))}</span>
                     </div>
                   )}
                 </div>
@@ -618,7 +717,7 @@ export default function LedgerEntryPage() {
               <div className={formFieldStyles.ledgerForm.advancedSection}>
                 <div className={formFieldStyles.ledgerForm.advancedHeader}>
                   <h3 className={formFieldStyles.ledgerForm.advancedTitle}>
-                    {t('Additional Details', 'கூடுதல் விவரங்கள்')}
+                    {t('additionalDetails')}
                   </h3>
                   <Button
                     variant="outline"
@@ -626,7 +725,7 @@ export default function LedgerEntryPage() {
                     onClick={() => setShowAdvanced(!showAdvanced)}
                     className="text-sm border-gray-300 hover:bg-gray-50"
                   >
-                    {showAdvanced ? t('Hide', 'மறை') : t('Show', 'காட்டு')}
+                    {showAdvanced ? t('hide') : t('show')}
                   </Button>
                 </div>
 
@@ -634,71 +733,71 @@ export default function LedgerEntryPage() {
                   <div className={formFieldStyles.ledgerForm.advancedGrid}>
                     <div>
                       <Label className={labelStyles}>
-                        {t('Phone', 'தொலைபேசி')}
+                        {t('phone')}
                       </Label>
                       <Input
                         type="tel"
                         id="phone"
                         className={fieldStyles}
                         {...register('phone')}
-                        placeholder={t('Enter phone', 'தொலைபேசி எண்ணை உள்ளிடவும்')}
+                        placeholder={t('enterPhone')}
                       />
                     </div>
                     <div>
                       <Label className={labelStyles}>
-                        {t('Mobile', 'கைபேசி')}
+                        {t('mobile')}
                       </Label>
                       <Input
                         type="tel"
                         id="mobile"
                         className={fieldStyles}
                         {...register('mobile')}
-                        placeholder={t('Enter mobile', 'கைபேசி எண்ணை உள்ளிடவும்')}
+                        placeholder={t('enterMobile')}
                       />
                     </div>
                     <div>
                       <Label className={labelStyles}>
-                        Email
+                        {t('email')}
                       </Label>
                       <Input
                         type="email"
                         id="email"
                         className={fieldStyles}
                         {...register('email')}
-                        placeholder="Enter email"
+                        placeholder={t('enterEmail')}
                       />
                     </div>
                     <div>
                       <Label className={labelStyles}>
-                        {t('City', 'ஊர்')}
+                        {t('city')}
                       </Label>
                       <Input
                         id="city"
                         className={fieldStyles}
                         {...register('city')}
-                        placeholder={t('Enter city', 'ஊரை உள்ளிடவும்')}
+                        placeholder={t('enterCity')}
                       />
                     </div>
                     <div className="xl:col-span-2">
                       <Label className={labelStyles}>
-                        {t('Address', 'முகவரி')}
+                        {t('address')}
                       </Label>
                       <Input
                         id="address"
                         className={fieldStyles}
                         {...register('address')}
-                        placeholder={t('Enter address', 'முகவரியை உள்ளிடவும்')}
+                        placeholder={t('enterAddress')}
                       />
                     </div>
                     <div className="xl:col-span-6">
                       <Label className={labelStyles}>
-                        {t('Notes', 'குறிப்பு')}
+                        {t('notes')}
                       </Label>
                       <Textarea
                         id="note"
                         className={cn(fieldStyles, "min-h-[80px]")}
                         {...register('note')}
-                        placeholder={t('Enter notes', 'குறிப்புகளை உள்ளிடவும்')}
+                        placeholder={t('enterNotes')}
                       />
                     </div>
                   </div>
@@ -708,45 +807,45 @@ export default function LedgerEntryPage() {
               {/* Action Buttons */}
               <div className="flex justify-end w-full">
                 <div className={formFieldStyles.actions.buttonGroup}>
-                <Button 
-                  type="button"
-                  size="default"
-                  className={formFieldStyles.button.primary}
-                  onClick={handleSubmit(handleSaveAndNew)}
-                  disabled={isSubmitting || !isDirty}
-                >
-                  {isSubmitting ? (
-                    <span className="flex items-center">
-                      <svg className="animate-spin -ml-1 mr-1 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      {t('Saving...', 'சேமிக்கிறது...')}
-                    </span>
-                  ) : (
-                    t('Save', 'சேமிக்கவும்')
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleReset}
-                  className="px-6 py-2.5 text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm hover:shadow-md transition-all duration-200"
-                >
-                  <X className="w-4 h-4 mr-2" />
-                  Clear
-                </Button>
+                  <Button
+                    type="button"
+                    size="default"
+                    className={formFieldStyles.button.primary}
+                    onClick={handleSubmit(handleSaveAndNew)}
+                    disabled={isSubmitting || !isDirty}
+                  >
+                    {isSubmitting ? (
+                      <span className="flex items-center">
+                        <svg className="animate-spin -ml-1 mr-1 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        {t('saving')}
+                      </span>
+                    ) : (
+                      t('save')
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleReset}
+                    className="px-6 py-2.5 text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm hover:shadow-md transition-all duration-200"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    {t('clear')}
+                  </Button>
                 </div>
               </div>
 
               {showSavedModal && (
                 <Modal
-                  title={t('Saved Successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது')}
+                  title={t('savedSuccessfully')}
                   onClose={() => setShowSavedModal(false)}
                 >
                   <div className="p-6">
                     <p className="mb-6 text-base text-gray-700">
-                      {t('Ledger entry has been saved successfully.', 'பதிவேடு பதிவு வெற்றிகரமாக சேமிக்கப்பட்டது.')}
+                      {t('ledgerEntryHasBeenSavedSuccessfully')}
                     </p>
                     <div className="flex justify-end gap-3">
                       <Button
@@ -754,7 +853,7 @@ export default function LedgerEntryPage() {
                         onClick={() => setShowSavedModal(false)}
                         className={cn(buttonVariants.outline, "px-5 py-2.5 text-base")}
                       >
-                        {t('OK', 'சரி')}
+                        {t('ok')}
                       </Button>
                     </div>
                   </div>

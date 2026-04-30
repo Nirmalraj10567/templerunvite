@@ -28,7 +28,7 @@ export default function MoneyDonationList() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
 
-  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
 
   // Fetch user names/details for given ids (per-id endpoint, resilient)
   const fetchUserNames = async (userIds: number[]) => {
@@ -41,7 +41,7 @@ export default function MoneyDonationList() {
     const results = await Promise.all(
       missing.map(async (id) => {
         try {
-          const res = await fetch(`http://localhost:4000/api/admin/members/${id}`, {
+          const res = await fetch(`https://templeapi.agniplay.com/api/admin/members/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data = await res.json().catch(() => ({}));
@@ -102,14 +102,14 @@ export default function MoneyDonationList() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) return { ...defaultVisible, ...JSON.parse(raw) };
-    } catch {}
+    } catch { }
     return defaultVisible;
   });
 
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(visibleCols));
-    } catch {}
+    } catch { }
   }, [visibleCols]);
 
   const visibleColCount = useMemo(() => Object.values(visibleCols).filter(Boolean).length, [visibleCols]);
@@ -165,14 +165,14 @@ export default function MoneyDonationList() {
 
   // User names and details for logs
   const [userNames, setUserNames] = useState<Record<number, string>>({});
-  const [userDetails, setUserDetails] = useState<Record<number, {name: string, username?: string, mobile?: string}>>({});
+  const [userDetails, setUserDetails] = useState<Record<number, { name: string, username?: string, mobile?: string }>>({});
 
   const openLogs = async (donationId: number) => {
     setLogsFor(donationId);
     setLogs([]);
     setLogsLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/money-donations/${donationId}/logs`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/money-donations/${donationId}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -185,7 +185,7 @@ export default function MoneyDonationList() {
       if (result.success) {
         const logsData = Array.isArray(result.data) ? result.data : [];
         setLogs(logsData);
-        
+
         // Fetch user names for the logs
         const userIds = logsData
           .map(log => log.created_by)
@@ -224,7 +224,7 @@ export default function MoneyDonationList() {
   const loadAllDonationLogs = async (pageNum: number) => {
     setAllLogsLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/money-donations/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/money-donations/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -239,7 +239,7 @@ export default function MoneyDonationList() {
         setAllLogs(logsData);
         setAllLogsTotal(Number(result.total || 0));
         setAllLogsPage(pageNum);
-        
+
         // Fetch user names for the logs
         const userIds = logsData
           .map(log => log.created_by)
@@ -324,9 +324,9 @@ export default function MoneyDonationList() {
   // Function to refresh journal after money donation operations
   const refreshJournal = async () => {
     try {
-      await fetch('http://localhost:4000/api/journal/sync-pooja', {
+      await fetch('https://templeapi.agniplay.com/api/journal/sync-pooja', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
@@ -366,6 +366,33 @@ export default function MoneyDonationList() {
     }
   };
 
+  const handleDownloadReceipt = async (donationId: number, registerNo: string | null) => {
+    try {
+      const response = await fetch(`https://templeapi.agniplay.com/api/money-donations/${donationId}/receipt.pdf`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch receipt');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `receipt-${registerNo || donationId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error downloading receipt:", error);
+      alert(t("Failed to download receipt. Please try again.", "ரசீதைப் பதிவிறக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்."));
+    }
+  };
+
   // Context menu
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -395,660 +422,655 @@ export default function MoneyDonationList() {
   }, []);
 
   return (
-       <div className={pageContainerStyles.container}>
-            <Card className={pageContainerStyles.content}>
-              <CardHeader className={theme.card.header}>
-                <CardTitle className={formFieldStyles.tableHeader.title}>
-                  {t('Money Donation List', 'பண நன்கொடைக் பட்டியல்')}
-                </CardTitle>
-              </CardHeader>
-  
+    <div className={pageContainerStyles.container}>
+      <Card className={pageContainerStyles.content}>
+        <CardHeader className={theme.card.header}>
+          <CardTitle className={formFieldStyles.tableHeader.title}>
+            {t('Money Donation List', 'பண நன்கொடைக் பட்டியல்')}
+          </CardTitle>
+        </CardHeader>
 
-      {/* Filters */}
-      <div className={formFieldStyles.moneyDonationList.filters.container}>
-        <div className={formFieldStyles.moneyDonationList.filters.form}>
-          <div className={formFieldStyles.moneyDonationList.filters.searchContainer}>
-            <div className={formFieldStyles.moneyDonationList.filters.searchIcon}>
-              <svg className={formFieldStyles.moneyDonationList.filters.searchIconSvg} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path
-                  fillRule="evenodd"
-                  d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
-                  clipRule="evenodd"
-                />
-              </svg>
+
+        {/* Filters */}
+        <div className={formFieldStyles.moneyDonationList.filters.container}>
+          <div className={formFieldStyles.moneyDonationList.filters.form}>
+            <div className={formFieldStyles.moneyDonationList.filters.searchContainer}>
+              <div className={formFieldStyles.moneyDonationList.filters.searchIcon}>
+                <svg className={formFieldStyles.moneyDonationList.filters.searchIconSvg} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path
+                    fillRule="evenodd"
+                    d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+              <input
+                type="text"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                onKeyDown={onKeyDownSearch}
+                placeholder={t('Search by name/phone/reason', 'பெயர்/தொலைபேசி/காரணம் மூலம் தேடுக')}
+                className={cn(theme.input.base, theme.input.size.sm, formFieldStyles.moneyDonationList.filters.searchInput)}
+              />
             </div>
-            <input
-              type="text"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={onKeyDownSearch}
-              placeholder={t('Search by name/phone/reason', 'பெயர்/தொலைபேசி/காரணம் மூலம் தேடுக')}
-              className={cn(theme.input.base, theme.input.size.sm, formFieldStyles.moneyDonationList.filters.searchInput)}
-            />
-          </div>
 
-          <div className={formFieldStyles.moneyDonationList.filters.dateContainer}>
-            <input
-              type="date"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              className={cn(theme.input.base, theme.input.size.sm, formFieldStyles.moneyDonationList.filters.dateInput)}
-            />
-            <span className={formFieldStyles.moneyDonationList.filters.dateLabel}>{t('to', 'வரை')}</span>
-            <input
-              type="date"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              className={cn(theme.input.base, theme.input.size.sm, formFieldStyles.moneyDonationList.filters.dateInput)}
-            />
-          </div>
+            <div className={formFieldStyles.moneyDonationList.filters.dateContainer}>
+              <input
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                className={cn(theme.input.base, theme.input.size.sm, formFieldStyles.moneyDonationList.filters.dateInput)}
+              />
+              <span className={formFieldStyles.moneyDonationList.filters.dateLabel}>{t('to', 'வரை')}</span>
+              <input
+                type="date"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                className={cn(theme.input.base, theme.input.size.sm, formFieldStyles.moneyDonationList.filters.dateInput)}
+              />
+            </div>
 
-          <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>
-            <button
-              onClick={load}
-              className={formFieldStyles.moneyDonationList.filters.button}
-              type="button"
-            >
-              {t('Search', 'தேடு')}
-            </button>
-            <button
-              onClick={() => {
-                setQ('');
-                setFrom('');
-                setTo('');
-                load();
-              }}
-              className={formFieldStyles.moneyDonationList.filters.button}
-              type="button"
-            >
-              {t('Clear', 'அழி')}
-            </button>
-            <button
-              onClick={openAllLogs}
-              className={formFieldStyles.moneyDonationList.filters.button}
-              type="button"
-            >
-              {t('All Logs', 'அனைத்து பதிவுகள்')}
-            </button>
+            <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>
+              <button
+                onClick={load}
+                className={formFieldStyles.moneyDonationList.filters.button}
+                type="button"
+              >
+                {t('Search', 'தேடு')}
+              </button>
+              <button
+                onClick={() => {
+                  setQ('');
+                  setFrom('');
+                  setTo('');
+                  load();
+                }}
+                className={formFieldStyles.moneyDonationList.filters.button}
+                type="button"
+              >
+                {t('Clear', 'அழி')}
+              </button>
+              <button
+                onClick={openAllLogs}
+                className={formFieldStyles.moneyDonationList.filters.button}
+                type="button"
+              >
+                {t('All Logs', 'அனைத்து பதிவுகள்')}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Table */}
-      <div className={formFieldStyles.moneyDonationList.table.container} onContextMenu={onContextMenu}>
-        <div className={formFieldStyles.moneyDonationList.table.scrollContainer}>
-          <table className={formFieldStyles.moneyDonationList.table.table}>
-            <thead className={formFieldStyles.moneyDonationList.table.thead}>
-              <tr>
-                {allColumns.map(
-                  (col) =>
-                    visibleCols[col.key] && (
-                      <th
-                        key={col.key}
-                        className={cn(
-                          formFieldStyles.moneyDonationList.table.th,
-                          col.key === 'actions' ? formFieldStyles.moneyDonationList.table.thActions : 'px-3',
-                          col.align === 'right' ? formFieldStyles.moneyDonationList.table.thRight :
-                          col.align === 'center' ? formFieldStyles.moneyDonationList.table.thCenter :
-                          formFieldStyles.moneyDonationList.table.thLeft
-                        )}
-                      >
-                        {col.label}
-                      </th>
-                    )
-                )}
-              </tr>
-            </thead>
-            <tbody className={formFieldStyles.moneyDonationList.table.tbody}>
-              {loading ? (
+        {/* Table */}
+        <div className={formFieldStyles.moneyDonationList.table.container} onContextMenu={onContextMenu}>
+          <div className={formFieldStyles.moneyDonationList.table.scrollContainer}>
+            <table className={formFieldStyles.moneyDonationList.table.table}>
+              <thead className={formFieldStyles.moneyDonationList.table.thead}>
                 <tr>
-                  <td colSpan={visibleColCount} className={formFieldStyles.moneyDonationList.table.loadingCell}>
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                  </td>
+                  {allColumns.map(
+                    (col) =>
+                      visibleCols[col.key] && (
+                        <th
+                          key={col.key}
+                          className={cn(
+                            formFieldStyles.moneyDonationList.table.th,
+                            col.key === 'actions' ? formFieldStyles.moneyDonationList.table.thActions : 'px-3',
+                            col.align === 'right' ? formFieldStyles.moneyDonationList.table.thRight :
+                              col.align === 'center' ? formFieldStyles.moneyDonationList.table.thCenter :
+                                formFieldStyles.moneyDonationList.table.thLeft
+                          )}
+                        >
+                          {col.label}
+                        </th>
+                      )
+                  )}
                 </tr>
-              ) : items.length === 0 ? (
-                <tr>
-                  <td colSpan={visibleColCount} className={formFieldStyles.moneyDonationList.table.emptyCell}>
-                    {t('No data found', 'தரவு கிடைக்கவில்லை')}
-                  </td>
-                </tr>
-              ) : (
-                items.map((r, idx) => (
-                  <tr key={r.id} className={formFieldStyles.moneyDonationList.table.tr}>
-                    {visibleCols['#'] && <td className={formFieldStyles.moneyDonationList.table.td}>{idx + 1}</td>}
-                    {visibleCols['receipt'] && (
-                      <td className={formFieldStyles.moneyDonationList.table.td}>{(r as any).register_no || '-'}</td>
-                    )}
-                    {visibleCols['date'] && <td className={formFieldStyles.moneyDonationList.table.td}>{r.date || '-'}</td>}
-                    {visibleCols['name'] && <td className={formFieldStyles.moneyDonationList.table.td}>{r.name || '-'}</td>}
-                    {visibleCols['phone'] && <td className={formFieldStyles.moneyDonationList.table.td}>{r.phone || '-'}</td>}
-                    {visibleCols['amount'] && (
-                      <td className={cn(formFieldStyles.moneyDonationList.table.td, formFieldStyles.moneyDonationList.table.tdRight)}>₹{toNum(r.amount).toLocaleString()}</td>
-                    )}
-                    {visibleCols['reason'] && <td className={formFieldStyles.moneyDonationList.table.td}>{r.reason || '-'}</td>}
-                    {visibleCols['actions'] && (
-                      <td className={formFieldStyles.moneyDonationList.table.tdActions}>
-                        <div className={formFieldStyles.moneyDonationList.actionButtons.container}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const url = moneyDonationService.receiptUrl(r.id, token);
-                              window.open(url, '_blank');
-                            }}
-                            className={formFieldStyles.moneyDonationList.actionButtons.print}
-                            title={t('Print Receipt', 'ரசீது அச்சிடுக')}
-                          >
-                            {t('Print', 'அச்சிடு')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openLogs(r.id)}
-                            className={formFieldStyles.moneyDonationList.actionButtons.logs}
-                            title={t('Logs', 'பதிவுகள்')}
-                          >
-                            {t('Logs', 'பதிவுகள்')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onEdit(r)}
-                            className={formFieldStyles.moneyDonationList.actionButtons.edit}
-                            title={t('Edit', 'திருத்து')}
-                          >
-                            {t('Edit', 'திருத்து')}
-                          </button>
-                          {(() => {
-                            const canDelete = isLatest(r);
-                            const title = canDelete ? t('Delete', 'நீக்கு') : t('Only the latest receipt can be deleted', 'கடைசி ரசீதை மட்டுமே நீக்க முடியும்');
-                            return (
-                              <button
-                                type="button"
-                                onClick={() => canDelete ? askDelete(r) : undefined}
-                                className={canDelete ? formFieldStyles.moneyDonationList.actionButtons.delete : formFieldStyles.moneyDonationList.actionButtons.deleteDisabled}
-                                title={title}
-                                disabled={!canDelete}
-                              >
-                                <Trash2 className={formFieldStyles.moneyDonationList.actionButtons.deleteIcon} />
-                              </button>
-                            );
-                          })()}
-                        </div>
-                      </td>
-                    )}
+              </thead>
+              <tbody className={formFieldStyles.moneyDonationList.table.tbody}>
+                {loading ? (
+                  <tr>
+                    <td colSpan={visibleColCount} className={formFieldStyles.moneyDonationList.table.loadingCell}>
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : items.length === 0 ? (
+                  <tr>
+                    <td colSpan={visibleColCount} className={formFieldStyles.moneyDonationList.table.emptyCell}>
+                      {t('No data found', 'தரவு கிடைக்கவில்லை')}
+                    </td>
+                  </tr>
+                ) : (
+                  items.map((r, idx) => (
+                    <tr key={r.id} className={formFieldStyles.moneyDonationList.table.tr}>
+                      {visibleCols['#'] && <td className={formFieldStyles.moneyDonationList.table.td}>{idx + 1}</td>}
+                      {visibleCols['receipt'] && (
+                        <td className={formFieldStyles.moneyDonationList.table.td}>{(r as any).register_no || '-'}</td>
+                      )}
+                      {visibleCols['date'] && <td className={formFieldStyles.moneyDonationList.table.td}>{r.date || '-'}</td>}
+                      {visibleCols['name'] && <td className={formFieldStyles.moneyDonationList.table.td}>{r.name || '-'}</td>}
+                      {visibleCols['phone'] && <td className={formFieldStyles.moneyDonationList.table.td}>{r.phone || '-'}</td>}
+                      {visibleCols['amount'] && (
+                        <td className={cn(formFieldStyles.moneyDonationList.table.td, formFieldStyles.moneyDonationList.table.tdRight)}>₹{toNum(r.amount).toLocaleString()}</td>
+                      )}
+                      {visibleCols['reason'] && <td className={formFieldStyles.moneyDonationList.table.td}>{r.reason || '-'}</td>}
+                      {visibleCols['actions'] && (
+                        <td className={formFieldStyles.moneyDonationList.table.tdActions}>
+                          <div className={formFieldStyles.moneyDonationList.actionButtons.container}>
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadReceipt(r.id, (r as any).register_no)}
+                              className={formFieldStyles.moneyDonationList.actionButtons.print}
+                              title={t("Print Receipt", "ரசீது அச்சிடுக")}
+                            >
+                              {t("Print", "அச்சிடு")}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openLogs(r.id)}
+                              className={formFieldStyles.moneyDonationList.actionButtons.logs}
+                              title={t('Logs', 'பதிவுகள்')}
+                            >
+                              {t('Logs', 'பதிவுகள்')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onEdit(r)}
+                              className={formFieldStyles.moneyDonationList.actionButtons.edit}
+                              title={t('Edit', 'திருத்து')}
+                            >
+                              {t('Edit', 'திருத்து')}
+                            </button>
+                            {(() => {
+                              const canDelete = isLatest(r);
+                              const title = canDelete ? t('Delete', 'நீக்கு') : t('Only the latest receipt can be deleted', 'கடைசி ரசீதை மட்டுமே நீக்க முடியும்');
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => canDelete ? askDelete(r) : undefined}
+                                  className={canDelete ? formFieldStyles.moneyDonationList.actionButtons.delete : formFieldStyles.moneyDonationList.actionButtons.deleteDisabled}
+                                  title={title}
+                                  disabled={!canDelete}
+                                >
+                                  <Trash2 className={formFieldStyles.moneyDonationList.actionButtons.deleteIcon} />
+                                </button>
+                              );
+                            })()}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
-        {/* Summary */}
-        <div className={formFieldStyles.moneyDonationList.summary.container}>
-          <div className={formFieldStyles.moneyDonationList.summary.info}>
-            {t('Showing', 'காட்டப்படுகிறது')} <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>1</span> {t('to', 'இலிருந்து')}{' '}
-            <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{items.length}</span> {t('of', 'மொத்தம்')}{' '}
-            <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{items.length}</span> {t('results', 'முடிவுகள்')}
-          </div>
-          <div className={formFieldStyles.moneyDonationList.summary.total}>
-            <span>
-              {t('Total Amount', 'மொத்த தொகை')}: <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>₹{totals.toLocaleString()}</span>
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Context menu for column toggle */}
-      {menuOpen && (
-        <div
-          ref={menuRef}
-          className={formFieldStyles.moneyDonationList.contextMenu.container}
-          style={{ left: `${menuPos.x}px`, top: `${menuPos.y}px` }}
-        >
-          <div className={formFieldStyles.moneyDonationList.contextMenu.header}>
-            <h3 className={formFieldStyles.moneyDonationList.contextMenu.title}>{t('Columns', 'நெடுவரிசைகள்')}</h3>
-            <p className={formFieldStyles.moneyDonationList.contextMenu.subtitle}>
-              {t('Visible', 'காட்டப்படும்')} {Object.values(visibleCols).filter(Boolean).length}/{allColumns.length}
-            </p>
-          </div>
-          <div className={formFieldStyles.moneyDonationList.contextMenu.content}>
-            {allColumns.map((col) => (
-              <label key={col.key} className={formFieldStyles.moneyDonationList.contextMenu.item}>
-                <input
-                  type="checkbox"
-                  checked={!!visibleCols[col.key]}
-                  onChange={() => setVisibleCols((prev) => ({ ...prev, [col.key]: !prev[col.key] }))}
-                  className={formFieldStyles.moneyDonationList.contextMenu.checkbox}
-                />
-                <span className={formFieldStyles.moneyDonationList.contextMenu.label}>{col.label}</span>
-              </label>
-            ))}
-          </div>
-          <div className={formFieldStyles.moneyDonationList.contextMenu.actions}>
-            <button
-              onClick={() => {
-                const allOn: typeof visibleCols = {} as any;
-                allColumns.forEach((c) => {
-                  (allOn as any)[c.key] = true;
-                });
-                setVisibleCols(allOn);
-              }}
-              className={formFieldStyles.moneyDonationList.contextMenu.actionButton}
-              type="button"
-            >
-              {t('Select all', 'அனைத்தையும் தேர்ந்தெடு')}
-            </button>
-            <button
-              onClick={() => {
-                const allOff: typeof visibleCols = {} as any;
-                allColumns.forEach((c) => {
-                  (allOff as any)[c.key] = false;
-                });
-                setVisibleCols(allOff);
-              }}
-              className={formFieldStyles.moneyDonationList.contextMenu.actionButton}
-              type="button"
-            >
-              {t('Clear all', 'அனைத்தையும் அழி')}
-            </button>
-            <button
-              onClick={() => setMenuOpen(false)}
-              className={formFieldStyles.moneyDonationList.contextMenu.closeButton}
-              type="button"
-            >
-              {t('Close', 'மூடு')}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('Are you sure?', 'நீங்கள் உறுதியாகவா?')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('This action cannot be undone. This will permanently delete the donation record.', 'இந்த செயலை திரும்பப் பெற முடியாது. இது நன்கொடை பதிவை நிரந்தரமாக நீக்கும்.')}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('Cancel', 'ரத்து செய்')}</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              {t('Delete', 'நீக்கு')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* All Logs Modal */}
-      {allLogsOpen && (
-        <div className={formFieldStyles.moneyDonationList.modal.overlay}>
-          <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeAllLogs} />
-          <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-7xl mx-4 max-h-[90vh] flex flex-col">
-            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white py-2 px-6 rounded-t-lg flex-shrink-0">
-            <div className={formFieldStyles.moneyDonationList.modal.header}>
-              <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('All Money Donation Logs', 'அனைத்து பண நன்கொடை பதிவுகள்')}</h2>
-                <button onClick={closeAllLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+          {/* Summary */}
+          <div className={formFieldStyles.moneyDonationList.summary.container}>
+            <div className={formFieldStyles.moneyDonationList.summary.info}>
+              {t('Showing', 'காட்டப்படுகிறது')} <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>1</span> {t('to', 'இலிருந்து')}{' '}
+              <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{items.length}</span> {t('of', 'மொத்தம்')}{' '}
+              <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{items.length}</span> {t('results', 'முடிவுகள்')}
             </div>
+            <div className={formFieldStyles.moneyDonationList.summary.total}>
+              <span>
+                {t('Total Amount', 'மொத்த தொகை')}: <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>₹{totals.toLocaleString()}</span>
+              </span>
             </div>
-            
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex-1 overflow-hidden">
-            {allLogsLoading ? (
-                  <div className={formFieldStyles.moneyDonationList.modal.loading}>
-                    {t('Loading logs...', 'பதிவுகள் ஏற்றப்படுகிறது...')}
-                  </div>
-            ) : (
-                  <div className="h-full flex flex-col">
-                    <div className="flex-1 overflow-auto max-h-[60vh]">
-                      <div className="bg-white border border-gray-200">
-                  <table className={formFieldStyles.moneyDonationList.logsTable.table}>
-                    <thead className={formFieldStyles.moneyDonationList.logsTable.thead}>
-                      <tr>
-                              <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                                {t('Action', 'செயல்')}
-                              </th>
-                              <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                                {t('Date & Time', 'தேதி மற்றும் நேரம்')}
-                              </th>
-                              <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                                {t('Donation ID', 'நன்கொடை ஐடி')}
-                              </th>
-                              <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                                {t('Receipt No', 'ரசீது எண்')}
-                              </th>
-                              <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                                {t('User', 'பயனர்')}
-                              </th>
-                              <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                                {t('Details', 'விவரங்கள்')}
-                              </th>
-                      </tr>
-                    </thead>
-                    <tbody className={formFieldStyles.moneyDonationList.logsTable.tbody}>
-                      {allLogs.length === 0 ? (
-                        <tr>
-                                <td className={formFieldStyles.moneyDonationList.logsTable.tdCenter} colSpan={6}>
-                                  {t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}
-                                </td>
-                        </tr>
-                            ) : allLogs.map((lg, index) => (
-                        <tr key={lg.id} className={formFieldStyles.moneyDonationList.logsTable.tr}>
-                                <td className={formFieldStyles.moneyDonationList.logsTable.td}>
-                                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                    lg.action === 'create' ? 'bg-green-100 text-green-800' :
-                                    lg.action === 'update' ? 'bg-blue-100 text-blue-800' :
-                                    lg.action === 'delete' ? 'bg-red-100 text-red-800' :
-                                    'bg-gray-100 text-gray-800'
-                                  }`}>
-                                    {lg.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
-                                     lg.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
-                                     lg.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
-                                     lg.action}
-                                  </span>
-                                </td>
-                                <td className={formFieldStyles.moneyDonationList.logsTable.tdNowrap}>
-                                  {lg.created_at ? new Date(lg.created_at).toLocaleString('en-IN', {
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  }) : '-'}
-                                </td>
-                          <td className={formFieldStyles.moneyDonationList.logsTable.td}>{lg.donation_id}</td>
-                          <td className={formFieldStyles.moneyDonationList.logsTable.td}>{lg.register_no ?? '-'}</td>
-                                <td className={formFieldStyles.moneyDonationList.logsTable.td}>
-                                  {(() => {
-                                    const userId = lg.created_by;
-                                    if (!userId) return '-';
-                                    const user = userDetails[userId];
-                                    const name = userNames[userId];
-                                    
-                                    if (user?.username) {
-                                      return `@${user.username}`;
-                                    }
-                                    if (user?.name) {
-                                      return user.name;
-                                    }
-                                    if (name) {
-                                      return name;
-                                    }
-                                    return `User ${userId}`;
-                                  })()}
-                                </td>
-                                <td className="py-3 px-4 border-b">
-                                  <div className="text-sm text-gray-600 max-w-md">
+          </div>
+        </div>
+
+        {/* Context menu for column toggle */}
+        {menuOpen && (
+          <div
+            ref={menuRef}
+            className={formFieldStyles.moneyDonationList.contextMenu.container}
+            style={{ left: `${menuPos.x}px`, top: `${menuPos.y}px` }}
+          >
+            <div className={formFieldStyles.moneyDonationList.contextMenu.header}>
+              <h3 className={formFieldStyles.moneyDonationList.contextMenu.title}>{t('Columns', 'நெடுவரிசைகள்')}</h3>
+              <p className={formFieldStyles.moneyDonationList.contextMenu.subtitle}>
+                {t('Visible', 'காட்டப்படும்')} {Object.values(visibleCols).filter(Boolean).length}/{allColumns.length}
+              </p>
+            </div>
+            <div className={formFieldStyles.moneyDonationList.contextMenu.content}>
+              {allColumns.map((col) => (
+                <label key={col.key} className={formFieldStyles.moneyDonationList.contextMenu.item}>
+                  <input
+                    type="checkbox"
+                    checked={!!visibleCols[col.key]}
+                    onChange={() => setVisibleCols((prev) => ({ ...prev, [col.key]: !prev[col.key] }))}
+                    className={formFieldStyles.moneyDonationList.contextMenu.checkbox}
+                  />
+                  <span className={formFieldStyles.moneyDonationList.contextMenu.label}>{col.label}</span>
+                </label>
+              ))}
+            </div>
+            <div className={formFieldStyles.moneyDonationList.contextMenu.actions}>
+              <button
+                onClick={() => {
+                  const allOn: typeof visibleCols = {} as any;
+                  allColumns.forEach((c) => {
+                    (allOn as any)[c.key] = true;
+                  });
+                  setVisibleCols(allOn);
+                }}
+                className={formFieldStyles.moneyDonationList.contextMenu.actionButton}
+                type="button"
+              >
+                {t('Select all', 'அனைத்தையும் தேர்ந்தெடு')}
+              </button>
+              <button
+                onClick={() => {
+                  const allOff: typeof visibleCols = {} as any;
+                  allColumns.forEach((c) => {
+                    (allOff as any)[c.key] = false;
+                  });
+                  setVisibleCols(allOff);
+                }}
+                className={formFieldStyles.moneyDonationList.contextMenu.actionButton}
+                type="button"
+              >
+                {t('Clear all', 'அனைத்தையும் அழி')}
+              </button>
+              <button
+                onClick={() => setMenuOpen(false)}
+                className={formFieldStyles.moneyDonationList.contextMenu.closeButton}
+                type="button"
+              >
+                {t('Close', 'மூடு')}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('Are you sure?', 'நீங்கள் உறுதியாகவா?')}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('This action cannot be undone. This will permanently delete the donation record.', 'இந்த செயலை திரும்பப் பெற முடியாது. இது நன்கொடை பதிவை நிரந்தரமாக நீக்கும்.')}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t('Cancel', 'ரத்து செய்')}</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                {t('Delete', 'நீக்கு')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* All Logs Modal */}
+        {allLogsOpen && (
+          <div className={formFieldStyles.moneyDonationList.modal.overlay}>
+            <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeAllLogs} />
+            <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-7xl mx-4 max-h-[90vh] flex flex-col">
+              <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white py-2 px-6 rounded-t-lg flex-shrink-0">
+                <div className={formFieldStyles.moneyDonationList.modal.header}>
+                  <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('All Money Donation Logs', 'அனைத்து பண நன்கொடை பதிவுகள்')}</h2>
+                  <button onClick={closeAllLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex-1 overflow-hidden">
+                  {allLogsLoading ? (
+                    <div className={formFieldStyles.moneyDonationList.modal.loading}>
+                      {t('Loading logs...', 'பதிவுகள் ஏற்றப்படுகிறது...')}
+                    </div>
+                  ) : (
+                    <div className="h-full flex flex-col">
+                      <div className="flex-1 overflow-auto max-h-[60vh]">
+                        <div className="bg-white border border-gray-200">
+                          <table className={formFieldStyles.moneyDonationList.logsTable.table}>
+                            <thead className={formFieldStyles.moneyDonationList.logsTable.thead}>
+                              <tr>
+                                <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                                  {t('Action', 'செயல்')}
+                                </th>
+                                <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                                  {t('Date & Time', 'தேதி மற்றும் நேரம்')}
+                                </th>
+                                <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                                  {t('Donation ID', 'நன்கொடை ஐடி')}
+                                </th>
+                                <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                                  {t('Receipt No', 'ரசீது எண்')}
+                                </th>
+                                <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                                  {t('User', 'பயனர்')}
+                                </th>
+                                <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                                  {t('Details', 'விவரங்கள்')}
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className={formFieldStyles.moneyDonationList.logsTable.tbody}>
+                              {allLogs.length === 0 ? (
+                                <tr>
+                                  <td className={formFieldStyles.moneyDonationList.logsTable.tdCenter} colSpan={6}>
+                                    {t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}
+                                  </td>
+                                </tr>
+                              ) : allLogs.map((lg, index) => (
+                                <tr key={lg.id} className={formFieldStyles.moneyDonationList.logsTable.tr}>
+                                  <td className={formFieldStyles.moneyDonationList.logsTable.td}>
+                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${lg.action === 'create' ? 'bg-green-100 text-green-800' :
+                                        lg.action === 'update' ? 'bg-blue-100 text-blue-800' :
+                                          lg.action === 'delete' ? 'bg-red-100 text-red-800' :
+                                            'bg-gray-100 text-gray-800'
+                                      }`}>
+                                      {lg.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
+                                        lg.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
+                                          lg.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
+                                            lg.action}
+                                    </span>
+                                  </td>
+                                  <td className={formFieldStyles.moneyDonationList.logsTable.tdNowrap}>
+                                    {lg.created_at ? new Date(lg.created_at).toLocaleString('en-IN', {
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    }) : '-'}
+                                  </td>
+                                  <td className={formFieldStyles.moneyDonationList.logsTable.td}>{lg.donation_id}</td>
+                                  <td className={formFieldStyles.moneyDonationList.logsTable.td}>{lg.register_no ?? '-'}</td>
+                                  <td className={formFieldStyles.moneyDonationList.logsTable.td}>
                                     {(() => {
-                                      // Parse donation details from the log data
-                                      const details = lg.details;
-                                      if (!details) return <span className="text-gray-400">-</span>;
-                                      
-                                      // Extract specific fields from the details
-                                      const registerNo = details.register_no || details.after?.register_no || details.before?.register_no;
-                                      const date = details.date || details.after?.date || details.before?.date;
-                                      const name = details.name || details.after?.name || details.before?.name;
-                                      const amount = details.amount || details.after?.amount || details.before?.amount;
-                                      const phone = details.phone || details.after?.phone || details.before?.phone;
-                                      const reason = details.reason || details.after?.reason || details.before?.reason;
-                                      
-                                      return (
-                                        <div className="space-y-2">
-                                          <div className="bg-green-50 p-3 rounded border text-xs">
-                                            <div className="font-medium text-green-700 mb-2">{t('Money Donation Details', 'பண நன்கொடை விவரங்கள்')}</div>
-                                            <div className="space-y-1 text-gray-600">
-                                              {registerNo && (
-                                                <div className="flex justify-between">
-                                                  <span className="font-medium">{t('Receipt No', 'ரசீது எண்')}:</span>
-                                                  <span>{registerNo}</span>
-                                                </div>
-                                              )}
-                                              {name && (
-                                                <div className="flex justify-between">
-                                                  <span className="font-medium">{t('Name', 'பெயர்')}:</span>
-                                                  <span>{name}</span>
-                                                </div>
-                                              )}
-                                              {date && (
-                                                <div className="flex justify-between">
-                                                  <span className="font-medium">{t('Date', 'தேதி')}:</span>
-                                                  <span>{date}</span>
-                                                </div>
-                                              )}
-                                              {amount && (
-                                                <div className="flex justify-between">
-                                                  <span className="font-medium">{t('Amount', 'தொகை')}:</span>
-                                                  <span>₹{amount}</span>
-                                                </div>
-                                              )}
-                                              {phone && (
-                                                <div className="flex justify-between">
-                                                  <span className="font-medium">{t('Phone', 'கைபேசி')}:</span>
-                                                  <span>{phone}</span>
-                                                </div>
-                                              )}
-                                              {reason && (
-                                                <div className="flex justify-between">
-                                                  <span className="font-medium">{t('Reason', 'காரணம்')}:</span>
-                                                  <span>{reason}</span>
-                                                </div>
-                                              )}
+                                      const userId = lg.created_by;
+                                      if (!userId) return '-';
+                                      const user = userDetails[userId];
+                                      const name = userNames[userId];
+
+                                      if (user?.username) {
+                                        return `@${user.username}`;
+                                      }
+                                      if (user?.name) {
+                                        return user.name;
+                                      }
+                                      if (name) {
+                                        return name;
+                                      }
+                                      return `User ${userId}`;
+                                    })()}
+                                  </td>
+                                  <td className="py-3 px-4 border-b">
+                                    <div className="text-sm text-gray-600 max-w-md">
+                                      {(() => {
+                                        // Parse donation details from the log data
+                                        const details = lg.details;
+                                        if (!details) return <span className="text-gray-400">-</span>;
+
+                                        // Extract specific fields from the details
+                                        const registerNo = details.register_no || details.after?.register_no || details.before?.register_no;
+                                        const date = details.date || details.after?.date || details.before?.date;
+                                        const name = details.name || details.after?.name || details.before?.name;
+                                        const amount = details.amount || details.after?.amount || details.before?.amount;
+                                        const phone = details.phone || details.after?.phone || details.before?.phone;
+                                        const reason = details.reason || details.after?.reason || details.before?.reason;
+
+                                        return (
+                                          <div className="space-y-2">
+                                            <div className="bg-green-50 p-3 rounded border text-xs">
+                                              <div className="font-medium text-green-700 mb-2">{t('Money Donation Details', 'பண நன்கொடை விவரங்கள்')}</div>
+                                              <div className="space-y-1 text-gray-600">
+                                                {registerNo && (
+                                                  <div className="flex justify-between">
+                                                    <span className="font-medium">{t('Receipt No', 'ரசீது எண்')}:</span>
+                                                    <span>{registerNo}</span>
+                                                  </div>
+                                                )}
+                                                {name && (
+                                                  <div className="flex justify-between">
+                                                    <span className="font-medium">{t('Name', 'பெயர்')}:</span>
+                                                    <span>{name}</span>
+                                                  </div>
+                                                )}
+                                                {date && (
+                                                  <div className="flex justify-between">
+                                                    <span className="font-medium">{t('Date', 'தேதி')}:</span>
+                                                    <span>{date}</span>
+                                                  </div>
+                                                )}
+                                                {amount && (
+                                                  <div className="flex justify-between">
+                                                    <span className="font-medium">{t('Amount', 'தொகை')}:</span>
+                                                    <span>₹{amount}</span>
+                                                  </div>
+                                                )}
+                                                {phone && (
+                                                  <div className="flex justify-between">
+                                                    <span className="font-medium">{t('Phone', 'கைபேசி')}:</span>
+                                                    <span>{phone}</span>
+                                                  </div>
+                                                )}
+                                                {reason && (
+                                                  <div className="flex justify-between">
+                                                    <span className="font-medium">{t('Reason', 'காரணம்')}:</span>
+                                                    <span>{reason}</span>
+                                                  </div>
+                                                )}
+                                              </div>
                                             </div>
                                           </div>
-                                        </div>
-                                      );
-                                    })()}
-                                  </div>
-                                </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                </div>
-                <div className={formFieldStyles.moneyDonationList.pagination.container}>
-                      <div className={formFieldStyles.moneyDonationList.pagination.info}>
-                        {t('Total', 'மொத்தம்')}: <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{allLogsTotal}</span>
+                                        );
+                                      })()}
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
-                  <div className={formFieldStyles.moneyDonationList.pagination.controls}>
-                    <button
-                      className={formFieldStyles.moneyDonationList.pagination.button}
-                      disabled={allLogsPage <= 1}
-                          onClick={() => {
-                            const prevPage = Math.max(1, allLogsPage - 1);
-                            loadAllDonationLogs(prevPage);
-                          }}
-                    >
-                      {t('Previous', 'முந்தைய')}
-                    </button>
-                        <span className="text-sm text-gray-600">
-                          {t('Page', 'பக்கம்')} {allLogsPage} {t('of', 'இல்')} {Math.ceil(allLogsTotal / allLogsPageSize)}
-                        </span>
-                    <button
-                      className={formFieldStyles.moneyDonationList.pagination.button}
-                      disabled={allLogsPage * allLogsPageSize >= allLogsTotal}
-                          onClick={() => {
-                            const nextPage = allLogsPage + 1;
-                            loadAllDonationLogs(nextPage);
-                          }}
-                    >
-                      {t('Next', 'அடுத்தது')}
-                    </button>
-                  </div>
+                      <div className={formFieldStyles.moneyDonationList.pagination.container}>
+                        <div className={formFieldStyles.moneyDonationList.pagination.info}>
+                          {t('Total', 'மொத்தம்')}: <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{allLogsTotal}</span>
+                        </div>
+                        <div className={formFieldStyles.moneyDonationList.pagination.controls}>
+                          <button
+                            className={formFieldStyles.moneyDonationList.pagination.button}
+                            disabled={allLogsPage <= 1}
+                            onClick={() => {
+                              const prevPage = Math.max(1, allLogsPage - 1);
+                              loadAllDonationLogs(prevPage);
+                            }}
+                          >
+                            {t('Previous', 'முந்தைய')}
+                          </button>
+                          <span className="text-sm text-gray-600">
+                            {t('Page', 'பக்கம்')} {allLogsPage} {t('of', 'இல்')} {Math.ceil(allLogsTotal / allLogsPageSize)}
+                          </span>
+                          <button
+                            className={formFieldStyles.moneyDonationList.pagination.button}
+                            disabled={allLogsPage * allLogsPageSize >= allLogsTotal}
+                            onClick={() => {
+                              const nextPage = allLogsPage + 1;
+                              loadAllDonationLogs(nextPage);
+                            }}
+                          >
+                            {t('Next', 'அடுத்தது')}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                  </div>
-            )}
               </div>
             </div>
           </div>
-        </div>
-      )}
-      {/* Logs Modal */}
-      {logsFor !== null && (
-        <div className={formFieldStyles.moneyDonationList.modal.overlay}>
-          <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeLogs} />
-          <div className={formFieldStyles.moneyDonationList.modal.container}>
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 px-6 rounded-t-lg">
-            <div className={formFieldStyles.moneyDonationList.modal.header}>
-                <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('Activity Log', 'செயல்பாட்டு பதிவு')} #{logsFor}</h2>
-                <button onClick={closeLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-            </div>
-            </div>
-            
-            <div className="p-6">
-              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            {logsLoading ? (
-                  <div className={formFieldStyles.moneyDonationList.modal.loading}>
-                    {t('Loading logs...', 'பதிவுகள் ஏறுகிறது...')}
-                  </div>
-                ) : logs.length === 0 ? (
-                  <div className={formFieldStyles.moneyDonationList.modal.loading}>
-                    {t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                <table className={formFieldStyles.moneyDonationList.logsTable.table}>
-                  <thead className={formFieldStyles.moneyDonationList.logsTable.thead}>
-                    <tr>
-                          <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                            {t('Action', 'செயல்')}
-                          </th>
-                          <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                            {t('Date & Time', 'தேதி மற்றும் நேரம்')}
-                          </th>
-                          <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                            {t('User', 'பயனர்')}
-                          </th>
-                          <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                            {t('Details', 'விவரங்கள்')}
-                          </th>
-                    </tr>
-                  </thead>
-                  <tbody className={formFieldStyles.moneyDonationList.logsTable.tbody}>
-                        {logs.map((lg, index) => (
-                      <tr key={lg.id} className={formFieldStyles.moneyDonationList.logsTable.tr}>
-                        <td className={formFieldStyles.moneyDonationList.logsTable.td}>
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                lg.action === 'create' ? 'bg-green-100 text-green-800' :
-                                lg.action === 'update' ? 'bg-blue-100 text-blue-800' :
-                                lg.action === 'delete' ? 'bg-red-100 text-red-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>
-                                {lg.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
-                                 lg.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
-                                 lg.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
-                                 lg.action}
-                              </span>
-                            </td>
-                            <td className={formFieldStyles.moneyDonationList.logsTable.tdNowrap}>
-                              {lg.created_at ? new Date(lg.created_at).toLocaleString('en-IN', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              }) : '-'}
-                            </td>
-                            <td className={formFieldStyles.moneyDonationList.logsTable.td}>
-                              {(() => {
-                                const userId = lg.created_by;
-                                if (!userId) return '-';
-                                const user = userDetails[userId];
-                                const name = userNames[userId];
-                                
-                                if (user?.username) {
-                                  return `@${user.username}`;
-                                }
-                                if (user?.name) {
-                                  return user.name;
-                                }
-                                if (name) {
-                                  return name;
-                                }
-                                return `User ${userId}`;
-                              })()}
-                            </td>
-                            <td className={formFieldStyles.moneyDonationList.logsTable.td}>
-                              <div className="text-sm text-gray-600 max-w-md">
+        )}
+        {/* Logs Modal */}
+        {logsFor !== null && (
+          <div className={formFieldStyles.moneyDonationList.modal.overlay}>
+            <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeLogs} />
+            <div className={formFieldStyles.moneyDonationList.modal.container}>
+              <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 px-6 rounded-t-lg">
+                <div className={formFieldStyles.moneyDonationList.modal.header}>
+                  <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('Activity Log', 'செயல்பாட்டு பதிவு')} #{logsFor}</h2>
+                  <button onClick={closeLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6">
+                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                  {logsLoading ? (
+                    <div className={formFieldStyles.moneyDonationList.modal.loading}>
+                      {t('Loading logs...', 'பதிவுகள் ஏறுகிறது...')}
+                    </div>
+                  ) : logs.length === 0 ? (
+                    <div className={formFieldStyles.moneyDonationList.modal.loading}>
+                      {t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className={formFieldStyles.moneyDonationList.logsTable.table}>
+                        <thead className={formFieldStyles.moneyDonationList.logsTable.thead}>
+                          <tr>
+                            <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                              {t('Action', 'செயல்')}
+                            </th>
+                            <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                              {t('Date & Time', 'தேதி மற்றும் நேரம்')}
+                            </th>
+                            <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                              {t('User', 'பயனர்')}
+                            </th>
+                            <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                              {t('Details', 'விவரங்கள்')}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className={formFieldStyles.moneyDonationList.logsTable.tbody}>
+                          {logs.map((lg, index) => (
+                            <tr key={lg.id} className={formFieldStyles.moneyDonationList.logsTable.tr}>
+                              <td className={formFieldStyles.moneyDonationList.logsTable.td}>
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${lg.action === 'create' ? 'bg-green-100 text-green-800' :
+                                    lg.action === 'update' ? 'bg-blue-100 text-blue-800' :
+                                      lg.action === 'delete' ? 'bg-red-100 text-red-800' :
+                                        'bg-gray-100 text-gray-800'
+                                  }`}>
+                                  {lg.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
+                                    lg.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
+                                      lg.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
+                                        lg.action}
+                                </span>
+                              </td>
+                              <td className={formFieldStyles.moneyDonationList.logsTable.tdNowrap}>
+                                {lg.created_at ? new Date(lg.created_at).toLocaleString('en-IN', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                }) : '-'}
+                              </td>
+                              <td className={formFieldStyles.moneyDonationList.logsTable.td}>
                                 {(() => {
-                                  // Parse donation details from the log data
-                                  const details = lg.details;
-                                  if (!details) return <span className="text-gray-400">-</span>;
-                                  
-                                  // Extract specific fields from the details
-                                  const registerNo = details.register_no || details.after?.register_no || details.before?.register_no;
-                                  const date = details.date || details.after?.date || details.before?.date;
-                                  const name = details.name || details.after?.name || details.before?.name;
-                                  const amount = details.amount || details.after?.amount || details.before?.amount;
-                                  const phone = details.phone || details.after?.phone || details.before?.phone;
-                                  const reason = details.reason || details.after?.reason || details.before?.reason;
-                                  
-                                  return (
-                                    <div className="space-y-2">
-                                      <div className="bg-green-50 p-3 rounded border text-xs">
-                                        <div className="font-medium text-green-700 mb-2">{t('Money Donation Details', 'பண நன்கொடை விவரங்கள்')}</div>
-                                        <div className="space-y-1 text-gray-600">
-                                          {registerNo && (
-                                            <div className="flex justify-between">
-                                              <span className="font-medium">{t('Receipt No', 'ரசீது எண்')}:</span>
-                                              <span>{registerNo}</span>
-                                            </div>
-                                          )}
-                                          {name && (
-                                            <div className="flex justify-between">
-                                              <span className="font-medium">{t('Name', 'பெயர்')}:</span>
-                                              <span>{name}</span>
-                                            </div>
-                                          )}
-                                          {date && (
-                                            <div className="flex justify-between">
-                                              <span className="font-medium">{t('Date', 'தேதி')}:</span>
-                                              <span>{date}</span>
-                                            </div>
-                                          )}
-                                          {amount && (
-                                            <div className="flex justify-between">
-                                              <span className="font-medium">{t('Amount', 'தொகை')}:</span>
-                                              <span>₹{amount}</span>
-                                            </div>
-                                          )}
-                                          {phone && (
-                                            <div className="flex justify-between">
-                                              <span className="font-medium">{t('Phone', 'கைபேசி')}:</span>
-                                              <span>{phone}</span>
-                                            </div>
-                                          )}
-                                          {reason && (
-                                            <div className="flex justify-between">
-                                              <span className="font-medium">{t('Reason', 'காரணம்')}:</span>
-                                              <span>{reason}</span>
-                                            </div>
-                                          )}
+                                  const userId = lg.created_by;
+                                  if (!userId) return '-';
+                                  const user = userDetails[userId];
+                                  const name = userNames[userId];
+
+                                  if (user?.username) {
+                                    return `@${user.username}`;
+                                  }
+                                  if (user?.name) {
+                                    return user.name;
+                                  }
+                                  if (name) {
+                                    return name;
+                                  }
+                                  return `User ${userId}`;
+                                })()}
+                              </td>
+                              <td className={formFieldStyles.moneyDonationList.logsTable.td}>
+                                <div className="text-sm text-gray-600 max-w-md">
+                                  {(() => {
+                                    // Parse donation details from the log data
+                                    const details = lg.details;
+                                    if (!details) return <span className="text-gray-400">-</span>;
+
+                                    // Extract specific fields from the details
+                                    const registerNo = details.register_no || details.after?.register_no || details.before?.register_no;
+                                    const date = details.date || details.after?.date || details.before?.date;
+                                    const name = details.name || details.after?.name || details.before?.name;
+                                    const amount = details.amount || details.after?.amount || details.before?.amount;
+                                    const phone = details.phone || details.after?.phone || details.before?.phone;
+                                    const reason = details.reason || details.after?.reason || details.before?.reason;
+
+                                    return (
+                                      <div className="space-y-2">
+                                        <div className="bg-green-50 p-3 rounded border text-xs">
+                                          <div className="font-medium text-green-700 mb-2">{t('Money Donation Details', 'பண நன்கொடை விவரங்கள்')}</div>
+                                          <div className="space-y-1 text-gray-600">
+                                            {registerNo && (
+                                              <div className="flex justify-between">
+                                                <span className="font-medium">{t('Receipt No', 'ரசீது எண்')}:</span>
+                                                <span>{registerNo}</span>
+                                              </div>
+                                            )}
+                                            {name && (
+                                              <div className="flex justify-between">
+                                                <span className="font-medium">{t('Name', 'பெயர்')}:</span>
+                                                <span>{name}</span>
+                                              </div>
+                                            )}
+                                            {date && (
+                                              <div className="flex justify-between">
+                                                <span className="font-medium">{t('Date', 'தேதி')}:</span>
+                                                <span>{date}</span>
+                                              </div>
+                                            )}
+                                            {amount && (
+                                              <div className="flex justify-between">
+                                                <span className="font-medium">{t('Amount', 'தொகை')}:</span>
+                                                <span>₹{amount}</span>
+                                              </div>
+                                            )}
+                                            {phone && (
+                                              <div className="flex justify-between">
+                                                <span className="font-medium">{t('Phone', 'கைபேசி')}:</span>
+                                                <span>{phone}</span>
+                                              </div>
+                                            )}
+                                            {reason && (
+                                              <div className="flex justify-between">
+                                                <span className="font-medium">{t('Reason', 'காரணம்')}:</span>
+                                                <span>{reason}</span>
+                                              </div>
+                                            )}
+                                          </div>
                                         </div>
                                       </div>
-                                    </div>
-                                  );
-                                })()}
-                              </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                                    );
+                                  })()}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-    </Card>
+        )}
+      </Card>
     </div>
   );
 }

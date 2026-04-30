@@ -31,8 +31,9 @@ export type NavItem = {
 export const navigationTranslations = {
   tamil: {
     overview: 'முகப்பு',
-    members: 'உறுப்பினர்கள்',
-    memberEntry: 'உறுப்பினர் பதிவு',
+    members: 'பணியாளர் பட்டியல்',
+    staff:"பணியாளர்",
+    memberEntry: 'பணியாளர்  பதிவு',
     reports: 'அறிக்கைகள்',
     dailyReport: 'தினசரி அறிக்கை',
     monthlyReport: 'மாதாந்திர அறிக்கை',
@@ -90,8 +91,9 @@ export const navigationTranslations = {
   },
   english: {
     overview: 'Home',
-    members: 'Members',
-    memberEntry: 'Member Entry',
+    staff :"Staff",
+    members: 'Staff List',
+    memberEntry: 'Staff Entry',
     reports: 'Reports',
     dailyReport: 'Daily Report',
     monthlyReport: 'Monthly Report',
@@ -310,13 +312,6 @@ export const sidebarItems: NavItem[] = [
     icon: LandmarkIcon,
     children: [
       {
-        to: 'daybook/entry',
-        label: navigationTranslations.english.daybookEntry,
-        tamilLabel: navigationTranslations.tamil.daybookEntry,
-        permissionId: 'daybook',
-        accessLevel: 'edit'
-      },
-      {
         to: 'daybook/list',
         label: navigationTranslations.english.daybookList,
         tamilLabel: navigationTranslations.tamil.daybookList,
@@ -340,8 +335,8 @@ export const sidebarItems: NavItem[] = [
     children: [
       { 
         to: 'members/entry', 
-        label: navigationTranslations.english.memberEntry, 
-        tamilLabel: navigationTranslations.tamil.memberEntry, 
+        label: navigationTranslations.english.staff, 
+        tamilLabel: navigationTranslations.tamil.staff, 
         permissionId: 'member_entry',
         accessLevel: 'edit'
       },
@@ -381,27 +376,6 @@ export const sidebarItems: NavItem[] = [
         permissionId: 'pooja_approval',
         accessLevel: 'view'
       }
-    ]
-  },
-{
-    label: navigationTranslations.english.properties,
-    tamilLabel: navigationTranslations.tamil.properties,
-    icon: HomeIcon,
-    children: [
-      { 
-        to: 'properties/new', 
-        label: navigationTranslations.english.newProperty, 
-        tamilLabel: navigationTranslations.tamil.newProperty, 
-        permissionId: 'property_registrations',
-        accessLevel: 'edit'
-      },
-      { 
-        to: 'properties', 
-        label: navigationTranslations.english.propertiesList, 
-        tamilLabel: navigationTranslations.tamil.propertiesList, 
-        permissionId: 'property_registrations',
-        accessLevel: 'view'
-      },
     ]
   },
   {
@@ -446,26 +420,13 @@ export const sidebarItems: NavItem[] = [
     icon: BarChartIcon,
     children: [
       { 
-        to: 'reports/monthly', 
-        label: navigationTranslations.english.monthlyReport, 
-        tamilLabel: navigationTranslations.tamil.monthlyReport, 
-        permissionId: 'reports',
-        accessLevel: 'view'
-      },
-      { 
-        to: 'reports/journal-log', 
-        label: navigationTranslations.english.journalLog, 
-        tamilLabel: navigationTranslations.tamil.journalLog, 
-        permissionId: 'reports',
-        accessLevel: 'view'
-      },
-      { 
         to: 'reports/trial-balance', 
         label: navigationTranslations.english.trialBalance, 
         tamilLabel: navigationTranslations.tamil.trialBalance, 
         permissionId: 'reports',
         accessLevel: 'view'
       },
+     
       { 
         to: 'reports/balance-sheet', 
         label: navigationTranslations.english.balanceSheet, 
@@ -482,41 +443,6 @@ export const sidebarItems: NavItem[] = [
     icon: HistoryIcon,
     permissionId: 'view_session_logs',
     accessLevel: 'view'
-  },
-  {
-    label: navigationTranslations.english.settings,
-    tamilLabel: navigationTranslations.tamil.settings,
-    icon: SettingsIcon,
-    children: [
-      { 
-        to: 'settings', 
-        label: navigationTranslations.english.generalSettings, 
-        tamilLabel: navigationTranslations.tamil.generalSettings, 
-        permissionId: 'setting',
-        accessLevel: 'edit'
-      },
-      { 
-        to: 'settings/pdf', 
-        label: navigationTranslations.english.pdfSettings, 
-        tamilLabel: navigationTranslations.tamil.pdfSettings, 
-        permissionId: 'pdf_settings',
-        accessLevel: 'edit'
-      },
-      { 
-        to: 'settings/my-preferences', 
-        label: navigationTranslations.english.myPreferences, 
-        tamilLabel: navigationTranslations.tamil.myPreferences, 
-        permissionId: 'setting',
-        accessLevel: 'view'
-      },
-      { 
-        to: 'annadhanam/logs', 
-        label: navigationTranslations.english.logPage, 
-        tamilLabel: navigationTranslations.tamil.logPage, 
-        permissionId: 'annadhanam_registrations',
-        accessLevel: 'view'
-      },
-    ]
   },
   {
     label: navigationTranslations.english.tax,
@@ -558,6 +484,41 @@ export const sidebarItems: NavItem[] = [
         tamilLabel: navigationTranslations.tamil.taxSettings, 
         permissionId: 'tax_registrations',
         accessLevel: 'edit'
+      },
+    ]
+  },
+  {
+    label: navigationTranslations.english.settings,
+    tamilLabel: navigationTranslations.tamil.settings,
+    icon: SettingsIcon,
+    children: [
+      { 
+        to: 'settings', 
+        label: navigationTranslations.english.generalSettings, 
+        tamilLabel: navigationTranslations.tamil.generalSettings, 
+        permissionId: 'setting',
+        accessLevel: 'edit'
+      },
+      { 
+        to: 'settings/pdf', 
+        label: navigationTranslations.english.pdfSettings, 
+        tamilLabel: navigationTranslations.tamil.pdfSettings, 
+        permissionId: 'pdf_settings',
+        accessLevel: 'edit'
+      },
+      { 
+        to: 'settings/my-preferences', 
+        label: navigationTranslations.english.myPreferences, 
+        tamilLabel: navigationTranslations.tamil.myPreferences, 
+        permissionId: 'setting',
+        accessLevel: 'view'
+      },
+      { 
+        to: 'annadhanam/logs', 
+        label: navigationTranslations.english.logPage, 
+        tamilLabel: navigationTranslations.tamil.logPage, 
+        permissionId: 'annadhanam_registrations',
+        accessLevel: 'view'
       },
     ]
   },

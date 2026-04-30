@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import propertyService, { Asset, AssetLog } from '@/services/propertyService';
@@ -10,37 +9,38 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Search, Edit, Trash2, Eye, RefreshCw, Package, DollarSign, Clock } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Eye, Package, IndianRupee, Box, User, Phone, FileText, History, X } from 'lucide-react';
 
 export default function AssetManagementPage() {
   const { token } = useAuth();
   const { language } = useLanguage();
-  const navigate = useNavigate();
-  const { id } = useParams();
-  
+
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [stats, setStats] = useState({ total: 0, active: 0, converted: 0, totalValue: 0 });
-  
+
   const [openDialog, setOpenDialog] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [viewAsset, setViewAsset] = useState<Asset | null>(null);
   const [logs, setLogs] = useState<AssetLog[]>([]);
   const [logsOpen, setLogsOpen] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
-  const [convertValue, setConvertValue] = useState('');
-  
+  const [usedQty, setUsedQty] = useState('');
+  const [forSellQty, setForSellQty] = useState('');
+  const [convertPrice, setConvertPrice] = useState('');
+
   const [formData, setFormData] = useState({
     name: '',
     details: '',
     value: '',
+    quantity: '',
     asset_source: 'donation',
     donor_name: '',
     donor_contact: '',
   });
 
-  const t = (en: string, ta: string) => (language === 'english' ? en : ta);
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
 
   useEffect(() => {
     fetchAssets();
@@ -74,8 +74,9 @@ export default function AssetManagementPage() {
       const assetData = {
         ...formData,
         value: parseFloat(formData.value) || 0,
+        quantity: parseInt(formData.quantity) || 0,
       };
-      
+
       if (editingAsset) {
         await propertyService.updateAsset(editingAsset.id.toString(), assetData);
         toast.success(t('Asset updated', 'சொத்து புதுப்பிக்கப்பட்டது'));
@@ -86,7 +87,7 @@ export default function AssetManagementPage() {
       setOpenDialog(false);
       fetchAssets();
       fetchStats();
-      setFormData({ name: '', details: '', value: '', asset_source: 'donation', donor_name: '', donor_contact: '' });
+      setFormData({ name: '', details: '', value: '', quantity: '', asset_source: 'donation', donor_name: '', donor_contact: '' });
     } catch (error) {
       toast.error(t('Failed to save', 'சேம்ப்க முடியவில்லை'));
     }
@@ -98,6 +99,7 @@ export default function AssetManagementPage() {
       name: asset.name || '',
       details: asset.details || '',
       value: asset.value?.toString() || '',
+      quantity: asset.quantity?.toString() || '',
       asset_source: asset.asset_source || 'donation',
       donor_name: asset.donor_name || '',
       donor_contact: asset.donor_contact || '',
@@ -107,6 +109,9 @@ export default function AssetManagementPage() {
 
   const handleView = async (asset: Asset) => {
     setViewAsset(asset);
+    setUsedQty(asset.used_qty?.toString() || '');
+    setForSellQty(asset.for_sell_qty?.toString() || '');
+    setConvertPrice(asset.convert_price?.toString() || '');
     try {
       const assetLogs = await propertyService.getAssetLogs(asset.id.toString());
       setLogs(assetLogs);
@@ -131,14 +136,72 @@ export default function AssetManagementPage() {
   const handleConvertToCash = async () => {
     if (!viewAsset) return;
     try {
-      await propertyService.convertToCash(viewAsset.id.toString(), parseFloat(convertValue) || 0);
-      toast.success(t('Converted to cash', 'பணமாக மாற்றப்பட்டது'));
+      const totalValue = (parseInt(forSellQty) || 0) * (parseFloat(convertPrice) || 0);
+      const available = availableQty(viewAsset);
+      const used = parseInt(usedQty) || 0;
+      const forSell = parseInt(forSellQty) || 0;
+
+      if (used + forSell > available) {
+        toast.error(t('Insufficient quantity', 'அளவு போதாது'));
+        return;
+      }
+
+      await propertyService.convertToCash(
+        viewAsset.id.toString(),
+        totalValue,
+        used,
+        forSell,
+        parseFloat(convertPrice) || 0
+      );
+      toast.success(t('Sold successfully', 'விற்கப்பட்டது'));
       setConvertOpen(false);
-      setConvertValue('');
+      setUsedQty('');
+      setForSellQty('');
+      setConvertPrice('');
       fetchAssets();
       fetchStats();
     } catch (error) {
-      toast.error(t('Failed to convert', 'மாற்ற முடியவில்லை'));
+      toast.error(t('Failed to sell', 'விற்க முடியவில்லை'));
+    }
+  };
+
+  const handleSaveInventory = async () => {
+    if (!viewAsset) {
+      toast.error('No asset selected');
+      return;
+    }
+    const used = parseInt(usedQty) || 0;
+    const forSell = parseInt(forSellQty) || 0;
+
+    if (used === 0 && forSell === 0) {
+      toast.error(t('Enter quantity', 'அளவு உள்ளிடவும்'));
+      return;
+    }
+
+    const available = availableQty(viewAsset);
+    if (used + forSell > available) {
+      toast.error(t('Insufficient quantity', 'அளவு போதாது'));
+      return;
+    }
+
+    try {
+      console.log('Saving inventory:', viewAsset.id, used, forSell);
+      const result = await propertyService.updateAssetQty(
+        viewAsset.id.toString(),
+        used,
+        forSell
+      );
+      console.log('Result:', result);
+      toast.success(t('Inventory saved', 'சத்கம் சேமிக்கப்பட்டது'));
+      setUsedQty('');
+      setForSellQty('');
+      fetchAssets();
+      fetchStats();
+      const assetLogs = await propertyService.getAssetLogs(viewAsset.id.toString());
+      setLogs(assetLogs);
+    } catch (error: any) {
+      console.error('Save error:', error);
+      toast.error(t('Failed to save', 'சேம்ப்க முடியவில்லை') + ': ' + (error?.message || ''));
     }
   };
 
@@ -149,8 +212,8 @@ export default function AssetManagementPage() {
       disposed: 'bg-red-100 text-red-800',
     };
     const labels: Record<string, string> = {
-      active: t('Active', 'சுறுசுழ'),
-      converted: t('Converted', 'மாறியது'),
+      active: t('Available', 'கிடைக்கிறது'),
+      converted: t('Sold', 'விற்கப்பட்டது'),
       disposed: t('Disposed', 'நீக்கியது'),
     };
     return <Badge className={variants[status] || 'bg-gray-100'}>{labels[status] || status}</Badge>;
@@ -160,66 +223,74 @@ export default function AssetManagementPage() {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
   };
 
+  const availableQty = (asset: Asset) => {
+    const total = asset.quantity || 0;
+    const used = asset.used_qty || 0;
+    const forSell = asset.for_sell_qty || 0;
+    return total - used - forSell;
+  };
+
   return (
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">{t('Asset Management', 'சொத்து மேலாண்மை')}</h1>
-        <Button onClick={() => { setEditingAsset(null); setOpenDialog(true); }}>
-          <Plus className="h-4 w-4 mr-2" />
-          {t('Add Asset', 'சொத்து சேர்க்க')}
-        </Button>
+
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardContent className="p-4">
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+          <CardContent className="p-4 text-center">
+            <Box className="h-8 w-8 mx-auto mb-2 text-blue-600" />
             <div className="text-2xl font-bold">{stats.total}</div>
-            <div className="text-sm text-gray-500">{t('Total Assets', 'மொத்த சொத்துகள்')}</div>
+            <div className="text-sm text-blue-700">{t('Total Assets', 'மொத்த சொத்துகள்')}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4">
+        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+          <CardContent className="p-4 text-center">
+            <Package className="h-8 w-8 mx-auto mb-2 text-green-600" />
             <div className="text-2xl font-bold text-green-600">{stats.active}</div>
-            <div className="text-sm text-gray-500">{t('Active', 'சுறுசுழ')}</div>
+            <div className="text-sm text-green-700">{t('Available', 'கிடைக்கிறது')}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold text-blue-600">{stats.converted}</div>
-            <div className="text-sm text-gray-500">{t('Converted', 'மாறியது')}</div>
+        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+          <CardContent className="p-4 text-center">
+            <IndianRupee className="h-8 w-8 mx-auto mb-2 text-orange-600" />
+            <div className="text-2xl font-bold text-orange-600">{stats.converted}</div>
+            <div className="text-sm text-orange-700">{t('Sold', 'விற்கப்பட்டது')}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold text-orange-600">{formatCurrency(stats.totalValue)}</div>
-            <div className="text-sm text-gray-500">{t('Total Value', 'மொத்த மதிப்ப���')}</div>
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-purple-600">{formatCurrency(stats.totalValue)}</div>
+            <div className="text-sm text-purple-700">{t('Total Value', 'மொத்த மதிப்பு')}</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Search */}
-      <div className="flex gap-2 mb-4">
-        <Input
-          placeholder={t('Search assets...', 'சொத்துகள் தேட்க...')}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="max-w-md"
-        />
-        <Button variant="outline" onClick={fetchAssets}>
-          <Search className="h-4 w-4" />
-        </Button>
-      </div>
-
+     {/* Search */}
+<div className="flex gap-2 mb-4 w-full">
+  <Input
+    placeholder={t('Search assets...', 'சொத்துகள் தேட்க...')}
+    value={search}
+    onChange={(e) => setSearch(e.target.value)}
+    className="w-full"
+  />
+  <Button variant="outline" onClick={fetchAssets}>
+    <Search className="h-4 w-4" />
+  </Button>
+</div>
       {/* Assets Table */}
       <Card>
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>{t('Name', 'பெயர்')}</TableHead>
-              <TableHead>{t('Value', 'மதிப்பு')}</TableHead>
-              <TableHead>{t('Source', 'மூலம்')}</TableHead>
-              <TableHead>{t('Donor', 'தரகர்')}</TableHead>
+              <TableHead>{t('Details', 'விவரங்கள்')}</TableHead>
+              <TableHead>{t('Total', 'மொத்தம்')}</TableHead>
+              <TableHead>{t('Used', 'பயன்படுத்திய')}</TableHead>
+              <TableHead>{t('For Sell', 'விற்க')}</TableHead>
+              <TableHead>{t('Available', 'கிடைக்கிறது')}</TableHead>
               <TableHead>{t('Status', 'நிலை')}</TableHead>
               <TableHead>{t('Actions', 'செயல்கள்')}</TableHead>
             </TableRow>
@@ -227,33 +298,54 @@ export default function AssetManagementPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8">
+                <TableCell colSpan={7} className="text-center py-8">
                   {t('Loading...', 'ஏற்றுகிறது...')}
                 </TableCell>
               </TableRow>
             ) : assets.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8">
+                <TableCell colSpan={7} className="text-center py-8">
                   {t('No assets found', 'சொத்துகள் இல்லை')}
                 </TableCell>
               </TableRow>
             ) : (
               assets.map((asset) => (
                 <TableRow key={asset.id}>
-                  <TableCell className="font-medium">{asset.name}</TableCell>
-                  <TableCell>{formatCurrency(asset.value)}</TableCell>
-                  <TableCell className="capitalize">{asset.asset_source || '-'}</TableCell>
-                  <TableCell>{asset.donor_name || '-'}</TableCell>
+                  <TableCell>
+                    <div className="font-medium">{asset.name}</div>
+                    <div className="text-xs text-gray-500 capitalize">{asset.asset_source || '-'}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm max-w-[200px] truncate" title={asset.details}>
+                      {asset.details ? (
+                        asset.details.includes('Product:') && asset.details.includes('| Qty:')
+                          ? asset.details.split(' | ').filter(p => p.startsWith('Product:') || p.startsWith('Qty:')).join(' | ')
+                          : asset.details
+                      ) : '-'}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-bold">{asset.quantity || 0}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-red-600">{asset.used_qty || 0}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-orange-600">{asset.for_sell_qty || 0}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-green-600 font-bold">{availableQty(asset)}</div>
+                  </TableCell>
                   <TableCell>{getStatusBadge(asset.status)}</TableCell>
                   <TableCell>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => handleView(asset)}>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="sm" onClick={() => handleView(asset)} className="text-blue-600">
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleEdit(asset)}>
+                      <Button variant="ghost" size="sm" onClick={() => handleEdit(asset)} className="text-green-600">
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDelete(asset.id)}>
+                      <Button variant="ghost" size="sm" onClick={() => handleDelete(asset.id)} className="text-red-600">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -267,55 +359,93 @@ export default function AssetManagementPage() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingAsset ? t('Edit Asset', 'சொத்து திருத்து') : t('Add Asset', 'சொத்து சேர்க்க')}
+              {editingAsset ? t('Edit Asset', 'சொத்து திருத்து') : t('Add New Asset', 'புதிய சொத்து சேர்க்க')}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">{t('Name', 'பெயர்')} *</label>
-              <Input
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-              />
+            <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+              <div className="flex items-center gap-2 mb-2">
+                <Box className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-medium text-blue-700">{t('Basic Info', 'அடிப்படை தகவல்')}</span>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">{t('Name', 'பெயர்')} *</label>
+                <Input
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                  placeholder={t('Enter asset name', 'சொத்து பெயர் உள்ளிடவும்')}
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">{t('Value', 'மதிப்பு')}</label>
-              <Input
-                type="number"
-                value={formData.value}
-                onChange={(e) => setFormData({ ...formData, value: e.target.value })}
-              />
+
+            <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+              <div className="flex items-center gap-2 mb-2">
+                <Package className="h-4 w-4 text-green-600" />
+                <span className="text-sm font-medium text-green-700">{t('Inventory', 'சத்கம்')}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm font-medium mb-1">{t('Quantity', 'அளவு')}</label>
+                  <Input
+                    type="number"
+                    value={formData.quantity}
+                    onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">{t('Value', 'மதிப்பு (₹)')}</label>
+                  <Input
+                    type="number"
+                    value={formData.value}
+                    onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">{t('Source', 'மூலம்')}</label>
-              <select
-                className="w-full p-2 border rounded"
-                value={formData.asset_source}
-                onChange={(e) => setFormData({ ...formData, asset_source: e.target.value })}
-              >
-                <option value="donation">{t('Donation', 'தானம்')}</option>
-                <option value="purchase">{t('Purchase', 'வாங்கியது')}</option>
-                <option value="other">{t('Other', 'மற்றவை')}</option>
-              </select>
+
+            <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
+              <div className="flex items-center gap-2 mb-2">
+                <User className="h-4 w-4 text-orange-600" />
+                <span className="text-sm font-medium text-orange-700">{t('Source Details', 'ஆதார விவரங்கள்')}</span>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">{t('Source', 'ஆதாரம்')}</label>
+                <select
+                  className="w-full p-2 border rounded bg-white"
+                  value={formData.asset_source}
+                  onChange={(e) => setFormData({ ...formData, asset_source: e.target.value })}
+                >
+                  <option value="donation">{t('Donation', 'தானம்')}</option>
+                  <option value="purchase">{t('Purchase', 'வாங்கியது')}</option>
+                  <option value="other">{t('Other', 'மற்றவை')}</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <div>
+                  <label className="block text-sm font-medium mb-1">{t('Name', 'பெயர்')}</label>
+                  <Input
+                    value={formData.donor_name}
+                    onChange={(e) => setFormData({ ...formData, donor_name: e.target.value })}
+                    placeholder={t('Donor name', 'தானதரகர் பெயர்')}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">{t('Phone', 'தொடர்பு')}</label>
+                  <Input
+                    value={formData.donor_contact}
+                    onChange={(e) => setFormData({ ...formData, donor_contact: e.target.value })}
+                    placeholder={t('Phone number', 'தொடர்பு எண்')}
+                  />
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">{t('Donor Name', 'தரகர் பெயர்')}</label>
-              <Input
-                value={formData.donor_name}
-                onChange={(e) => setFormData({ ...formData, donor_name: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">{t('Donor Contact', 'தரகர் தொடர்பு')}</label>
-              <Input
-                value={formData.donor_contact}
-                onChange={(e) => setFormData({ ...formData, donor_contact: e.target.value })}
-              />
-            </div>
+
             <div>
               <label className="block text-sm font-medium mb-1">{t('Details', 'விவரங்கள்')}</label>
               <textarea
@@ -323,88 +453,309 @@ export default function AssetManagementPage() {
                 rows={3}
                 value={formData.details}
                 onChange={(e) => setFormData({ ...formData, details: e.target.value })}
+                placeholder={t('Additional details...', 'கூடுதல் விவரங்கள்...')}
               />
             </div>
-            <div className="flex gap-2 justify-end">
+
+            <div className="flex gap-2 justify-end pt-2">
               <Button type="button" variant="outline" onClick={() => setOpenDialog(false)}>
                 {t('Cancel', 'ரத்து')}
               </Button>
               <Button type="submit">
-                {t('Save', 'சேம்ப்க')}
+                {t('Save Asset', 'சேம்ப்க')}
               </Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* View/Convert Dialog */}
+      {/* View Dialog */}
       <Dialog open={logsOpen} onOpenChange={setLogsOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{viewAsset?.name}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Box className="h-5 w-5" />
+              {viewAsset?.name}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="text-sm text-gray-500">{t('Value', 'மதிப்பு')}</div>
-                <div className="font-medium">{formatCurrency(viewAsset?.value || 0)}</div>
+            {/* Inventory Status */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-200">
+              <div className="flex items-center gap-2 mb-3">
+                <Package className="h-5 w-5 text-blue-600" />
+                <span className="font-semibold text-blue-700">{t('Inventory Status', 'சத்கம் நிலை')}</span>
               </div>
-              <div>
-                <div className="text-sm text-gray-500">{t('Status', 'நிலை')}</div>
-                <div>{viewAsset && getStatusBadge(viewAsset.status)}</div>
+
+              <div className="grid grid-cols-4 gap-3 mb-3">
+                <div className="bg-white p-2 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-blue-600">{viewAsset?.quantity || 0}</div>
+                  <div className="text-xs text-gray-500">{t('Total', 'மொத்தம்')}</div>
+                </div>
+                <div className="bg-white p-2 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-red-500">{viewAsset?.used_qty || 0}</div>
+                  <div className="text-xs text-gray-500">{t('Used', 'பயன்படுத்திய')}</div>
+                </div>
+                <div className="bg-white p-2 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-orange-500">{viewAsset?.for_sell_qty || 0}</div>
+                  <div className="text-xs text-gray-500">{t('Sold', 'விற்ற')}</div>
+                </div>
+                <div className="bg-white p-2 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-green-600">{availableQty(viewAsset || {} as Asset)}</div>
+                  <div className="text-xs text-gray-500">{t('Available', 'கிடைக்கிறது')}</div>
+                </div>
               </div>
-              <div>
-                <div className="text-sm text-gray-500">{t('Source', 'மூலம்')}</div>
-                <div className="capitalize">{viewAsset?.asset_source || '-'}</div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-500">{t('Donor', 'தரகர்')}</div>
-                <div>{viewAsset?.donor_name || '-'}</div>
+
+              {/* Progress Bar */}
+              <div className="bg-white p-3 rounded-lg">
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="text-gray-500">{t('Usage', 'பயன்பாடு')}</span>
+                  <span className="font-medium">
+                    {viewAsset?.quantity ? Math.round(((viewAsset.used_qty || 0) + (viewAsset.for_sell_qty || 0)) / viewAsset.quantity * 100) : 0}%
+                  </span>
+                </div>
+                <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-red-400 to-orange-400 rounded-full"
+                    style={{ width: `${viewAsset?.quantity ? Math.min(100, ((viewAsset.used_qty || 0) + (viewAsset.for_sell_qty || 0)) / viewAsset.quantity * 100) : 0}%` }}
+                  />
+                </div>
               </div>
             </div>
-            {viewAsset?.details && (
-              <div>
-                <div className="text-sm text-gray-500">{t('Details', 'விவரங்கள்')}</div>
-                <div>{viewAsset.details}</div>
+
+            {/* Sale Details - Visible only when sold */}
+            {viewAsset?.status === 'converted' && (
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-xl border border-purple-200">
+                <div className="flex items-center gap-2 mb-3">
+                  <IndianRupee className="h-5 w-5 text-purple-600" />
+                  <span className="font-semibold text-purple-700">{t('Sale Details', 'விற்பனை விவரங்கள்')}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white p-2 rounded-lg text-center shadow-sm">
+                    <div className="text-lg font-bold text-purple-600">{viewAsset.for_sell_qty || 0}</div>
+                    <div className="text-xs text-gray-500">{t('Qty Sold', 'விற்ற அளவு')}</div>
+                  </div>
+                  <div className="bg-white p-2 rounded-lg text-center shadow-sm">
+                    <div className="text-lg font-bold text-emerald-600">{formatCurrency(viewAsset.convert_price || 0)}</div>
+                    <div className="text-xs text-gray-500">{t('Price / Unit', 'விலை / அலகு')}</div>
+                  </div>
+                  <div className="bg-purple-100/50 p-3 rounded-lg text-center col-span-2 border border-purple-200">
+                    <div className="text-xs text-purple-700 uppercase tracking-wider font-semibold mb-1">{t('Total Sale Revenue', 'மொத்த விற்பனை வருவாய்')}</div>
+                    <div className="text-2xl font-black text-purple-800">
+                      {formatCurrency((viewAsset.for_sell_qty || 0) * (viewAsset.convert_price || 0))}
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
+
+            {/* Quick Info */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="text-xs text-gray-500">{t('Value', 'மதிப்பு')}</div>
+                <div className="font-bold text-lg">{formatCurrency(viewAsset?.value || 0)}</div>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="text-xs text-gray-500">{t('Status', 'நிலை')}</div>
+                <div className="mt-1">{viewAsset && getStatusBadge(viewAsset.status)}</div>
+              </div>
+              {viewAsset?.donor_name && (
+                <div className="bg-gray-50 p-3 rounded-lg col-span-2">
+                  <div className="text-xs text-gray-500">{t('Donor', 'தானதரகர்')}</div>
+                  <div className="font-medium">{viewAsset.donor_name}</div>
+                  {viewAsset.donor_contact && (
+                    <div className="text-sm text-gray-500 flex items-center gap-1">
+                      <Phone className="h-3 w-3" />
+                      {viewAsset.donor_contact}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
             {viewAsset?.status === 'active' && (
-              <div className="flex gap-2 items-center">
-                <Input
-                  type="number"
-                  placeholder={t('Enter amount to convert', 'மாற்றத் தொகையை உள்ளிடவும்')}
-                  value={convertValue}
-                  onChange={(e) => setConvertValue(e.target.value)}
-                  className="flex-1"
-                />
-                <Button onClick={() => setConvertOpen(true)}>
-                  <DollarSign className="h-4 w-4 mr-1" />
-                  {t('Convert to Cash', 'பணமாக மாற்று')}
-                </Button>
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-xl border border-green-200">
+                <div className="flex items-center gap-2 mb-3">
+                  <IndianRupee className="h-5 w-5 text-green-600" />
+                  <span className="font-semibold text-green-700">{t('Update Inventory', 'சத்கம் புதுப்பி')}</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">{t('Used Qty', 'பயன்படுத்திய அளவு')}</label>
+                    <Input
+                      type="number"
+                      value={usedQty}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        const available = availableQty(viewAsset || {} as Asset);
+                        const other = parseInt(forSellQty) || 0;
+                        if (val + other > available) {
+                          setUsedQty(Math.max(0, available - other).toString());
+                        } else {
+                          setUsedQty(e.target.value);
+                        }
+                      }}
+                      placeholder="0"
+                      min="0"
+                      max={availableQty(viewAsset)}
+                      className="border-red-200 focus:border-red-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">{t('For Sell Qty', 'விற்க அளவு')}</label>
+                    <Input
+                      type="number"
+                      value={forSellQty}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        const available = availableQty(viewAsset || {} as Asset);
+                        const other = parseInt(usedQty) || 0;
+                        if (val + other > available) {
+                          setForSellQty(Math.max(0, available - other).toString());
+                        } else {
+                          setForSellQty(e.target.value);
+                        }
+                      }}
+                      placeholder="0"
+                      min="0"
+                      max={availableQty(viewAsset)}
+                      className="border-orange-200 focus:border-orange-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" onClick={() => { console.log('Save clicked'); handleSaveInventory(); }} className="border-green-300 text-green-700 hover:bg-green-50">
+                    <Package className="h-4 w-4 mr-1" />
+                    {t('Save Inventory', 'சத்கம் சேமி')}
+                  </Button>
+                  <Button onClick={() => setConvertOpen(true)} className="bg-orange-500 hover:bg-orange-600 text-white">
+                    <IndianRupee className="h-4 w-4 mr-1" />
+                    {t('Sell', 'விற்க')}
+                  </Button>
+                </div>
               </div>
             )}
+
+            {/* Convert to Cash Dialog */}
             {convertOpen && (
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setConvertOpen(false)}>
-                  {t('Cancel', 'ரத்து')}
-                </Button>
-                <Button onClick={handleConvertToCash}>
-                  {t('Confirm', 'உறுதிப்படுத்து')}
-                </Button>
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-xl border border-purple-200">
+                <div className="flex items-center gap-2 mb-3">
+                  <IndianRupee className="h-5 w-5 text-purple-600" />
+                  <span className="font-semibold text-purple-700">{t('Sell Item', 'உருப்படம் விற்க')}</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <div className="hidden">
+                    <label className="block text-xs text-gray-600 mb-1">{t('Used', 'பயன்படுத்திய')}</label>
+                    <Input
+                      type="number"
+                      value={usedQty}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        const available = availableQty(viewAsset || {} as Asset);
+                        const other = parseInt(forSellQty) || 0;
+                        if (val + other > available) {
+                          setUsedQty(Math.max(0, available - other).toString());
+                        } else {
+                          setUsedQty(e.target.value);
+                        }
+                      }}
+                      placeholder="0"
+                      min="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">{t('For Sell', 'விற்க')}</label>
+                    <Input
+                      type="number"
+                      value={forSellQty}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        const available = availableQty(viewAsset || {} as Asset);
+                        const other = parseInt(usedQty) || 0;
+                        if (val + other > available) {
+                          setForSellQty(Math.max(0, available - other).toString());
+                        } else {
+                          setForSellQty(e.target.value);
+                        }
+                      }}
+                      placeholder="0"
+                      min="0"
+                      max={availableQty(viewAsset)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">{t('Price/Unit (₹)', 'விலை/அலகு')}</label>
+                    <Input
+                      type="number"
+                      value={convertPrice}
+                      onChange={(e) => setConvertPrice(e.target.value)}
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-white p-2 rounded-lg text-center mb-3">
+                  <div className="text-xs text-gray-500">{t('Total Amount', 'மொத்த தொகை')}</div>
+                  <div className="text-2xl font-bold text-green-600">
+                    {formatCurrency((parseInt(forSellQty) || 0) * (parseFloat(convertPrice) || 0))}
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setConvertOpen(false)} className="flex-1">
+                    <X className="h-4 w-4 mr-1" />
+                    {t('Cancel', 'ரத்து')}
+                  </Button>
+                  <Button onClick={handleConvertToCash} className="flex-1 bg-green-600 hover:bg-green-700">
+                    <IndianRupee className="h-4 w-4 mr-1" />
+                    {t('Confirm Sale', 'விற்க உறுதிப்படுத்து')}
+                  </Button>
+                </div>
               </div>
             )}
-            <div>
-              <div className="text-sm font-medium mb-2">{t('Activity Logs', 'நடவடிக்கை பதிவுகள்')}</div>
+
+            {/* Details */}
+            {viewAsset?.details && (
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="flex items-center gap-2 mb-1">
+                  <FileText className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm font-medium text-gray-600">{t('Details', 'விவரங்கள்')}</span>
+                </div>
+                <div className="text-sm">
+                  {viewAsset.details ? (
+                    viewAsset.details.includes('Product:') && viewAsset.details.includes('| Qty:')
+                      ? viewAsset.details.split(' | ').filter(p => p.startsWith('Product:') || p.startsWith('Qty:')).join(' | ')
+                      : viewAsset.details
+                  ) : '-'}
+                </div>
+              </div>
+            )}
+
+            {/* History */}
+            <div className="bg-gradient-to-r from-gray-50 to-slate-50 p-3 rounded-lg border border-gray-200">
+              <div className="flex items-center gap-2 mb-2">
+                <History className="h-4 w-4 text-gray-500" />
+                <span className="text-sm font-medium text-gray-600">{t('History', 'வரலாறு')}</span>
+              </div>
               {logs.length === 0 ? (
-                <div className="text-gray-500">{t('No logs', 'பதிவுகள் இல்லை')}</div>
+                <div className="text-sm text-gray-400 text-center py-2">{t('No history', 'வரலாறு இல்லை')}</div>
               ) : (
-                <div className="max-h-40 overflow-y-auto">
-                  {logs.map((log) => (
-                    <div key={log.id} className="text-sm border-b py-1">
-                      <span className="capitalize">{log.action}</span>
-                      <span className="text-gray-500 ml-2">
-                        {new Date(log.created_at).toLocaleString()}
-                      </span>
+                <div className="max-h-32 overflow-y-auto space-y-1">
+                  {logs.slice(0, 10).map((log) => (
+                    <div key={log.id} className="text-xs bg-white p-2 rounded border">
+                      <div className="font-medium capitalize">{log.action.replace(/_/g, ' ')}</div>
+                      <div className="text-gray-500">
+                        {log.details && typeof log.details === 'string' && log.details.includes('used_qty') && (
+                          <span className="text-red-600">Used: {JSON.parse(log.details).used_qty || 0}</span>
+                        )}
+                        {log.details && typeof log.details === 'string' && log.details.includes('for_sell_qty') && (
+                          <span className="text-orange-600 ml-2">For Sell: {JSON.parse(log.details).for_sell_qty || 0}</span>
+                        )}
+                        <span className="ml-auto">{new Date(log.created_at).toLocaleDateString()}</span>
+                      </div>
                     </div>
                   ))}
                 </div>

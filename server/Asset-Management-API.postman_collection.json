@@ -450,7 +450,7 @@
   "variable": [
     {
       "key": "baseUrl",
-      "value": "http://localhost:4000",
+      "value": "https://templeapi.agniplay.com",
       "type": "string"
     },
     {

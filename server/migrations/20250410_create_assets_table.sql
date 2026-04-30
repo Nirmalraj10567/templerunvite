@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS assets (
   converted_at TIMESTAMP,
   converted_by INTEGER,
   conversion_income_id INTEGER, -- Reference to ledger entry when converted to cash
+  used_qty INTEGER DEFAULT 0, -- Quantity used
+  for_sell_qty INTEGER DEFAULT 0, -- Quantity for sell
+  convert_price DECIMAL(12, 2) DEFAULT 0, -- Price per unit when converting
   -- Ownership
   created_by INTEGER,
   temple_id INTEGER NOT NULL,

@@ -35,7 +35,7 @@ CREATE TABLE pooja_approval_logs (
 
 ### Base URL
 ```
-http://localhost:4000/api/pooja-mobile
+https://templeapi.agniplay.com/api/pooja-mobile
 ```
 
 ### 1. Submit Pooja Request
@@ -201,7 +201,7 @@ Get available time slots for a date range.
 
 ### Base URL
 ```
-http://localhost:4000/api/pooja-approval
+https://templeapi.agniplay.com/api/pooja-approval
 ```
 
 **Authentication Required:** Bearer Token
@@ -424,7 +424,7 @@ WHERE u.mobile = '9999999999';
 
 ### Test Mobile Submission
 ```bash
-curl -X POST http://localhost:4000/api/pooja-mobile/submit \
+curl -X POST https://templeapi.agniplay.com/api/pooja-mobile/submit \
   -H "Content-Type: application/json" \
   -d '{
     "receipt_number": "TEST001",
@@ -439,7 +439,7 @@ curl -X POST http://localhost:4000/api/pooja-mobile/submit \
 
 ### Test Admin Approval
 ```bash
-curl -X PUT http://localhost:4000/api/pooja-approval/approve/1 \
+curl -X PUT https://templeapi.agniplay.com/api/pooja-approval/approve/1 \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -d '{

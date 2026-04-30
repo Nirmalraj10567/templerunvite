@@ -58,3 +58,47 @@ pnpm-lock.yaml
 # System files
 .DS_Store
 Thumbs.db
+
+# Firebase config (contains secrets)
+server/config/firebase.json
+
+# Database dumps and scripts in root
+/*.sql
+/*.cjs
+/*.js
+!/eslint.config.js
+!/postcss.config.js
+!/vite.config.ts.timestamp-*
+
+# Artifacts and temporary files in root
+/*.md
+!/README.md
+!/ANNADHANAM_ENHANCED_API.md
+!/ANNADHANAM_LOGGING_IMPLEMENTATION.md
+!/DAYBOOK_QUICKSTART.md
+!/JWT_AUTO_LOGOUT_IMPLEMENTATION.md
+!/MOBILE_AUTH_API_DOCUMENTATION.md
+!/MONEY_DONATION_JOURNAL_SYNC_FIX.md
+!/MONEY_DONATION_JOURNAL_UPDATE_FIX.md
+!/PERMISSIONS_GUIDE.md
+!/POOJA_APPROVAL_API_DOCUMENTATION.md
+!/POOJA_CALENDAR_FIXES.md
+!/POOJA_MOBILE_TEMPLE_ID_FIX.md
+!/manual-test.md
+!/pooja-mobile-curl-examples.md
+
+# Other junk
+/*.JSON
+/*.json
+!/package.json
+!/package-lock.json
+!/tsconfig.json
+!/tsconfig.*.json
+!/components.json
+!/Annadhanam_Enhanced_API.postman_collection.json
+/a.txt.txt
+/test-export.pdf
+/test-token.txt
+/sqlite_tables.txt
+/mysql_tables.txt
+/api_response.json

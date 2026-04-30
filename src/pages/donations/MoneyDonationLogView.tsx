@@ -28,7 +28,7 @@ export default function MoneyDonationLogView({ recentOnly = false }: MoneyDonati
   const navigate = useNavigate();
   const { token } = useAuth();
   const { language } = useLanguage();
-  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
 
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -41,19 +41,19 @@ export default function MoneyDonationLogView({ recentOnly = false }: MoneyDonati
     total: 0,
     totalPages: 1,
   });
-  
+
   // Fetch user details for logs
   const fetchUserDetails = useCallback(async (userIds: number[]) => {
     const uniqueIds = Array.from(new Set(userIds.filter((v): v is number => typeof v === 'number')));
     if (uniqueIds.length === 0) return;
-    
+
     const missing = uniqueIds.filter(id => !userDetails[id]);
     if (missing.length === 0) return;
 
     const results = await Promise.all(
       missing.map(async (id) => {
         try {
-          const res = await fetch(`http://localhost:4000/api/admin/members/${id}`, {
+          const res = await fetch(`https://templeapi.agniplay.com/api/admin/members/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data = await res.json().catch(() => ({}));
@@ -89,7 +89,7 @@ export default function MoneyDonationLogView({ recentOnly = false }: MoneyDonati
       });
 
       const res = await fetch(
-        `http://localhost:4000/api/money-donations/logs?${queryParams}`,
+        `https://templeapi.agniplay.com/api/money-donations/logs?${queryParams}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -99,10 +99,10 @@ export default function MoneyDonationLogView({ recentOnly = false }: MoneyDonati
       if (result.success) {
         const logsData = Array.isArray(result.data) ? result.data : [];
         setLogs(logsData);
-        
+
         const total = Number(result.total || 0);
         const totalPages = Math.max(1, Math.ceil(total / (recentOnly ? 10 : 50)));
-        
+
         setPagination({
           page,
           pageSize: recentOnly ? 10 : 50,
@@ -114,7 +114,7 @@ export default function MoneyDonationLogView({ recentOnly = false }: MoneyDonati
         const userIds = logsData
           .map(log => log.created_by)
           .filter((id): id is number => id !== null && id !== undefined);
-        
+
         if (userIds.length > 0) {
           await fetchUserDetails(userIds);
         }
@@ -206,7 +206,7 @@ export default function MoneyDonationLogView({ recentOnly = false }: MoneyDonati
 
             <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>
               <button
-                onClick={() => handleSearchSubmit({ preventDefault: () => {} } as React.FormEvent)}
+                onClick={() => handleSearchSubmit({ preventDefault: () => { } } as React.FormEvent)}
                 className={formFieldStyles.moneyDonationList.filters.button}
                 type="button"
                 disabled={loading && debouncedSearchTerm === searchTerm}
@@ -273,16 +273,15 @@ export default function MoneyDonationLogView({ recentOnly = false }: MoneyDonati
                   logs.map((log) => (
                     <tr key={log.id} className={formFieldStyles.moneyDonationList.table.tr}>
                       <td className={formFieldStyles.moneyDonationList.table.td}>
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          log.action === 'create' ? 'bg-green-100 text-green-800' :
-                          log.action === 'update' ? 'bg-blue-100 text-blue-800' :
-                          log.action === 'delete' ? 'bg-red-100 text-red-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${log.action === 'create' ? 'bg-green-100 text-green-800' :
+                            log.action === 'update' ? 'bg-blue-100 text-blue-800' :
+                              log.action === 'delete' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-800'
+                          }`}>
                           {log.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
-                           log.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
-                           log.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
-                           log.action}
+                            log.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
+                              log.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
+                                log.action}
                         </span>
                       </td>
                       <td className={formFieldStyles.moneyDonationList.table.tdNowrap}>
@@ -294,11 +293,11 @@ export default function MoneyDonationLogView({ recentOnly = false }: MoneyDonati
                           // Try to get receipt number from multiple sources
                           const receiptNo = log.register_no || log.receipt_number;
                           if (receiptNo) return receiptNo;
-                          
+
                           // Try to extract from details
                           try {
-                            const details = typeof log.details === 'string' 
-                              ? JSON.parse(log.details) 
+                            const details = typeof log.details === 'string'
+                              ? JSON.parse(log.details)
                               : log.details || {};
                             const registerNo = details.register_no || details.after?.register_no || details.before?.register_no;
                             return registerNo || '-';
@@ -308,7 +307,7 @@ export default function MoneyDonationLogView({ recentOnly = false }: MoneyDonati
                         })()}
                       </td>
                       <td className={formFieldStyles.moneyDonationList.table.td}>
-                        {log.details?.amount 
+                        {log.details?.amount
                           ? `₹${Number(log.details.amount).toLocaleString('en-IN')}`
                           : (log.amount ? `₹${Number(log.amount).toLocaleString('en-IN')}` : '-')}
                       </td>
@@ -327,8 +326,8 @@ export default function MoneyDonationLogView({ recentOnly = false }: MoneyDonati
                           {(() => {
                             try {
                               // Try to parse details if it's a string
-                              const details = typeof log.details === 'string' 
-                                ? JSON.parse(log.details) 
+                              const details = typeof log.details === 'string'
+                                ? JSON.parse(log.details)
                                 : log.details || {};
 
                               // If no valid details, return dash
@@ -386,8 +385,8 @@ export default function MoneyDonationLogView({ recentOnly = false }: MoneyDonati
                               // If parsing fails, show the raw value
                               return (
                                 <div className="text-xs text-gray-500">
-                                  {typeof log.details === 'object' 
-                                    ? JSON.stringify(log.details) 
+                                  {typeof log.details === 'object'
+                                    ? JSON.stringify(log.details)
                                     : String(log.details)}
                                 </div>
                               );

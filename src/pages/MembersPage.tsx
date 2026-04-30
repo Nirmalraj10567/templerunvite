@@ -144,7 +144,7 @@ export default function MembersPage() {
 
   const fetchMembers = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/members', {
+      const response = await fetch('https://templeapi.agniplay.com/api/members', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -168,10 +168,15 @@ export default function MembersPage() {
     }
   };
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleAddMember = async (e: React.FormEvent) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
     try {
-      const response = await fetch('http://localhost:4000/api/members', {
+      const response = await fetch('https://templeapi.agniplay.com/api/members', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -190,22 +195,43 @@ export default function MembersPage() {
         })
       });
 
-      if (!response.ok) throw new Error('Failed to add member');
+      const responseData = await response.json();
 
-      const data = await response.json();
+      if (!response.ok) {
+        let errorMessage = responseData.message || responseData.details || responseData.error || 'Failed to add member';
+        
+        // Handle duplicate errors
+        if (errorMessage.includes('users_email_unique') || errorMessage.includes('email already exists')) {
+          errorMessage = language === 'tamil' ? 'இந்த மின்னஞ்சல் ஏற்கனவே பயன்பாட்டில் உள்ளது' : 'This email is already in use';
+        } else if (errorMessage.includes('users_mobile_unique') || errorMessage.includes('mobile already exists')) {
+          errorMessage = language === 'tamil' ? 'இந்த மொபைல் எண் ஏற்கனவே பயன்பாட்டில் உள்ளது' : 'This mobile number is already in use';
+        } else if (errorMessage.includes('users_username_unique') || errorMessage.includes('username already exists')) {
+          errorMessage = language === 'tamil' ? 'இந்த பயனர் பெயர் ஏற்கனவே பயன்பாட்டில் உள்ளது' : 'Username already exists';
+        }
+
+        throw new Error(errorMessage);
+      }
+
       toast({
         title: t[language].memberCreated,
-        description: `${t[language].activityLogged} ` + (data.createdUserId ? (t[language].loginCreated) : '')
+        description: `${t[language].activityLogged} ` + (responseData.createdUserId ? (t[language].loginCreated) : '')
       });
+      
       // Map returned member
-      const created = data.member ? {
-        id: data.member.id,
-        fullName: data.member.name,
-        mobile: data.member.mobile_number,
-        email: data.member.email,
+      const created = responseData.member ? {
+        id: responseData.member.id,
+        fullName: responseData.member.name,
+        mobile: responseData.member.mobile_number,
+        email: responseData.member.email,
         role: 'member' as const
       } : undefined;
-      setMembers(created ? [...members, created] : members);
+      
+      if (created) {
+        setMembers(prev => [...prev, created]);
+      } else {
+        fetchMembers(); // Fallback to refresh
+      }
+
       setNewMember({
         id: 0,
         fullName: '',
@@ -218,8 +244,15 @@ export default function MembersPage() {
         role: 'member' as 'member' | 'admin' | 'superadmin'
       });
       setShowAddForm(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error adding member:', err);
+      toast({
+        title: t[language].error,
+        description: err.message || t[language].error,
+        variant: 'destructive'
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -242,7 +275,7 @@ export default function MembersPage() {
     if (!editingMember) return;
 
     try {
-      const response = await fetch(`http://localhost:4000/api/users/${editingMember.id}`, {
+      const response = await fetch(`https://templeapi.agniplay.com/api/users/${editingMember.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -275,7 +308,7 @@ export default function MembersPage() {
     if (!memberToDelete) return;
     
     try {
-      const response = await fetch(`http://localhost:4000/api/users/${memberToDelete}`, {
+      const response = await fetch(`https://templeapi.agniplay.com/api/users/${memberToDelete}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -339,7 +372,7 @@ export default function MembersPage() {
                 m.id === id ? {...m, isBlocked: true} : m
               ));
               
-              const response = await fetch(`http://localhost:4000/api/admin/members/${userId}/block`, {
+              const response = await fetch(`https://templeapi.agniplay.com/api/admin/members/${userId}/block`, {
                 method: 'PUT',
                 headers: {
                   'Content-Type': 'application/json',
@@ -374,7 +407,7 @@ export default function MembersPage() {
                 m.id === id ? {...m, isBlocked: false} : m
               ));
               
-              const response = await fetch(`http://localhost:4000/api/admin/members/${userId}/block`, {
+              const response = await fetch(`https://templeapi.agniplay.com/api/admin/members/${userId}/block`, {
                 method: 'PUT',
                 headers: {
                   'Content-Type': 'application/json',
@@ -423,6 +456,7 @@ export default function MembersPage() {
             user={user}
             handleUpdateMember={handleUpdateMember}
             isEditing={true}
+            isSubmitting={isSubmitting}
           />
         </Modal>
       )}
@@ -452,7 +486,7 @@ export default function MembersPage() {
                 onClick={async () => {
                   if (!resetPassword) return;
                   try {
-                    await fetch(`http://localhost:4000/api/admin/members/${resetMemberId}/reset-password`, {
+                    await fetch(`https://templeapi.agniplay.com/api/admin/members/${resetMemberId}/reset-password`, {
                       method: 'POST',
                       headers: {
                         'Content-Type': 'application/json',

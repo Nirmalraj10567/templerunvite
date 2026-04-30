@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Loader2, Eye, Edit, Trash2, Calendar, IndianRupee, ArrowDownCircle, ArrowUpCircle, Plus } from 'lucide-react';
+import { Search, Loader2, Eye, Edit, Trash2, Calendar, IndianRupee, ArrowDownCircle, ArrowUpCircle, Plus, FileDown } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -261,7 +263,7 @@ export default function ReceiptListView() {
       if (toDate) params.append('to', toDate);
       if (typeFilter !== 'all') params.append('type', typeFilter);
 
-      const res = await fetch(`http://localhost:4000/api/receipts?${params.toString()}`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/receipts?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       
@@ -328,7 +330,7 @@ export default function ReceiptListView() {
         if (apiType) params.append('type', apiType);
       }
 
-      const res = await fetch(`http://localhost:4000/api/receipts/export?${params.toString()}`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/receipts/export?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       
@@ -353,8 +355,85 @@ export default function ReceiptListView() {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handleExportPDF = () => {
+    try {
+      const title = t('title');
+      const headCells = [
+        t('receiptNumber'),
+        t('date'),
+        t('type'),
+        t('donor'),
+        t('receiver'),
+        t('amount'),
+      ];
+
+      const exportRows = data.map((r) => [
+        r.receipt_number || "",
+        formatDate(r.date),
+        r.type === 'income' ? t('income') : t('expense'),
+        r.donor || "",
+        r.receiver || "",
+        r.amount || "0",
+      ]);
+
+      const doc = new jsPDF('landscape');
+      
+      // Add Title and Styling
+      doc.setFontSize(20);
+      doc.setTextColor(40);
+      doc.text(title, 14, 22);
+      
+      // Add metadata info
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      const now = new Date();
+      const meta = `${t('showing')} ${data.length} | ${t('balance')}: ${totals.balance}`;
+      doc.text(meta, 14, 30);
+      
+      // Horizontal line
+      doc.setDrawColor(200, 200, 200);
+      doc.line(14, 33, 283, 33);
+
+      autoTable(doc, {
+        head: [headCells],
+        body: exportRows,
+        startY: 40,
+        styles: { 
+          fontSize: 9, 
+          cellPadding: 4,
+          valign: 'middle'
+        },
+        headStyles: { 
+          fillColor: [79, 70, 229], // Indigo 600
+          textColor: [255, 255, 255], 
+          fontStyle: 'bold',
+          fontSize: 10
+        },
+        alternateRowStyles: {
+          fillColor: [249, 250, 251] // Gray 50
+        },
+        margin: { top: 40 },
+        didDrawPage: (data) => {
+          // Footer: Page Number
+          const str = `Page ${(doc as any).getNumberOfPages()}`;
+          doc.setFontSize(8);
+          doc.setTextColor(150);
+          const pageSize = doc.internal.pageSize;
+          const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
+          doc.text(str, 14, pageHeight - 10);
+        }
+      });
+
+      const stamp = now.toISOString().slice(0, 19).replace(/[:T]/g, "-");
+      doc.save(`receipts-export-${stamp}.pdf`);
+    } catch (err) {
+      console.error("PDF export failed", err);
+      toast({
+        title: t('error'),
+        description: "Failed to export PDF",
+        variant: 'destructive',
+      });
+    }
   };
 
   const openReceiptLogs = async (id: number, receiptNo?: string) => {
@@ -363,7 +442,7 @@ export default function ReceiptListView() {
       setLogsOpen(true);
       setLogsLoading(true);
       setLogsTitle(`${t('viewReceipt')} ${receiptNo ? `#${receiptNo}` : ''}`);
-      const res = await fetch(`http://localhost:4000/api/receipts/${id}/logs`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/receipts/${id}/logs`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const result = await res.json();
@@ -385,7 +464,7 @@ export default function ReceiptListView() {
       setLogsOpen(true);
       setLogsLoading(true);
       setLogsTitle(t('viewReceipt'));
-      const res = await fetch(`http://localhost:4000/api/receipts/logs?page=${page}&pageSize=${logsPageSize}`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/receipts/logs?page=${page}&pageSize=${logsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const result = await res.json();
@@ -437,7 +516,7 @@ export default function ReceiptListView() {
       if (editedReceipt.donor != null) apiReceiptData.from_person = editedReceipt.donor;
       if (editedReceipt.receiver != null) apiReceiptData.to_person = editedReceipt.receiver;
 
-      const res = await fetch(`http://localhost:4000/api/receipts/${viewEditReceipt.id}`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/receipts/${viewEditReceipt.id}`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json', 
@@ -486,7 +565,7 @@ export default function ReceiptListView() {
     if (!deleteId) return;
     
     try {
-      const res = await fetch(`http://localhost:4000/api/receipts/${deleteId}`, { 
+      const res = await fetch(`https://templeapi.agniplay.com/api/receipts/${deleteId}`, { 
         method: 'DELETE', 
         headers: { Authorization: `Bearer ${token}` } 
       });
@@ -597,7 +676,8 @@ export default function ReceiptListView() {
               </div>
               
               <div className="flex gap-2 ml-auto">
-                <Button variant="outline" onClick={handlePrint}>
+                <Button variant="outline" onClick={handleExportPDF}>
+                  <FileDown className="h-3 w-3 mr-1" />
                   {t('print')}
                 </Button>
                 <Button onClick={handleExportCSV}>

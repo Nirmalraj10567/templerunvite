@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { sendNotification } = require('./config/firebase-notification');
 
 // Function to generate the next receipt number in format YYYY-XXXX
 async function generateReceiptNumber(db, templeId) {
@@ -141,7 +142,14 @@ module.exports = function(deps = {}) {
       const now = new Date();
 
       // Resolve a valid temple id
-      let templeId = Number(req.body?.temple_id) || null;
+      // First try to get from JWT token (if authenticated)
+      let templeId = req.user?.templeId || req.user?.temple_id || null;
+      
+      // Fallback to body or default
+      if (!templeId) {
+        templeId = Number(req.body?.temple_id) || null;
+      }
+      
       try {
         if (templeId) {
           const t = await db('temples').where({ id: templeId }).first();

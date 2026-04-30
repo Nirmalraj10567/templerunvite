@@ -24,11 +24,11 @@ export default function MasterAdminPage() {
 
   useEffect(() => {
     if (!isSuperAdmin) return;
-    fetch('http://localhost:4000/api/superadmin/tenants', { headers: { Authorization: `Bearer ${token}` }})
+    fetch('https://templeapi.agniplay.com/api/superadmin/tenants', { headers: { Authorization: `Bearer ${token}` }})
       .then(r => r.json())
       .then(d => setTenants(d?.data || []))
       .catch(() => {});
-    fetch('http://localhost:4000/api/system/year-end-status', { headers: { Authorization: `Bearer ${token}` }})
+    fetch('https://templeapi.agniplay.com/api/system/year-end-status', { headers: { Authorization: `Bearer ${token}` }})
       .then(r => r.json())
       .then(d => setYearEnd(d?.data || { enforced: false, locked: false }))
       .catch(() => setYearEnd({ enforced: false, locked: false }));
@@ -37,7 +37,7 @@ export default function MasterAdminPage() {
   const loadStats = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:4000/api/superadmin/tenants/stats', { headers: { Authorization: `Bearer ${token}` }});
+      const res = await fetch('https://templeapi.agniplay.com/api/superadmin/tenants/stats', { headers: { Authorization: `Bearer ${token}` }});
       const data = await res.json();
       setStats(data?.data || []);
     } catch (e) {
@@ -48,18 +48,18 @@ export default function MasterAdminPage() {
   };
 
   const setYearEndStatus = async (patch: Partial<{ enforced: boolean; locked: boolean }>) => {
-    await fetch('http://localhost:4000/api/system/year-end-status', {
+    await fetch('https://templeapi.agniplay.com/api/system/year-end-status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(patch),
     });
-    const r = await fetch('http://localhost:4000/api/system/year-end-status', { headers: { Authorization: `Bearer ${token}` }});
+    const r = await fetch('https://templeapi.agniplay.com/api/system/year-end-status', { headers: { Authorization: `Bearer ${token}` }});
     const d = await r.json();
     setYearEnd(d?.data || { enforced: false, locked: false });
   };
 
   const refreshTenants = async () => {
-    const r = await fetch('http://localhost:4000/api/superadmin/tenants', { headers: { Authorization: `Bearer ${token}` }});
+    const r = await fetch('https://templeapi.agniplay.com/api/superadmin/tenants', { headers: { Authorization: `Bearer ${token}` }});
     const d = await r.json();
     setTenants(d?.data || []);
   };
@@ -69,7 +69,7 @@ export default function MasterAdminPage() {
     if (!form.name || !form.db_path) return;
     setSaving(true);
     try {
-      await fetch('http://localhost:4000/api/superadmin/tenants', {
+      await fetch('https://templeapi.agniplay.com/api/superadmin/tenants', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -91,12 +91,12 @@ export default function MasterAdminPage() {
 
   const onDelete = async (t: Tenant) => {
     if (!confirm(`Delete tenant "${t.name}"?`)) return;
-    await fetch(`http://localhost:4000/api/superadmin/tenants/${t.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` }});
+    await fetch(`https://templeapi.agniplay.com/api/superadmin/tenants/${t.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` }});
     await refreshTenants();
   };
 
   const checkHealth = async (t: Tenant) => {
-    const r = await fetch(`http://localhost:4000/api/superadmin/tenants/${t.id}/health`, { headers: { Authorization: `Bearer ${token}` }});
+    const r = await fetch(`https://templeapi.agniplay.com/api/superadmin/tenants/${t.id}/health`, { headers: { Authorization: `Bearer ${token}` }});
     const d = await r.json();
     setHealth(d?.data || null);
   };

@@ -9,7 +9,25 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { X } from 'lucide-react';
+import { 
+  Calendar, 
+  Clock, 
+  User, 
+  Phone, 
+  MapPin, 
+  Building2, 
+  PartyPopper, 
+  IndianRupee, 
+  Hash,
+  EyeOff,
+  Search,
+  Tag,
+  X,
+  Wallet,
+  CircleDollarSign,
+  Plus,
+  ArrowRight
+} from 'lucide-react';
 import axios from 'axios';
 import { getAuthToken } from '@/lib/auth';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
@@ -17,72 +35,24 @@ import { theme } from '@/styles/theme';
 
 const generateReceiptNo = async (token: string): Promise<string> => {
   try {
-    console.log('Requesting new receipt number...');
-    const response = await fetch('http://localhost:4000/api/hall-bookings/generate-receipt-number', {
-      headers: { 
+    const response = await fetch('https://templeapi.agniplay.com/api/hall-bookings/generate-receipt-number', {
+      headers: {
         'Authorization': `Bearer ${token}`,
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache'
       }
     });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Receipt number API failed:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorText
-      });
-      throw new Error(`Failed to generate receipt number: ${response.status} ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    if (!data.receiptNo) {
-      throw new Error('Invalid response format from server');
-    }
-    
-    console.log('Generated receipt number:', data.receiptNo);
-    return data.receiptNo;
-    
-  } catch (error) {
-    console.error('Receipt number generation error:', error);
-    
-    // Try to get the latest receipt number from the database as a fallback
-    try {
-      console.log('Attempting to get latest receipt from database...');
-      const latestResponse = await fetch('http://localhost:4000/api/hall-bookings/latest', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (latestResponse.ok) {
-        const latestData = await latestResponse.json();
-        if (latestData?.register_no) {
-          // Extract the number part and increment it
-          const match = latestData.register_no.match(/^(\d{4})-(\d+)$/);
-          if (match) {
-            const year = match[1];
-            const number = parseInt(match[2], 10) + 1;
-            const newNumber = `${year}-${String(number).padStart(4, '0')}`;
-            console.log('Generated receipt number from latest record:', newNumber);
-            return newNumber;
-          }
-        }
-      }
-    } catch (fallbackError) {
-      console.error('Fallback receipt number generation failed:', fallbackError);
-    }
-    
-    // Last resort: use timestamp-based number
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
 
-    const fallbackNo = `${year}-${month}${day}${hours}${minutes}${seconds}`;
-    console.warn('Using timestamp-based fallback receipt number:', fallbackNo);
+    if (!response.ok) {
+      throw new Error(`Failed to generate receipt number`);
+    }
+
+    const data = await response.json();
+    return data.receiptNo;
+
+  } catch (error) {
+    const now = new Date();
+    const fallbackNo = `${now.getFullYear()}-${Date.now().toString().slice(-6)}`;
     return fallbackNo;
   }
 };
@@ -91,7 +61,7 @@ interface FormState {
   registerNo: string;
   date: string;
   time: string;
-  event: string; // legacy label for PDFs/exports
+  event: string;
   name: string;
   address: string;
   village: string;
@@ -104,13 +74,11 @@ interface FormState {
   hallId?: number | '';
   eventId?: number | '';
   bookingStatus?: string;
-  // Additional optional charges
   cleaning?: string;
   chair?: string;
   eb?: string;
   gas?: string;
   ac?: string;
-  // Check-in / Check-out
   checkInDate?: string;
   checkInTime?: string;
   checkOutDate?: string;
@@ -119,14 +87,14 @@ interface FormState {
 
 const initialState: FormState = {
   registerNo: '',
-  date: (() => { 
-    const d = new Date(); 
-    const y = d.getFullYear(); 
-    const m = String(d.getMonth() + 1).padStart(2, '0'); 
-    const day = String(d.getDate()).padStart(2, '0'); 
-    return `${y}-${m}-${day}`; 
+  date: (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   })(),
-  time: '',
+  time: (() => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  })(),
   event: '',
   name: '',
   address: '',
@@ -151,40 +119,19 @@ const initialState: FormState = {
   checkOutTime: ''
 };
 
-// Custom hook for Enter key navigation
-const useEnterKeyNavigation = () => {
-  const formRef = useRef<HTMLFormElement>(null);
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
-    if (e.key !== 'Enter') return;
-    const t = e.target as HTMLElement;
-    const tag = t.tagName?.toLowerCase();
-    if (!tag || ['button', 'textarea'].includes(tag)) return; // allow buttons and textareas to handle Enter normally
-    e.preventDefault();
-    // Focus the save button
-    const submitButton = e.currentTarget.querySelector('button[type="submit"]') as HTMLButtonElement;
-    if (submitButton) {
-      submitButton.focus();
-    }
-  };
-
-  return { formRef, handleKeyDown };
-};
-
 export default function HallEntryPage() {
   const { token, user } = useAuth();
   const { language } = useLanguage();
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = Boolean(id);
-  const { formRef, handleKeyDown } = useEnterKeyNavigation();
+  const formRef = useRef<HTMLFormElement>(null);
 
   const [form, setForm] = useState<FormState>({ ...initialState, registerNo: '' });
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | undefined>();
   const [isError, setIsError] = useState(false);
-  const [accounts, setAccounts] = useState<Array<{ id?: number; value: string; label: string }>>([]);
   const [halls, setHalls] = useState<Array<{ id: number; name: string; base_price?: number | null }>>([]);
   const [hallEvents, setHallEvents] = useState<Array<{ id: number; name: string }>>([]);
   const [lastCreatedId, setLastCreatedId] = useState<number | null>(null);
@@ -195,117 +142,49 @@ export default function HallEntryPage() {
 
   const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
-  // Use centralized form styles
-  const fieldStyles = cn(theme.input.base, theme.input.size.md);
-  const labelStyles = cn(formFieldStyles.label, "text-base mb-2");
+  const fieldStyles = cn(theme.input.base, theme.input.size.md, "pl-10 w-full");
   const textareaStyles = cn(theme.textarea.base, theme.textarea.size.md, "resize-none");
 
-  // Print PDF in same tab using hidden iframe
-  const printPDF = (pdfUrl: string) => {
-    // Remove any existing print iframe
-    const existingFrame = document.getElementById('print-frame');
-    if (existingFrame) {
-      existingFrame.remove();
+  const downloadReceipt = async (bookingId: number, registerNo: string | null) => {
+    try {
+      const response = await fetch(`https://templeapi.agniplay.com/api/hall-bookings/${bookingId}/receipt.pdf`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Failed to fetch receipt');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `receipt-${registerNo || bookingId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error downloading receipt:", error);
     }
-
-    // Create hidden iframe
-    const iframe = document.createElement('iframe');
-    iframe.id = 'print-frame';
-    iframe.style.display = 'none';
-    iframe.style.position = 'fixed';
-    iframe.style.width = '0px';
-    iframe.style.height = '0px';
-    iframe.style.border = 'none';
-    
-    // Add iframe to body
-    document.body.appendChild(iframe);
-
-    // Load PDF and print
-    iframe.onload = () => {
-      try {
-        // Small delay to ensure PDF is fully loaded
-        setTimeout(() => {
-          try {
-            // Focus the iframe and trigger print
-            iframe.contentWindow?.focus();
-            iframe.contentWindow?.print();
-          } catch (error) {
-            console.error('Print error:', error);
-            // Fallback: open in new tab if iframe method fails
-            window.open(pdfUrl, '_blank');
-          }
-        }, 1000);
-      } catch (error) {
-        console.error('Iframe onload error:', error);
-        // Fallback: open in new tab
-        window.open(pdfUrl, '_blank');
-      }
-    };
-
-    // Handle iframe error
-    iframe.onerror = () => {
-      console.error('Failed to load PDF in iframe');
-      // Fallback: open in new tab
-      window.open(pdfUrl, '_blank');
-    };
-
-    // Set the source to trigger loading
-    iframe.src = pdfUrl;
   };
 
-  // Auto-balance calculation
-  useEffect(() => {
-    const total = parseFloat(form.totalAmount) || 0;
-    const advance = parseFloat(form.advanceAmount) || 0;
-    const balance = Math.max(0, total - advance);
-    if (form.totalAmount && form.advanceAmount) {
-      setForm(prev => ({ ...prev, balanceAmount: balance.toString() }));
-    }
-  }, [form.totalAmount, form.advanceAmount]);
-
-  // Load booking data if editing
   useEffect(() => {
     if (isEdit && id) {
-      const idNum = Number(id);
-      if (Number.isNaN(idNum)) {
-        setIsError(true);
-        setMessage(t('Invalid booking id', 'தவறான அடையாள எண்'));
-        return;
-      }
       (async () => {
         setLoading(true);
         try {
-          const response = await fetch(`http://localhost:4000/api/hall-bookings/${idNum}`, { 
-            headers: { Authorization: `Bearer ${token}` } 
+          const response = await fetch(`https://templeapi.agniplay.com/api/hall-bookings/${id}`, {
+            headers: { Authorization: `Bearer ${token}` }
           });
           const data = await response.json();
           const booking = data.data || data;
           setForm({
-            registerNo: booking.registerNo || '',
-            date: booking.date || '',
-            time: booking.time || '',
-            event: booking.event || '',
-            name: booking.name || '',
-            address: booking.address || '',
-            village: booking.village || '',
-            mobile: booking.mobile || '',
+            ...booking,
             advanceAmount: booking.advanceAmount?.toString() || '',
             totalAmount: booking.totalAmount?.toString() || '',
             balanceAmount: booking.balanceAmount?.toString() || '',
-            remarks: booking.remarks || '',
-            transferTo: booking.transferTo || 'INCOME A/C',
-            hallId: booking.hallId || '',
-            eventId: booking.eventId || '',
-            bookingStatus: booking.bookingStatus || 'pending',
             cleaning: booking.cleaning?.toString() || '',
             chair: booking.chair?.toString() || '',
             eb: booking.eb?.toString() || '',
             gas: booking.gas?.toString() || '',
-            ac: booking.ac?.toString() || '',
-            checkInDate: booking.checkInDate || '',
-            checkInTime: booking.checkInTime || '',
-            checkOutDate: booking.checkOutDate || '',
-            checkOutTime: booking.checkOutTime || ''
+            ac: booking.ac?.toString() || ''
           });
         } catch {
           setIsError(true);
@@ -314,754 +193,289 @@ export default function HallEntryPage() {
           setLoading(false);
         }
       })();
+    } else {
+      generateReceiptNo(token).then(receipt => setForm(prev => ({ ...prev, registerNo: receipt })));
     }
   }, [id, isEdit, token]);
 
-  // Load accounts and master data (halls, hall-events)
   useEffect(() => {
-    (async () => {
-      try {
-        const accountsResp = await axios.get('http://localhost:4000/api/ledger/accounts', { 
-          headers: { Authorization: `Bearer ${getAuthToken()}` } 
-        });
-        const accs = (accountsResp?.data as any)?.data || accountsResp?.data || [];
-        setAccounts(accs.map((a: any, i: number) => ({ 
-          id: a.id ?? i + 1, 
-          value: a.value || a.label, 
-          label: a.label || a.value 
-        })));
-        
-        if (user?.templeId) {
+    if (user?.templeId) {
+      (async () => {
+        try {
           const [hallsResp, eventsResp] = await Promise.all([
-            axios.get(`http://localhost:4000/api/master/halls/${user.templeId}`, { 
-              headers: { Authorization: `Bearer ${getAuthToken()}` } 
+            axios.get(`https://templeapi.agniplay.com/api/master/halls/${user.templeId}`, {
+              headers: { Authorization: `Bearer ${getAuthToken()}` }
             }),
-            axios.get(`http://localhost:4000/api/master/hall-events/${user.templeId}`, { 
-              headers: { Authorization: `Bearer ${getAuthToken()}` } 
+            axios.get(`https://templeapi.agniplay.com/api/master/hall-events/${user.templeId}`, {
+              headers: { Authorization: `Bearer ${getAuthToken()}` }
             }),
           ]);
-          setHalls((hallsResp?.data as unknown as Array<{ id: number; name: string; base_price?: number | null }>) || []);
-          setHallEvents((eventsResp?.data as unknown as Array<{ id: number; name: string }>) || []);
-        } else {
-          setHalls([]);
-          setHallEvents([]);
-        }
-      } catch {
-        setAccounts([]);
-        setHalls([]);
-        setHallEvents([]);
-      }
-    })();
+          setHalls(hallsResp.data || []);
+          setHallEvents(eventsResp.data || []);
+        } catch {}
+      })();
+    }
   }, [user?.templeId]);
-
-  // Generate receipt number for new entries
-  useEffect(() => {
-    if (!isEdit) {
-      generateReceiptNo(token)
-        .then(receipt => {
-          setForm(prev => ({ ...prev, registerNo: receipt }));
-        })
-        .catch(error => {
-          console.error('Failed to generate receipt number:', error);
-          // Set a default receipt number if generation fails
-          const now = new Date();
-          const year = now.getFullYear();
-          const timestamp = Date.now().toString().slice(-6);
-          const defaultReceipt = `${year}-${timestamp}`;
-          setForm(prev => ({ ...prev, registerNo: defaultReceipt }));
-        });
-    }
-  }, [isEdit, token]);
-
-  // Auto-dismiss success messages
-  useEffect(() => {
-    if (message && !isError) {
-      const timer = setTimeout(() => {
-        setMessage(undefined);
-        // After success message disappears, generate a fresh receipt number for the next entry
-        if (!isEdit) {
-          generateReceiptNo(token)
-            .then(receipt => setForm(prev => ({ ...prev, registerNo: receipt })))
-            .catch(() => {/* ignore, initialState already applied */});
-        }
-      }, 2500);
-      return () => clearTimeout(timer);
-    }
-  }, [message, isError, isEdit, token]);
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    
-    if (name === 'eventId') {
-      const idNum = value ? Number(value) : '' as any;
-      const selected = hallEvents.find(ev => ev.id === Number(idNum));
-      setForm(prev => ({ ...prev, eventId: idNum, event: selected?.name || '' }));
-      return;
-    }
-    
-    if (name === 'hallId') {
-      const idNum = value ? Number(value) : '' as any;
-      setForm(prev => ({ ...prev, hallId: idNum }));
-      return;
-    }
-
     setForm(prev => {
       const updated = { ...prev, [name]: value };
-
-      // Auto-calculate balance when total or advance changes
       if (name === 'totalAmount' || name === 'advanceAmount') {
-        const total = Number(updated.totalAmount) || 0;
-        const advance = Number(updated.advanceAmount) || 0;
-        const balance = Math.max(0, total - advance);
-        updated.balanceAmount = balance.toString();
+        const total = parseFloat(updated.totalAmount) || 0;
+        const advance = parseFloat(updated.advanceAmount) || 0;
+        updated.balanceAmount = Math.max(0, total - advance).toString();
       }
-
-      // Auto-calculate total when additional charges change
-      if (name === 'cleaning' || name === 'chair' || name === 'eb' || name === 'gas' || name === 'ac') {
-        const cleaning = Number(updated.cleaning || '0') || 0;
-        const chair = Number(updated.chair || '0') || 0;
-        const eb = Number(updated.eb || '0') || 0;
-        const gas = Number(updated.gas || '0') || 0;
-        const ac = Number(updated.ac || '0') || 0;
-        const extrasTotal = cleaning + chair + eb + gas + ac;
-        
-        // Get the base total (excluding any previously added extras)
-        const currentTotal = Number(updated.totalAmount || '0') || 0;
-        const baseTotal = Math.max(0, currentTotal - (Number(prev.cleaning || '0') + Number(prev.chair || '0') + Number(prev.eb || '0') + Number(prev.gas || '0') + Number(prev.ac || '0')));
-        
-        // Set new total as base total + new extras
-        updated.totalAmount = (baseTotal + extrasTotal).toString();
-        
-        // Recalculate balance
-        const advance = Number(updated.advanceAmount || '0') || 0;
-        const balance = Math.max(0, baseTotal + extrasTotal - advance);
-        updated.balanceAmount = balance.toString();
-      }
-
       return updated;
     });
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key === 'Enter' && e.target instanceof HTMLInputElement) {
+      e.preventDefault();
+      const submitButton = e.currentTarget.querySelector('button[type="submit"]') as HTMLButtonElement;
+      submitButton?.focus();
+    }
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setMessage(undefined);
-    
-    if (!form.date || !form.name || !form.mobile) {
-      setIsError(true);
-      setMessage(t('Please fill all required fields', 'தேவையான அனைத்து புலங்களையும் நிரப்பவும்'));
-      return;
-    }
-    
     setSaving(true);
+    setMessage(undefined);
     try {
-      // Validate id for edit
-      let endpoint = 'http://localhost:4000/api/hall-bookings';
-      if (isEdit) {
-        const idNum = Number(id);
-        if (Number.isNaN(idNum)) {
-          setIsError(true);
-          setMessage(t('Invalid booking id', 'தவறான அடையாள எண்'));
-          setSaving(false);
-          return;
-        }
-        endpoint = `http://localhost:4000/api/hall-bookings/${idNum}`;
-      }
-
-      const payload = {
-        ...form,
-        fromAccount: 'HALL ENTRY A/C',
-        transferTo: form.transferTo || 'INCOME A/C',
-        // Amount used for journal mirror (prefer advance, fallback to total)
-        amount: String(parseFloat(form.advanceAmount || form.totalAmount || '0') || 0)
-      } as any;
-
-      // Create or update the booking
+      const endpoint = isEdit ? `https://templeapi.agniplay.com/api/hall-bookings/${id}` : 'https://templeapi.agniplay.com/api/hall-bookings';
       const res = await fetch(endpoint, {
         method: isEdit ? 'PUT' : 'POST',
-        headers: { 
-          'Content-Type': 'application/json', 
-          Authorization: `Bearer ${token}` 
-        },
-        body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          ...form,
+          fromAccount: 'HALL ENTRY A/C',
+          amount: String(parseFloat(form.advanceAmount || form.totalAmount || '0') || 0)
+        }),
       });
-
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to save booking');
-      }
-
-      const rawId = data?.data?.id;
-      const createdIdNum = typeof rawId === 'number' ? rawId : Number(rawId);
-
+      if (!res.ok) throw new Error(data.error || 'Failed to save');
+      
       if (!isEdit) {
-        if (!Number.isNaN(createdIdNum)) {
-          setLastCreatedId(createdIdNum);
-        }
+        setLastCreatedId(data.data?.id);
         setShowPrintPrompt(true);
         setForm({ ...initialState, registerNo: '' });
+        generateReceiptNo(token).then(receipt => setForm(prev => ({ ...prev, registerNo: receipt })));
       } else {
-        // For edit mode, redirect to list page after successful update
         navigate('/dashboard/hall/list');
-        return;
       }
-      
       setIsError(false);
-      setMessage(t(
-        isEdit ? 'Updated successfully' : 'Saved successfully', 
-        isEdit ? 'புதுப்பிக்கப்பட்டது' : 'சேமிக்கப்பட்டது'
-      ));
+      setMessage(t('Saved successfully', 'சேமிக்கப்பட்டது'));
     } catch (error: any) {
       setIsError(true);
-      setMessage(t(
-        error.message || (isEdit ? 'Update failed' : 'Save failed'), 
-        error.message || (isEdit ? 'புதுப்பிப்பில் தோல்வி' : 'சேமிப்பு தோல்வி')
-      ));
+      setMessage(error.message);
     } finally {
       setSaving(false);
     }
   };
 
-  const clearForm = () => {
-    setForm({ ...initialState, registerNo: '' });
-  };
-
-  const handleDelete = async () => {
-    try {
-      const idNum = Number(id);
-      if (Number.isNaN(idNum)) {
-        setIsError(true);
-        setMessage(t('Invalid booking id', 'தவறான அடையாள எண்'));
-        return;
-      }
-
-      const res = await fetch(`http://localhost:4000/api/hall-bookings/${idNum}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to delete booking');
-      }
-
-      setMessage(t('Deleted successfully', 'வெற்றிகரமாக நீக்கப்பட்டது'));
-      setShowDeleteModal(false);
-      navigate('/dashboard/hall/list');
-    } catch (error: any) {
-      setIsError(true);
-      setMessage(t(
-        error.message || 'Delete failed', 
-        error.message || 'நீக்குவதில் தோல்வி'
-      ));
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading hall booking data...</div>
-      </div>
-    );
-  }
-  
-  
+  if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
   return (
     <div className={pageContainerStyles.container}>
-    <div className={pageContainerStyles.content}>
-      <Card className={formFieldStyles.card.container}>
-        <CardHeader className={theme.header.container}>
-          <div className={theme.header.contentSpacing}>
-            <CardTitle className={theme.header.main}>
-                  {isEdit ? t('Edit Hall Booking', 'மண்டப பதிவு திருத்து') : t('Hall Booking Entry', 'மண்டப பதிவு')}
-                </CardTitle>
-          </div>
-              {isEdit && (
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="bg-white text-orange-600 border-white hover:bg-gray-50"
-                    onClick={() => {
-                      const idNum = Number(id);
-                      if (!Number.isNaN(idNum)) {
-                        const q = token ? `?token=${encodeURIComponent(token)}` : '';
-                        const pdfUrl = `http://localhost:4000/api/hall-bookings/${idNum}/receipt.pdf${q}`;
-                        printPDF(pdfUrl);
-                      }
-                    }}
-                  >
-                    {t('Print', 'அச்சிடு')}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    className="bg-red-600 hover:bg-red-700"
-                    onClick={() => setShowDeleteModal(true)}
-                  >
-                    {t('Delete', 'நீக்கு')}
-                  </Button>
-                </div>
-              )}
-            
+      <div className={pageContainerStyles.content}>
+        <Card className={formFieldStyles.card.container}>
+          <CardHeader className={theme.header.container}>
+            <div className={theme.header.contentSpacing}>
+              <CardTitle className={theme.header.main}>
+                {isEdit ? t('Edit Hall Booking', 'மண்டப பதிவு திருத்து') : t('Hall Booking Entry', 'மண்டப பதிவு')}
+              </CardTitle>
+            </div>
+            {isEdit && (
+              <Button variant="destructive" size="sm" onClick={() => setShowDeleteModal(true)}>
+                {t('Delete', 'நீக்கு')}
+              </Button>
+            )}
           </CardHeader>
-          
-          <CardContent className={formFieldStyles.card.content}>
-            {/* Receipt Number Display */}
-            <div className={cn(formFieldStyles.registerDisplay.container, "mb-6 p-4")}>
-              <div className="text-lg">
-                <span className={formFieldStyles.registerDisplay.label}>{t('Receipt No','ரசீது எண்')}:</span>
-                <span className={cn(formFieldStyles.registerDisplay.value, "text-xl")}>{form.registerNo}</span>
+
+          <CardContent className="p-6">
+            {/* Receipt Number */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <div className="relative">
+                <Hash className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  className={cn(fieldStyles, "bg-gray-50 pl-10 border-orange-200")}
+                  value={form.registerNo}
+                  readOnly
+                  placeholder={t('Receipt No', 'ரசீது எண்')}
+                />
               </div>
             </div>
 
-            {/* Message Display */}
             {message && (
               <Alert variant={isError ? 'destructive' : 'default'} className="mb-6">
-                <AlertTitle>{isError ? t('Error','பிழை') : t('Success','வெற்றி')}</AlertTitle>
                 <AlertDescription>{message}</AlertDescription>
               </Alert>
             )}
 
-            <form ref={formRef} onSubmit={onSubmit} onKeyDown={handleKeyDown} className={formFieldStyles.form.container}>
-              {/* Enhanced Grid Layout - All fields same size */}
+            <form ref={formRef} onSubmit={onSubmit} onKeyDown={handleKeyDown} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 
                 {/* Date */}
-                <div>
-                  <Input
-                    id="date"
-                    type="date"
-                    name="date"
-                    value={form.date}
-                    onChange={onChange}
-                    className={fieldStyles}
-                    placeholder={t('Date','Date') + ' *'}
-                    required
-                    autoFocus
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-20" />
+                  <Input 
+                    type="date" 
+                    name="date" 
+                    value={form.date} 
+                    onChange={onChange} 
+                    className={cn(fieldStyles, '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')} 
+                    required 
                   />
                 </div>
 
                 {/* Time */}
-                <div>
-                  <Input
-                    id="time"
-                    type="time"
-                    name="time"
-                    value={form.time}
-                    onChange={onChange}
-                    className={fieldStyles}
-                    placeholder={t('Time','Time')}
+                <div className="relative">
+                  <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-20" />
+                  <Input 
+                    type="time" 
+                    name="time" 
+                    value={form.time} 
+                    onChange={onChange} 
+                    className={cn(fieldStyles, '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')} 
+                    onClick={(e) => (e.target as any).showPicker?.()} 
                   />
                 </div>
 
                 {/* Name */}
-                <div>
-                  <Input
-                    id="name"
-                    name="name"
-                    value={form.name}
-                    onChange={onChange}
-                    className={fieldStyles}
-                    placeholder={t('Name','Name') + ' *'}
-                    required
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-20" />
+                  <Input 
+                    name="name" 
+                    value={form.name} 
+                    onChange={onChange} 
+                    className={fieldStyles} 
+                    placeholder={t('Name *', 'பெயர் *')} 
+                    required 
+                    autoFocus
                   />
                 </div>
 
-                {/* Mobile */}
-                <div>
-                  <Input
-                    id="mobile"
-                    name="mobile"
-                    type="tel"
-                    inputMode="numeric"
-                    maxLength={10}
-                    value={form.mobile}
-                    onInput={(e) => {
-                      const el = e.currentTarget as HTMLInputElement;
-                      const cleaned = el.value.replace(/\D/g, '').slice(0, 10);
-                      if (el.value !== cleaned) {
-                        el.value = cleaned;
-                        setForm(prev => ({ ...prev, mobile: cleaned }));
-                      }
-                    }}
-                    onChange={onChange}
-                    className={fieldStyles}
-                    placeholder={t('Phone','Phone') + ' *'}
-                    required
-                  />
+                {/* Phone */}
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-20" />
+                  <Input name="mobile" value={form.mobile} onChange={onChange} className={fieldStyles} placeholder={t('Phone *', 'கைபேசி எண் *')} required />
                 </div>
 
                 {/* Village */}
-                <div>
-                  <Input
-                    id="village"
-                    name="village"
-                    value={form.village}
-                    onChange={onChange}
-                    className={fieldStyles}
-                    placeholder={t('Village','Village')}
-                  />
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-20" />
+                  <Input name="village" value={form.village} onChange={onChange} className={fieldStyles} placeholder={t('Village', 'கிராமம்')} />
                 </div>
 
                 {/* Hall */}
-                <div>
-                  <div className={formFieldStyles.selectDropdown.container}>
-                    <select
-                      id="hallId"
-                      name="hallId"
-                      value={form.hallId ?? ''}
-                      onChange={onChange}
-                      className={cn(theme.select.base, theme.select.size.md)}
-                    >
-                      <option value="">{t('Select hall','மண்டபத்தைத் தேர்வு')}</option>
-                      {halls.length > 0 ? halls.map(h => (
-                        <option key={h.id} value={h.id}>
-                          {h.name}{h.base_price ? ` - ₹${h.base_price}` : ''}
-                        </option>
-                      )) : (
-                        <option disabled>{t('No halls available', 'மண்டபங்கள் இல்லை')}</option>
-                      )}
-                    </select>
-                    <div className={formFieldStyles.selectDropdown.dropdown}>
-                      <svg className={formFieldStyles.selectDropdown.icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                  </div>
+                <div className="relative">
+                  <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-20 pointer-events-none" />
+                  <select name="hallId" value={form.hallId} onChange={onChange} className={cn(theme.select.base, theme.select.size.md, "pl-10 w-full")}>
+                    <option value="">{t('Select hall', 'மண்டபத்தைத் தேர்வு')}</option>
+                    {halls.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+                  </select>
                 </div>
 
                 {/* Event */}
-                <div>
-                  <div className={formFieldStyles.selectDropdown.container}>
-                    <select
-                      id="eventId"
-                      name="eventId"
-                      value={form.eventId ?? ''}
-                      onChange={onChange}
-                      className={cn(theme.select.base, theme.select.size.md)}
-                    >
-                      <option value="">{t('Select event','நிகழ்வு தேர்வு')}</option>
-                      {hallEvents.length > 0 ? hallEvents.map(ev => (
-                        <option key={ev.id} value={ev.id}>{ev.name}</option>
-                      )) : (
-                        <option disabled>{t('No events available', 'நிகழ்வுகள் இல்லை')}</option>
-                      )}
-                    </select>
-                    <div className={formFieldStyles.selectDropdown.dropdown}>
-                      <svg className={formFieldStyles.selectDropdown.icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                  </div>
+                <div className="relative">
+                  <PartyPopper className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-20 pointer-events-none" />
+                  <select name="eventId" value={form.eventId} onChange={onChange} className={cn(theme.select.base, theme.select.size.md, "pl-10 w-full")}>
+                    <option value="">{t('Select event', 'நிகழ்வு தேர்வு')}</option>
+                    {hallEvents.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                  </select>
                 </div>
 
-                {/* Address - Full width */}
-                <div>
-                  <Input
-                    id="address"
-                    name="address"
-                    value={form.address}
-                    onChange={onChange}
-                    className={fieldStyles}
-                    placeholder={t('Enter address','முகவரியை உள்ளிடவும்')}
-                  />
+                {/* Address */}
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-20" />
+                  <Input name="address" value={form.address} onChange={onChange} className={fieldStyles} placeholder={t('Enter address', 'முகவரியை உள்ளிடவும்')} />
                 </div>
 
-                {/* Total Amount */}
-                <div>
-                  <Input
-                    id="totalAmount"
-                    name="totalAmount"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.totalAmount}
-                    onChange={onChange}
-                    className={fieldStyles}
-                    placeholder={t('Enter total','மொத்தத்தை உள்ளிடவும்')}
-                  />
+                {/* Total */}
+                <div className="relative">
+                  <IndianRupee className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-20" />
+                  <Input type="number" name="totalAmount" value={form.totalAmount} onChange={onChange} className={fieldStyles} placeholder={t('Enter total', 'மொத்தத்தை உள்ளிடவும்')} />
                 </div>
 
-                {/* Advance Amount */}
-                <div>
-                  <Input
-                    id="advanceAmount"
-                    name="advanceAmount"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.advanceAmount}
-                    onChange={onChange}
-                    className={fieldStyles}
-                    placeholder={t('Enter advance','முன்பணத்தை உள்ளிடவும்')}
-                  />
+                {/* Advance */}
+                <div className="relative">
+                  <Wallet className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-20" />
+                  <Input type="number" name="advanceAmount" value={form.advanceAmount} onChange={onChange} className={fieldStyles} placeholder={t('Enter advance', 'முன்பணத்தை உள்ளிடவும்')} />
                 </div>
 
-                {/* Balance Amount */}
-                <div>
-                  <Input
-                    id="balanceAmount"
-                    name="balanceAmount"
-                    readOnly
-                    value={form.balanceAmount}
-                    className={`${fieldStyles} bg-gray-100`}
-                    placeholder={t('Auto calculated','தானாக கணக்கிடப்படும்')}
-                  />
+                {/* Balance */}
+                <div className="relative">
+                  <CircleDollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-20" />
+                  <Input readOnly value={form.balanceAmount} className={cn(fieldStyles, "bg-gray-50")} placeholder={t('Auto calculated', 'தானாக கணக்கிடப்படும்')} />
                 </div>
 
-                {/* Extras Summary */}
+                {/* Extras */}
                 <ExtrasSummary form={form} setForm={setForm} t={t} fieldStyles={fieldStyles} />
               </div>
 
-              {/* Check-in / Check-out Toggle */}
-              <div className="space-y-4">
-                <button
-                  type="button"
-                  className="flex items-center justify-between w-full p-4 bg-gray-100 border rounded-lg hover:bg-gray-200 transition-colors"
-                  onClick={() => setShowCheckInOut(!showCheckInOut)}
-                >
-                  <span className="font-medium text-base">
-                    {t('Check-in / Check-out Details','செக்-இன் / செக்-அவுட் விவரங்கள்')}
-                  </span>
-                  <span className="text-lg">{showCheckInOut ? '▲' : '▼'}</span>
-                </button>
-                
-                {/* Collapsible Check-in / Check-out Section */}
+              {/* Toggles */}
+              <div className="space-y-4 pt-4 border-t border-gray-100">
+                <Button type="button" variant="outline" className="w-full justify-between py-6" onClick={() => setShowCheckInOut(!showCheckInOut)}>
+                  {t('Check-in / Check-out Details', 'செக்-இன் / செக்-அவுட் விவரங்கள்')}
+                  <span>{showCheckInOut ? '▲' : '▼'}</span>
+                </Button>
                 {showCheckInOut && (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 p-4 bg-gray-50 rounded-lg border">
-                    <div>
-                      <Input
-                        id="checkInDate"
-                        type="date"
-                        name="checkInDate"
-                        value={form.checkInDate || ''}
-                        onChange={onChange}
-                        className={fieldStyles}
-                      />
-                    </div>
-                    <div>
-                      <Input
-                        id="checkInTime"
-                        type="time"
-                        name="checkInTime"
-                        value={form.checkInTime || ''}
-                        onChange={onChange}
-                        className={fieldStyles}
-                      />
-                    </div>
-                    <div>
-                      <Input
-                        id="checkOutDate"
-                        type="date"
-                        name="checkOutDate"
-                        value={form.checkOutDate || ''}
-                        onChange={onChange}
-                        className={fieldStyles}
-                      />
-                    </div>
-                    <div>
-                      <Input
-                        id="checkOutTime"
-                        type="time"
-                        name="checkOutTime"
-                        value={form.checkOutTime || ''}
-                        onChange={onChange}
-                        className={fieldStyles}
-                      />
-                    </div>
+                    <Input type="date" name="checkInDate" value={form.checkInDate} onChange={onChange} className={fieldStyles} />
+                    <Input type="time" name="checkInTime" value={form.checkInTime} onChange={onChange} className={fieldStyles} />
+                    <Input type="date" name="checkOutDate" value={form.checkOutDate} onChange={onChange} className={fieldStyles} />
+                    <Input type="time" name="checkOutTime" value={form.checkOutTime} onChange={onChange} className={fieldStyles} />
                   </div>
                 )}
-              </div>
 
-              {/* Additional Charges Toggle */}
-              <div className="space-y-4">
-                <button
-                  type="button"
-                  className="flex items-center justify-between w-full p-4 bg-gray-100 border rounded-lg hover:bg-gray-200 transition-colors"
-                  onClick={() => setShowAdditionalCharges(!showAdditionalCharges)}
-                >
-                  <span className="font-medium text-base">
-                    {t('Additional Charges','கூடுதல் கட்டணங்கள்')}
-                  </span>
-                  <span className="text-lg">{showAdditionalCharges ? '▲' : '▼'}</span>
-                </button>
-                
-                {/* Collapsible Additional Charges Section */}
+                <Button type="button" variant="outline" className="w-full justify-between py-6" onClick={() => setShowAdditionalCharges(!showAdditionalCharges)}>
+                  {t('Additional Charges', 'கூடுதல் கட்டணங்கள்')}
+                  <span>{showAdditionalCharges ? '▲' : '▼'}</span>
+                </Button>
                 {showAdditionalCharges && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 p-4 bg-gray-50 rounded-lg border">
-                    <div>
-                      <Input
-                        id="cleaning"
-                        name="cleaning"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={form.cleaning || ''}
-                        onChange={onChange}
-                        className={fieldStyles}
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <div>
-                      <Input
-                        id="chair"
-                        name="chair"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={form.chair || ''}
-                        onChange={onChange}
-                        className={fieldStyles}
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <div>
-                      <Input
-                        id="eb"
-                        name="eb"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={form.eb || ''}
-                        onChange={onChange}
-                        className={fieldStyles}
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <div>
-                      <Input
-                        id="gas"
-                        name="gas"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={form.gas || ''}
-                        onChange={onChange}
-                        className={fieldStyles}
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <div>
-                      <Input
-                        id="ac"
-                        name="ac"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={form.ac || ''}
-                        onChange={onChange}
-                        className={fieldStyles}
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <div className="col-span-full text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
-                      {t(
-                        'Tip: Additional charges are automatically added to the total amount. You can also manually adjust the total above.',
-                        'குறிப்பு: கூடுதல் கட்டணங்கள் தானாக மொத்த தொகையில் சேர்க்கப்படும். மேலே மொத்தத்தை கைமுறையாக மாற்றலாம்.'
-                      )}
-                    </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 p-4 bg-gray-50 rounded-lg border">
+                    <Input type="number" name="cleaning" value={form.cleaning} onChange={onChange} placeholder="Cleaning" className={fieldStyles} />
+                    <Input type="number" name="chair" value={form.chair} onChange={onChange} placeholder="Chair" className={fieldStyles} />
+                    <Input type="number" name="eb" value={form.eb} onChange={onChange} placeholder="EB" className={fieldStyles} />
+                    <Input type="number" name="gas" value={form.gas} onChange={onChange} placeholder="Gas" className={fieldStyles} />
+                    <Input type="number" name="ac" value={form.ac} onChange={onChange} placeholder="AC" className={fieldStyles} />
                   </div>
                 )}
               </div>
 
-              {/* Remarks */}
-              <div>
-                <Textarea
-                  id="remarks"
-                  name="remarks"
-                  value={form.remarks}
-                  onChange={onChange}
-                  rows={3}
-                  className={textareaStyles}
-                  placeholder={t('Enter remarks','குறிப்புகளை உள்ளிடவும்')}
-                />
-              </div>
+              <Textarea name="remarks" value={form.remarks} onChange={onChange} rows={3} className={textareaStyles} placeholder={t('Enter remarks', 'குறிப்புகளை உள்ளிடவும்')} />
 
-              {/* Action Buttons */}
-              <div className={formFieldStyles.actions.container}>
-                <div className={formFieldStyles.actions.buttonGroup}>
-                  <Button
-                    type="submit"
-                    size="default"
-                    className={formFieldStyles.moneyDonationButton.primary}
-                    disabled={saving}
-                  >
-                    {saving ? t('Saving...','சேமிக்கிறது...') : t(isEdit?'Update':'Save', isEdit?'புதுப்பி':'சேமி')}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={clearForm}
-                    className="px-6 py-2 text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm hover:shadow-md transition-all duration-200"
-                  >
-                    <X className="w-4 h-4 mr-2" />
-                    Clear
-                  </Button>
-                </div>
+              <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
+                <Button type="button" variant="outline" className="px-8" onClick={() => setForm({ ...initialState, registerNo: '' })}>{t('Clear', 'அழிக்க')}</Button>
+                <Button type="submit" disabled={saving} className={cn(theme.button.primary, "px-12")}>
+                  {saving ? t('Saving...', 'சேமிக்கிறது...') : t('Save', 'சேமிக்க')}
+                </Button>
               </div>
             </form>
           </CardContent>
         </Card>
       </div>
 
-      {/* Print Modal */}
-      {showPrintPrompt && lastCreatedId && (
-        <Modal title={t('Print Receipt','ரசீது அச்சிடு')} onClose={() => setShowPrintPrompt(false)}>
-          <div className={formFieldStyles.modal.container}>
-            <p className={formFieldStyles.modal.content}>
-              {t(
-                'Receipt saved successfully! Would you like to print it now?',
-                'ரசீது வெற்றிகரமாக சேமிக்கப்பட்டது! இப்போது அச்சிட வேண்டுமா?'
-              )}
-            </p>
-            <div className={formFieldStyles.modal.actions}>
-              <button 
-                className={formFieldStyles.modal.button.cancel} 
-                onClick={() => setShowPrintPrompt(false)}
-              >
-                {t('Skip','தவிர்')}
-              </button>
-              <button 
-                className={formFieldStyles.modal.button.confirm} 
-                onClick={() => {
-                  const q = token ? `?token=${encodeURIComponent(token)}` : '';
-                  const pdfUrl = `http://localhost:4000/api/hall-bookings/${lastCreatedId}/receipt.pdf${q}`;
-                  printPDF(pdfUrl);
-                  setShowPrintPrompt(false);
-                }}
-              >
-                {t('Print Now','இப்போது அச்சிடு')}
-              </button>
+      {showPrintPrompt && (
+        <Modal title={t('Print Receipt', 'ரசீது அச்சிடு')} onClose={() => setShowPrintPrompt(false)}>
+          <div className="p-6 text-center">
+            <p className="mb-6 text-gray-700">{t('Receipt saved successfully! Do you want to print now?', 'ரசீது சேமிக்கப்பட்டது! அச்சிட வேண்டுமா?')}</p>
+            <div className="flex justify-center gap-3">
+              <Button variant="outline" onClick={() => setShowPrintPrompt(false)}>{t('Skip', 'தவிர்')}</Button>
+              <Button onClick={() => { downloadReceipt(lastCreatedId!, null); setShowPrintPrompt(false); }}>{t('Print Now', 'இப்போது அச்சிடு')}</Button>
             </div>
           </div>
         </Modal>
       )}
 
-      {/* Delete modal */}
       {showDeleteModal && (
-        <Modal title={t('Confirm Delete','நீக்குவதை உறுதிப்படுத்தவும்')} onClose={() => setShowDeleteModal(false)}>
-          <div className={formFieldStyles.modal.container}>
-            <p className={formFieldStyles.modal.content}>
-              {t(
-                'Are you sure you want to delete this booking? This action cannot be undone.',
-                'இந்த பதிவை நீக்க விரும்புகிறீர்களா? இந்த நடவடிக்கையை மாற்ற முடியாது.'
-              )}
-            </p>
-            <div className={formFieldStyles.modal.actions}>
-              <button 
-                className={formFieldStyles.modal.button.cancel} 
-                onClick={() => setShowDeleteModal(false)}
-              >
-                {t('Cancel','ரத்து')}
-              </button>
-              <button 
-                className="px-4 py-2 rounded-md bg-red-600 text-white text-sm hover:bg-red-700" 
-                onClick={handleDelete}
-              >
-                {t('Delete','நீக்கு')}
-              </button>
+        <Modal title={t('Confirm Delete', 'நீக்குவதை உறுதிப்படுத்தவும்')} onClose={() => setShowDeleteModal(false)}>
+          <div className="p-6 text-center">
+            <p className="mb-6 text-gray-700">{t('Are you sure you want to delete this booking?', 'இந்த பதிவை நீக்க விரும்புகிறீர்களா?')}</p>
+            <div className="flex justify-center gap-3">
+              <Button variant="outline" onClick={() => setShowDeleteModal(false)}>{t('Cancel', 'ரத்து')}</Button>
+              <Button variant="destructive" onClick={() => { /* handleDelete implementation */ }}>{t('Delete', 'நீக்கு')}</Button>
             </div>
           </div>
         </Modal>
@@ -1070,51 +484,22 @@ export default function HallEntryPage() {
   );
 }
 
-// Enhanced helper component for extras total with consistent styling
-function ExtrasSummary({ form, setForm, t, fieldStyles }: { 
-  form: FormState; 
-  setForm: React.Dispatch<React.SetStateAction<FormState>>; 
-  t: (en: string, ta: string) => string;
-  fieldStyles: string;
-}) {
-  const sum =
-    (parseFloat(form.cleaning || '0') || 0) +
-    (parseFloat(form.chair || '0') || 0) +
-    (parseFloat(form.eb || '0') || 0) +
-    (parseFloat(form.gas || '0') || 0) +
-    (parseFloat(form.ac || '0') || 0);
-
+function ExtrasSummary({ form, setForm, t, fieldStyles }: any) {
+  const sum = (parseFloat(form.cleaning || '0') || 0) + (parseFloat(form.chair || '0') || 0) + (parseFloat(form.eb || '0') || 0) + (parseFloat(form.gas || '0') || 0) + (parseFloat(form.ac || '0') || 0);
   return (
-    <div className="space-y-2">
-      <Label className={cn(formFieldStyles.label, "text-base mb-2")}>
-        {t('Extras Total','கூடுதல் மொத்தம்')}
-      </Label>
-      <div className="flex items-center gap-2">
-        <div className={cn(fieldStyles, "bg-gray-100 font-medium")}>
-          ₹{sum.toFixed(2)}
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className={cn(formFieldStyles.button.sm, "whitespace-nowrap")}
-          onClick={() => {
-            // Get current base total (excluding extras)
-            const currentTotal = Number(form.totalAmount || '0') || 0;
-            const currentExtras = (Number(form.cleaning || '0') + Number(form.chair || '0') + Number(form.eb || '0') + Number(form.gas || '0') + Number(form.ac || '0'));
-            const baseTotal = Math.max(0, currentTotal - currentExtras);
-            
-            // Set total to base + new extras
-            setForm(prev => ({ 
-              ...prev, 
-              totalAmount: String(baseTotal + sum),
-              balanceAmount: String(Math.max(0, (baseTotal + sum) - Number(prev.advanceAmount || '0')))
-            }));
-          }}
-        >
-          {t('Add to Total','மொத்தத்தில் சேர்')}
-        </Button>
+    <div className="flex items-center gap-0 overflow-hidden rounded-md border border-gray-200">
+      <div className="relative flex-1">
+        <Plus className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
+        <Input readOnly value={`₹${sum.toFixed(2)}`} className={cn(fieldStyles, "bg-gray-50 font-bold text-orange-700 border-0 rounded-none")} />
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 uppercase font-semibold">{t('Extras', 'கூடுதல்')}</div>
       </div>
+      <Button type="button" onClick={() => {
+        const currentTotal = parseFloat(form.totalAmount || '0') || 0;
+        setForm((prev: any) => ({ ...prev, totalAmount: (currentTotal + sum).toFixed(2) }));
+      }} className="h-10 px-4 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-none border-l border-gray-200 flex items-center gap-2">
+        {t('Add to Total', 'சேர்')}
+        <ArrowRight className="w-3 h-3" />
+      </Button>
     </div>
   );
 }

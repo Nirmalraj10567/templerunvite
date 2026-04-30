@@ -19,14 +19,14 @@
 
 ### Option 1: Via Login API
 ```bash
-curl -X POST http://localhost:4000/api/login \
+curl -X POST https://templeapi.agniplay.com/api/login \
   -H "Content-Type: application/json" \
   -d '{"username":"test_admin","password":"test123"}'
 ```
 
 ### Option 2: Via Mobile Auth API
 ```bash
-curl -X POST http://localhost:4000/api/mobile-auth/login \
+curl -X POST https://templeapi.agniplay.com/api/mobile-auth/login \
   -H "Content-Type: application/json" \
   -d '{"mobile":"9999999999","password":"test123"}'
 ```
@@ -97,13 +97,13 @@ run-daybook-tests.bat
 
 **Get all daybook entries:**
 ```bash
-curl -X GET http://localhost:4000/api/daybook \
+curl -X GET https://templeapi.agniplay.com/api/daybook \
   -H "Authorization: Bearer YOUR_TOKEN_HERE"
 ```
 
 **Create a daybook entry:**
 ```bash
-curl -X POST http://localhost:4000/api/daybook \
+curl -X POST https://templeapi.agniplay.com/api/daybook \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_TOKEN_HERE" \
   -d '{

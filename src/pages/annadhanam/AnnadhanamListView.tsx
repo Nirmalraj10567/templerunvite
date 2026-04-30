@@ -37,6 +37,8 @@ import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn, pageContainerStyles, formFieldStyles } from "@/styles/formStyles";
 import { theme, tableClasses, buttonClasses } from '@/styles/theme';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface Annadhanam {
   id: number;
@@ -80,7 +82,36 @@ export default function AnnadhanamListView() {
   const { user, token } = useAuth();
   const { language } = useLanguage();
 
-  const t = (en: string, ta: string) => language === 'english' ? ta : en;
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
+
+  const normalizeDateString = (s?: string) => {
+    if (!s) return '';
+    return s.slice(0, 10);
+  };
+
+  const normalizeTimeString = (s?: string) => {
+    if (!s) return '';
+    const hm = s.match(/^\d{2}:\d{2}(:\d{2})?$/);
+    if (hm) return s.slice(0, 5);
+    const ampm = s.match(/^(\d{1,2}):(\d{2})\s*([AaPp][Mm])$/);
+    if (ampm) {
+      let h = parseInt(ampm[1], 10);
+      const m = ampm[2];
+      const ap = ampm[3].toUpperCase();
+      if (ap === 'PM' && h !== 12) h += 12;
+      if (ap === 'AM' && h === 12) h = 0;
+      const hh = String(h).padStart(2, '0');
+      return `${hh}:${m}`;
+    }
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      return `${hh}:${mm}`;
+    }
+    return '';
+  };
+
 
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -120,7 +151,7 @@ export default function AnnadhanamListView() {
 
   // User names and details for logs
   const [userNames, setUserNames] = useState<Record<number, string>>({});
-  const [userDetails, setUserDetails] = useState<Record<number, {name: string, username?: string, mobile?: string}>>({});
+  const [userDetails, setUserDetails] = useState<Record<number, { name: string, username?: string, mobile?: string }>>({});
 
   // Permissions disabled for this view; always show actions
 
@@ -135,7 +166,7 @@ export default function AnnadhanamListView() {
     const results = await Promise.all(
       missing.map(async (id) => {
         try {
-          const res = await fetch(`http://localhost:4000/api/admin/members/${id}`, {
+          const res = await fetch(`https://templeapi.agniplay.com/api/admin/members/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data = await res.json().catch(() => ({}));
@@ -172,7 +203,7 @@ export default function AnnadhanamListView() {
     setLogs([]);
     setLogsLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/annadhanam/${annadhanamId}/logs`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/annadhanam/${annadhanamId}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -185,7 +216,7 @@ export default function AnnadhanamListView() {
       if (result.success) {
         const logsData = Array.isArray(result.data) ? result.data : [];
         setLogs(logsData);
-        
+
         // Fetch user names for the logs
         const userIds = logsData
           .map(log => log.created_by)
@@ -224,7 +255,7 @@ export default function AnnadhanamListView() {
   const loadAllAnnadhanamLogs = async (pageNum: number) => {
     setAllLogsLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/annadhanam/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/annadhanam/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -239,7 +270,7 @@ export default function AnnadhanamListView() {
         setAllLogs(logsData);
         setAllLogsTotal(Number(result.total || 0));
         setAllLogsPage(pageNum);
-        
+
         // Fetch user names for the logs
         const userIds = logsData
           .map(log => log.created_by)
@@ -276,7 +307,7 @@ export default function AnnadhanamListView() {
     try {
       setLoading(true);
 
-      const response = await fetch(`http://localhost:4000/api/annadhanam?page=${pagination.pageIndex + 1}&per_page=${pagination.pageSize}&search=${encodeURIComponent(searchTerm)}&sort=receipt_number&order=desc`, {
+      const response = await fetch(`https://templeapi.agniplay.com/api/annadhanam?page=${pagination.pageIndex + 1}&per_page=${pagination.pageSize}&search=${encodeURIComponent(searchTerm)}&sort=receipt_number&order=desc`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -287,7 +318,7 @@ export default function AnnadhanamListView() {
       }
 
       const result = await response.json();
-      
+
       if (result.success) {
         // Sort entries by receipt number in descending order
         const sorted = (result.data || []).slice().sort((a, b) => {
@@ -356,7 +387,7 @@ export default function AnnadhanamListView() {
       const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g, "-");
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
       link.href = url;
       link.download = `annadhanam-export-${stamp}.csv`;
       document.body.appendChild(link);
@@ -387,57 +418,68 @@ export default function AnnadhanamListView() {
         t("Time", "நேரம்"),
       ];
 
-      const rowsHtml = data
-        .map(
-          (r) => `
-          <tr>
-            <td>${r.receipt_number || ""}</td>
-            <td>${r.name || ""}</td>
-            <td>${r.mobile_number || ""}</td>
-            <td>${(r.food || "").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>
-            <td style="text-align:center;">${r.peoples ?? ""}</td>
-            <td>${formatDate(r.from_date) || ""}</td>
-            <td>${formatDate(r.to_date) || ""}</td>
-            <td>${formatTime(r.time) || ""}</td>
-          </tr>`
-        )
-        .join("");
+      const rows = data.map((r) => [
+        r.receipt_number || "",
+        r.name || "",
+        r.mobile_number || "",
+        r.food || "",
+        r.peoples ?? "",
+        formatDate(r.from_date) || "",
+        formatDate(r.to_date) || "",
+        formatTime(r.time) || "",
+      ]);
 
-      const style = `
-        <style>
-          body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Ubuntu, Cantarell, Helvetica Neue, Arial, "Noto Sans Tamil", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; padding: 24px; }
-          h1 { font-size: 20px; margin: 0 0 12px 0; }
-          .meta { font-size: 12px; color: #555; margin-bottom: 12px; }
-          table { width: 100%; border-collapse: collapse; font-size: 12px; }
-          th, td { border: 1px solid #ccc; padding: 6px 8px; vertical-align: top; }
-          th { background: #f5f5f5; text-align: left; }
-          @media print { .no-print { display: none; } }
-        </style>
-      `;
-
+      const doc = new jsPDF('landscape');
+      
+      // Add Title and Styling
+      doc.setFontSize(20);
+      doc.setTextColor(40);
+      doc.text(title, 14, 22);
+      
+      // Add metadata info
+      doc.setFontSize(10);
+      doc.setTextColor(100);
       const now = new Date();
       const meta = `${t("Generated", "உருவாக்கப்பட்டது")}: ${now.toLocaleString()} | ${t("Items", "உருப்படிகள்")}: ${data.length}`;
-      const html = `<!doctype html><html><head><meta charset="utf-8"/>${style}</head><body>
-        <div class="no-print" style="text-align:right; margin-bottom:8px;">
-          <button onclick="window.print()" style="padding:6px 10px;">${t("Print / Save as PDF", "அச்சிடு / PDF சேமி")}</button>
-        </div>
-        <h1>${title}</h1>
-        <div class="meta">${meta}</div>
-        <table>
-          <thead>
-            <tr>${headCells.map((h) => `<th>${h}</th>`).join("")}</tr>
-          </thead>
-          <tbody>
-            ${rowsHtml}
-          </tbody>
-        </table>
-      </body></html>`;
+      doc.text(meta, 14, 30);
+      
+      // Horizontal line
+      doc.setDrawColor(200, 200, 200);
+      doc.line(14, 33, 283, 33);
 
-      const win = window.open("", "_blank");
-      if (!win) throw new Error("Popup blocked");
-      win.document.open();
-      win.document.write(html);
-      win.document.close();
+      autoTable(doc, {
+        head: [headCells],
+        body: rows,
+        startY: 40,
+        styles: { 
+          fontSize: 9, 
+          cellPadding: 4,
+          valign: 'middle'
+        },
+        headStyles: { 
+          fillColor: [79, 70, 229], // Indigo 600
+          textColor: [255, 255, 255], 
+          fontStyle: 'bold',
+          fontSize: 10
+        },
+        alternateRowStyles: {
+          fillColor: [249, 250, 251] // Gray 50
+        },
+        columnStyles: { 3: { cellWidth: 40 } },
+        margin: { top: 40 },
+        didDrawPage: (data) => {
+          // Footer: Page Number
+          const str = `Page ${(doc as any).getNumberOfPages()}`;
+          doc.setFontSize(8);
+          doc.setTextColor(150);
+          const pageSize = doc.internal.pageSize;
+          const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
+          doc.text(str, 14, pageHeight - 10);
+        }
+      });
+
+      const stamp = now.toISOString().slice(0, 19).replace(/[:T]/g, "-");
+      doc.save(`annadhanam-export-${stamp}.pdf`);
     } catch (err) {
       console.error("PDF export failed", err);
       toast({
@@ -466,9 +508,9 @@ export default function AnnadhanamListView() {
       mobileNumber: annadhanam.mobile_number,
       food: annadhanam.food,
       peoples: annadhanam.peoples,
-      time: annadhanam.time,
-      fromDate: annadhanam.from_date,
-      toDate: annadhanam.to_date,
+      time: normalizeTimeString(annadhanam.time),
+      fromDate: normalizeDateString(annadhanam.from_date),
+      toDate: normalizeDateString(annadhanam.to_date),
       remarks: annadhanam.remarks,
     });
     setIsViewEditOpen(true);
@@ -509,7 +551,7 @@ export default function AnnadhanamListView() {
     if (!deleteId) return;
 
     try {
-      const response = await fetch(`http://localhost:4000/api/annadhanam/${deleteId}`, {
+      const response = await fetch(`https://templeapi.agniplay.com/api/annadhanam/${deleteId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -553,6 +595,37 @@ export default function AnnadhanamListView() {
     }
   };
 
+  const handleDownloadReceipt = async (annadhanamId: number, receiptNumber: string) => {
+    try {
+      const response = await fetch(`https://templeapi.agniplay.com/api/annadhanam/${annadhanamId}/receipt.pdf`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch receipt');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `receipt-${receiptNumber || annadhanamId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error downloading receipt:", error);
+      toast({
+        title: t("Error", "பிழை"),
+        description: t("Failed to download receipt. Please try again.", "ரசீதைப் பதிவிறக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்."),
+        variant: "destructive",
+      });
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
   };
@@ -565,717 +638,724 @@ export default function AnnadhanamListView() {
     <div className={pageContainerStyles.container}>
       <div className={cn(pageContainerStyles.content, "max-w-6xl")}>
         <Card className="shadow-xl border-0 overflow-hidden">
-        <CardHeader className={theme.header.container}>
-          <div className={theme.header.contentSpacing}>
-            <CardTitle className={theme.header.main}>
-              {t("Annadhanam List", "அன்னதானம் பதிவு")}
-            </CardTitle>
-          </div>
-        </CardHeader>
+          <CardHeader className={theme.header.container}>
+            <div className={theme.header.contentSpacing}>
+              <CardTitle className={theme.header.main}>
+                {t("Annadhanam List", "அன்னதானம் பதிவு")}
+              </CardTitle>
+            </div>
+          </CardHeader>
 
-        {/* Table Card */}
-        <Card className="mb-6">
-          <CardContent className="pt-6">
-            {/* Search + Export Toolbar */}
-            <div className={formFieldStyles.moneyDonationList.filters.container}>
-              <div className={formFieldStyles.moneyDonationList.filters.form}>
-                <div className={formFieldStyles.moneyDonationList.filters.searchContainer}>
-                  <div className={formFieldStyles.moneyDonationList.filters.searchIcon}>
-                    <Search className={formFieldStyles.moneyDonationList.filters.searchIconSvg} />
+          {/* Table Card */}
+          <Card className="mb-6">
+            <CardContent className="pt-6">
+              {/* Search + Export Toolbar */}
+              <div className={formFieldStyles.moneyDonationList.filters.container}>
+                <div className={formFieldStyles.moneyDonationList.filters.form}>
+                  <div className={formFieldStyles.moneyDonationList.filters.searchContainer}>
+                    <div className={formFieldStyles.moneyDonationList.filters.searchIcon}>
+                      <Search className={formFieldStyles.moneyDonationList.filters.searchIconSvg} />
+                    </div>
+                    <Input
+                      type="search"
+                      placeholder={t("Search by name, receipt number, or mobile...", "பெயர், ரசீது எண் அல்லது மொபைல் மூலம் தேடவும்...")}
+                      className={cn(theme.input.base, theme.input.size.sm, "pl-8")}
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onKeyDown={handleSearch}
+                    />
                   </div>
+                  <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>
+                    <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => setSearchTerm('')}>
+                      {t('Clear', 'அழி')}
+                    </Button>
+                    <Button size="sm" className="h-8 text-xs" variant="outline" onClick={exportToCSV} disabled={loading || data.length === 0}>
+                      <FileDown className="h-3 w-3 mr-1" />
+                      {t('Export CSV', 'CSV ஏற்றுமதி')}
+                    </Button>
+                    <Button size="sm" className="h-8 text-xs" variant="outline" onClick={exportToPDF} disabled={loading || data.length === 0}>
+                      <FileDown className="h-3 w-3 mr-1" />
+                      {t('Export PDF', 'PDF ஏற்றுமதி')}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Table */}
+              <div className={tableClasses.scrollContainerWrapper}>
+                <div className={tableClasses.scrollContainer}>
+                  {loading ? (
+                    <div className={tableClasses.emptyState}>
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <Table className={tableClasses.container}>
+                      <TableHeader className={tableClasses.header}>
+                        <TableRow className={tableClasses.row}>
+                          <TableHead className={tableClasses.headerCellSno}>{t("S.No", "எண்")}</TableHead>
+                          <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Receipt No", "ரசீது எண்")}</TableHead>
+                          <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Name", "பெயர்")}</TableHead>
+                          <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Mobile", "மொபைல்")}</TableHead>
+                          <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Food Items", "உணவு பொருட்கள்")}</TableHead>
+                          <TableHead className={cn(tableClasses.headerCell, "text-center")}>{t("People", "மக்கள்")}</TableHead>
+                          <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Date Range", "தேதி வரம்பு")}</TableHead>
+                          <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Time", "நேரம்")}</TableHead>
+                          <TableHead className={cn(tableClasses.headerCell, "text-right")}>{t("Actions", "செயல்கள்")}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {data.length > 0 ? (
+                          data.map((annadhanam, index) => (
+                            <TableRow key={annadhanam.id} className={tableClasses.row}>
+                              <TableCell className={tableClasses.cellSno}>
+                                {index + 1}
+                              </TableCell>
+                              <TableCell className={tableClasses.cell}>
+                                {annadhanam.receipt_number}
+                              </TableCell>
+                              <TableCell className={tableClasses.cell}>{annadhanam.name}</TableCell>
+                              <TableCell className={tableClasses.cell}>{annadhanam.mobile_number}</TableCell>
+                              <TableCell className={cn(tableClasses.cell, "max-w-xs truncate")}>
+                                {annadhanam.food}
+                              </TableCell>
+                              <TableCell className={cn(tableClasses.cell, "text-center")}>
+                                <div className="flex items-center justify-center">
+                                  <Users className="h-3 w-3 mr-1" />
+                                  {annadhanam.peoples}
+                                </div>
+                              </TableCell>
+                              <TableCell className={tableClasses.cell}>
+                                <div className="flex items-center">
+                                  <Calendar className="h-3 w-3 mr-1" />
+                                  <div className="text-xs">
+                                    <div>{formatDate(annadhanam.from_date)}</div>
+                                    {annadhanam.from_date !== annadhanam.to_date && (
+                                      <div className="text-muted-foreground">
+                                        {t("to", "வரை")} {formatDate(annadhanam.to_date)}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell className={tableClasses.cell}>
+                                <div className="flex items-center">
+                                  <Clock className="h-3 w-3 mr-1" />
+                                  {formatTime(annadhanam.time)}
+                                </div>
+                              </TableCell>
+                              <TableCell className={cn(tableClasses.cell, tableClasses.actionCell)}>
+                                <div className="flex items-center justify-end gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleViewClick(annadhanam)}
+                                    className={cn(tableClasses.actionButtonPrimary, "h-5 w-5 p-0")}
+                                  >
+                                    <Eye className="h-3 w-3" />
+                                  </Button>
+
+                                  <Button
+                                     variant="ghost"
+                                     size="sm"
+                                     onClick={() => handleEditClick(annadhanam)}
+                                     className={cn(tableClasses.actionButtonSecondary, "h-5 w-5 p-0")}
+                                   >
+                                     <Edit className="h-3 w-3" />
+                                   </Button>
+                                   <Button
+                                     variant="ghost"
+                                     size="sm"
+                                      onClick={() => handleDownloadReceipt(annadhanam.id, annadhanam.receipt_number)}
+                                     className="h-5 w-5 p-0 text-green-600 hover:text-green-700"
+                                     title={t("Download Receipt PDF", "ரசீது PDF ஐ பதிவிறக்கு")}
+                                   >
+                                     <FileDown className="h-3 w-3" />
+                                   </Button>
+                                   <Button
+                                     variant="ghost"
+                                     size="sm"
+                                     onClick={() => handleDeleteClick(annadhanam.id)}
+                                    disabled={!isLastReceipt(annadhanam)}
+                                    title={!isLastReceipt(annadhanam) ? t("Only the last receipt can be deleted", "கடைசி ரசீதை மட்டுமே நீக்க முடியும்") : ""}
+                                    className={cn(!isLastReceipt(annadhanam) ? "opacity-50 cursor-not-allowed h-5 w-5 p-0" : tableClasses.actionButtonDanger, "h-5 w-5 p-0")}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={9} className={tableClasses.emptyState}>
+                              {t("No annadhanam entries found", "அன்னதானம் பதிவுகள் எதுவும் கிடைக்கவில்லை")}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  )}
+                </div>
+
+                {/* Pagination */}
+                <div className={tableClasses.pagination}>
+                  <div className="text-sm text-gray-700">
+                    {t("Showing", "காட்டப்படுகிறது")} {data.length} {t("of", "இல்")}{" "}
+                    <span className="font-medium">{pagination.total}</span> {t("items", "உருப்படிகள்")}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setPagination((prev) => ({
+                          ...prev,
+                          pageIndex: Math.max(0, prev.pageIndex - 1),
+                        }))
+                      }
+                      disabled={pagination.pageIndex === 0}
+                      className={tableClasses.paginationButton}
+                    >
+                      {t("Previous", "முந்தைய")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setPagination((prev) => ({
+                          ...prev,
+                          pageIndex: prev.pageIndex + 1,
+                        }))
+                      }
+                      disabled={pagination.pageIndex >= pagination.totalPages - 1}
+                      className={tableClasses.paginationButton}
+                    >
+                      {t("Next", "அடுத்து")}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+
+          {/* View Modal */}
+          <Dialog open={isViewEditOpen} onOpenChange={setIsViewEditOpen}>
+            <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>
+                  {t("View Annadhanam", "அன்னதானத்தை பார்க்க")}
+                </DialogTitle>
+                <DialogDescription>
+                  {t("View the annadhanam details below", "கீழே உள்ள அன்னதான விவரங்களை பார்க்கவும்")}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="name" className="text-right">
+                    {t("Name", "பெயர்")}
+                  </Label>
                   <Input
-                    type="search"
-                    placeholder={t("Search by name, receipt number, or mobile...", "பெயர், ரசீது எண் அல்லது மொபைல் மூலம் தேடவும்...")}
-                    className={cn(theme.input.base, theme.input.size.sm, "pl-8")}
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    onKeyDown={handleSearch}
+                    id="name"
+                    value={editedAnnadhanam.name || ""}
+                    onChange={(e) =>
+                      setEditedAnnadhanam({ ...editedAnnadhanam, name: e.target.value })
+                    }
+                    className="col-span-3"
+                    disabled
                   />
                 </div>
-                <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>
-                  <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => setSearchTerm('')}>
-                    {t('Clear', 'அழி')}
-                  </Button>
-                  <Button size="sm" className="h-8 text-xs" variant="outline" onClick={exportToCSV} disabled={loading || data.length === 0}>
-                    <FileDown className="h-3 w-3 mr-1" />
-                    {t('Export CSV', 'CSV ஏற்றுமதி')}
-                  </Button>
-                  <Button size="sm" className="h-8 text-xs" variant="outline" onClick={exportToPDF} disabled={loading || data.length === 0}>
-                    <FileDown className="h-3 w-3 mr-1" />
-                    {t('Export PDF', 'PDF ஏற்றுமதி')}
-                  </Button>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="mobileNumber" className="text-right">
+                    {t("Mobile Number", "மொபைல் எண்")}
+                  </Label>
+                  <Input
+                    id="mobileNumber"
+                    value={editedAnnadhanam.mobileNumber || ""}
+                    onChange={(e) =>
+                      setEditedAnnadhanam({ ...editedAnnadhanam, mobileNumber: e.target.value })
+                    }
+                    className="col-span-3"
+                    disabled
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="food" className="text-right">
+                    {t("Food Items", "உணவு பொருட்கள்")}
+                  </Label>
+                  <Textarea
+                    id="food"
+                    value={editedAnnadhanam.food || ""}
+                    onChange={(e) =>
+                      setEditedAnnadhanam({ ...editedAnnadhanam, food: e.target.value })
+                    }
+                    className="col-span-3"
+                    disabled
+                    rows={3}
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="peoples" className="text-right">
+                    {t("Number of People", "மக்கள் எண்ணிக்கை")}
+                  </Label>
+                  <Input
+                    id="peoples"
+                    type="number"
+                    value={editedAnnadhanam.peoples || ""}
+                    onChange={(e) =>
+                      setEditedAnnadhanam({ ...editedAnnadhanam, peoples: parseInt(e.target.value) })
+                    }
+                    className="col-span-3"
+                    disabled
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="time" className="text-right">
+                    {t("Time", "நேரம்")}
+                  </Label>
+                  <Input
+                    id="time"
+                    type="time"
+                    value={editedAnnadhanam.time || ""}
+                    onChange={(e) =>
+                      setEditedAnnadhanam({ ...editedAnnadhanam, time: e.target.value })
+                    }
+                    className="col-span-3"
+                    disabled
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="fromDate" className="text-right">
+                    {t("From Date", "தொடக்க தேதி")}
+                  </Label>
+                  <Input
+                    id="fromDate"
+                    type="date"
+                    value={editedAnnadhanam.fromDate || ""}
+                    onChange={(e) =>
+                      setEditedAnnadhanam({ ...editedAnnadhanam, fromDate: e.target.value })
+                    }
+                    className="col-span-3"
+                    disabled
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="toDate" className="text-right">
+                    {t("To Date", "முடிவு தேதி")}
+                  </Label>
+                  <Input
+                    id="toDate"
+                    type="date"
+                    value={editedAnnadhanam.toDate || ""}
+                    onChange={(e) =>
+                      setEditedAnnadhanam({ ...editedAnnadhanam, toDate: e.target.value })
+                    }
+                    className="col-span-3"
+                    disabled
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="remarks" className="text-right">
+                    {t("Remarks", "குறிப்புகள்")}
+                  </Label>
+                  <Textarea
+                    id="remarks"
+                    value={editedAnnadhanam.remarks || ""}
+                    onChange={(e) =>
+                      setEditedAnnadhanam({ ...editedAnnadhanam, remarks: e.target.value })
+                    }
+                    className="col-span-3"
+                    disabled
+                    rows={3}
+                  />
                 </div>
               </div>
-            </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsViewEditOpen(false);
+                    setViewEditAnnadhanam(null);
+                    setEditedAnnadhanam({});
+                  }}
+                >
+                  {t("Cancel", "ரத்து செய்")}
+                </Button>
+                <Button
+                  className="bg-orange-600 hover:bg-orange-700"
+                  onClick={() => navigate('/dashboard/annadhanam/entry')}
+                >
+                  <PlusCircle className="h-4 w-4 mr-2" />
+                  {t("New Entry", "புதிய பதிவு")}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
-            {/* Table */}
-            <div className={tableClasses.scrollContainerWrapper}>
-              <div className={tableClasses.scrollContainer}>
-                {loading ? (
-                  <div className={tableClasses.emptyState}>
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          {/* Delete Confirmation Modal */}
+          <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t("Are you sure?", "நீங்கள் உறுதியாகவா?")}</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {t("This action cannot be undone. This will permanently delete the annadhanam entry and remove all associated data.", "இந்த செயலை திரும்பப் பெற முடியாது. இது அன்னதானம் பதிவை நிரந்தரமாக நீக்கி அனைத்து தொடர்புடைய தரவுகளையும் அகற்றும்.")}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{t("Cancel", "ரத்து செய்")}</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={confirmDelete}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {t("Delete", "நீக்கு")}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          {/* All Logs Modal */}
+          {allLogsOpen && (
+            <div className={formFieldStyles.moneyDonationList.modal.overlay}>
+              <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeAllLogs} />
+              <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-7xl mx-4 max-h-[90vh] flex flex-col">
+                <div className="bg-gradient-to-r from-blue-300 to-indigo-400 text-white py-2 px-6 rounded-t-lg flex-shrink-0">
+                  <div className={formFieldStyles.moneyDonationList.modal.header}>
+                    <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('All Annadhanam Logs', 'அனைத்து அன்னதானம் பதிவுகள்')}</h2>
+                    <button onClick={closeAllLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
                   </div>
-                ) : (
-                  <Table className={tableClasses.container}>
-                    <TableHeader className={tableClasses.header}>
-                      <TableRow className={tableClasses.row}>
-                        <TableHead className={tableClasses.headerCellSno}>{t("S.No", "எண்")}</TableHead>
-                        <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Receipt No", "ரசீது எண்")}</TableHead>
-                        <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Name", "பெயர்")}</TableHead>
-                        <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Mobile", "மொபைல்")}</TableHead>
-                        <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Food Items", "உணவு பொருட்கள்")}</TableHead>
-                        <TableHead className={cn(tableClasses.headerCell, "text-center")}>{t("People", "மக்கள்")}</TableHead>
-                        <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Date Range", "தேதி வரம்பு")}</TableHead>
-                        <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Time", "நேரம்")}</TableHead>
-                        <TableHead className={cn(tableClasses.headerCell, "text-right")}>{t("Actions", "செயல்கள்")}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                    {data.length > 0 ? (
-                      data.map((annadhanam, index) => (
-                        <TableRow key={annadhanam.id} className={tableClasses.row}>
-                          <TableCell className={tableClasses.cellSno}>
-                            {index + 1}
-                          </TableCell>
-                          <TableCell className={tableClasses.cell}>
-                            {annadhanam.receipt_number}
-                          </TableCell>
-                          <TableCell className={tableClasses.cell}>{annadhanam.name}</TableCell>
-                          <TableCell className={tableClasses.cell}>{annadhanam.mobile_number}</TableCell>
-                          <TableCell className={cn(tableClasses.cell, "max-w-xs truncate")}>
-                            {annadhanam.food}
-                          </TableCell>
-                          <TableCell className={cn(tableClasses.cell, "text-center")}>
-                            <div className="flex items-center justify-center">
-                              <Users className="h-3 w-3 mr-1" />
-                              {annadhanam.peoples}
-                            </div>
-                          </TableCell>
-                          <TableCell className={tableClasses.cell}>
-                            <div className="flex items-center">
-                              <Calendar className="h-3 w-3 mr-1" />
-                              <div className="text-xs">
-                                <div>{formatDate(annadhanam.from_date)}</div>
-                                {annadhanam.from_date !== annadhanam.to_date && (
-                                  <div className="text-muted-foreground">
-                                    {t("to", "வரை")} {formatDate(annadhanam.to_date)}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className={tableClasses.cell}>
-                            <div className="flex items-center">
-                              <Clock className="h-3 w-3 mr-1" />
-                              {formatTime(annadhanam.time)}
-                            </div>
-                          </TableCell>
-                          <TableCell className={cn(tableClasses.cell, tableClasses.actionCell)}>
-                            <div className="flex items-center justify-end gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleViewClick(annadhanam)}
-                                className={cn(tableClasses.actionButtonPrimary, "h-5 w-5 p-0")}
-                              >
-                                <Eye className="h-3 w-3" />
-                              </Button>
-                             
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEditClick(annadhanam)}
-                                className={cn(tableClasses.actionButtonSecondary, "h-5 w-5 p-0")}
-                              >
-                                <Edit className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteClick(annadhanam.id)}
-                                disabled={!isLastReceipt(annadhanam)}
-                                title={!isLastReceipt(annadhanam) ? t("Only the last receipt can be deleted", "கடைசி ரசீதை மட்டுமே நீக்க முடியும்") : ""}
-                                className={cn(!isLastReceipt(annadhanam) ? "opacity-50 cursor-not-allowed h-5 w-5 p-0" : tableClasses.actionButtonDanger, "h-5 w-5 p-0")}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
+                </div>
+
+                <div className="flex-1 flex flex-col overflow-hidden">
+                  <div className="flex-1 overflow-hidden">
+                    {allLogsLoading ? (
+                      <div className={formFieldStyles.moneyDonationList.modal.loading}>
+                        {t('Loading logs...', 'பதிவுகள் ஏற்றப்படுகிறது...')}
+                      </div>
                     ) : (
-                      <TableRow>
-                        <TableCell colSpan={9} className={tableClasses.emptyState}>
-                          {t("No annadhanam entries found", "அன்னதானம் பதிவுகள் எதுவும் கிடைக்கவில்லை")}
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              )}
-              </div>
-
-              {/* Pagination */}
-              <div className={tableClasses.pagination}>
-                <div className="text-sm text-gray-700">
-                  {t("Showing", "காட்டப்படுகிறது")} {data.length} {t("of", "இல்")}{" "}
-                  <span className="font-medium">{pagination.total}</span> {t("items", "உருப்படிகள்")}
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      setPagination((prev) => ({
-                        ...prev,
-                        pageIndex: Math.max(0, prev.pageIndex - 1),
-                      }))
-                    }
-                    disabled={pagination.pageIndex === 0}
-                    className={tableClasses.paginationButton}
-                  >
-                    {t("Previous", "முந்தைய")}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      setPagination((prev) => ({
-                        ...prev,
-                        pageIndex: prev.pageIndex + 1,
-                      }))
-                    }
-                    disabled={pagination.pageIndex >= pagination.totalPages - 1}
-                    className={tableClasses.paginationButton}
-                  >
-                    {t("Next", "அடுத்து")}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-
-        {/* View Modal */}
-        <Dialog open={isViewEditOpen} onOpenChange={setIsViewEditOpen}>
-          <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {t("View Annadhanam", "அன்னதானத்தை பார்க்க")}
-              </DialogTitle>
-              <DialogDescription>
-                {t("View the annadhanam details below", "கீழே உள்ள அன்னதான விவரங்களை பார்க்கவும்")}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">
-                  {t("Name", "பெயர்")}
-                </Label>
-                <Input
-                  id="name"
-                  value={editedAnnadhanam.name || ""}
-                  onChange={(e) =>
-                    setEditedAnnadhanam({ ...editedAnnadhanam, name: e.target.value })
-                  }
-                  className="col-span-3"
-                  disabled
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="mobileNumber" className="text-right">
-                  {t("Mobile Number", "மொபைல் எண்")}
-                </Label>
-                <Input
-                  id="mobileNumber"
-                  value={editedAnnadhanam.mobileNumber || ""}
-                  onChange={(e) =>
-                    setEditedAnnadhanam({ ...editedAnnadhanam, mobileNumber: e.target.value })
-                  }
-                  className="col-span-3"
-                  disabled
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="food" className="text-right">
-                  {t("Food Items", "உணவு பொருட்கள்")}
-                </Label>
-                <Textarea
-                  id="food"
-                  value={editedAnnadhanam.food || ""}
-                  onChange={(e) =>
-                    setEditedAnnadhanam({ ...editedAnnadhanam, food: e.target.value })
-                  }
-                  className="col-span-3"
-                  disabled
-                  rows={3}
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="peoples" className="text-right">
-                  {t("Number of People", "மக்கள் எண்ணிக்கை")}
-                </Label>
-                <Input
-                  id="peoples"
-                  type="number"
-                  value={editedAnnadhanam.peoples || ""}
-                  onChange={(e) =>
-                    setEditedAnnadhanam({ ...editedAnnadhanam, peoples: parseInt(e.target.value) })
-                  }
-                  className="col-span-3"
-                  disabled
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="time" className="text-right">
-                  {t("Time", "நேரம்")}
-                </Label>
-                <Input
-                  id="time"
-                  type="time"
-                  value={editedAnnadhanam.time || ""}
-                  onChange={(e) =>
-                    setEditedAnnadhanam({ ...editedAnnadhanam, time: e.target.value })
-                  }
-                  className="col-span-3"
-                  disabled
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="fromDate" className="text-right">
-                  {t("From Date", "தொடக்க தேதி")}
-                </Label>
-                <Input
-                  id="fromDate"
-                  type="date"
-                  value={editedAnnadhanam.fromDate || ""}
-                  onChange={(e) =>
-                    setEditedAnnadhanam({ ...editedAnnadhanam, fromDate: e.target.value })
-                  }
-                  className="col-span-3"
-                  disabled
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="toDate" className="text-right">
-                  {t("To Date", "முடிவு தேதி")}
-                </Label>
-                <Input
-                  id="toDate"
-                  type="date"
-                  value={editedAnnadhanam.toDate || ""}
-                  onChange={(e) =>
-                    setEditedAnnadhanam({ ...editedAnnadhanam, toDate: e.target.value })
-                  }
-                  className="col-span-3"
-                  disabled
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="remarks" className="text-right">
-                  {t("Remarks", "குறிப்புகள்")}
-                </Label>
-                <Textarea
-                  id="remarks"
-                  value={editedAnnadhanam.remarks || ""}
-                  onChange={(e) =>
-                    setEditedAnnadhanam({ ...editedAnnadhanam, remarks: e.target.value })
-                  }
-                  className="col-span-3"
-                  disabled
-                  rows={3}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsViewEditOpen(false);
-                  setViewEditAnnadhanam(null);
-                  setEditedAnnadhanam({});
-                }}
-              >
-                {t("Cancel", "ரத்து செய்")}
-              </Button>
-              <Button
-                className="bg-orange-600 hover:bg-orange-700"
-                onClick={() => navigate('/dashboard/annadhanam/entry')}
-              >
-                <PlusCircle className="h-4 w-4 mr-2" />
-                {t("New Entry", "புதிய பதிவு")}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Delete Confirmation Modal */}
-        <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>{t("Are you sure?", "நீங்கள் உறுதியாகவா?")}</AlertDialogTitle>
-              <AlertDialogDescription>
-                {t("This action cannot be undone. This will permanently delete the annadhanam entry and remove all associated data.", "இந்த செயலை திரும்பப் பெற முடியாது. இது அன்னதானம் பதிவை நிரந்தரமாக நீக்கி அனைத்து தொடர்புடைய தரவுகளையும் அகற்றும்.")}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>{t("Cancel", "ரத்து செய்")}</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={confirmDelete}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                {t("Delete", "நீக்கு")}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* All Logs Modal */}
-        {allLogsOpen && (
-          <div className={formFieldStyles.moneyDonationList.modal.overlay}>
-            <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeAllLogs} />
-            <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-7xl mx-4 max-h-[90vh] flex flex-col">
-              <div className="bg-gradient-to-r from-blue-300 to-indigo-400 text-white py-2 px-6 rounded-t-lg flex-shrink-0">
-                <div className={formFieldStyles.moneyDonationList.modal.header}>
-                  <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('All Annadhanam Logs', 'அனைத்து அன்னதானம் பதிவுகள்')}</h2>
-                  <button onClick={closeAllLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              
-              <div className="flex-1 flex flex-col overflow-hidden">
-                <div className="flex-1 overflow-hidden">
-                  {allLogsLoading ? (
-                    <div className={formFieldStyles.moneyDonationList.modal.loading}>
-                      {t('Loading logs...', 'பதிவுகள் ஏற்றப்படுகிறது...')}
-                    </div>
-                  ) : (
-                    <div className="h-full flex flex-col">
-                      <div className="flex-1 overflow-auto">
-                        <div className="bg-white border border-gray-200">
-                          <table className={formFieldStyles.moneyDonationList.logsTable.table}>
-                            <thead className={formFieldStyles.moneyDonationList.logsTable.thead}>
-                              <tr>
-                                <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                                  {t('Action', 'செயல்')}
-                                </th>
-                                <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                                  {t('Date & Time', 'தேதி மற்றும் நேரம்')}
-                                </th>
-                                <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                                  {t('Annadhanam ID', 'அன்னதானம் ஐடி')}
-                                </th>
-                                <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                                  {t('Name', 'பெயர்')}
-                                </th>
-                                <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                                  {t('Receipt No', 'ரசீது எண்')}
-                                </th>
-                                <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                                  {t('User', 'பயனர்')}
-                                </th>
-                                <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                                  {t('Details', 'விவரங்கள்')}
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody className={formFieldStyles.moneyDonationList.logsTable.tbody}>
-                              {allLogs.length === 0 ? (
+                      <div className="h-full flex flex-col">
+                        <div className="flex-1 overflow-auto">
+                          <div className="bg-white border border-gray-200">
+                            <table className={formFieldStyles.moneyDonationList.logsTable.table}>
+                              <thead className={formFieldStyles.moneyDonationList.logsTable.thead}>
                                 <tr>
-                                  <td className={formFieldStyles.moneyDonationList.logsTable.tdCenter} colSpan={7}>
-                                    {t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}
-                                  </td>
+                                  <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                                    {t('Action', 'செயல்')}
+                                  </th>
+                                  <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                                    {t('Date & Time', 'தேதி மற்றும் நேரம்')}
+                                  </th>
+                                  <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                                    {t('Annadhanam ID', 'அன்னதானம் ஐடி')}
+                                  </th>
+                                  <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                                    {t('Name', 'பெயர்')}
+                                  </th>
+                                  <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                                    {t('Receipt No', 'ரசீது எண்')}
+                                  </th>
+                                  <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                                    {t('User', 'பயனர்')}
+                                  </th>
+                                  <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                                    {t('Details', 'விவரங்கள்')}
+                                  </th>
                                 </tr>
-                              ) : allLogs.map((lg, index) => (
-                                <tr key={lg.id} className={formFieldStyles.moneyDonationList.logsTable.tr}>
-                                  <td className={formFieldStyles.moneyDonationList.logsTable.td}>
-                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                      lg.action === 'create' ? 'bg-green-100 text-green-800' :
-                                      lg.action === 'update' ? 'bg-blue-100 text-blue-800' :
-                                      lg.action === 'delete' ? 'bg-red-100 text-red-800' :
-                                      'bg-gray-100 text-gray-800'
-                                    }`}>
-                                      {lg.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
-                                       lg.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
-                                       lg.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
-                                       lg.action}
-                                    </span>
-                                  </td>
-                                  <td className={formFieldStyles.moneyDonationList.logsTable.tdNowrap}>
-                                    {lg.created_at ? new Date(lg.created_at).toLocaleString('en-IN', {
-                                      year: 'numeric',
-                                      month: 'short',
-                                      day: 'numeric',
-                                      hour: '2-digit',
-                                      minute: '2-digit'
-                                    }) : '-'}
-                                  </td>
-                                  <td className={formFieldStyles.moneyDonationList.logsTable.td}>{lg.annadhanam_id}</td>
-                                  <td className={formFieldStyles.moneyDonationList.logsTable.td}>{lg.annadhanam_name ?? '-'}</td>
-                                  <td className={formFieldStyles.moneyDonationList.logsTable.td}>{lg.receipt_number ?? '-'}</td>
-                                  <td className={formFieldStyles.moneyDonationList.logsTable.td}>
-                                    {(() => {
-                                      const userId = lg.created_by;
-                                      if (!userId) return '-';
-                                      const user = userDetails[userId];
-                                      const name = userNames[userId];
-                                      
-                                      if (user?.username) {
-                                        return `@${user.username}`;
-                                      }
-                                      if (user?.name) {
-                                        return user.name;
-                                      }
-                                      if (name) {
-                                        return name;
-                                      }
-                                      return `User ${userId}`;
-                                    })()}
-                                  </td>
-                                  <td className="py-3 px-4 border-b">
-                                    <div className="text-sm text-gray-600 max-w-md">
+                              </thead>
+                              <tbody className={formFieldStyles.moneyDonationList.logsTable.tbody}>
+                                {allLogs.length === 0 ? (
+                                  <tr>
+                                    <td className={formFieldStyles.moneyDonationList.logsTable.tdCenter} colSpan={7}>
+                                      {t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}
+                                    </td>
+                                  </tr>
+                                ) : allLogs.map((lg, index) => (
+                                  <tr key={lg.id} className={formFieldStyles.moneyDonationList.logsTable.tr}>
+                                    <td className={formFieldStyles.moneyDonationList.logsTable.td}>
+                                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${lg.action === 'create' ? 'bg-green-100 text-green-800' :
+                                          lg.action === 'update' ? 'bg-blue-100 text-blue-800' :
+                                            lg.action === 'delete' ? 'bg-red-100 text-red-800' :
+                                              'bg-gray-100 text-gray-800'
+                                        }`}>
+                                        {lg.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
+                                          lg.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
+                                            lg.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
+                                              lg.action}
+                                      </span>
+                                    </td>
+                                    <td className={formFieldStyles.moneyDonationList.logsTable.tdNowrap}>
+                                      {lg.created_at ? new Date(lg.created_at).toLocaleString('en-IN', {
+                                        year: 'numeric',
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      }) : '-'}
+                                    </td>
+                                    <td className={formFieldStyles.moneyDonationList.logsTable.td}>{lg.annadhanam_id}</td>
+                                    <td className={formFieldStyles.moneyDonationList.logsTable.td}>{lg.annadhanam_name ?? '-'}</td>
+                                    <td className={formFieldStyles.moneyDonationList.logsTable.td}>{lg.receipt_number ?? '-'}</td>
+                                    <td className={formFieldStyles.moneyDonationList.logsTable.td}>
                                       {(() => {
-                                        // Parse donation details from the log data
-                                        const details = lg.details;
-                                        if (!details) return <span className="text-gray-400">-</span>;
-                                        
-                                        // Check if this is an annadhanam entry with food field
-                                        const food = details.food || details.after?.food || details.before?.food;
-                                        if (!food) return <span className="text-gray-400">-</span>;
-                                        
-                                        // Parse different donation types
-                                        if (food.startsWith('Money:')) {
-                                          const amount = food.replace('Money:', '').trim();
-                                          return (
-                                            <div className="space-y-2">
-                                              <div className="bg-green-50 p-2 rounded border text-xs">
-                                                <div className="font-medium text-green-700 mb-1">{t('Money Donation', 'பண தானம்')}</div>
-                                                <div className="text-gray-600">₹{amount}</div>
-                                              </div>
-                                            </div>
-                                          );
-                                        } else if (food.startsWith('Product:')) {
-                                          const productInfo = food.replace('Product:', '').trim();
-                                          const parts = productInfo.split('|').map(p => p.trim());
-                                          const productName = parts[0];
-                                          const qtyPart = parts.find(p => /qty/i.test(p));
-                                          const quantity = qtyPart ? qtyPart.replace(/qty\s*[:]?/i, '').trim() : '';
-                                          
-                                          return (
-                                            <div className="space-y-2">
-                                              <div className="bg-blue-50 p-2 rounded border text-xs">
-                                                <div className="font-medium text-blue-700 mb-1">{t('Product Donation', 'பொருள் தானம்')}</div>
-                                                <div className="text-gray-600">{productName}</div>
-                                                {quantity && <div className="text-gray-500">Qty: {quantity}</div>}
-                                              </div>
-                                            </div>
-                                          );
-                                        } else {
-                                          // Regular food donation
-                                          return (
-                                            <div className="space-y-2">
-                                              <div className="bg-orange-50 p-2 rounded border text-xs">
-                                                <div className="font-medium text-orange-700 mb-1">{t('Food Donation', 'உணவு தானம்')}</div>
-                                                <div className="text-gray-600">{food}</div>
-                                              </div>
-                                            </div>
-                                          );
-                                        }
-                                      })()}
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                      <div className={formFieldStyles.moneyDonationList.pagination.container}>
-                        <div className={formFieldStyles.moneyDonationList.pagination.info}>
-                          {t('Total', 'மொத்தம்')}: <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{allLogsTotal}</span>
-                        </div>
-                        <div className={formFieldStyles.moneyDonationList.pagination.controls}>
-                          <button
-                            className={formFieldStyles.moneyDonationList.pagination.button}
-                            disabled={allLogsPage <= 1}
-                            onClick={() => loadAllAnnadhanamLogs(allLogsPage - 1)}
-                          >
-                            {t('Previous', 'முந்தைய')}
-                          </button>
-                          <span className="text-sm text-gray-600">{t('Page', 'பக்கம்')} {allLogsPage}</span>
-                          <button
-                            className={formFieldStyles.moneyDonationList.pagination.button}
-                            disabled={allLogsPage * allLogsPageSize >= allLogsTotal}
-                            onClick={() => loadAllAnnadhanamLogs(allLogsPage + 1)}
-                          >
-                            {t('Next', 'அடுத்தது')}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+                                        const userId = lg.created_by;
+                                        if (!userId) return '-';
+                                        const user = userDetails[userId];
+                                        const name = userNames[userId];
 
-        {/* Logs Modal */}
-        {logsFor !== null && (
-          <div className={formFieldStyles.moneyDonationList.modal.overlay}>
-            <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeLogs} />
-            <div className={formFieldStyles.moneyDonationList.modal.container}>
-              <div className="bg-gradient-to-r from-blue-300 to-indigo-400 text-white py-2 px-6 rounded-t-lg">
-                <div className={formFieldStyles.moneyDonationList.modal.header}>
-                  <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('Activity Log', 'செயல்பாட்டு பதிவு')} #{logsFor}</h2>
-                  <button onClick={closeLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              
-              <div className="p-6">
-                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                  {logsLoading ? (
-                    <div className={formFieldStyles.moneyDonationList.modal.loading}>
-                      {t('Loading logs...', 'பதிவுகள் ஏறுகிறது...')}
-                    </div>
-                  ) : logs.length === 0 ? (
-                    <div className={formFieldStyles.moneyDonationList.modal.loading}>
-                      {t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className={formFieldStyles.moneyDonationList.logsTable.table}>
-                        <thead className={formFieldStyles.moneyDonationList.logsTable.thead}>
-                          <tr>
-                            <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                              {t('Action', 'செயல்')}
-                            </th>
-                            <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                              {t('Date & Time', 'தேதி மற்றும் நேரம்')}
-                            </th>
-                            <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                              {t('User', 'பயனர்')}
-                            </th>
-                            <th className={formFieldStyles.moneyDonationList.logsTable.th}>
-                              {t('Details', 'விவரங்கள்')}
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className={formFieldStyles.moneyDonationList.logsTable.tbody}>
-                          {logs.map((lg, index) => (
-                            <tr key={lg.id} className={formFieldStyles.moneyDonationList.logsTable.tr}>
-                              <td className={formFieldStyles.moneyDonationList.logsTable.td}>
-                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                  lg.action === 'create' ? 'bg-green-100 text-green-800' :
-                                  lg.action === 'update' ? 'bg-blue-100 text-blue-800' :
-                                  lg.action === 'delete' ? 'bg-red-100 text-red-800' :
-                                  'bg-gray-100 text-gray-800'
-                                }`}>
-                                  {lg.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
-                                   lg.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
-                                   lg.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
-                                   lg.action}
-                                </span>
-                              </td>
-                              <td className={formFieldStyles.moneyDonationList.logsTable.tdNowrap}>
-                                {lg.created_at ? new Date(lg.created_at).toLocaleString('en-IN', {
-                                  year: 'numeric',
-                                  month: 'short',
-                                  day: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                }) : '-'}
-                              </td>
-                              <td className={formFieldStyles.moneyDonationList.logsTable.td}>
-                                {(() => {
-                                  const userId = lg.created_by;
-                                  if (!userId) return '-';
-                                  const user = userDetails[userId];
-                                  const name = userNames[userId];
-                                  
-                                  if (user?.username) {
-                                    return `@${user.username}`;
-                                  }
-                                  if (user?.name) {
-                                    return user.name;
-                                  }
-                                  if (name) {
-                                    return name;
-                                  }
-                                  return `User ${userId}`;
-                                })()}
-                              </td>
-                              <td className={formFieldStyles.moneyDonationList.logsTable.td}>
-                                <div className="text-sm text-gray-600 max-w-md">
-                                  {(() => {
-                                    // Parse donation details from the log data
-                                    const details = lg.details;
-                                    if (!details) return <span className="text-gray-400">-</span>;
-                                    
-                                    // Check if this is an annadhanam entry with food field
-                                    const food = details.food || details.after?.food || details.before?.food;
-                                    if (!food) return <span className="text-gray-400">-</span>;
-                                    
-                                    // Parse different donation types
-                                    if (food.startsWith('Money:')) {
-                                      const amount = food.replace('Money:', '').trim();
-                                      return (
-                                        <div className="space-y-2">
-                                          <div className="bg-green-50 p-2 rounded border text-xs">
-                                            <div className="font-medium text-green-700 mb-1">{t('Money Donation', 'பண தானம்')}</div>
-                                            <div className="text-gray-600">₹{amount}</div>
-                                          </div>
-                                        </div>
-                                      );
-                                    } else if (food.startsWith('Product:')) {
-                                      const productInfo = food.replace('Product:', '').trim();
-                                      const parts = productInfo.split('|').map(p => p.trim());
-                                      const productName = parts[0];
-                                      const qtyPart = parts.find(p => /qty/i.test(p));
-                                      const quantity = qtyPart ? qtyPart.replace(/qty\s*[:]?/i, '').trim() : '';
-                                      
-                                      return (
-                                        <div className="space-y-2">
-                                          <div className="bg-blue-50 p-2 rounded border text-xs">
-                                            <div className="font-medium text-blue-700 mb-1">{t('Product Donation', 'பொருள் தானம்')}</div>
-                                            <div className="text-gray-600">{productName}</div>
-                                            {quantity && <div className="text-gray-500">Qty: {quantity}</div>}
-                                          </div>
-                                        </div>
-                                      );
-                                    } else {
-                                      // Regular food donation
-                                      return (
-                                        <div className="space-y-2">
-                                          <div className="bg-orange-50 p-2 rounded border text-xs">
-                                            <div className="font-medium text-orange-700 mb-1">{t('Food Donation', 'உணவு தானம்')}</div>
-                                            <div className="text-gray-600">{food}</div>
-                                          </div>
-                                        </div>
-                                      );
-                                    }
-                                  })()}
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+                                        if (user?.username) {
+                                          return `@${user.username}`;
+                                        }
+                                        if (user?.name) {
+                                          return user.name;
+                                        }
+                                        if (name) {
+                                          return name;
+                                        }
+                                        return `User ${userId}`;
+                                      })()}
+                                    </td>
+                                    <td className="py-3 px-4 border-b">
+                                      <div className="text-sm text-gray-600 max-w-md">
+                                        {(() => {
+                                          // Parse donation details from the log data
+                                          const details = lg.details;
+                                          if (!details) return <span className="text-gray-400">-</span>;
+
+                                          // Check if this is an annadhanam entry with food field
+                                          const food = details.food || details.after?.food || details.before?.food;
+                                          if (!food) return <span className="text-gray-400">-</span>;
+
+                                          // Parse different donation types
+                                          if (food.startsWith('Money:')) {
+                                            const amount = food.replace('Money:', '').trim();
+                                            return (
+                                              <div className="space-y-2">
+                                                <div className="bg-green-50 p-2 rounded border text-xs">
+                                                  <div className="font-medium text-green-700 mb-1">{t('Money Donation', 'பண தானம்')}</div>
+                                                  <div className="text-gray-600">₹{amount}</div>
+                                                </div>
+                                              </div>
+                                            );
+                                          } else if (food.startsWith('Product:')) {
+                                            const productInfo = food.replace('Product:', '').trim();
+                                            const parts = productInfo.split('|').map(p => p.trim());
+                                            const productName = parts[0];
+                                            const qtyPart = parts.find(p => /qty/i.test(p));
+                                            const quantity = qtyPart ? qtyPart.replace(/qty\s*[:]?/i, '').trim() : '';
+
+                                            return (
+                                              <div className="space-y-2">
+                                                <div className="bg-blue-50 p-2 rounded border text-xs">
+                                                  <div className="font-medium text-blue-700 mb-1">{t('Product Donation', 'பொருள் தானம்')}</div>
+                                                  <div className="text-gray-600">{productName}</div>
+                                                  {quantity && <div className="text-gray-500">Qty: {quantity}</div>}
+                                                </div>
+                                              </div>
+                                            );
+                                          } else {
+                                            // Regular food donation
+                                            return (
+                                              <div className="space-y-2">
+                                                <div className="bg-orange-50 p-2 rounded border text-xs">
+                                                  <div className="font-medium text-orange-700 mb-1">{t('Food Donation', 'உணவு தானம்')}</div>
+                                                  <div className="text-gray-600">{food}</div>
+                                                </div>
+                                              </div>
+                                            );
+                                          }
+                                        })()}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                        <div className={formFieldStyles.moneyDonationList.pagination.container}>
+                          <div className={formFieldStyles.moneyDonationList.pagination.info}>
+                            {t('Total', 'மொத்தம்')}: <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{allLogsTotal}</span>
+                          </div>
+                          <div className={formFieldStyles.moneyDonationList.pagination.controls}>
+                            <button
+                              className={formFieldStyles.moneyDonationList.pagination.button}
+                              disabled={allLogsPage <= 1}
+                              onClick={() => loadAllAnnadhanamLogs(allLogsPage - 1)}
+                            >
+                              {t('Previous', 'முந்தைய')}
+                            </button>
+                            <span className="text-sm text-gray-600">{t('Page', 'பக்கம்')} {allLogsPage}</span>
+                            <button
+                              className={formFieldStyles.moneyDonationList.pagination.button}
+                              disabled={allLogsPage * allLogsPageSize >= allLogsTotal}
+                              onClick={() => loadAllAnnadhanamLogs(allLogsPage + 1)}
+                            >
+                              {t('Next', 'அடுத்தது')}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* Logs Modal */}
+          {logsFor !== null && (
+            <div className={formFieldStyles.moneyDonationList.modal.overlay}>
+              <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={closeLogs} />
+              <div className={formFieldStyles.moneyDonationList.modal.container}>
+                <div className="bg-gradient-to-r from-blue-300 to-indigo-400 text-white py-2 px-6 rounded-t-lg">
+                  <div className={formFieldStyles.moneyDonationList.modal.header}>
+                    <h2 className={formFieldStyles.moneyDonationList.modal.title}>{t('Activity Log', 'செயல்பாட்டு பதிவு')} #{logsFor}</h2>
+                    <button onClick={closeLogs} className={formFieldStyles.moneyDonationList.modal.closeButton}>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-6">
+                  <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    {logsLoading ? (
+                      <div className={formFieldStyles.moneyDonationList.modal.loading}>
+                        {t('Loading logs...', 'பதிவுகள் ஏறுகிறது...')}
+                      </div>
+                    ) : logs.length === 0 ? (
+                      <div className={formFieldStyles.moneyDonationList.modal.loading}>
+                        {t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className={formFieldStyles.moneyDonationList.logsTable.table}>
+                          <thead className={formFieldStyles.moneyDonationList.logsTable.thead}>
+                            <tr>
+                              <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                                {t('Action', 'செயல்')}
+                              </th>
+                              <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                                {t('Date & Time', 'தேதி மற்றும் நேரம்')}
+                              </th>
+                              <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                                {t('User', 'பயனர்')}
+                              </th>
+                              <th className={formFieldStyles.moneyDonationList.logsTable.th}>
+                                {t('Details', 'விவரங்கள்')}
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className={formFieldStyles.moneyDonationList.logsTable.tbody}>
+                            {logs.map((lg, index) => (
+                              <tr key={lg.id} className={formFieldStyles.moneyDonationList.logsTable.tr}>
+                                <td className={formFieldStyles.moneyDonationList.logsTable.td}>
+                                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${lg.action === 'create' ? 'bg-green-100 text-green-800' :
+                                      lg.action === 'update' ? 'bg-blue-100 text-blue-800' :
+                                        lg.action === 'delete' ? 'bg-red-100 text-red-800' :
+                                          'bg-gray-100 text-gray-800'
+                                    }`}>
+                                    {lg.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
+                                      lg.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
+                                        lg.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
+                                          lg.action}
+                                  </span>
+                                </td>
+                                <td className={formFieldStyles.moneyDonationList.logsTable.tdNowrap}>
+                                  {lg.created_at ? new Date(lg.created_at).toLocaleString('en-IN', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  }) : '-'}
+                                </td>
+                                <td className={formFieldStyles.moneyDonationList.logsTable.td}>
+                                  {(() => {
+                                    const userId = lg.created_by;
+                                    if (!userId) return '-';
+                                    const user = userDetails[userId];
+                                    const name = userNames[userId];
+
+                                    if (user?.username) {
+                                      return `@${user.username}`;
+                                    }
+                                    if (user?.name) {
+                                      return user.name;
+                                    }
+                                    if (name) {
+                                      return name;
+                                    }
+                                    return `User ${userId}`;
+                                  })()}
+                                </td>
+                                <td className={formFieldStyles.moneyDonationList.logsTable.td}>
+                                  <div className="text-sm text-gray-600 max-w-md">
+                                    {(() => {
+                                      // Parse donation details from the log data
+                                      const details = lg.details;
+                                      if (!details) return <span className="text-gray-400">-</span>;
+
+                                      // Check if this is an annadhanam entry with food field
+                                      const food = details.food || details.after?.food || details.before?.food;
+                                      if (!food) return <span className="text-gray-400">-</span>;
+
+                                      // Parse different donation types
+                                      if (food.startsWith('Money:')) {
+                                        const amount = food.replace('Money:', '').trim();
+                                        return (
+                                          <div className="space-y-2">
+                                            <div className="bg-green-50 p-2 rounded border text-xs">
+                                              <div className="font-medium text-green-700 mb-1">{t('Money Donation', 'பண தானம்')}</div>
+                                              <div className="text-gray-600">₹{amount}</div>
+                                            </div>
+                                          </div>
+                                        );
+                                      } else if (food.startsWith('Product:')) {
+                                        const productInfo = food.replace('Product:', '').trim();
+                                        const parts = productInfo.split('|').map(p => p.trim());
+                                        const productName = parts[0];
+                                        const qtyPart = parts.find(p => /qty/i.test(p));
+                                        const quantity = qtyPart ? qtyPart.replace(/qty\s*[:]?/i, '').trim() : '';
+
+                                        return (
+                                          <div className="space-y-2">
+                                            <div className="bg-blue-50 p-2 rounded border text-xs">
+                                              <div className="font-medium text-blue-700 mb-1">{t('Product Donation', 'பொருள் தானம்')}</div>
+                                              <div className="text-gray-600">{productName}</div>
+                                              {quantity && <div className="text-gray-500">Qty: {quantity}</div>}
+                                            </div>
+                                          </div>
+                                        );
+                                      } else {
+                                        // Regular food donation
+                                        return (
+                                          <div className="space-y-2">
+                                            <div className="bg-orange-50 p-2 rounded border text-xs">
+                                              <div className="font-medium text-orange-700 mb-1">{t('Food Donation', 'உணவு தானம்')}</div>
+                                              <div className="text-gray-600">{food}</div>
+                                            </div>
+                                          </div>
+                                        );
+                                      }
+                                    })()}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </Card>
       </div>
     </div>

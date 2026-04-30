@@ -76,11 +76,11 @@ async function createIncomeEntry({ asset, userId, templeId }) {
 
   const [ledgerEntryId] = await db('ledger_entries').insert({
     date: today,
-    name: `Asset Conversion: ${asset.name}`,
+    name: 'ASSET CONVERSION A/C',
     under: 'INCOME A/C',
     type: 'credit',
     amount: parseFloat(asset.value),
-    note: `Converted asset to cash. Asset ID: ${asset.id}, Source: ${asset.asset_source || 'N/A'}`,
+    note: `Asset Conversion: ${asset.name}. Asset ID: ${asset.id}, Source: ${asset.asset_source || 'N/A'}`,
     temple_id: templeId,
     created_at: db.fn.now(),
     updated_at: db.fn.now()
@@ -204,6 +204,9 @@ router.get('/', authenticateToken, authorizePermission('asset_management', 'view
         'name',
         'details',
         'value',
+        'quantity',
+        'used_qty',
+        'for_sell_qty',
         'asset_source',
         'source_details',
         'donor_name',
@@ -211,6 +214,7 @@ router.get('/', authenticateToken, authorizePermission('asset_management', 'view
         'status',
         'converted_at',
         'conversion_income_id',
+        'convert_price',
         'created_at',
         'updated_at'
       )
@@ -261,7 +265,10 @@ router.get('/:id', authenticateToken, authorizePermission('asset_management', 'v
   try {
     const { id } = req.params;
 
-    const asset = await verifyAssetOwnership(id, req.user.templeId);
+    const asset = await db('assets')
+      .where({ id, temple_id: req.user.templeId })
+      .select('*')
+      .first();
 
     if (!asset) {
       return res.status(404).json({ error: 'Property not found' });
@@ -444,6 +451,59 @@ router.delete('/:id', authenticateToken, authorizePermission('asset_management',
   }
 });
 
+// ==================== UPDATE QTY OPERATION ====================
+
+/**
+ * PUT /api/properties/:id/qty
+ * Update asset quantity (used qty and for sell qty) without converting to cash
+ */
+router.put('/:id/qty', authenticateToken, authorizePermission('asset_management', 'full'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const asset = await verifyAssetOwnership(id, req.user.templeId);
+
+    if (!asset) {
+      return res.status(403).json({
+        error: 'Not authorized',
+        message: 'Property not found or you do not have permission'
+      });
+    }
+
+    const usedQty = req.body?.usedQty !== undefined ? parseInt(req.body.usedQty) : 0;
+    const forSellQty = req.body?.forSellQty !== undefined ? parseInt(req.body.forSellQty) : 0;
+
+    await db('assets')
+      .where({ id, temple_id: req.user.templeId })
+      .update({
+        used_qty: usedQty,
+        for_sell_qty: forSellQty,
+        updated_at: db.fn.now()
+      });
+
+    await logAssetAction({
+      assetId: id,
+      action: 'update_qty',
+      details: {
+        asset: { name: asset.name },
+        used_qty: usedQty,
+        for_sell_qty: forSellQty,
+        message: `Quantity updated: used=${usedQty}, for_sell=${forSellQty}`
+      },
+      userId: req.user.id
+    });
+
+    res.json({
+      success: true,
+      message: 'Quantity updated successfully',
+      usedQty,
+      forSellQty
+    });
+  } catch (err) {
+    console.error('Error updating quantity:', err);
+    res.status(500).json({ error: 'Failed to update quantity' });
+  }
+});
+
 // ==================== CONVERT TO CASH OPERATION ====================
 
 /**
@@ -478,6 +538,18 @@ router.post('/:id/convert-to-cash', authenticateToken, authorizePermission('asse
       ? parseFloat(req.body.convertValue) 
       : parseFloat(asset.value);
     
+    const usedQty = req.body?.usedQty !== undefined 
+      ? parseInt(req.body.usedQty) 
+      : 0;
+    
+    const forSellQty = req.body?.forSellQty !== undefined 
+      ? parseInt(req.body.forSellQty) 
+      : 0;
+    
+    const convertPrice = req.body?.convertPrice !== undefined 
+      ? parseFloat(req.body.convertPrice) 
+      : 0;
+    
     if (isNaN(convertValue) || convertValue <= 0) {
       return res.status(400).json({
         error: 'Invalid value',
@@ -486,6 +558,9 @@ router.post('/:id/convert-to-cash', authenticateToken, authorizePermission('asse
     }
 
     asset.value = convertValue;
+    asset.used_qty = usedQty;
+    asset.for_sell_qty = forSellQty;
+    asset.convert_price = convertPrice;
 
     // Initiate Conversion → Create Income Entry (Asset Value = Income)
     const incomeEntryId = await createIncomeEntry({
@@ -497,6 +572,7 @@ router.post('/:id/convert-to-cash', authenticateToken, authorizePermission('asse
     // Update Ledger (done via ledger entry creation above)
 
     // Sync to daybook
+    let receiptNumber = null;
     try {
       const database = getDb();
       if (!database) {
@@ -504,7 +580,7 @@ router.post('/:id/convert-to-cash', authenticateToken, authorizePermission('asse
       } else {
         const hasDaybook = await database.schema.hasTable('daybook_entries');
         if (hasDaybook) {
-          const receiptNumber = await generateReceiptNumber(req.user.templeId);
+          receiptNumber = await generateReceiptNumber(req.user.templeId);
           await database('daybook_entries').insert({
             temple_id: req.user.templeId,
             entry_date: new Date().toISOString().slice(0, 10),
@@ -529,6 +605,27 @@ router.post('/:id/convert-to-cash', authenticateToken, authorizePermission('asse
       console.error('Failed to sync to daybook:', daybookError.message);
     }
 
+    // Create Journal Entry for Trial Balance/Balance Sheet
+    try {
+      await db('journal_entries').insert({
+        date: new Date().toISOString().slice(0, 10),
+        reference_number: receiptNumber || `ASSET-${id}`,
+        description: `Asset Conversion - ${asset.name}`,
+        total_amount: convertValue,
+        from_account: 'ASSET CONVERSION A/C',
+        to_account: 'INCOME A/C',
+        amount: convertValue,
+        entry_type: 'transfer',
+        reference_type: 'asset',
+        reference_id: parseInt(id),
+        temple_id: req.user.templeId,
+        created_by: req.user.id
+      });
+      console.log('Synced asset conversion to journal_entries');
+    } catch (journalError) {
+      console.error('Failed to sync to journal_entries:', journalError.message);
+    }
+
     // Mark Asset as Converted
     await db('assets')
       .where({ id, temple_id: req.user.templeId })
@@ -537,6 +634,9 @@ router.post('/:id/convert-to-cash', authenticateToken, authorizePermission('asse
         converted_at: db.fn.now(),
         converted_by: req.user.id,
         conversion_income_id: incomeEntryId,
+        used_qty: usedQty || 0,
+        for_sell_qty: forSellQty || 0,
+        convert_price: convertPrice || 0,
         updated_at: db.fn.now()
       });
 
@@ -559,6 +659,9 @@ router.post('/:id/convert-to-cash', authenticateToken, authorizePermission('asse
         },
         income_entry_id: incomeEntryId,
         converted_value: convertValue,
+        used_qty: usedQty,
+        for_sell_qty: forSellQty,
+        convert_price: convertPrice,
         message: `Asset converted to cash. Income entry created with ID ${incomeEntryId}`
       },
       userId: req.user.id
@@ -569,7 +672,10 @@ router.post('/:id/convert-to-cash', authenticateToken, authorizePermission('asse
       success: true,
       message: 'Asset successfully converted to cash',
       incomeEntryId,
-      convertedValue: convertValue
+      convertedValue: convertValue,
+      usedQty,
+      forSellQty,
+      convertPrice
     });
   } catch (err) {
     console.error('Error converting asset to cash:', err);

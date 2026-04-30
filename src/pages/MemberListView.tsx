@@ -11,6 +11,9 @@ import { FileDown, Search } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
 import { theme, tableClasses, buttonClasses } from '@/styles/theme';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { toast } from "@/components/ui/use-toast";
 
 interface Props {
   members: Member[];
@@ -58,7 +61,7 @@ export default function MemberListView({
 }: Props) {
   const { language } = useLanguage();
   const { token } = useAuth();
-  const t = (en: string, ta: string) => language === 'english' ? ta : en;
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);;
 
   const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' | 'center' }> = [
     { key: 'name', label: t('Name', 'பெயர்') },
@@ -93,7 +96,7 @@ export default function MemberListView({
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(visibleCols));
-    } catch {}
+    } catch { }
   }, [visibleCols]);
 
   // Context Menu
@@ -127,9 +130,87 @@ export default function MemberListView({
 
   const visibleColCount = useMemo(() => Object.values(visibleCols).filter(Boolean).length, [visibleCols]);
 
-  const handleExportPdf = async () => {
-    // Add your PDF export logic here
-    console.log('Exporting members to PDF...');
+  const handleExportPdf = () => {
+    try {
+      const title = t("Staff List", "பணியாளர் பட்டியல்");
+      const headCells = [
+        t("Name", "பெயர்"),
+        t("Username", "பயனர் பெயர்"),
+        t("Mobile", "மொபைல்"),
+        t("Email", "மின்னஞ்சல்"),
+        t("Role", "பங்கு"),
+        t("Status", "நிலை"),
+      ];
+
+      const exportRows = members.map((member) => [
+        member.fullName || "",
+        member.username || "",
+        member.mobile || "",
+        member.email || "",
+        member.role === 'superadmin' ? t('Super Admin', 'முதன்மை நிர்வாகி') :
+          member.role === 'admin' ? t('Admin', 'நிர்வாகி') :
+            t('Member', 'உறுப்பினர்'),
+        member.isBlocked ? t('Blocked', 'தடுக்கப்பட்டது') : t('Active', 'செயலில்'),
+      ]);
+
+      const doc = new jsPDF('landscape');
+      
+      // Add Title and Styling
+      doc.setFontSize(20);
+      doc.setTextColor(40);
+      doc.text(title, 14, 22);
+      
+      // Add metadata info
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      const now = new Date();
+      const meta = `${t("Showing", "காட்டப்படுகிறது")}: ${members.length} | ${t("Total", "மொத்தம்")}: ${totalMembers}`;
+      doc.text(meta, 14, 30);
+      
+      // Horizontal line
+      doc.setDrawColor(200, 200, 200);
+      doc.line(14, 33, 283, 33);
+
+      autoTable(doc, {
+        head: [headCells],
+        body: exportRows,
+        startY: 40,
+        styles: { 
+          fontSize: 9, 
+          cellPadding: 4,
+          valign: 'middle'
+        },
+        headStyles: { 
+          fillColor: [79, 70, 229], // Indigo 600
+          textColor: [255, 255, 255], 
+          fontStyle: 'bold',
+          fontSize: 10
+        },
+        alternateRowStyles: {
+          fillColor: [249, 250, 251] // Gray 50
+        },
+        margin: { top: 40 },
+        didDrawPage: (data) => {
+          // Footer: Page Number
+          const str = `Page ${(doc as any).getNumberOfPages()}`;
+          doc.setFontSize(8);
+          doc.setTextColor(150);
+          const pageSize = doc.internal.pageSize;
+          const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
+          doc.text(str, 14, pageHeight - 10);
+        }
+      });
+
+      const stamp = now.toISOString().slice(0, 19).replace(/[:T]/g, "-");
+      doc.save(`members-export-${stamp}.pdf`);
+    } catch (err) {
+      console.error("PDF export failed", err);
+      toast({
+        title: t('Error', 'பிழை'),
+        description: "Failed to export PDF",
+        variant: "destructive",
+      });
+    }
   };
 
   const handlePrint = () => {
@@ -239,7 +320,7 @@ export default function MemberListView({
       // preload existing permissions
       setPermLoading(true);
       const targetId = (member as any).userId ?? member.id;
-      const res = await fetch(`http://localhost:4000/api/admin/members/${targetId}`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/admin/members/${targetId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -281,7 +362,7 @@ export default function MemberListView({
     setPermError(null);
     try {
       const body = { customPermissions: permItems.filter(r => r.id && r.access) };
-      const res = await fetch(`http://localhost:4000/api/admin/members/${permMember.userId ?? permMember.id}`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/admin/members/${permMember.userId ?? permMember.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -309,415 +390,413 @@ export default function MemberListView({
         <CardHeader className={theme.header.container}>
           <div className={theme.header.contentSpacing}>
             <CardTitle className={theme.header.main}>
-              {t("Members List", "உறுப்பினர் பதிவு")}
+              {t("Staff List", "பணியாளர் பட்டியல்")}
             </CardTitle>
           </div>
         </CardHeader>
-      {/* Header */}
-      <div className="flex justify-between items-center mb-2 px-1">
-        <div className="text-sm text-gray-500">
-          {totalMembers} {totalMembers === 1 ? t('member', 'உறுப்பினர்') : t('members', 'உறுப்பினர்கள்')} {t('found', 'கிடைத்தன')}
+        {/* Header */}
+        <div className="flex justify-between items-center mb-2 px-1">
+          <div className="text-sm text-gray-500">
+            {totalMembers} {totalMembers === 1 ? t('member', 'உறுப்பினர்') : t('members', 'உறுப்பினர்கள்')} {t('found', 'கிடைத்தன')}
+          </div>
         </div>
-      </div>
 
-      {/* Table Card */}
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          {/* Search + Export Toolbar */}
-          <div className={formFieldStyles.moneyDonationList.filters.container}>
-            <div className={formFieldStyles.moneyDonationList.filters.form}>
-              <div className={formFieldStyles.moneyDonationList.filters.searchContainer}>
-                <div className={formFieldStyles.moneyDonationList.filters.searchIcon}>
-                  <Search className={formFieldStyles.moneyDonationList.filters.searchIconSvg} />
+        {/* Table Card */}
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            {/* Search + Export Toolbar */}
+            <div className={formFieldStyles.moneyDonationList.filters.container}>
+              <div className={formFieldStyles.moneyDonationList.filters.form}>
+                <div className={formFieldStyles.moneyDonationList.filters.searchContainer}>
+                  <div className={formFieldStyles.moneyDonationList.filters.searchIcon}>
+                    <Search className={formFieldStyles.moneyDonationList.filters.searchIconSvg} />
+                  </div>
+                  <Input
+                    type="search"
+                    placeholder={t('Search by name/username/mobile/email...', 'பெயர்/பயனர் பெயர்/மொபைல்/மின்னஞ்சல் மூலம் தேடுக')}
+                    className={cn(theme.input.base, theme.input.size.sm, "pl-8")}
+                    value={searchTerm}
+                    onChange={(e) => onSearch(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && onSearch(searchTerm)}
+                  />
                 </div>
-                <Input
-                  type="search"
-                  placeholder={t('Search by name/username/mobile/email...', 'பெயர்/பயனர் பெயர்/மொபைல்/மின்னஞ்சல் மூலம் தேடுக')}
-                  className={cn(theme.input.base, theme.input.size.sm, "pl-8")}
-                  value={searchTerm}
-                  onChange={(e) => onSearch(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && onSearch(searchTerm)}
-                />
-              </div>
-              <div className="flex gap-2">
-                <select
-                  value={filterRole}
-                  onChange={(e) => onFilter(e.target.value)}
-                  className={cn(theme.select.base, theme.select.size.sm)}
-                >
-                  <option value="all">{t('All Roles', 'அனைத்து பங்குகள்')}</option>
-                  <option value="member">{t('Member', 'உறுப்பினர்')}</option>
-                  <option value="admin">{t('Admin', 'நிர்வாகி')}</option>
-                  <option value="superadmin">{t('Super Admin', 'முதன்மை நிர்வாகி')}</option>
-                </select>
-              </div>
-              <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>
-                <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => onSearch('')}>
-                  {t('Clear', 'அழி')}
-                </Button>
-                <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handleExportPdf}>
-                  <FileDown className="h-3 w-3 mr-1" />
-                  {t('Export PDF', 'PDF ஏற்றுமதி')}
-                </Button>
-                <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handlePrint}>
-                  <FileDown className="h-3 w-3 mr-1" />
-                  {t('Print', 'அச்சிடு')}
-                </Button>
+                <div className="flex gap-2">
+                  <select
+                    value={filterRole}
+                    onChange={(e) => onFilter(e.target.value)}
+                    className={cn(theme.select.base, theme.select.size.sm)}
+                  >
+                    <option value="all">{t('All Roles', 'அனைத்து பங்குகள்')}</option>
+                    <option value="member">{t('Member', 'உறுப்பினர்')}</option>
+                    <option value="admin">{t('Admin', 'நிர்வாகி')}</option>
+                    <option value="superadmin">{t('Super Admin', 'முதன்மை நிர்வாகி')}</option>
+                  </select>
+                </div>
+                <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>
+                  <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => onSearch('')}>
+                    {t('Clear', 'அழி')}
+                  </Button>
+                  <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handleExportPdf}>
+                    <FileDown className="h-3 w-3 mr-1" />
+                    {t('Export PDF', 'PDF ஏற்றுமதி')}
+                  </Button>
+                  <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handlePrint}>
+                    <FileDown className="h-3 w-3 mr-1" />
+                    {t('Print', 'அச்சிடு')}
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Table */}
-          <div className={tableClasses.scrollContainerWrapper} onContextMenu={onContextMenu}>
-            <div className={tableClasses.scrollContainer}>
-              <Table className={tableClasses.container}>
-                <TableHeader className={tableClasses.header}>
-                  <TableRow className={tableClasses.row}>
-                    <TableHead className={tableClasses.headerCellSno}>{t("S.No", "எண்")}</TableHead>
-                    <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Name", "பெயர்")}</TableHead>
-                    <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Username", "பயனர் பெயர்")}</TableHead>
-                    <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Mobile", "மொபைல்")}</TableHead>
-                    <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Email", "மின்னஞ்சல்")}</TableHead>
-                    <TableHead className={cn(tableClasses.headerCell, "text-center")}>{t("Role", "பங்கு")}</TableHead>
-                    <TableHead className={cn(tableClasses.headerCell, "text-center")}>{t("Status", "நிலை")}</TableHead>
-                    <TableHead className={cn(tableClasses.headerCell, "text-right")}>{t("Actions", "செயல்கள்")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {members.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={8} className={tableClasses.emptyState}>
-                        {t('No members found', 'உறுப்பினர்கள் இல்லை')}
-                      </TableCell>
+            {/* Table */}
+            <div className={tableClasses.scrollContainerWrapper} onContextMenu={onContextMenu}>
+              <div className={tableClasses.scrollContainer}>
+                <Table className={tableClasses.container}>
+                  <TableHeader className={tableClasses.header}>
+                    <TableRow className={tableClasses.row}>
+                      <TableHead className={tableClasses.headerCellSno}>{t("S.No", "எண்")}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Name", "பெயர்")}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Username", "பயனர் பெயர்")}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Mobile", "மொபைல்")}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Email", "மின்னஞ்சல்")}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-center")}>{t("Role", "பங்கு")}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-center")}>{t("Status", "நிலை")}</TableHead>
+                      <TableHead className={cn(tableClasses.headerCell, "text-right")}>{t("Actions", "செயல்கள்")}</TableHead>
                     </TableRow>
-                  ) : (
-                    members.map((member, index) => (
-                      <TableRow key={member.id} className={tableClasses.row}>
-                        <TableCell className={tableClasses.cellSno}>
-                          {index + 1}
-                        </TableCell>
-                        <TableCell className={tableClasses.cell}>
-                          <div className="font-medium text-gray-900">{member.fullName}</div>
-                          {member.username && <div className="text-xs text-gray-500">@{member.username}</div>}
-                        </TableCell>
-                        <TableCell className={tableClasses.cell}>
-                          {member.username || '-'}
-                        </TableCell>
-                        <TableCell className={tableClasses.cell}>
-                          {member.mobile}
-                        </TableCell>
-                        <TableCell className={tableClasses.cell}>
-                          {member.email || '-'}
-                        </TableCell>
-                        <TableCell className={cn(tableClasses.cell, "text-center")}>
-                          <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full capitalize ${
-                            member.role === 'superadmin' 
-                              ? 'bg-red-100 text-red-800'
-                              : member.role === 'admin'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-green-100 text-green-800'
-                          }`}>
-                            {member.role === 'superadmin' ? t('Super Admin', 'முதன்மை நிர்வாகி') :
-                             member.role === 'admin' ? t('Admin', 'நிர்வாகி') :
-                             t('Member', 'உறுப்பினர்')}
-                          </span>
-                        </TableCell>
-                        <TableCell className={cn(tableClasses.cell, "text-center")}>
-                          <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
-                            member.isBlocked ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-                          }`}>
-                            {member.isBlocked ? t('Blocked', 'தடுக்கப்பட்டது') : t('Active', 'செயலில்')}
-                          </span>
-                        </TableCell>
-                        <TableCell className={cn(tableClasses.cell, tableClasses.actionCell)}>
-                          <div className="flex items-center justify-end gap-1">
-                            {canEditMembers && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => onEdit(member)}
-                                className={cn(buttonClasses.actionSecondary, "h-5 w-5 p-0")}
-                              >
-                                <svg className="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                              </Button>
-                            )}
-                            {canEditMembers && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openPermissions(member)}
-                                className={cn(buttonClasses.actionSecondary, "h-5 w-5 p-0")}
-                              >
-                                <svg className="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                </svg>
-                              </Button>
-                            )}
-                            {canBlockMembers && member.id && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => member.isBlocked ? onUnblock(member.id, member.userId!) : onBlock(member.id, member.userId!)}
-                                className={cn(buttonClasses.actionSecondary, "h-5 w-5 p-0")}
-                              >
-                                {member.isBlocked ? (
-                                  <svg className="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
-                                  </svg>
-                                ) : (
-                                  <svg className="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                  </svg>
-                                )}
-                              </Button>
-                            )}
-                            {canResetPasswords && member.id && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => onResetPassword(member.id)}
-                                className={cn(buttonClasses.actionSecondary, "h-5 w-5 p-0")}
-                              >
-                                <svg className="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                                </svg>
-                              </Button>
-                            )}
-                            {canDeleteMembers && member.id && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => onDelete(member.id)}
-                                className={cn(buttonClasses.actionDanger, "h-5 w-5 p-0")}
-                              >
-                                <svg className="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                              </Button>
-                            )}
-                          </div>
+                  </TableHeader>
+                  <TableBody>
+                    {members.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className={tableClasses.emptyState}>
+                          {t('No members found', 'உறுப்பினர்கள் இல்லை')}
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-
-            {/* Pagination */}
-            <div className={tableClasses.pagination}>
-              <div className="text-sm text-gray-700">
-                {t("Showing", "காட்டப்படுகிறது")} {(currentPage - 1) * 20 + 1} {t("to", "இலிருந்து")} {Math.min(currentPage * 20, totalMembers)} {t("of", "இல்")}{" "}
-                <span className="font-medium">{totalMembers}</span> {t("items", "உருப்படிகள்")}
+                    ) : (
+                      members.map((member, index) => (
+                        <TableRow key={member.id} className={tableClasses.row}>
+                          <TableCell className={tableClasses.cellSno}>
+                            {index + 1}
+                          </TableCell>
+                          <TableCell className={tableClasses.cell}>
+                            <div className="font-medium text-gray-900">{member.fullName}</div>
+                            {member.username && <div className="text-xs text-gray-500">@{member.username}</div>}
+                          </TableCell>
+                          <TableCell className={tableClasses.cell}>
+                            {member.username || '-'}
+                          </TableCell>
+                          <TableCell className={tableClasses.cell}>
+                            {member.mobile}
+                          </TableCell>
+                          <TableCell className={tableClasses.cell}>
+                            {member.email || '-'}
+                          </TableCell>
+                          <TableCell className={cn(tableClasses.cell, "text-center")}>
+                            <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full capitalize ${member.role === 'superadmin'
+                                ? 'bg-red-100 text-red-800'
+                                : member.role === 'admin'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-green-100 text-green-800'
+                              }`}>
+                              {member.role === 'superadmin' ? t('Super Admin', 'முதன்மை நிர்வாகி') :
+                                member.role === 'admin' ? t('Admin', 'நிர்வாகி') :
+                                  t('Member', 'உறுப்பினர்')}
+                            </span>
+                          </TableCell>
+                          <TableCell className={cn(tableClasses.cell, "text-center")}>
+                            <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${member.isBlocked ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                              }`}>
+                              {member.isBlocked ? t('Blocked', 'தடுக்கப்பட்டது') : t('Active', 'செயலில்')}
+                            </span>
+                          </TableCell>
+                          <TableCell className={cn(tableClasses.cell, tableClasses.actionCell)}>
+                            <div className="flex items-center justify-end gap-1">
+                              {canEditMembers && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => onEdit(member)}
+                                  className={cn(buttonClasses.actionSecondary, "h-5 w-5 p-0")}
+                                >
+                                  <svg className="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                </Button>
+                              )}
+                              {canEditMembers && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openPermissions(member)}
+                                  className={cn(buttonClasses.actionSecondary, "h-5 w-5 p-0")}
+                                >
+                                  <svg className="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                  </svg>
+                                </Button>
+                              )}
+                              {canBlockMembers && member.id && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => member.isBlocked ? onUnblock(member.id, member.userId!) : onBlock(member.id, member.userId!)}
+                                  className={cn(buttonClasses.actionSecondary, "h-5 w-5 p-0")}
+                                >
+                                  {member.isBlocked ? (
+                                    <svg className="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                                    </svg>
+                                  ) : (
+                                    <svg className="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    </svg>
+                                  )}
+                                </Button>
+                              )}
+                              {canResetPasswords && member.id && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => onResetPassword(member.id)}
+                                  className={cn(buttonClasses.actionSecondary, "h-5 w-5 p-0")}
+                                >
+                                  <svg className="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                  </svg>
+                                </Button>
+                              )}
+                              {canDeleteMembers && member.id && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => onDelete(member.id)}
+                                  className={cn(buttonClasses.actionDanger, "h-5 w-5 p-0")}
+                                >
+                                  <svg className="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
               </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={currentPage <= 1}
-                  onClick={() => onPageChange(currentPage - 1)}
-                  className={tableClasses.paginationButton}
-                >
-                  {t('Previous', 'முந்தைய')}
-                </Button>
-                <span className="text-xs flex items-center">
-                  {t('Page', 'பக்கம்')} {currentPage} {t('of', 'இல்')} {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={currentPage >= totalPages}
-                  onClick={() => onPageChange(currentPage + 1)}
-                  className={tableClasses.paginationButton}
-                >
-                  {t('Next', 'அடுத்தது')}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* Context Menu */}
-      {menuOpen && (
-        <div
-          ref={menuRef}
-          className="fixed z-50 bg-white rounded shadow border border-gray-200 w-48 text-xs"
-          style={{ left: menuPos.x, top: menuPos.y }}
-        >
-          <div className="px-3 py-2 border-b border-gray-200">
-            <h3 className="text-xs font-medium text-gray-900">{t('Columns', 'நெடுவரிசைகள்')}</h3>
-            <p className="text-xs text-gray-500">
-              {t('Visible', 'காட்டப்படும்')} {Object.values(visibleCols).filter(Boolean).length}/{allColumns.length}
-            </p>
-          </div>
-          <div className="max-h-48 overflow-y-auto p-1">
-            {allColumns.map((col) => (
-              <label
-                key={col.key}
-                className="flex items-center px-2 py-1 rounded hover:bg-gray-50 cursor-pointer select-none"
-              >
-                <input
-                  type="checkbox"
-                  checked={!!visibleCols[col.key]}
-                  onChange={() =>
-                    setVisibleCols((prev) => ({ ...prev, [col.key]: !prev[col.key] }))
-                  }
-                  className={cn(theme.input.base, "h-3 w-3 text-blue-600 rounded")}
-                />
-                <span className="ml-2 text-xs text-gray-700">{col.label}</span>
-              </label>
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-1 p-1 border-t border-gray-200">
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs py-0.5 px-1.5 h-auto"
-              onClick={() =>
-                setVisibleCols(
-                  Object.fromEntries(allColumns.map((c) => [c.key, true])) as Record<ColKey, boolean>
-                )
-              }
-            >
-              {t('Select all', 'அனைத்தையும் தேர்ந்தெடு')}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs py-0.5 px-1.5 h-auto"
-              onClick={() =>
-                setVisibleCols(
-                  Object.fromEntries(allColumns.map((c) => [c.key, false])) as Record<ColKey, boolean>
-                )
-              }
-            >
-              {t('Clear all', 'அனைத்தையும் அழி')}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs py-0.5 px-1.5 h-auto"
-              onClick={() => setVisibleCols({ ...defaultVisible })}
-            >
-              {t('Reset', 'மீட்டமை')}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs py-0.5 px-1.5 h-auto ml-auto"
-              onClick={() => setMenuOpen(false)}
-            >
-              {t('Close', 'மூடு')}
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Permissions Editor Modal */}
-      {permEditorOpen && permMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded shadow-md w-full max-w-lg p-3 text-xs">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-gray-900">
-                {t('Edit Permissions', 'அனுமதிகளை திருத்து')} – {permMember.fullName || permMember.username || permMember.mobile}
-              </h3>
-              <button className="text-gray-500 hover:text-gray-700" onClick={() => setPermEditorOpen(false)}>✕</button>
-            </div>
-
-            <div className="space-y-2">
-              {permLoading && (
-                <div className="text-xs text-gray-600">{t('Loading permissions...', 'அனுமதிகள் ஏற்றப்படுகிறது...')}</div>
-              )}
-              <div className="flex items-center justify-between mb-1">
-                <div className="text-xs text-gray-600">
-                  {t('Select permissions and levels', 'அனுமதிகள் மற்றும் நிலைகளைத் தேர்ந்தெடுக்கவும்')}
+              {/* Pagination */}
+              <div className={tableClasses.pagination}>
+                <div className="text-sm text-gray-700">
+                  {t("Showing", "காட்டப்படுகிறது")} {(currentPage - 1) * 20 + 1} {t("to", "இலிருந்து")} {Math.min(currentPage * 20, totalMembers)} {t("of", "இல்")}{" "}
+                  <span className="font-medium">{totalMembers}</span> {t("items", "உருப்படிகள்")}
                 </div>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="text-xs py-0.5 px-1.5 h-auto"
-                    onClick={() => setPermItems(PERMISSION_OPTIONS.map(opt => ({ id: opt.id, access: 'view' })))}
+                    disabled={currentPage <= 1}
+                    onClick={() => onPageChange(currentPage - 1)}
+                    className={tableClasses.paginationButton}
                   >
-                    {t('Select all', 'அனைத்தையும் தேர்ந்தெடு')}
+                    {t('Previous', 'முந்தைய')}
                   </Button>
+                  <span className="text-xs flex items-center">
+                    {t('Page', 'பக்கம்')} {currentPage} {t('of', 'இல்')} {totalPages}
+                  </span>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="text-xs py-0.5 px-1.5 h-auto"
-                    onClick={() => setPermItems([])}
+                    disabled={currentPage >= totalPages}
+                    onClick={() => onPageChange(currentPage + 1)}
+                    className={tableClasses.paginationButton}
                   >
-                    {t('Clear all', 'அனைத்தையும் அழி')}
+                    {t('Next', 'அடுத்தது')}
                   </Button>
                 </div>
               </div>
+            </div>
+          </CardContent>
+        </Card>
 
-              <div className="max-h-72 overflow-y-auto grid grid-cols-1 gap-2">
-                {PERMISSION_OPTIONS.map((opt) => {
-                  const enabled = permItems.some((p) => p.id === opt.id);
-                  const current = permItems.find((p) => p.id === opt.id);
-                  return (
-                    <div key={opt.id} className={`border rounded p-2 ${enabled ? 'border-blue-300 bg-blue-50' : 'border-gray-200'}`}>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={enabled}
-                              onChange={(e) => togglePermission(opt.id, e.target.checked)}
-                            />
-                            <div className="font-medium text-gray-900">
-                              {getPermissionLabel(opt.id, 'label')}
+        {/* Context Menu */}
+        {menuOpen && (
+          <div
+            ref={menuRef}
+            className="fixed z-50 bg-white rounded shadow border border-gray-200 w-48 text-xs"
+            style={{ left: menuPos.x, top: menuPos.y }}
+          >
+            <div className="px-3 py-2 border-b border-gray-200">
+              <h3 className="text-xs font-medium text-gray-900">{t('Columns', 'நெடுவரிசைகள்')}</h3>
+              <p className="text-xs text-gray-500">
+                {t('Visible', 'காட்டப்படும்')} {Object.values(visibleCols).filter(Boolean).length}/{allColumns.length}
+              </p>
+            </div>
+            <div className="max-h-48 overflow-y-auto p-1">
+              {allColumns.map((col) => (
+                <label
+                  key={col.key}
+                  className="flex items-center px-2 py-1 rounded hover:bg-gray-50 cursor-pointer select-none"
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!visibleCols[col.key]}
+                    onChange={() =>
+                      setVisibleCols((prev) => ({ ...prev, [col.key]: !prev[col.key] }))
+                    }
+                    className={cn(theme.input.base, "h-3 w-3 text-blue-600 rounded")}
+                  />
+                  <span className="ml-2 text-xs text-gray-700">{col.label}</span>
+                </label>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-1 p-1 border-t border-gray-200">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs py-0.5 px-1.5 h-auto"
+                onClick={() =>
+                  setVisibleCols(
+                    Object.fromEntries(allColumns.map((c) => [c.key, true])) as Record<ColKey, boolean>
+                  )
+                }
+              >
+                {t('Select all', 'அனைத்தையும் தேர்ந்தெடு')}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs py-0.5 px-1.5 h-auto"
+                onClick={() =>
+                  setVisibleCols(
+                    Object.fromEntries(allColumns.map((c) => [c.key, false])) as Record<ColKey, boolean>
+                  )
+                }
+              >
+                {t('Clear all', 'அனைத்தையும் அழி')}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs py-0.5 px-1.5 h-auto"
+                onClick={() => setVisibleCols({ ...defaultVisible })}
+              >
+                {t('Reset', 'மீட்டமை')}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs py-0.5 px-1.5 h-auto ml-auto"
+                onClick={() => setMenuOpen(false)}
+              >
+                {t('Close', 'மூடு')}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Permissions Editor Modal */}
+        {permEditorOpen && permMember && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="bg-white rounded shadow-md w-full max-w-lg p-3 text-xs">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-gray-900">
+                  {t('Edit Permissions', 'அனுமதிகளை திருத்து')} – {permMember.fullName || permMember.username || permMember.mobile}
+                </h3>
+                <button className="text-gray-500 hover:text-gray-700" onClick={() => setPermEditorOpen(false)}>✕</button>
+              </div>
+
+              <div className="space-y-2">
+                {permLoading && (
+                  <div className="text-xs text-gray-600">{t('Loading permissions...', 'அனுமதிகள் ஏற்றப்படுகிறது...')}</div>
+                )}
+                <div className="flex items-center justify-between mb-1">
+                  <div className="text-xs text-gray-600">
+                    {t('Select permissions and levels', 'அனுமதிகள் மற்றும் நிலைகளைத் தேர்ந்தெடுக்கவும்')}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs py-0.5 px-1.5 h-auto"
+                      onClick={() => setPermItems(PERMISSION_OPTIONS.map(opt => ({ id: opt.id, access: 'view' })))}
+                    >
+                      {t('Select all', 'அனைத்தையும் தேர்ந்தெடு')}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs py-0.5 px-1.5 h-auto"
+                      onClick={() => setPermItems([])}
+                    >
+                      {t('Clear all', 'அனைத்தையும் அழி')}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="max-h-72 overflow-y-auto grid grid-cols-1 gap-2">
+                  {PERMISSION_OPTIONS.map((opt) => {
+                    const enabled = permItems.some((p) => p.id === opt.id);
+                    const current = permItems.find((p) => p.id === opt.id);
+                    return (
+                      <div key={opt.id} className={`border rounded p-2 ${enabled ? 'border-blue-300 bg-blue-50' : 'border-gray-200'}`}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={enabled}
+                                onChange={(e) => togglePermission(opt.id, e.target.checked)}
+                              />
+                              <div className="font-medium text-gray-900">
+                                {getPermissionLabel(opt.id, 'label')}
+                              </div>
+                            </div>
+                            <div className="text-gray-600 mt-1">
+                              {getPermissionLabel(opt.id, 'description')}
                             </div>
                           </div>
-                          <div className="text-gray-600 mt-1">
-                            {getPermissionLabel(opt.id, 'description')}
+                          <div>
+                            <select
+                              disabled={!enabled}
+                              value={(current?.access as any) || 'view'}
+                              onChange={(e) => setPermissionLevel(opt.id, e.target.value as any)}
+                              className={cn(theme.select.base, theme.select.size.md)}
+                            >
+                              <option value="view">{t('View', 'பார்வை')}</option>
+                              <option value="edit">{t('Edit', 'திருத்து')}</option>
+                              <option value="full">{t('Full', 'முழு')}</option>
+                            </select>
                           </div>
                         </div>
-                        <div>
-                          <select
-                            disabled={!enabled}
-                            value={(current?.access as any) || 'view'}
-                            onChange={(e) => setPermissionLevel(opt.id, e.target.value as any)}
-                            className={cn(theme.select.base, theme.select.size.md)}
-                          >
-                            <option value="view">{t('View', 'பார்வை')}</option>
-                            <option value="edit">{t('Edit', 'திருத்து')}</option>
-                            <option value="full">{t('Full', 'முழு')}</option>
-                          </select>
-                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
 
-            {permError && (
-              <div className="mt-2 text-red-600">{permError}</div>
-            )}
+              {permError && (
+                <div className="mt-2 text-red-600">{permError}</div>
+              )}
 
-            <div className="mt-3 flex items-center justify-between">
-              <Button variant="outline" onClick={addPermRow} className="text-xs py-1 px-2">
-                {t('Add permission', 'அனுமதி சேர்')}
-              </Button>
-              <div className="flex gap-2">
-                <Button variant="ghost" onClick={() => setPermEditorOpen(false)} className="text-xs py-1 px-2">
-                  {t('Cancel', 'ரத்து')}
+              <div className="mt-3 flex items-center justify-between">
+                <Button variant="outline" onClick={addPermRow} className="text-xs py-1 px-2">
+                  {t('Add permission', 'அனுமதி சேர்')}
                 </Button>
-                <Button variant="outline" onClick={savePermissions} disabled={savingPerms} className="text-xs py-1 px-2">
-                  {savingPerms ? t('Saving...', 'சேமிக்கப்பட்டு...') : t('Save', 'சேமி')}
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="ghost" onClick={() => setPermEditorOpen(false)} className="text-xs py-1 px-2">
+                    {t('Cancel', 'ரத்து')}
+                  </Button>
+                  <Button variant="outline" onClick={savePermissions} disabled={savingPerms} className="text-xs py-1 px-2">
+                    {savingPerms ? t('Saving...', 'சேமிக்கப்பட்டு...') : t('Save', 'சேமி')}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-    </Card>
+        )}
+      </Card>
     </div>
-    
+
   );
 }

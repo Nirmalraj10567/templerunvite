@@ -1,4 +1,4 @@
-curl ^"http://localhost:4000/api/hall-mobile/submit^" ^
+curl ^"https://templeapi.agniplay.com/api/hall-mobile/submit^" ^
   -H ^"accept: application/json^" ^
   -H ^"accept-language: en-US,en;q=0.9^" ^
   -H ^"authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjEsIm1vYmlsZSI6IjkwODc4NjMxODkiLCJuYW1lIjoiQVNSSCIsInR5cGUiOiJtZW1iZXIiLCJyZWZlcmVuY2VOdW1iZXIiOiIyMDI1LTAwMDIiLCJ0ZW1wbGVJZCI6MTIsImlhdCI6MTc1ODcxMzQ2OCwiZXhwIjoxNzkwMjQ5NDY4fQ.EvX4UWb_ezGR0sMgTGhe788J47nO6hfzHWMkmv30FW8^" ^
@@ -10,12 +10,12 @@ curl ^"http://localhost:4000/api/hall-mobile/submit^" ^
   -H ^"sec-fetch-site: cross-site^" ^
   -H ^"user-agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1^" ^
   --data-raw ^"^{^\^"date^\^":^\^"2025-09-26^\^",^\^"time^\^":^\^"17:02^\^",^\^"name^\^":^\^"baby^\^",^\^"mobile^\^":^\^"9087863189^\^",^\^"event^\^":^\^"reception^\^",^\^"subdivision^\^":^\^"baby^\^",^\^"remarks^\^":^\^"s,djkfk^\^"^}^"POST /api/hall-mobile/submit error: Error: insert into `marriage_hall_bookings` (`address`, `admin_notes`, `advance_amount`, `approved_at`, `approved_by`, `balance_amount`, `created_at`, `date`, `event`, `mobile`, `name`, `register_no`, `rejection_reason`, `remarks`, `status`, `subdivision`, `submitted_at`, `submitted_by_mobile`, `temple_id`, `time`, `total_amount`, `updated_at`, `village`) values (NULL, NULL, NULL, NULL, NULL, NULL, '2025-09-24 17:05:32.244', '2025-09-26', 'reception', '9087863189', 'baby', NULL, NULL, 's,djkfk', 'pending', 'baby', '2025-09-24 17:05:32.244', '9087863189', 1, '17:02', NULL, '2025-09-24 17:05:32.244', NULL) - Cannot add or update a child row: a foreign key constraint fails (`xesstech_templerun`.`marriage_hall_bookings`, CONSTRAINT `marriage_hall_bookings_ibfk_1` FOREIGN KEY (`temple_id`) REFERENCES `temples` (`id`) ON DELETE CASCADE)
-    at Packet.asError (/home8/xesstech/nodevenv/tmsapi.xesstechlink.com/22/lib/node_modules/mysql2/lib/packets/packet.js:740:17)
-    at Query.execute (/home8/xesstech/nodevenv/tmsapi.xesstechlink.com/22/lib/node_modules/mysql2/lib/commands/command.js:29:26)
-    at Connection.handlePacket (/home8/xesstech/nodevenv/tmsapi.xesstechlink.com/22/lib/node_modules/mysql2/lib/base/connection.js:475:34)
-    at PacketParser.onPacket (/home8/xesstech/nodevenv/tmsapi.xesstechlink.com/22/lib/node_modules/mysql2/lib/base/connection.js:93:12)
-    at PacketParser.executeStart (/home8/xesstech/nodevenv/tmsapi.xesstechlink.com/22/lib/node_modules/mysql2/lib/packet_parser.js:75:16)
-    at Socket.<anonymous> (/home8/xesstech/nodevenv/tmsapi.xesstechlink.com/22/lib/node_modules/mysql2/lib/base/connection.js:100:25)
+    at Packet.asError (/home8/xesstech/nodevenv/templeapi.agniplay.com/22/lib/node_modules/mysql2/lib/packets/packet.js:740:17)
+    at Query.execute (/home8/xesstech/nodevenv/templeapi.agniplay.com/22/lib/node_modules/mysql2/lib/commands/command.js:29:26)
+    at Connection.handlePacket (/home8/xesstech/nodevenv/templeapi.agniplay.com/22/lib/node_modules/mysql2/lib/base/connection.js:475:34)
+    at PacketParser.onPacket (/home8/xesstech/nodevenv/templeapi.agniplay.com/22/lib/node_modules/mysql2/lib/base/connection.js:93:12)
+    at PacketParser.executeStart (/home8/xesstech/nodevenv/templeapi.agniplay.com/22/lib/node_modules/mysql2/lib/packet_parser.js:75:16)
+    at Socket.<anonymous> (/home8/xesstech/nodevenv/templeapi.agniplay.com/22/lib/node_modules/mysql2/lib/base/connection.js:100:25)
     at Socket.emit (node:events:518:28)
     at addChunk (node:internal/streams/readable:561:12)
     at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)

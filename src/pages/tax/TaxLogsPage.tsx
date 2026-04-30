@@ -4,11 +4,11 @@ import { useLanguage } from "@/lib/language";
 import { theme } from "@/styles/theme";
 import TaxLogView from "./TaxLogView";
 
-interface TaxLogsPageProps {}
+interface TaxLogsPageProps { }
 
-export default function TaxLogsPage({}: TaxLogsPageProps) {
+export default function TaxLogsPage({ }: TaxLogsPageProps) {
   const { language } = useLanguage();
-  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
 
   return (
     <div className="container mx-auto py-6 px-4">

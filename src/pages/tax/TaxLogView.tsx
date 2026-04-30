@@ -36,7 +36,7 @@ export default function TaxLogView({ recentOnly = false }: TaxLogViewProps) {
   const navigate = useNavigate();
   const { token } = useAuth();
   const { language } = useLanguage();
-  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
 
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -69,7 +69,7 @@ export default function TaxLogView({ recentOnly = false }: TaxLogViewProps) {
     const results = await Promise.all(
       missing.map(async (id) => {
         try {
-          const res = await fetch(`http://localhost:4000/api/admin/members/${id}`, {
+          const res = await fetch(`https://templeapi.agniplay.com/api/admin/members/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data = await res.json().catch(() => ({}));
@@ -105,7 +105,7 @@ export default function TaxLogView({ recentOnly = false }: TaxLogViewProps) {
     try {
       setLoading(true);
       const res = await fetch(
-        `http://localhost:4000/api/tax-registrations/logs?${params}`,
+        `https://templeapi.agniplay.com/api/tax-registrations/logs?${params}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -115,10 +115,10 @@ export default function TaxLogView({ recentOnly = false }: TaxLogViewProps) {
       if (result.success) {
         const logsData = Array.isArray(result.data) ? result.data : [];
         setLogs(logsData);
-        
+
         const total = Number(result.total || 0);
         const totalPages = Math.max(1, Math.ceil(total / 50));
-        
+
         setPagination({
           page,
           pageSize: 50,
@@ -129,7 +129,7 @@ export default function TaxLogView({ recentOnly = false }: TaxLogViewProps) {
         const userIds = logsData
           .map(log => log.created_by)
           .filter((id): id is number => id !== null && id !== undefined);
-          
+
         if (userIds.length > 0) {
           await fetchUserDetails(userIds);
         }
@@ -184,10 +184,10 @@ export default function TaxLogView({ recentOnly = false }: TaxLogViewProps) {
     const taxAmount = details.tax_amount || details.taxAmount || details.total_tax || details.totalAmount;
     const amountPaid = details.amount_paid || details.amountPaid || details.paid_amount || details.paidAmount;
     const outstanding = details.outstanding_amount || details.outstandingAmount;
-    
+
     // Only show if we have at least one amount field
     if (!taxAmount && !amountPaid && outstanding === undefined) return null;
-    
+
     if (compact) {
       return (
         <div className="text-xs text-gray-600">
@@ -199,7 +199,7 @@ export default function TaxLogView({ recentOnly = false }: TaxLogViewProps) {
         </div>
       );
     }
-    
+
     return (
       <div className="bg-gray-50 p-2 rounded border text-xs">
         <div className="font-medium text-gray-700 mb-1">{t('Amount Details', 'தொகை விவரங்கள்')}</div>
@@ -235,9 +235,9 @@ export default function TaxLogView({ recentOnly = false }: TaxLogViewProps) {
               disabled={loading && debouncedSearchTerm === searchTerm}
             />
           </div>
-          <Button 
-            type="submit" 
-            variant="outline" 
+          <Button
+            type="submit"
+            variant="outline"
             disabled={loading && debouncedSearchTerm === searchTerm}
           >
             {t('Search', 'தேடு')}
@@ -276,16 +276,15 @@ export default function TaxLogView({ recentOnly = false }: TaxLogViewProps) {
                 logs.map((lg) => (
                   <TableRow key={lg.id}>
                     <TableCell>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        lg.action === 'create' ? 'bg-green-100 text-green-800' :
-                        lg.action === 'update' ? 'bg-blue-100 text-blue-800' :
-                        lg.action === 'delete' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${lg.action === 'create' ? 'bg-green-100 text-green-800' :
+                          lg.action === 'update' ? 'bg-blue-100 text-blue-800' :
+                            lg.action === 'delete' ? 'bg-red-100 text-red-800' :
+                              'bg-gray-100 text-gray-800'
+                        }`}>
                         {lg.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
-                         lg.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
-                         lg.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
-                         lg.action}
+                          lg.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
+                            lg.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
+                              lg.action}
                       </span>
                     </TableCell>
                     <TableCell className="whitespace-nowrap">{lg.created_at ? formatDate(lg.created_at) : '-'}</TableCell>
@@ -308,7 +307,7 @@ export default function TaxLogView({ recentOnly = false }: TaxLogViewProps) {
                           // Parse tax registration details from the log data
                           const details = lg.details;
                           if (!details) return <span className="text-gray-400">-</span>;
-                          
+
                           // Extract specific fields from the details
                           const name = details.name || details.after?.name || details.before?.name;
                           const referenceNumber = details.reference_number || details.after?.reference_number || details.before?.reference_number;
@@ -318,7 +317,7 @@ export default function TaxLogView({ recentOnly = false }: TaxLogViewProps) {
                           const taxAmount = details.tax_amount || details.after?.tax_amount || details.before?.tax_amount;
                           const amountPaid = details.amount_paid || details.after?.amount_paid || details.before?.amount_paid;
                           const outstandingAmount = details.outstanding_amount || details.after?.outstanding_amount || details.before?.outstanding_amount;
-                          
+
                           return (
                             <div className="space-y-2">
                               <div className="bg-purple-50 p-3 rounded border text-xs">
@@ -392,8 +391,8 @@ export default function TaxLogView({ recentOnly = false }: TaxLogViewProps) {
         <div className="text-sm text-muted-foreground">
           {t('Showing', 'காட்டப்படுகிறது')}{" "}
           <span className="font-medium">
-            {logs.length > 0 
-              ? `${(pagination.page - 1) * pagination.pageSize + 1}–${Math.min(pagination.page * pagination.pageSize, pagination.total)}` 
+            {logs.length > 0
+              ? `${(pagination.page - 1) * pagination.pageSize + 1}–${Math.min(pagination.page * pagination.pageSize, pagination.total)}`
               : '0'}
           </span>{" "}
           {t('of', 'இல்')}{" "}

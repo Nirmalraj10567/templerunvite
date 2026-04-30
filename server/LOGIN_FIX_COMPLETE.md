@@ -18,10 +18,10 @@ VALUES ('Test Temple', 'TEST001', '123 Test Street, Test City', '9999999999', 't
 Changed in `src/contexts/AuthContext.tsx`:
 ```typescript
 // BEFORE (WRONG):
-'http://localhost:4000/api/login'
+'https://templeapi.agniplay.com/api/login'
 
 // AFTER (CORRECT):
-'http://localhost:4000/api/users/login'
+'https://templeapi.agniplay.com/api/users/login'
 ```
 
 ### 3. ✅ Verified Database
@@ -41,7 +41,7 @@ node verify-login.js
 
 ### Option 2: Use cURL
 ```bash
-curl -X POST http://localhost:4000/api/users/login ^
+curl -X POST https://templeapi.agniplay.com/api/users/login ^
   -H "Content-Type: application/json" ^
   -d "{\"username\":\"test_admin\",\"password\":\"test123\"}"
 ```

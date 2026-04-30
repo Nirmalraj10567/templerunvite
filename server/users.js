@@ -93,7 +93,7 @@ module.exports = function (deps = {}) {
   // OTP verification and login (public)
   router.post('/login/otp', async (req, res) => {
     try {
-      const { mobile, otp, userId } = req.body || {};
+      const { mobile, otp, userId, fcm_token } = req.body || {};
       if (!mobile || !otp) {
         return res.status(400).json({ error: 'Mobile and OTP are required' });
       }
@@ -152,6 +152,18 @@ module.exports = function (deps = {}) {
       } catch {}
       if (!templeId) templeId = 1;
 
+      // Store FCM token if provided (after user is fetched)
+      if (fcm_token && user && user.id) {
+        try {
+          const hasFcmColumn = await db.schema.hasColumn('user_registrations', 'fcm_token');
+          if (hasFcmColumn) {
+            await db('user_registrations').where('id', user.id).update({ fcm_token, updated_at: db.fn.now() });
+          }
+        } catch (e) {
+          console.warn('Failed to store FCM token:', e.message);
+        }
+      }
+
       // Create JWT token for member user (include templeId)
       const token = jwt.sign(
         {
@@ -190,7 +202,7 @@ module.exports = function (deps = {}) {
   // Password login (public)
   router.post('/login', async (req, res) => {
     try {
-      const { mobile, username, password } = req.body || {};
+      const { mobile, username, password, fcm_token } = req.body || {};
       if ((!mobile && !username) || !password) {
         return res.status(400).json({ error: 'Username or mobile and password are required.' });
       }
@@ -214,6 +226,18 @@ module.exports = function (deps = {}) {
 
       const match = await bcrypt.compare(password, user.password);
       if (!match) return res.status(401).json({ error: 'Invalid credentials.' });
+
+      // Store FCM token if provided
+      if (fcm_token) {
+        try {
+          const hasFcmColumn = await db.schema.hasColumn('users', 'fcm_token');
+          if (hasFcmColumn) {
+            await db('users').where('id', user.id).update({ fcm_token, updated_at: db.fn.now() });
+          }
+        } catch (e) {
+          console.warn('Failed to store FCM token:', e.message);
+        }
+      }
 
       // Optionally update last_login if column exists
       try {
@@ -362,6 +386,30 @@ module.exports = function (deps = {}) {
             address: 'N/A',
           });
           resolvedTempleId = newTempleId;
+
+          // Seed control accounts in ledger_entries for new temple
+          try {
+            const seedDate = new Date().toISOString().split('T')[0];
+            const controlAccounts = [
+              { name: 'CASH A/C', under: 'CASH A/C' },
+              { name: 'BANK A/C', under: 'BANK A/C' },
+              { name: 'INCOME A/C', under: 'INCOME A/C' },
+              { name: 'EXPENSE A/C', under: 'EXPENSE A/C' },
+            ];
+            for (const acc of controlAccounts) {
+              await db('ledger_entries').insert({
+                temple_id: resolvedTempleId,
+                receipt_no: `SEED-${Date.now()}`,
+                date: seedDate,
+                donor_name: 'System',
+                amount: 0,
+                under: acc.under,
+                name: acc.name,
+              }).catch(e => console.warn('Seed ledger entry failed:', e.message));
+            }
+          } catch (seedErr) {
+            console.warn('Error seeding ledger entries:', seedErr.message);
+          }
         }
       }
 
@@ -795,6 +843,85 @@ module.exports = function (deps = {}) {
         console.error('Logout error:', err);
         res.status(500).json({ error: 'Error logging out' });
       });
+  });
+
+  // ========== MEMBER PROFILE ROUTES ==========
+
+  // GET /api/users/member/profile - Get own profile (member)
+  router.get('/member/profile', async (req, res) => {
+    try {
+      if (req.user.type !== 'member') {
+        return res.status(403).json({ error: 'Member access only' });
+      }
+      const member = await db('user_registrations').where('id', req.user.id).first();
+      if (!member) return res.status(404).json({ error: 'Member not found' });
+      res.json({ success: true, member });
+    } catch (err) {
+      console.error('Error fetching member profile:', err);
+      res.status(500).json({ error: 'Database error' });
+    }
+  });
+
+  // PUT /api/users/member/profile - Update own profile (member)
+  router.put('/member/profile', async (req, res) => {
+    const fields = ['name', 'father_name', 'mobile_number', 'email', 'address', 'city', 'state', 'pincode', 'father_name', 'mother_name', 'date_of_birth', 'gender', 'alternative_mobile', 'alternative_email', 'aadhar_number', 'pan_number', 'gothram', 'masthram', 'birth_star', 'rasi', 'alternative_name'];
+    const updateData = {};
+    fields.forEach(f => { if (req.body[f] !== undefined) updateData[f] = req.body[f]; });
+    updateData.updated_at = db.fn.now();
+
+    try {
+      if (req.user.type !== 'member') {
+        return res.status(403).json({ error: 'Member access only' });
+      }
+      const updated = await db('user_registrations').where('id', req.user.id).update(updateData).returning('*');
+      res.json({ success: true, member: updated[0] });
+    } catch (err) {
+      console.error('Error updating member profile:', err);
+      res.status(500).json({ error: 'Database error' });
+    }
+  });
+
+  // GET /api/users/members - List members (admin)
+  router.get('/members', async (req, res) => {
+    const { page = 1, pageSize = 20, search = '' } = req.query;
+    try {
+      let q = db('user_registrations').where('temple_id', req.user.templeId);
+      if (search) q = q.where('name', 'like', `%${search}%`);
+      const total = await q.clone().count('id as count').first();
+      const members = await q.select('*').limit(parseInt(pageSize)).offset((parseInt(page) - 1) * parseInt(pageSize)).orderBy('created_at', 'desc');
+      res.json({ success: true, members, total: total.count, page: Number(page), pageSize: Number(pageSize) });
+    } catch (err) {
+      console.error('Error listing members:', err);
+      res.status(500).json({ error: 'Database error' });
+    }
+  });
+
+  // GET /api/users/member/:id - Get member by ID (admin)
+  router.get('/member/:id', async (req, res) => {
+    try {
+      const member = await db('user_registrations').where('id', req.params.id).first();
+      if (!member) return res.status(404).json({ error: 'Member not found' });
+      if (member.temple_id !== req.user.templeId) return res.status(403).json({ error: 'Access denied' });
+      res.json({ success: true, member });
+    } catch (err) {
+      res.status(500).json({ error: 'Database error' });
+    }
+  });
+
+  // PUT /api/users/member/:id - Update member by ID (admin)
+  router.put('/member/:id', async (req, res) => {
+    try {
+      const member = await db('user_registrations').where('id', req.params.id).first();
+      if (!member) return res.status(404).json({ error: 'Member not found' });
+      if (member.temple_id !== req.user.templeId) return res.status(403).json({ error: 'Access denied' });
+
+      const updateData = { ...req.body, updated_at: db.fn.now() };
+      delete updateData.id; delete updateData.temple_id; delete updateData.created_at;
+      const updated = await db('user_registrations').where('id', req.params.id).update(updateData).returning('*');
+      res.json({ success: true, member: updated[0] });
+    } catch (err) {
+      res.status(500).json({ error: 'Database error' });
+    }
   });
 
   return router;

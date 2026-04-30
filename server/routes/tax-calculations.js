@@ -137,18 +137,18 @@ router.get('/tax-calculations/cumulative/:mobile',
           }
         } else if (year == currentYear) {
           // Current year
-          currentYearTax = taxAmount;
           const paid = paidByYear[year];
           if (paid) {
-            const outstanding = Math.max(0, paid.taxAmount - paid.amountPaid);
+            currentYearTax = Math.max(0, paid.taxAmount - paid.amountPaid);
             yearBreakdown.push({
               year,
               taxAmount: paid.taxAmount,
               amountPaid: paid.amountPaid,
-              outstanding,
+              outstanding: currentYearTax,
               status: 'current_registered'
             });
           } else {
+            currentYearTax = taxAmount;
             yearBreakdown.push({
               year,
               taxAmount,

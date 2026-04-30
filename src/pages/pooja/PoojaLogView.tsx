@@ -38,7 +38,7 @@ export default function PoojaLogView({ recentOnly = false }: PoojaLogViewProps) 
   const navigate = useNavigate();
   const { token } = useAuth();
   const { language } = useLanguage();
-  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
 
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -71,7 +71,7 @@ export default function PoojaLogView({ recentOnly = false }: PoojaLogViewProps) 
     const results = await Promise.all(
       missing.map(async (id) => {
         try {
-          const res = await fetch(`http://localhost:4000/api/admin/members/${id}`, {
+          const res = await fetch(`https://templeapi.agniplay.com/api/admin/members/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data = await res.json().catch(() => ({}));
@@ -107,7 +107,7 @@ export default function PoojaLogView({ recentOnly = false }: PoojaLogViewProps) 
     try {
       setLoading(true);
       const res = await fetch(
-        `http://localhost:4000/api/pooja/logs?${params}`,
+        `https://templeapi.agniplay.com/api/pooja/logs?${params}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -117,10 +117,10 @@ export default function PoojaLogView({ recentOnly = false }: PoojaLogViewProps) 
       if (result.success) {
         const logsData = Array.isArray(result.data) ? result.data : [];
         setLogs(logsData);
-        
+
         const total = Number(result.total || 0);
         const totalPages = Math.max(1, Math.ceil(total / 50));
-        
+
         setPagination({
           page,
           pageSize: 50,
@@ -131,7 +131,7 @@ export default function PoojaLogView({ recentOnly = false }: PoojaLogViewProps) 
         const userIds = logsData
           .map(log => log.created_by)
           .filter((id): id is number => id !== null && id !== undefined);
-          
+
         if (userIds.length > 0) {
           await fetchUserDetails(userIds);
         }
@@ -195,9 +195,9 @@ export default function PoojaLogView({ recentOnly = false }: PoojaLogViewProps) 
               disabled={loading && debouncedSearchTerm === searchTerm}
             />
           </div>
-          <Button 
-            type="submit" 
-            variant="outline" 
+          <Button
+            type="submit"
+            variant="outline"
             disabled={loading && debouncedSearchTerm === searchTerm}
           >
             {t('Search', 'தேடு')}
@@ -236,16 +236,15 @@ export default function PoojaLogView({ recentOnly = false }: PoojaLogViewProps) 
                 logs.map((lg) => (
                   <TableRow key={lg.id}>
                     <TableCell>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        lg.action === 'create' ? 'bg-green-100 text-green-800' :
-                        lg.action === 'update' ? 'bg-blue-100 text-blue-800' :
-                        lg.action === 'delete' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${lg.action === 'create' ? 'bg-green-100 text-green-800' :
+                          lg.action === 'update' ? 'bg-blue-100 text-blue-800' :
+                            lg.action === 'delete' ? 'bg-red-100 text-red-800' :
+                              'bg-gray-100 text-gray-800'
+                        }`}>
                         {lg.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
-                         lg.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
-                         lg.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
-                         lg.action}
+                          lg.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
+                            lg.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
+                              lg.action}
                       </span>
                     </TableCell>
                     <TableCell className="whitespace-nowrap">{lg.created_at ? formatDate(lg.created_at) : '-'}</TableCell>
@@ -256,11 +255,11 @@ export default function PoojaLogView({ recentOnly = false }: PoojaLogViewProps) 
                         // Try to get receipt number from multiple sources
                         const receiptNo = lg.register_no || lg.receipt_number;
                         if (receiptNo) return receiptNo;
-                        
+
                         // Try to extract from details
                         try {
-                          const details = typeof lg.details === 'string' 
-                            ? JSON.parse(lg.details) 
+                          const details = typeof lg.details === 'string'
+                            ? JSON.parse(lg.details)
                             : lg.details || {};
                           const registerNo = details.register_no || details.after?.register_no || details.before?.register_no;
                           return registerNo || '-';
@@ -285,7 +284,7 @@ export default function PoojaLogView({ recentOnly = false }: PoojaLogViewProps) 
                           // Parse pooja details from the log data
                           const details = lg.details;
                           if (!details) return <span className="text-gray-400">-</span>;
-                          
+
                           // Extract specific fields from the details
                           const registerNo = details.register_no || details.after?.register_no || details.before?.register_no;
                           const name = details.name || details.after?.name || details.before?.name;
@@ -297,7 +296,7 @@ export default function PoojaLogView({ recentOnly = false }: PoojaLogViewProps) 
                           const time = details.time || details.after?.time || details.before?.time;
                           const address = details.address || details.after?.address || details.before?.address;
                           const notes = details.notes || details.after?.notes || details.before?.notes;
-                          
+
                           return (
                             <div className="space-y-2">
                               <div className="bg-purple-50 p-3 rounded border text-xs">
@@ -383,8 +382,8 @@ export default function PoojaLogView({ recentOnly = false }: PoojaLogViewProps) 
         <div className="text-sm text-muted-foreground">
           {t('Showing', 'காட்டப்படுகிறது')}{" "}
           <span className="font-medium">
-            {logs.length > 0 
-              ? `${(pagination.page - 1) * pagination.pageSize + 1}–${Math.min(pagination.page * pagination.pageSize, pagination.total)}` 
+            {logs.length > 0
+              ? `${(pagination.page - 1) * pagination.pageSize + 1}–${Math.min(pagination.page * pagination.pageSize, pagination.total)}`
               : '0'}
           </span>{" "}
           {t('of', 'இல்')}{" "}

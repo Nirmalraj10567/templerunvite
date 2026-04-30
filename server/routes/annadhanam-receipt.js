@@ -18,7 +18,7 @@ module.exports = function createAnnadhanamReceiptRouter({ db, verifyQueryToken }
 
       const doc = new PDFDocument({ size: 'A5', layout: 'landscape', margin: 24, bufferPages: true });
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `inline; filename=annadhanam_receipt_${id}.pdf`);
+      res.setHeader('Content-Disposition', `attachment; filename=annadhanam_receipt_${id}.pdf`);
       doc.pipe(res);
 
       // Tamil fonts (regular + bold) with faux bold fallback

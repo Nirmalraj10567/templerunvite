@@ -14,9 +14,9 @@ interface PoojaCalendarProps {
   showBookingTimes?: boolean;
 }
 
-export default function PoojaCalendar({ 
-  onDateSelect, 
-  selectedDate, 
+export default function PoojaCalendar({
+  onDateSelect,
+  selectedDate,
   className = '',
   showBookingTimes = true
 }: PoojaCalendarProps) {
@@ -30,7 +30,7 @@ export default function PoojaCalendar({
   const { token } = useAuth();
   const { language } = useLanguage();
 
-  const t = (en: string, ta: string) => language === 'english' ? ta : en;
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);;
 
   // Fetch bookings for current month
   const fetchBookings = async (year: number, month: number) => {
@@ -38,7 +38,7 @@ export default function PoojaCalendar({
       console.warn('PoojaCalendar: No token available, skipping bookings fetch');
       return;
     }
-    
+
     setIsLoading(true);
     try {
       console.log(`PoojaCalendar: Fetching bookings for ${year}-${month}`);
@@ -75,10 +75,10 @@ export default function PoojaCalendar({
     return bookings.filter((booking) => {
       const from = norm((booking as any).from_date);
       const to = norm((booking as any).to_date);
-      
+
       // Simple string comparison for YYYY-MM-DD format dates
       const checkDateNorm = date.slice(0, 10);
-      
+
       // Check if the date falls within the booking range (inclusive)
       return checkDateNorm >= from && checkDateNorm <= to;
     });
@@ -105,17 +105,17 @@ export default function PoojaCalendar({
     const startingDayOfWeek = firstDay.getDay();
 
     const days = [];
-    
+
     // Add empty cells for days before the first day of the month
     for (let i = 0; i < startingDayOfWeek; i++) {
       days.push(null);
     }
-    
+
     // Add days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       days.push(new Date(year, month, day));
     }
-    
+
     return days;
   };
 
@@ -186,29 +186,29 @@ export default function PoojaCalendar({
                 </div>
               ))}
             </div>
-            
+
             {/* Calendar grid */}
             <div className="grid grid-cols-7 gap-1">
               {days.map((day, index) => {
                 if (!day) {
                   return <div key={index} className="h-10" />;
                 }
-                
+
                 const dateStr = formatDate(day);
                 const isBooked = isDateBooked(dateStr);
                 const isSelected = selectedDate === dateStr;
                 const isToday = dateStr === formatDate(new Date());
                 const dayBookings = getBookingsForDate(dateStr);
-                
+
                 return (
                   <div
                     key={index}
                     className={`
                       h-10 flex flex-col items-center justify-center text-xs cursor-pointer rounded-md border
-                      ${isSelected 
-                        ? 'bg-blue-500 text-white border-blue-500' 
-                        : isBooked 
-                          ? 'bg-red-100 text-red-700 border-red-200 hover:bg-red-200' 
+                      ${isSelected
+                        ? 'bg-blue-500 text-white border-blue-500'
+                        : isBooked
+                          ? 'bg-red-100 text-red-700 border-red-200 hover:bg-red-200'
                           : isToday
                             ? 'bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-200'
                             : 'hover:bg-gray-100 border-transparent'
@@ -218,8 +218,8 @@ export default function PoojaCalendar({
                   >
                     <span className="font-medium">{day.getDate()}</span>
                     {dayBookings.length > 0 && (
-                      <Badge 
-                        variant="secondary" 
+                      <Badge
+                        variant="secondary"
                         className="text-xs px-1 py-0 h-4 mt-0.5"
                       >
                         {dayBookings.length}
@@ -229,7 +229,7 @@ export default function PoojaCalendar({
                 );
               })}
             </div>
-            
+
             {/* Selected Date Booking Times */}
             {showBookingTimes && selectedDate && (
               <div className="mt-4 p-3 bg-gray-50 rounded-lg">

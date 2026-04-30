@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { sendNotification } = require('./config/firebase-notification');
 
 
 // Function to generate the next receipt number in format YYYY-XXXX
@@ -126,7 +127,7 @@ module.exports = function(deps = {}) {
         party_name: row.name || null,
         party_mobile: row.mobile_number || null,
         notes: `${row.food || ''} (${peoples} people)`.trim(),
-        running_balance: 0,
+        running_balance: (typeof calculateDaybookRunningBalance === 'function' ? await calculateDaybookRunningBalance(db, templeId, entryDate) : 0) + entryAmount,
         created_by: userId ? Number(userId) : null,
         created_at: db.fn.now(),
       });
@@ -364,10 +365,21 @@ module.exports = function(deps = {}) {
         storedFood = `Money: ${String(p.amount).trim()}`;
         storedPeoples = 1;
       } else {
-        // Food (default/legacy)
+        // Food (default/legacy) or check for prefixes in food string
         if (!storedFood) {
           return res.status(400).json({ error: 'food is required for food donation' });
         }
+        
+        // Auto-detect donation type from food string if not provided
+        if (!p.donationType) {
+          if (storedFood.startsWith('Money:')) {
+            p.donationType = 'money';
+            p.amount = storedFood.replace(/^Money:\s*/i, '').trim();
+          } else if (storedFood.startsWith('Product:')) {
+            p.donationType = 'product';
+          }
+        }
+        
         if (p.peoples != null && p.peoples !== '') {
           const n = parseInt(p.peoples, 10);
           if (isNaN(n) || n < 1) {
@@ -438,6 +450,41 @@ module.exports = function(deps = {}) {
         console.error('Failed to sync annadhanam to daybook:', daybookError);
       }
 
+      // Also create journal entry for income tracking
+      try {
+        if (createdRow || record) {
+          const annadhanamRow = createdRow || record;
+          if (annadhanamRow.amount && Number(annadhanamRow.amount) > 0) {
+            const hasJournal = await db.schema.hasTable('journal_entries');
+            if (hasJournal) {
+              const entryDate = annadhanamRow.from_date instanceof Date 
+                ? annadhanamRow.from_date.toISOString().slice(0, 10) 
+                : String(annadhanamRow.from_date).split('T')[0];
+                
+              await db('journal_entries').insert({
+                date: entryDate,
+                reference_number: 'ANN-' + insertedId + '-' + Date.now(),
+                description: 'Annadhanam from ' + (annadhanamRow.name || 'Anonymous'),
+                from_account: 'ANNADHANAM A/C',
+                to_account: 'INCOME A/C',
+                amount: Number(annadhanamRow.amount),
+                total_amount: Number(annadhanamRow.amount),
+                entry_type: 'transfer',
+                remarks: annadhanamRow.remarks || null,
+                reference_type: 'annadhanam',
+                reference_id: insertedId,
+                temple_id: req.user.templeId,
+                created_by: req.user.id,
+                created_at: db.fn.now(),
+              });
+              console.log('Created journal entry for annadhanam:', insertedId);
+            }
+          }
+        }
+      } catch (journalError) {
+        console.error('Failed to create journal entry for annadhanam:', journalError);
+      }
+
       // Sync product donations to asset management
       try {
         if (createdRow || record) {
@@ -450,6 +497,34 @@ module.exports = function(deps = {}) {
         }
       } catch (assetError) {
         console.error('Failed to sync annadhanam to assets:', assetError);
+      }
+
+      // Send FCM notification to ALL temple users (admin submit)
+      try {
+        const templeUsers = await db('user_registrations')
+          .where('temple_id', req.user.templeId)
+          .whereNotNull('fcm_token')
+          .select('fcm_token');
+        
+        const tokens = templeUsers.map(u => u.fcm_token).filter(Boolean);
+        
+        if (tokens.length > 0) {
+          await sendNotification(
+            tokens,
+            'New Annadhanam Request',
+            `${p.name} submitted an Annadhanam request for ${p.fromDate}. Awaiting approval.`,
+            {
+              type: 'annadhanam_submitted',
+              annadhanamId: String(insertedId),
+              submittedBy: p.name,
+              templeId: String(req.user.templeId),
+              status: 'pending'
+            }
+          );
+          console.log(`✓ Sent submission notification to ${tokens.length} users in temple ${req.user.templeId}`);
+        }
+      } catch (notifyErr) {
+        console.warn('Failed to send submission notification:', notifyErr.message);
       }
 
       res.json({ success: true, data: createdRow });
@@ -518,10 +593,21 @@ module.exports = function(deps = {}) {
         storedFood = `Money: ${String(p.amount).trim()}`;
         storedPeoples = 1;
       } else {
-        // Food (default/legacy)
+        // Food (default/legacy) or check for prefixes
         if (!storedFood) {
-          return res.status(400).json({ error: 'food is required for food donation' });
+          return res.status(400).json({ error: 'food is required' });
         }
+        
+        // Auto-detect donation type from food string if not provided
+        if (!p.donationType) {
+          if (storedFood.startsWith('Money:')) {
+            p.donationType = 'money';
+            p.amount = storedFood.replace(/^Money:\s*/i, '').trim();
+          } else if (storedFood.startsWith('Product:')) {
+            p.donationType = 'product';
+          }
+        }
+
         if (p.peoples != null && p.peoples !== '') {
           const n = parseInt(p.peoples, 10);
           if (isNaN(n) || n < 1) {
@@ -543,6 +629,8 @@ module.exports = function(deps = {}) {
         from_date: p.fromDate,
         to_date: p.toDate,
         remarks: p.remarks || null,
+        amount: p.amount ? Number(p.amount) : null,
+        donation_type: p.donationType || 'food',
         updated_at: db.fn.now(),
       };
 
@@ -556,6 +644,39 @@ module.exports = function(deps = {}) {
       }
       
       const annadhanam = await db('annadhanam').where({ id }).first();
+
+      // Sync journal mirror on update
+      try {
+        const hasJournal = await db.schema.hasTable('journal_entries');
+        if (hasJournal) {
+          await db('journal_entries')
+            .where({ reference_type: 'annadhanam', reference_id: Number(id), temple_id: req.user.templeId })
+            .del();
+          const amountNum = Number(annadhanam?.amount || 0);
+          if (amountNum > 0) {
+            const entryDate = annadhanam.from_date instanceof Date 
+              ? annadhanam.from_date.toISOString().slice(0, 10) 
+              : String(annadhanam.from_date).split('T')[0];
+
+            await db('journal_entries').insert({
+              date: entryDate,
+              reference_number: 'ANN-' + id + '-' + Date.now(),
+              description: 'Annadhanam from ' + (annadhanam.name || 'Anonymous'),
+              total_amount: amountNum,
+              from_account: 'ANNADHANAM A/C',
+              to_account: 'INCOME A/C',
+              amount: amountNum,
+              entry_type: 'transfer',
+              remarks: annadhanam.remarks || null,
+              reference_type: 'annadhanam',
+              reference_id: Number(id),
+              temple_id: req.user.templeId,
+              created_by: req.user.id,
+              created_at: db.fn.now(),
+            });
+          }
+        }
+      } catch (e) {}
 
       // Log update with before/after
       try {

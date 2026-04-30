@@ -76,7 +76,7 @@ export default function AnnadhanamLogView({ recentOnly = false }: AnnadhanamLogV
     const results = await Promise.all(
       missing.map(async (id) => {
         try {
-          const res = await fetch(`http://localhost:4000/api/admin/members/${id}`, {
+          const res = await fetch(`https://templeapi.agniplay.com/api/admin/members/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data = await res.json().catch(() => ({}));
@@ -112,7 +112,7 @@ export default function AnnadhanamLogView({ recentOnly = false }: AnnadhanamLogV
     try {
       setLoading(true);
       const res = await fetch(
-        `http://localhost:4000/api/annadhanam/logs?${params}`,
+        `https://templeapi.agniplay.com/api/annadhanam/logs?${params}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 

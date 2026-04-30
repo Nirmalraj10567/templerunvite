@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useLanguage } from '@/lib/language';
 import { Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import axios from 'axios';
 import { getAuthToken } from '@/lib/auth';
@@ -32,8 +32,55 @@ export function CategoryManager({
   const [newCategory, setNewCategory] = useState<Omit<Category, 'id'>>({ value: '', label: '' });
   
   const templeId = user?.templeId;
+
+  // Translations object with English and Tamil
+  const translations = {
+    tamil: {
+      "manageCategories": "Manage Categories",
+      "label": "Label",
+      "actions": "Actions",
+      "noCategoriesFound": "No categories found. Add a new category below.",
+      "save": "Save",
+      "cancel": "Cancel",
+      "addCategory": "Add Category",
+      "success": "Success",
+      "categoryUpdatedSuccessfully": "Category updated successfully",
+      "error": "Error",
+      "failedToUpdateCategory": "Failed to update category",
+      "templeIdNotAvailable": "Temple ID not available",
+      "categoryDeletedSuccessfully": "Category deleted successfully",
+      "failedToDeleteCategory": "Failed to delete category",
+      "categoryAddedSuccessfully": "Category added successfully",
+      "failedToAddCategory": "Failed to add category",
+      "categoryAlreadyExists": "Category already exists"
+    },
+    english: {
+      "manageCategories": "வகைகளை நிர்வகிக்கவும்",
+      "label": "லேபிள்",
+      "actions": "செயல்கள்",
+      "noCategoriesFound": "வகைகள் எதுவும் கிடைக்கவில்லை. புதிய வகையைச் சேர்க்கவும்.",
+      "save": "சேமிக்கவும்",
+      "cancel": "ரத்து செய்",
+      "addCategory": "வகையைச் சேர்க்கவும்",
+      "success": "வெற்றி",
+      "categoryUpdatedSuccessfully": "வகை வெற்றிகரமாக புதுப்பிக்கப்பட்டது",
+      "error": "பிழை",
+      "failedToUpdateCategory": "வகையை புதுப்பிக்க முடியவில்லை",
+      "templeIdNotAvailable": "கோவில் ஐடி கிடைக்கவில்லை",
+      "categoryDeletedSuccessfully": "வகை வெற்றிகரமாக நீக்கப்பட்டது",
+      "failedToDeleteCategory": "வகையை நீக்க முடியவில்லை",
+      "categoryAddedSuccessfully": "வகை வெற்றிகரமாக சேர்க்கப்பட்டது",
+      "failedToAddCategory": "வகையை சேர்க்க முடியவில்லை",
+      "categoryAlreadyExists": "வகை ஏற்கனவே உள்ளது"
+    }
+  };
+
+  // Translation helper function
+  const t = (key: keyof typeof translations.english): string => {
+    const currentTranslations = translations[language as keyof typeof translations] || translations.english;
+    return currentTranslations[key] || translations.english[key] || key;
+  };
   
-  const t = (en: string, ta: string) => (language === 'tamil' ? ta : en);
   // If you want value to equal label, no slug required
   const asIs = (s: string) => s.trim();
 
@@ -54,7 +101,7 @@ export function CategoryManager({
       const payloadLabel = category.label.trim();
       const payloadValue = asIs(payloadLabel); // value = label
       const response = await axios.put<Category>(
-        `http://localhost:4000/api/ledger/categories/${category.id}`,
+        `https://templeapi.agniplay.com/api/ledger/categories/${category.id}`,
         {
           value: payloadValue,
           label: payloadLabel,
@@ -70,14 +117,14 @@ export function CategoryManager({
       ));
       setEditingCategory(null);
       toast({
-        title: t('Success', 'வெற்றி'),
-        description: t('Category updated successfully', 'வகை வெற்றிகரமாக புதுப்பிக்கப்பட்டது'),
+        title: t('success'),
+        description: t('categoryUpdatedSuccessfully'),
       });
     } catch (error) {
       console.error('Error updating category:', error);
       toast({
-        title: t('Error', 'பிழை'),
-        description: t('Failed to update category', 'வகையை புதுப்பிக்க முடியவில்லை'),
+        title: t('error'),
+        description: t('failedToUpdateCategory'),
         variant: 'destructive',
       });
     } finally {
@@ -89,27 +136,27 @@ export function CategoryManager({
     if (isLoading) return; // prevent duplicate rapid deletions
     if (!templeId) {
       toast({
-        title: t('Error', 'பிழை'),
-        description: t('Temple ID not available', 'கோவில் ஐடி கிடைக்கவில்லை'),
+        title: t('error'),
+        description: t('templeIdNotAvailable'),
         variant: 'destructive',
       });
       return;
     }
     try {
       setIsLoading(true);
-      await axios.delete(`http://localhost:4000/api/ledger/categories/${id}?templeId=${templeId}`, {
+      await axios.delete(`https://templeapi.agniplay.com/api/ledger/categories/${id}?templeId=${templeId}`, {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });
       setCategories(categories.filter(c => c.id !== id));
       toast({
-        title: t('Success', 'வெற்றி'),
-        description: t('Category deleted successfully', 'வகை வெற்றிகரமாக நீக்கப்பட்டது'),
+        title: t('success'),
+        description: t('categoryDeletedSuccessfully'),
       });
     } catch (error) {
       console.error('Error deleting category:', error);
       toast({
-        title: t('Error', 'பிழை'),
-        description: t('Failed to delete category', 'வகையை நீக்க முடியவில்லை'),
+        title: t('error'),
+        description: t('failedToDeleteCategory'),
         variant: 'destructive',
       });
     } finally {
@@ -129,13 +176,13 @@ export function CategoryManager({
     // prevent duplicates (case-insensitive)
     const exists = categories.some(c => c.value.toLowerCase() === nextVal.toLowerCase() || c.label.toLowerCase() === nextLabel.toLowerCase());
     if (exists) {
-      console.warn('Category already exists.');
+      console.warn(t('categoryAlreadyExists'));
       return;
     }
     try {
       setIsLoading(true);
       const response = await axios.post<Category>(
-        'http://localhost:4000/api/ledger/categories',
+        'https://templeapi.agniplay.com/api/ledger/categories',
         { value: nextVal, label: nextLabel, templeId: templeId },
         { headers: { Authorization: `Bearer ${getAuthToken()}` } }
       );
@@ -143,14 +190,14 @@ export function CategoryManager({
       setNewCategory({ value: '', label: '' });
       setIsAdding(false);
       toast({
-        title: t('Success', 'வெற்றி'),
-        description: t('Category added successfully', 'வகை வெற்றிகரமாக சேர்க்கப்பட்டது'),
+        title: t('success'),
+        description: t('categoryAddedSuccessfully'),
       });
     } catch (error) {
       console.error('Error adding category:', error);
       toast({
-        title: t('Error', 'பிழை'),
-        description: t('Failed to add category', 'வகையை சேர்க்க முடியவில்லை'),
+        title: t('error'),
+        description: t('failedToAddCategory'),
         variant: 'destructive',
       });
     } finally {
@@ -162,27 +209,27 @@ export function CategoryManager({
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" disabled={isLoading}>
-          {t('Manage Categories', 'வகைகளை நிர்வகிக்கவும்')}
+          {t('manageCategories')}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{t('Manage Categories', 'வகைகளை நிர்வகிக்கவும்')}</DialogTitle>
+          <DialogTitle>{t('manageCategories')}</DialogTitle>
         </DialogHeader>
         
         <div className="max-h-80 overflow-y-auto">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{t('Label', 'லேபிள்')}</TableHead>
-              <TableHead>{t('Actions', 'செயல்கள்')}</TableHead>
+              <TableHead>{t('label')}</TableHead>
+              <TableHead>{t('actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {categories.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={3} className="text-center py-4 text-muted-foreground">
-                  {t('No categories found. Add a new category below.', 'வகைகள் எதுவும் கிடைக்கவில்லை. புதிய வகையைச் சேர்க்கவும்.')}
+                  {t('noCategoriesFound')}
                 </TableCell>
               </TableRow>
             ) : (
@@ -209,14 +256,14 @@ export function CategoryManager({
                           onClick={() => handleEdit(editingCategory)}
                           disabled={isLoading}
                         >
-                          {isLoading ? <Loader2 className="animate-spin" /> : t('Save', 'சேமிக்கவும்')}
+                          {isLoading ? <Loader2 className="animate-spin" /> : t('save')}
                         </Button>
                         <Button 
                           size="sm" 
                           variant="outline"
                           onClick={() => setEditingCategory(null)}
                         >
-                          {t('Cancel', 'ரத்து செய்')}
+                          {t('cancel')}
                         </Button>
                       </>
                     ) : (
@@ -252,7 +299,7 @@ export function CategoryManager({
             <div className="w-full space-y-4">
               <div className="space-y-1">
                 <Input
-                  placeholder={t('Label', 'லேபிள்')}
+                  placeholder={t('label')}
                   value={newCategory.label}
                   onChange={(e) => setNewCategory({ value: e.target.value, label: e.target.value })}
                 />
@@ -263,13 +310,13 @@ export function CategoryManager({
                   onClick={() => setIsAdding(false)}
                   disabled={isLoading}
                 >
-                  {t('Cancel', 'ரத்து செய்')}
+                  {t('cancel')}
                 </Button>
                 <Button 
                   onClick={handleAdd}
                   disabled={isLoading || !newCategory.value || !newCategory.label}
                 >
-                  {isLoading ? <Loader2 className="animate-spin" /> : t('Add Category', 'வகையைச் சேர்க்கவும்')}
+                  {isLoading ? <Loader2 className="animate-spin" /> : t('addCategory')}
                 </Button>
               </div>
             </div>
@@ -281,7 +328,7 @@ export function CategoryManager({
               disabled={isLoading}
             >
               <Plus className="h-4 w-4" />
-              {t('Add Category', 'வகையைச் சேர்க்கவும்')}
+              {t('addCategory')}
             </Button>
           )}
         </div>

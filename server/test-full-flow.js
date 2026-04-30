@@ -1,4 +1,4 @@
-const base = 'http://localhost:4000';
+const base = 'https://templeapi.agniplay.com';
 const today = '2099-12-31';
 const name = 'Full Flow ' + Math.random().toString(36).slice(2, 8);
 

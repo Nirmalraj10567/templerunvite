@@ -70,14 +70,14 @@ export default function DonationProductList() {
   const [allLogsPage, setAllLogsPage] = useState(1);
   const [allLogsPageSize] = useState(50);
 
-  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
 
   // Logs functions
   const openLogs = async (item: DonationItem) => {
     setLogsFor(item.id);
     setLogsLoading(true);
     try {
-      const response = await fetch(`http://localhost:4000/api/donations/${item.id}/logs`, {
+      const response = await fetch(`https://templeapi.agniplay.com/api/donations/${item.id}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch logs');
@@ -107,7 +107,7 @@ export default function DonationProductList() {
   const loadAllDonationProductLogs = async () => {
     try {
       const response = await fetch(
-        `http://localhost:4000/api/donations/logs?page=${allLogsPage}&pageSize=${allLogsPageSize}`,
+        `https://templeapi.agniplay.com/api/donations/logs?page=${allLogsPage}&pageSize=${allLogsPageSize}`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -167,14 +167,14 @@ export default function DonationProductList() {
     try {
       const raw = localStorage.getItem('donation_list_visible_columns_v1');
       if (raw) return { ...defaultVisible, ...JSON.parse(raw) };
-    } catch {}
+    } catch { }
     return defaultVisible;
   });
 
   useEffect(() => {
     try {
       localStorage.setItem('donation_list_visible_columns_v1', JSON.stringify(visibleCols));
-    } catch {}
+    } catch { }
   }, [visibleCols]);
 
   const visibleColCount = useMemo(() => Object.values(visibleCols).filter(Boolean).length, [visibleCols]);
@@ -236,9 +236,8 @@ export default function DonationProductList() {
                   visibleCols[col.key] ? (
                     <th
                       key={col.key}
-                      className={`${tableHeader} ${
-                        col.key === 'print' ? 'px-2 w-12' : 'px-3'
-                      } ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}`}
+                      className={`${tableHeader} ${col.key === 'print' ? 'px-2 w-12' : 'px-3'
+                        } ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}`}
                     >
                       {col.label}
                     </th>

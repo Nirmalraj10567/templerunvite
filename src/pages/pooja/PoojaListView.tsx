@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Loader2, Eye, Edit, Trash2, Calendar, Clock, Filter, X, FileDown } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -198,7 +200,7 @@ export default function PoojaListView() {
     setLogsFor(item.id);
     setLogsLoading(true);
     try {
-      const response = await fetch(`http://localhost:4000/api/pooja/${item.id}/logs`, {
+      const response = await fetch(`https://templeapi.agniplay.com/api/pooja/${item.id}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch logs');
@@ -231,7 +233,7 @@ export default function PoojaListView() {
 
   const loadAllPoojaLogs = async () => {
     try {
-      const response = await fetch(`http://localhost:4000/api/pooja/logs?page=${allLogsPage}&pageSize=${allLogsPageSize}`, {
+      const response = await fetch(`https://templeapi.agniplay.com/api/pooja/logs?page=${allLogsPage}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch logs');
@@ -262,7 +264,7 @@ export default function PoojaListView() {
     const results = await Promise.all(
       missing.map(async (id) => {
         try {
-          const res = await fetch(`http://localhost:4000/api/admin/members/${id}`, {
+          const res = await fetch(`https://templeapi.agniplay.com/api/admin/members/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data = await res.json().catch(() => ({}));
@@ -483,6 +485,7 @@ export default function PoojaListView() {
     { key: 'mobile', label: translate('mobile') },
     { key: 'dateRange', label: translate('dateRange') },
     { key: 'time', label: translate('time') },
+    { key: 'amount', label: translate('amount'), align: 'right' },
     { key: 'actions', label: translate('actions'), align: 'center' },
   ];
 
@@ -493,6 +496,7 @@ export default function PoojaListView() {
     mobile: true,
     dateRange: true,
     time: true,
+    amount: true,
     actions: true,
   };
 
@@ -638,7 +642,7 @@ export default function PoojaListView() {
     const load = async () => {
       try {
         if (!token) return;
-        const resp = await fetch('http://localhost:4000/api/ledger/categories', { headers: { Authorization: `Bearer ${token}` } });
+        const resp = await fetch('https://templeapi.agniplay.com/api/ledger/categories', { headers: { Authorization: `Bearer ${token}` } });
         const body = await resp.json().catch(() => ({}));
         const raw = Array.isArray(body?.data) ? body.data : (Array.isArray(body) ? body : []);
         const mapped = (raw || []).map((item: any, idx: number) => {
@@ -728,7 +732,84 @@ export default function PoojaListView() {
   };
 
   const handleExportPdf = () => {
-    window.print();
+    try {
+      const title = translate("poojaList");
+      const headCells = [
+        translate("receiptNo"),
+        translate("name"),
+        translate("mobile"),
+        translate("poojaDate"),
+        translate("poojaTime"),
+        translate("amount"),
+      ];
+
+      const exportRows = data.map((r) => [
+        r.receipt_number || "",
+        r.name || "",
+        r.mobile_number || "",
+        formatDate(r.pooja_date),
+        formatTime(r.pooja_time),
+        r.amount || "0",
+      ]);
+
+      const doc = new jsPDF('landscape');
+      
+      // Add Title and Styling
+      doc.setFontSize(20);
+      doc.setTextColor(40);
+      doc.text(title, 14, 22);
+      
+      // Add metadata info
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      const now = new Date();
+      const meta = `${translate("showing")}: ${data.length} | ${translate("total")}: ${pagination.total}`;
+      doc.text(meta, 14, 30);
+      
+      // Horizontal line
+      doc.setDrawColor(200, 200, 200);
+      doc.line(14, 33, 283, 33);
+
+      autoTable(doc, {
+        head: [headCells],
+        body: exportRows,
+        startY: 40,
+        styles: { 
+          fontSize: 9, 
+          cellPadding: 4,
+          valign: 'middle'
+        },
+        headStyles: { 
+          fillColor: [79, 70, 229], // Indigo 600
+          textColor: [255, 255, 255], 
+          fontStyle: 'bold',
+          fontSize: 10
+        },
+        alternateRowStyles: {
+          fillColor: [249, 250, 251] // Gray 50
+        },
+        margin: { top: 40 },
+        didDrawPage: (data) => {
+          // Footer: Page Number
+          const str = `Page ${(doc as any).getNumberOfPages()}`;
+          doc.setFontSize(8);
+          doc.setTextColor(150);
+          const pageSize = doc.internal.pageSize;
+          const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
+          doc.text(str, 14, pageHeight - 10);
+        }
+      });
+
+      const stamp = now.toISOString().slice(0, 19).replace(/[:T]/g, "-");
+      doc.save(`pooja-export-${stamp}.pdf`);
+    } catch (err) {
+      console.error("PDF export failed", err);
+      toast({
+        title: translate("error"),
+        description: "Failed to export PDF",
+        variant: "destructive",
+      });
+    }
   };
 
   // Use data directly since filtering is now done server-side
@@ -865,6 +946,11 @@ export default function PoojaListView() {
                               <Clock className="h-3 w-3 mr-1 text-gray-400" />
                               {formatTime(pooja.time)}
                             </div>
+                          </td>
+                        )}
+                        {visibleCols.amount && (
+                          <td className={cn(formFieldStyles.moneyDonationList.table.td, "text-right font-medium")}>
+                            {formatAmount(pooja.amount)}
                           </td>
                         )}
                         {visibleCols.actions && (

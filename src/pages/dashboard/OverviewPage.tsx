@@ -102,7 +102,7 @@ export default function OverviewPage() {
       setError('');
       try {
         // Fetch registrations (for total + recent)
-        const regRes = await fetch(`http://localhost:4000/api/registrations?page=1&pageSize=5`, {
+        const regRes = await fetch(`https://templeapi.agniplay.com/api/registrations?page=1&pageSize=5`, {
           headers: {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -117,7 +117,7 @@ export default function OverviewPage() {
         }
 
         // Fetch full registrations list (for counts)
-        const regAllRes = await fetch(`http://localhost:4000/api/registrations?page=1&pageSize=5000`, {
+        const regAllRes = await fetch(`https://templeapi.agniplay.com/api/registrations?page=1&pageSize=5000`, {
           headers: {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -128,7 +128,7 @@ export default function OverviewPage() {
 
         // Fetch current year's tax setting
         const year = new Date().getFullYear();
-        const taxSetRes = await fetch(`http://localhost:4000/api/tax-settings/year/${year}`, {
+        const taxSetRes = await fetch(`https://templeapi.agniplay.com/api/tax-settings/year/${year}`, {
           headers: {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -138,7 +138,7 @@ export default function OverviewPage() {
         const currentYearTax = Number(taxSetJson?.data?.tax_amount || 0) || 0;
 
         // Fetch tax registrations (limit reasonably)
-        const taxRes = await fetch(`http://localhost:4000/api/tax-registrations?page=1&pageSize=1000`, {
+        const taxRes = await fetch(`https://templeapi.agniplay.com/api/tax-registrations?page=1&pageSize=1000`, {
           headers: {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -230,7 +230,7 @@ export default function OverviewPage() {
         }
 
         // Fetch events (for upcoming count)
-        const evtRes = await fetch(`http://localhost:4000/api/events?from=${todayStr}&page=1&pageSize=1`, {
+        const evtRes = await fetch(`https://templeapi.agniplay.com/api/events?from=${todayStr}&page=1&pageSize=1`, {
           headers: {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),

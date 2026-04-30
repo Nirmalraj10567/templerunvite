@@ -5,11 +5,11 @@ import { theme } from "@/styles/theme";
 import LedgerLogView from "./LedgerLogView";
 import { cn, formFieldStyles } from "@/styles/formStyles";
 
-interface LedgerLogsPageProps {}
+interface LedgerLogsPageProps { }
 
-export default function LedgerLogsPage({}: LedgerLogsPageProps) {
+export default function LedgerLogsPage({ }: LedgerLogsPageProps) {
   const { language } = useLanguage();
-  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
 
   return (
     <div className="container mx-auto py-6 px-4">

@@ -13,7 +13,9 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { X } from 'lucide-react';
 
 export default function MemberEntryPage() {
   const navigate = useNavigate();
@@ -28,7 +30,7 @@ export default function MemberEntryPage() {
     email: '',
     gotra: '',
     nakshatra: '',
-    createLogin: false,
+    createLogin: true,
     password: '',
     role: 'member',
   } as unknown as Member);
@@ -38,11 +40,15 @@ export default function MemberEntryPage() {
     show: false,
     message: '',
   });
-
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const handleAddMember = async (e: React.FormEvent) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
+    if (isSubmitting) return;
+    
+    setIsSubmitting(true);
     try {
-      const response = await fetch('http://localhost:4000/api/members', {
+      const response = await fetch('https://templeapi.agniplay.com/api/members', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -125,15 +131,18 @@ export default function MemberEntryPage() {
         show: true,
         message: err.message || (language === 'tamil' ? 'உறுப்பினரை உருவாக்க முடியவில்லை' : 'Failed to create member'),
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleUpdateMember = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingMember) return;
+    if (e) e.preventDefault();
+    if (isSubmitting || !editingMember) return;
 
+    setIsSubmitting(true);
     try {
-      const response = await fetch(`http://localhost:4000/api/users/${editingMember.id}`, {
+      const response = await fetch(`https://templeapi.agniplay.com/api/users/${editingMember.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -156,11 +165,29 @@ export default function MemberEntryPage() {
     } catch (error) {
       console.error('Error updating member:', error);
       toast({ title: language === 'tamil' ? 'பிழை' : 'Error', description: language === 'tamil' ? 'புதுப்பிக்க முடியவில்லை' : 'Failed to update member', variant: 'destructive' });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <div className="p-4">
+      {error.show && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertTitle className="flex items-center justify-between">
+            {language === 'tamil' ? 'பிழை' : 'Error'}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-6 w-6 p-0 hover:bg-destructive/20" 
+              onClick={() => setError({ show: false, message: '' })}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </AlertTitle>
+          <AlertDescription>{error.message}</AlertDescription>
+        </Alert>
+      )}
       <MemberEntryView
         newMember={newMember}
         setNewMember={setNewMember}
@@ -170,6 +197,7 @@ export default function MemberEntryPage() {
         handleAddMember={handleAddMember}
         handleUpdateMember={handleUpdateMember}
         isEditing={!!id}
+        isSubmitting={isSubmitting}
       />
     </div>
   );

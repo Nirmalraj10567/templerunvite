@@ -5,7 +5,7 @@
 
 const http = require('http');
 
-const API_BASE = process.env.API_BASE || 'http://localhost:4000';
+const API_BASE = process.env.API_BASE || 'https://templeapi.agniplay.com';
 
 function makeRequest(path, method = 'GET', data = null, headers = {}) {
   return new Promise((resolve, reject) => {

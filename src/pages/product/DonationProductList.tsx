@@ -65,7 +65,7 @@ interface User {
 
 // Donation Service
 class DonationService {
-  private baseUrl = 'http://localhost:4000/api';
+  private baseUrl = 'https://templeapi.agniplay.com/api';
 
   async getDonations(token: string, params: { q?: string } = {}) {
     const url = new URL(`${this.baseUrl}/donations`);
@@ -187,7 +187,7 @@ export default function DonationProductList() {
   const [userDetails, setUserDetails] = useState<Record<number, User>>({});
 
   // Translation helper
-  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
 
   // Edit modal state
   const [editOpen, setEditOpen] = useState(false);
@@ -271,7 +271,7 @@ export default function DonationProductList() {
     const results = await Promise.all(
       missing.map(async (id) => {
         try {
-          const res = await fetch(`http://localhost:4000/api/admin/members/${id}`, {
+          const res = await fetch(`https://templeapi.agniplay.com/api/admin/members/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data = await res.json().catch(() => ({}));
@@ -325,7 +325,7 @@ export default function DonationProductList() {
     setLogsFor(item.id);
     setLogsLoading(true);
     try {
-      const response = await fetch(`http://localhost:4000/api/donations/${item.id}/logs`, {
+      const response = await fetch(`https://templeapi.agniplay.com/api/donations/${item.id}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch logs');
@@ -365,7 +365,7 @@ export default function DonationProductList() {
     const pageToLoad = pageNum || allLogsPage;
     setAllLogsLoading(true);
     try {
-      const response = await fetch(`http://localhost:4000/api/donations/logs?page=${pageToLoad}&pageSize=${allLogsPageSize}`, {
+      const response = await fetch(`https://templeapi.agniplay.com/api/donations/logs?page=${pageToLoad}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch logs');
@@ -408,7 +408,7 @@ export default function DonationProductList() {
       category: item.category || 'General',
       donorName: item.donor_name || '',
       donorContact: item.donor_contact || '',
-      donationDate: (item.donation_date || '').slice(0,10),
+      donationDate: (item.donation_date || '').slice(0, 10),
       notes: item.notes || '',
       status: item.status || 'available',
     });
@@ -486,17 +486,16 @@ export default function DonationProductList() {
         <h2 class="mt-2.5 text-xl font-bold">${t('Donation Receipt', 'நன்கொடை ரசீது')}</h2>
       </div>
       <div class="mx-5">
-        ${
-          item
-            ? `<table class="w-full border-collapse">
+        ${item
+        ? `<table class="w-full border-collapse">
               <tr><td class="p-2 border-b border-gray-300 font-bold">${t('Donor', 'நன்கொடையாளர்')}:</td><td class="p-2 border-b border-gray-300">${item.donor_name}</td></tr>
               <tr><td class="p-2 border-b border-gray-300 font-bold">${t('Date', 'தேதி')}:</td><td class="p-2 border-b border-gray-300">${item.donation_date}</td></tr>
               <tr><td class="p-2 border-b border-gray-300 font-bold">${t('Product', 'பொருள்')}:</td><td class="p-2 border-b border-gray-300">${item.product_name}</td></tr>
               <tr><td class="p-2 border-b border-gray-300 font-bold">${t('Description', 'விளக்கம்')}:</td><td class="p-2 border-b border-gray-300">${item.description}</td></tr>
               <tr><td class="p-2 border-b border-gray-300 font-bold">${t('Quantity', 'அளவு')}:</td><td class="p-2 border-b border-gray-300">${item.quantity}</td></tr>
             </table>`
-            : ''
-        }
+        : ''
+      }
       </div>
     `;
 
@@ -695,7 +694,7 @@ export default function DonationProductList() {
                       )}
                       {visibleCols.date && (
                         <TableCell className={tableClasses.cell}>
-                          {(item.donation_date || '').slice(0,10) || '-'}
+                          {(item.donation_date || '').slice(0, 10) || '-'}
                         </TableCell>
                       )}
                       {visibleCols.donor && (
@@ -847,87 +846,87 @@ export default function DonationProductList() {
           <Modal title={t('Edit Donation', 'நன்கொடையை திருத்துக')} onClose={() => setEditOpen(false)}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Product','பொருள்')}</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Product', 'பொருள்')}</label>
                 <input
                   className={cn(theme.input.base, theme.input.size.md, "w-full")}
                   value={editForm.product}
-                  onChange={(e)=>setEditForm(prev=>({...prev, product: e.target.value}))}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, product: e.target.value }))}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Quantity','அளவு')}</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Quantity', 'அளவு')}</label>
                 <input
                   className={cn(theme.input.base, theme.input.size.md)}
                   value={editForm.quantity}
-                  onChange={(e)=>{
+                  onChange={(e) => {
                     const v = e.target.value;
-                    if (v === '') return setEditForm(prev=>({...prev, quantity: ''}));
-                    const n = parseInt(v,10);
-                    if (!isNaN(n)) setEditForm(prev=>({...prev, quantity: n}));
+                    if (v === '') return setEditForm(prev => ({ ...prev, quantity: '' }));
+                    const n = parseInt(v, 10);
+                    if (!isNaN(n)) setEditForm(prev => ({ ...prev, quantity: n }));
                   }}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Date','தேதி')}</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Date', 'தேதி')}</label>
                 <input
                   type="date"
                   className={cn(theme.input.base, theme.input.size.md, "w-full")}
                   value={editForm.donationDate}
-                  onChange={(e)=>setEditForm(prev=>({...prev, donationDate: e.target.value}))}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, donationDate: e.target.value }))}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Category','வகை')}</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Category', 'வகை')}</label>
                 <input
                   className={cn(theme.input.base, theme.input.size.md, "w-full")}
                   value={editForm.category}
-                  onChange={(e)=>setEditForm(prev=>({...prev, category: e.target.value}))}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, category: e.target.value }))}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Status','நிலை')}</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Status', 'நிலை')}</label>
                 <select
                   className={cn(theme.select.base, theme.select.size.md, "w-full")}
                   value={editForm.status}
-                  onChange={(e)=>setEditForm(prev=>({...prev, status: e.target.value}))}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, status: e.target.value }))}
                 >
-                  <option value="available">{t('Available','கிடைக்கும்')}</option>
-                  <option value="reserved">{t('Reserved','ஒதுக்கப்பட்டது')}</option>
-                  <option value="distributed">{t('Distributed','விநியோகிக்கப்பட்டது')}</option>
+                  <option value="available">{t('Available', 'கிடைக்கும்')}</option>
+                  <option value="reserved">{t('Reserved', 'ஒதுக்கப்பட்டது')}</option>
+                  <option value="distributed">{t('Distributed', 'விநியோகிக்கப்பட்டது')}</option>
                 </select>
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Donor','நன்கொடையாளர்')}</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Donor', 'நன்கொடையாளர்')}</label>
                 <input
                   className={cn(theme.input.base, theme.input.size.md, "w-full")}
                   value={editForm.donorName}
-                  onChange={(e)=>setEditForm(prev=>({...prev, donorName: e.target.value}))}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, donorName: e.target.value }))}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Contact','தொடர்பு')}</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Contact', 'தொடர்பு')}</label>
                 <input
                   className={cn(theme.input.base, theme.input.size.md, "w-full")}
                   value={editForm.donorContact}
-                  onChange={(e)=>setEditForm(prev=>({...prev, donorContact: e.target.value}))}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, donorContact: e.target.value }))}
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Description','விளக்கம்')}</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Description', 'விளக்கம்')}</label>
                 <textarea
                   className={cn(theme.textarea.base, theme.textarea.size.md, "w-full")}
                   rows={3}
                   value={editForm.description}
-                  onChange={(e)=>setEditForm(prev=>({...prev, description: e.target.value}))}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Notes','குறிப்புகள்')}</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Notes', 'குறிப்புகள்')}</label>
                 <textarea
                   className={cn(theme.textarea.base, theme.textarea.size.md, "w-full")}
                   rows={3}
                   value={editForm.notes}
-                  onChange={(e)=>setEditForm(prev=>({...prev, notes: e.target.value}))}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, notes: e.target.value }))}
                 />
               </div>
             </div>
@@ -936,13 +935,13 @@ export default function DonationProductList() {
                 onClick={() => setEditOpen(false)}
                 className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
-                {t('Cancel','ரத்து செய்')}
+                {t('Cancel', 'ரத்து செய்')}
               </button>
               <button
                 onClick={saveEdit}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
-                {t('Save','சேமி')}
+                {t('Save', 'சேமி')}
               </button>
             </div>
           </Modal>
@@ -1016,16 +1015,15 @@ export default function DonationProductList() {
                         {logs.map((log) => (
                           <tr key={log.id}>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                log.action === 'create' ? 'bg-green-100 text-green-800' :
-                                log.action === 'update' ? 'bg-blue-100 text-blue-800' :
-                                log.action === 'delete' ? 'bg-red-100 text-red-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>
+                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${log.action === 'create' ? 'bg-green-100 text-green-800' :
+                                  log.action === 'update' ? 'bg-blue-100 text-blue-800' :
+                                    log.action === 'delete' ? 'bg-red-100 text-red-800' :
+                                      'bg-gray-100 text-gray-800'
+                                }`}>
                                 {log.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
-                                 log.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
-                                 log.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
-                                 log.action}
+                                  log.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
+                                    log.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
+                                      log.action}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -1122,16 +1120,15 @@ export default function DonationProductList() {
                           ) : allLogs.map((log) => (
                             <tr key={log.id}>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                  log.action === 'create' ? 'bg-green-100 text-green-800' :
-                                  log.action === 'update' ? 'bg-blue-100 text-blue-800' :
-                                  log.action === 'delete' ? 'bg-red-100 text-red-800' :
-                                  'bg-gray-100 text-gray-800'
-                                }`}>
+                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${log.action === 'create' ? 'bg-green-100 text-green-800' :
+                                    log.action === 'update' ? 'bg-blue-100 text-blue-800' :
+                                      log.action === 'delete' ? 'bg-red-100 text-red-800' :
+                                        'bg-gray-100 text-gray-800'
+                                  }`}>
                                   {log.action === 'create' ? t('Created', 'உருவாக்கப்பட்டது') :
-                                   log.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
-                                   log.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
-                                   log.action}
+                                    log.action === 'update' ? t('Updated', 'புதுப்பிக்கப்பட்டது') :
+                                      log.action === 'delete' ? t('Deleted', 'நீக்கப்பட்டது') :
+                                        log.action}
                                 </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

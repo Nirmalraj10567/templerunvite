@@ -37,13 +37,13 @@ export default function DaybookEntryPage() {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const formRef = useRef<HTMLFormElement>(null);
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(isEditMode);
   const [receiptNumber, setReceiptNumber] = useState('');
   const [showSavedModal, setShowSavedModal] = useState(false);
 
-  const t = (en: string, ta: string) => (language === 'english' ? en : ta);
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
 
   const {
     register,

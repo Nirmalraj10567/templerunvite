@@ -68,14 +68,38 @@ module.exports = function(deps = {}) {
     let balance = 0;
     for (const entry of entries) {
       if (entry.entry_type === 'income') {
-        balance += parseFloat(entry.amount);
+        balance += parseFloat(entry.amount || 0);
       } else if (entry.entry_type === 'expense') {
-        balance -= parseFloat(entry.amount);
+        balance -= parseFloat(entry.amount || 0);
       }
-      // Journal entries don't affect balance
     }
     
     return balance;
+  }
+
+  // Global recalculation for a temple
+  async function recalculateBalances(templeId) {
+    try {
+      const entries = await db('daybook_entries')
+        .where('temple_id', templeId)
+        .orderBy('entry_date', 'asc')
+        .orderBy('id', 'asc');
+      
+      let balance = 0;
+      for (const entry of entries) {
+        if (entry.entry_type === 'income') {
+          balance += parseFloat(entry.amount || 0);
+        } else if (entry.entry_type === 'expense') {
+          balance -= parseFloat(entry.amount || 0);
+        }
+        
+        await db('daybook_entries')
+          .where({ id: entry.id })
+          .update({ running_balance: balance });
+      }
+    } catch (e) {
+      console.error('Failed to recalculate daybook balances:', e.message);
+    }
   }
 
   // List with optional search and date filter
@@ -99,9 +123,15 @@ module.exports = function(deps = {}) {
           }
           if (from) qb.andWhere('entry_date', '>=', from);
           if (to) qb.andWhere('entry_date', '<=', to);
-          if (type) qb.andWhere('entry_type', type);
+          if (type) {
+            if (type === 'annadhanam') {
+              qb.andWhere('reference_type', 'annadhanam');
+            } else {
+              qb.andWhere('entry_type', type);
+            }
+          }
         })
-        .orderBy('entry_date', 'desc')
+        .orderBy('created_at', 'desc')
         .orderBy('id', 'desc')
         .limit(ps)
         .offset(offset);
@@ -122,7 +152,13 @@ module.exports = function(deps = {}) {
           }
           if (from) qb.andWhere('entry_date', '>=', from);
           if (to) qb.andWhere('entry_date', '<=', to);
-          if (type) qb.andWhere('entry_type', type);
+          if (type) {
+            if (type === 'annadhanam') {
+              qb.andWhere('reference_type', 'annadhanam');
+            } else {
+              qb.andWhere('entry_type', type);
+            }
+          }
         });
       
       const [{ count }] = await countQuery.count('* as count');
@@ -224,13 +260,31 @@ module.exports = function(deps = {}) {
         )
         .first();
 
-      const balance = parseFloat(stats.total_income || 0) - parseFloat(stats.total_expense || 0);
+      // Opening balance: total balance before 'from'
+      let opening_balance = 0;
+      if (from) {
+        const obStats = await db('daybook_entries')
+          .where('temple_id', req.user.templeId)
+          .andWhere('entry_date', '<', from)
+          .select(
+            db.raw('SUM(CASE WHEN entry_type = "income" THEN amount ELSE 0 END) as total_income'),
+            db.raw('SUM(CASE WHEN entry_type = "expense" THEN amount ELSE 0 END) as total_expense')
+          )
+          .first();
+        opening_balance = parseFloat(obStats.total_income || 0) - parseFloat(obStats.total_expense || 0);
+      }
+
+      const period_net = parseFloat(stats.total_income || 0) - parseFloat(stats.total_expense || 0);
+      const closing_balance = opening_balance + period_net;
 
       res.json({
         success: true,
         data: {
           ...stats,
-          current_balance: balance,
+          opening_balance,
+          period_net,
+          current_balance: closing_balance, // For backward compatibility
+          closing_balance,
           period: { from, to }
         }
       });
@@ -248,11 +302,17 @@ module.exports = function(deps = {}) {
       const query = db('daybook_entries')
         .where('temple_id', req.user.templeId)
         .modify((qb) => {
-          if (from) qb.andWhere('entry_date', '>=', from);
-          if (to) qb.andWhere('entry_date', '<=', to);
-          if (type) qb.andWhere('entry_type', type);
+          if (from) qb.andWhere(db.raw('DATE(created_at)'), '>=', from);
+          if (to) qb.andWhere(db.raw('DATE(created_at)'), '<=', to);
+          if (type) {
+            if (type === 'annadhanam') {
+              qb.andWhere('reference_type', 'annadhanam');
+            } else {
+              qb.andWhere('entry_type', type);
+            }
+          }
         })
-        .orderBy('entry_date', 'asc')
+        .orderBy('created_at', 'asc')
         .orderBy('id', 'asc');
 
       const rows = await query;
@@ -408,6 +468,9 @@ module.exports = function(deps = {}) {
       };
 
       const [id] = await db('daybook_entries').insert(entryData);
+      
+      // Recalculate all balances to keep them consistent
+      await recalculateBalances(req.user.templeId);
 
       const created = await db('daybook_entries').where({ id }).first();
 
@@ -491,6 +554,9 @@ module.exports = function(deps = {}) {
       await db('daybook_entries')
         .where({ id, temple_id: req.user.templeId })
         .update(updateData);
+      
+      // Recalculate all balances
+      await recalculateBalances(req.user.templeId);
 
       const updated = await db('daybook_entries').where({ id }).first();
 
@@ -536,6 +602,9 @@ module.exports = function(deps = {}) {
       await db('daybook_entries')
         .where({ id, temple_id: req.user.templeId })
         .delete();
+      
+      // Recalculate all balances
+      await recalculateBalances(req.user.templeId);
 
       res.json({ success: true, message: 'Daybook entry deleted successfully' });
     } catch (err) {

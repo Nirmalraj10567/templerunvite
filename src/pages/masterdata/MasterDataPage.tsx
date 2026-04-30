@@ -20,7 +20,7 @@ const MasterDataPage = () => {
   const { user, token } = useAuth();
   const { language, setLanguage } = useLanguage();
   
-  const [activeTab, setActiveTab] = useState<'clans' | 'groups' | 'occupations' | 'educations' | 'halls' | 'hall-events' | 'food-items' | 'product-names'>('clans');
+  const [activeTab, setActiveTab] = useState<'clans' | 'groups' | 'occupations' | 'educations' | 'halls' | 'hall-events' | 'food-items' | 'product-names' | 'pooja'>('clans');
   const [masterData, setMasterData] = useState<MasterDataItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -44,6 +44,7 @@ const MasterDataPage = () => {
       hallEvents: 'Hall Events',
       foodItems: 'Food Items',
       productNames: 'Product Names',
+      pooja: 'Pooja',
       addNew: 'Add New',
       edit: 'Edit',
       delete: 'Delete',
@@ -74,6 +75,7 @@ const MasterDataPage = () => {
       hallEvents: 'மண்டப நிகழ்வுகள்',
       foodItems: 'உணவு பொருட்கள்',
       productNames: 'பொருள் பெயர்கள்',
+      pooja: 'பூஜை',
       addNew: 'புதியதை சேர்க்கவும்',
       edit: 'திருத்து',
       delete: 'அழி',
@@ -116,7 +118,8 @@ const MasterDataPage = () => {
     { key: 'halls', label: t.halls, endpoint: 'halls' },
     { key: 'hall-events', label: t.hallEvents, endpoint: 'hall-events' },
     { key: 'food-items', label: t.foodItems, endpoint: 'food-items' },
-    { key: 'product-names', label: t.productNames, endpoint: 'product-names' }
+    { key: 'product-names', label: t.productNames, endpoint: 'product-names' },
+    { key: 'pooja', label: t.pooja, endpoint: 'pooja' }
   ];
 
 
@@ -153,13 +156,18 @@ const MasterDataPage = () => {
       const currentTab = tabs.find(t => t.key === activeTab);
       if (!currentTab) return;
 
-      const response = await fetch(`http://localhost:4000/api/master/${currentTab.endpoint}/${user.templeId}`, {
+      const baseUrl = activeTab === 'pooja'
+        ? `https://templeapi.agniplay.com/api/pooja-master/items`
+        : `https://templeapi.agniplay.com/api/master/${currentTab.endpoint}/${user.templeId}`;
+      const response = await fetch(baseUrl, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
       if (response.ok) {
         const result = await response.json();
-        setMasterData(result);
+        // pooja-master returns {success, data} format, master data returns array directly
+        const data = activeTab === 'pooja' ? (result.data || []) : result;
+        setMasterData(data);
       } else {
         setError(`Failed to load ${activeTab}`);
       }
@@ -178,16 +186,19 @@ const MasterDataPage = () => {
       const currentTab = tabs.find(t => t.key === activeTab);
       if (!currentTab) return;
 
-      const response = await fetch(`http://localhost:4000/api/master/${currentTab.endpoint}`, {
+      const baseUrl = activeTab === 'pooja'
+        ? `https://templeapi.agniplay.com/api/pooja-master/items`
+        : `https://templeapi.agniplay.com/api/master/${currentTab.endpoint}`;
+      const body = activeTab === 'pooja'
+        ? JSON.stringify({ name: newItemName.trim(), amount: 0, is_active: true })
+        : JSON.stringify({ name: newItemName.trim(), templeId: user?.templeId });
+      const response = await fetch(baseUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          name: newItemName.trim(),
-          templeId: user?.templeId
-        })
+        body: body
       });
 
       if (response.ok) {
@@ -211,16 +222,19 @@ const MasterDataPage = () => {
       const currentTab = tabs.find(t => t.key === activeTab);
       if (!currentTab) return;
 
-      const response = await fetch(`http://localhost:4000/api/master/${currentTab.endpoint}/${editingItem.id}`, {
+      const baseUrl = activeTab === 'pooja'
+        ? `https://templeapi.agniplay.com/api/pooja-master/items/${editingItem.id}`
+        : `https://templeapi.agniplay.com/api/master/${currentTab.endpoint}/${editingItem.id}`;
+      const body = activeTab === 'pooja'
+        ? JSON.stringify({ name: newItemName.trim() })
+        : JSON.stringify({ name: newItemName.trim(), templeId: user?.templeId });
+      const response = await fetch(baseUrl, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          name: newItemName.trim(),
-          templeId: user?.templeId
-        })
+        body: body
       });
 
       if (response.ok) {
@@ -244,7 +258,10 @@ const MasterDataPage = () => {
       const currentTab = tabs.find(t => t.key === activeTab);
       if (!currentTab) return;
 
-      const response = await fetch(`http://localhost:4000/api/master/${currentTab.endpoint}/${id}`, {
+      const baseUrl = activeTab === 'pooja'
+        ? `https://templeapi.agniplay.com/api/pooja-master/items/${id}`
+        : `https://templeapi.agniplay.com/api/master/${currentTab.endpoint}/${id}`;
+      const response = await fetch(baseUrl, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -319,9 +336,7 @@ const MasterDataPage = () => {
                 {t.title}
               </h1>
             </div>
-            <p className="text-center text-orange-100 mt-2 text-sm">
-              {t.subtitle}
-            </p>
+      
           </div>
 
           {/* Success Message */}

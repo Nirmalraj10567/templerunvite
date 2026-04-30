@@ -11,9 +11,9 @@ async function verifyLogin() {
   console.log('='.repeat(60));
 
   try {
-    console.log('\nSending login request to: http://localhost:4000/api/users/login\n');
+    console.log('\nSending login request to: https://templeapi.agniplay.com/api/users/login\n');
 
-    const response = await axios.post('http://localhost:4000/api/users/login', {
+    const response = await axios.post('https://templeapi.agniplay.com/api/users/login', {
       username: 'test_admin',
       password: 'test123'
     });
@@ -40,12 +40,12 @@ async function verifyLogin() {
       console.log('TEST DAYBOOK API');
       console.log('='.repeat(60));
       console.log('\nUse this token to test daybook:\n');
-      console.log(`curl -X GET http://localhost:4000/api/daybook \\`);
+      console.log(`curl -X GET https://templeapi.agniplay.com/api/daybook \\`);
       console.log(`  -H "Authorization: Bearer ${response.data.token}"\n`);
 
       // Test daybook API
       console.log('\nTesting daybook API...');
-      const daybookResponse = await axios.get('http://localhost:4000/api/daybook', {
+      const daybookResponse = await axios.get('https://templeapi.agniplay.com/api/daybook', {
         headers: {
           Authorization: `Bearer ${response.data.token}`
         }

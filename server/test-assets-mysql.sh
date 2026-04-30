@@ -49,8 +49,8 @@ echo ""
 
 # Check if backend is running
 echo "Checking if backend is running..."
-if ! curl -s http://localhost:4000/api/health > /dev/null 2>&1; then
-    echo "⚠ Backend server not detected at http://localhost:4000"
+if ! curl -s https://templeapi.agniplay.com/api/health > /dev/null 2>&1; then
+    echo "⚠ Backend server not detected at https://templeapi.agniplay.com"
     echo "Please start the backend server before running tests:"
     echo "  cd /Volumes/KANINFOTECH/demo/templerunvite/server"
     echo "  node backend.js"

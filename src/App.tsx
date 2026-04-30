@@ -142,9 +142,7 @@ function App() {
                           requiredPermission="edit_donations"
                           accessLevel="edit"
                         >
-                          <YearEndLockGuard>
-                            <UnifiedDonationEntry />
-                          </YearEndLockGuard>
+                          <UnifiedDonationEntry />
                         </PermissionGuard>
                       }
                     />

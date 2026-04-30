@@ -295,6 +295,8 @@ module.exports = function(deps = {}) {
               name: `Donation-${donation.id} - ${donation.donor_name || 'Anonymous'}`,
               details: `Product: ${donation.product_name} | Qty: ${donation.quantity} | Price: ₹${donation.price}`,
               value: donation.price || 0,
+              quantity: donation.quantity || 1,
+              remaining_quantity: donation.quantity || 1,
               asset_source: 'donation',
               donor_name: donation.donor_name,
               donor_contact: donation.donor_contact,

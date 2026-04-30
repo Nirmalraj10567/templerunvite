@@ -13,11 +13,11 @@ import ReceiptLogsPage from "@/pages/Receipt/ReceiptLogsPage";
 import LedgerLogsPage from "@/pages/ledger/LedgerLogsPage";
 import TaxLogsPage from "@/pages/tax/TaxLogsPage";
 
-interface AnnadhanamLogsPageProps {}
+interface AnnadhanamLogsPageProps { }
 
-export default function AnnadhanamLogsPage({}: AnnadhanamLogsPageProps) {
+export default function AnnadhanamLogsPage({ }: AnnadhanamLogsPageProps) {
   const { language } = useLanguage();
-  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
   const [activeTab, setActiveTab] = useState("all");
 
   return (
@@ -31,8 +31,8 @@ export default function AnnadhanamLogsPage({}: AnnadhanamLogsPageProps) {
           </div>
         </CardHeader>
         <CardContent className="pt-6">
-          <Tabs 
-            value={activeTab} 
+          <Tabs
+            value={activeTab}
             onValueChange={setActiveTab}
             className="w-full"
             defaultValue="all"
@@ -43,7 +43,7 @@ export default function AnnadhanamLogsPage({}: AnnadhanamLogsPageProps) {
                 <TabsTrigger
                   value="all"
                   className="flex-shrink-0 px-4 py-3 text-sm font-medium transition-all duration-200 whitespace-nowrap rounded-sm min-h-[3rem] flex items-center justify-center"
-                  style={{ 
+                  style={{
                     minWidth: language === 'tamil' ? '140px' : '120px'
                   }}
                 >
@@ -51,11 +51,11 @@ export default function AnnadhanamLogsPage({}: AnnadhanamLogsPageProps) {
                     {t('Annadhanam Logs', 'அன்னதானம் பதிவுகள்')}
                   </span>
                 </TabsTrigger>
-                
+
                 <TabsTrigger
                   value="money-all"
                   className="flex-shrink-0 px-4 py-3 text-sm font-medium transition-all duration-200 whitespace-nowrap rounded-sm min-h-[3rem] flex items-center justify-center"
-                  style={{ 
+                  style={{
                     minWidth: language === 'tamil' ? '140px' : '120px'
                   }}
                 >
@@ -63,11 +63,11 @@ export default function AnnadhanamLogsPage({}: AnnadhanamLogsPageProps) {
                     {t('Money Donations', 'பண நன்கொடைகள்')}
                   </span>
                 </TabsTrigger>
-                
+
                 <TabsTrigger
                   value="product-all"
                   className="flex-shrink-0 px-4 py-3 text-sm font-medium transition-all duration-200 whitespace-nowrap rounded-sm min-h-[3rem] flex items-center justify-center"
-                  style={{ 
+                  style={{
                     minWidth: language === 'tamil' ? '140px' : '120px'
                   }}
                 >
@@ -75,11 +75,11 @@ export default function AnnadhanamLogsPage({}: AnnadhanamLogsPageProps) {
                     {t('Product Donations', 'பொருள் நன்கொடைகள்')}
                   </span>
                 </TabsTrigger>
-                
+
                 <TabsTrigger
                   value="hall-all"
                   className="flex-shrink-0 px-4 py-3 text-sm font-medium transition-all duration-200 whitespace-nowrap rounded-sm min-h-[3rem] flex items-center justify-center"
-                  style={{ 
+                  style={{
                     minWidth: language === 'tamil' ? '140px' : '120px'
                   }}
                 >
@@ -87,11 +87,11 @@ export default function AnnadhanamLogsPage({}: AnnadhanamLogsPageProps) {
                     {t('Hall Bookings', 'மண்டப பதிவுகள்')}
                   </span>
                 </TabsTrigger>
-                
+
                 <TabsTrigger
                   value="pooja-all"
                   className="flex-shrink-0 px-4 py-3 text-sm font-medium transition-all duration-200 whitespace-nowrap rounded-sm min-h-[3rem] flex items-center justify-center"
-                  style={{ 
+                  style={{
                     minWidth: language === 'tamil' ? '140px' : '120px'
                   }}
                 >
@@ -99,11 +99,11 @@ export default function AnnadhanamLogsPage({}: AnnadhanamLogsPageProps) {
                     {t('Pooja Logs', 'பூஜை பதிவுகள்')}
                   </span>
                 </TabsTrigger>
-                
+
                 <TabsTrigger
                   value="receipt-all"
                   className="flex-shrink-0 px-4 py-3 text-sm font-medium transition-all duration-200 whitespace-nowrap rounded-sm min-h-[3rem] flex items-center justify-center"
-                  style={{ 
+                  style={{
                     minWidth: language === 'tamil' ? '140px' : '120px'
                   }}
                 >
@@ -111,11 +111,11 @@ export default function AnnadhanamLogsPage({}: AnnadhanamLogsPageProps) {
                     {t('Receipt Logs', 'ரசீது பதிவுகள்')}
                   </span>
                 </TabsTrigger>
-                
+
                 <TabsTrigger
                   value="ledger-all"
                   className="flex-shrink-0 px-4 py-3 text-sm font-medium transition-all duration-200 whitespace-nowrap rounded-sm min-h-[3rem] flex items-center justify-center"
-                  style={{ 
+                  style={{
                     minWidth: language === 'tamil' ? '140px' : '120px'
                   }}
                 >
@@ -123,11 +123,11 @@ export default function AnnadhanamLogsPage({}: AnnadhanamLogsPageProps) {
                     {t('Ledger Logs', 'பதிவேடு பதிவுகள்')}
                   </span>
                 </TabsTrigger>
-                
+
                 <TabsTrigger
                   value="tax-all"
                   className="flex-shrink-0 px-4 py-3 text-sm font-medium transition-all duration-200 whitespace-nowrap rounded-sm min-h-[3rem] flex items-center justify-center"
-                  style={{ 
+                  style={{
                     minWidth: language === 'tamil' ? '140px' : '120px'
                   }}
                 >
@@ -137,35 +137,35 @@ export default function AnnadhanamLogsPage({}: AnnadhanamLogsPageProps) {
                 </TabsTrigger>
               </TabsList>
             </div>
-            
+
             <TabsContent value="all" className="mt-6">
               <AnnadhanamLogView recentOnly={false} />
             </TabsContent>
-            
+
             <TabsContent value="money-all" className="mt-6">
               <MoneyDonationLogView recentOnly={false} />
             </TabsContent>
-            
+
             <TabsContent value="product-all" className="mt-6">
               <DonationProductLogView recentOnly={false} />
             </TabsContent>
-            
+
             <TabsContent value="hall-all" className="mt-6">
               <HallLogsPage />
             </TabsContent>
-            
+
             <TabsContent value="pooja-all" className="mt-6">
               <PoojaLogsPage />
             </TabsContent>
-            
+
             <TabsContent value="receipt-all" className="mt-6">
               <ReceiptLogsPage />
             </TabsContent>
-            
+
             <TabsContent value="ledger-all" className="mt-6">
               <LedgerLogsPage />
             </TabsContent>
-            
+
             <TabsContent value="tax-all" className="mt-6">
               <TaxLogsPage />
             </TabsContent>

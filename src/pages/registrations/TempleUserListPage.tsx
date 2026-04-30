@@ -27,6 +27,7 @@ const t = {
   tamil: {
     searchPlaceholder: 'Search by name, mobile or village',
     exportButton: 'Export CSV',
+    title:"Landowners Tax List",
     name: 'Name',
     mobile: 'Mobile',
     aadhaar: 'Aadhaar',
@@ -47,11 +48,13 @@ const t = {
     noRecords: 'No records found',
     page: 'Page',
     of: 'of',
-    records: 'records'
+    records: 'records',
+    edit: 'Edit'
   },
   english: {
     searchPlaceholder: 'பெயர், தொலைபேசி அல்லது கிராமம் மூலம் தேடு',
     exportButton: 'ஏற்றுமதி CSV',
+    title:"காணியாளர்கள் வரி பட்டியல்",
     name: 'பெயர்',
     mobile: 'தொலைபேசி',
     aadhaar: 'ஆதார்',
@@ -72,7 +75,8 @@ const t = {
     noRecords: 'பதிவுகள் இல்லை',
     page: 'பக்கம்',
     of: 'அ',
-    records: 'பதிவுகள்'
+    records: 'பதிவுகள்',
+    edit: 'திருத்து'
   }
 } as const;
 
@@ -115,7 +119,7 @@ export default function TempleUserListPage() {
     try {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
-      const res = await fetch(`http://localhost:4000/api/registrations/export/csv?${params.toString()}`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/registrations/export/csv?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
@@ -137,7 +141,7 @@ export default function TempleUserListPage() {
   const handleToggleBlock = async (r: Registration) => {
     const next = r.status === 'blocked' ? 'active' : 'blocked';
     try {
-      const res = await fetch(`http://localhost:4000/api/registrations/${r.id}/status`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/registrations/${r.id}/status`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -210,7 +214,7 @@ export default function TempleUserListPage() {
         search,
       });
 
-      const res = await fetch(`http://localhost:4000/api/registrations?${params.toString()}`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/registrations?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -246,7 +250,7 @@ export default function TempleUserListPage() {
 
   const handleDownloadPdf = async (id: number) => {
     try {
-      const res = await fetch(`http://localhost:4000/api/registrations/${id}/pdf`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/registrations/${id}/pdf`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
@@ -266,7 +270,7 @@ export default function TempleUserListPage() {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
 
-      const res = await fetch(`http://localhost:4000/api/registrations/export/pdf?${params.toString()}`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/registrations/export/pdf?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
@@ -292,7 +296,7 @@ export default function TempleUserListPage() {
         <CardHeader className={theme.header.container}>
           <div className={theme.header.contentSpacing}>
             <CardTitle className={theme.header.main}>
-              {t[language].name}
+              {t[language].title}
             </CardTitle>
           </div>
         </CardHeader>
@@ -409,7 +413,7 @@ export default function TempleUserListPage() {
                         <TableCell className={cn(tableClasses.cell, tableClasses.actionCell)}>
                           <div className="flex items-center justify-end gap-1">
                             <Button variant="ghost" size="sm" onClick={() => handleEdit(r.id)} className={tableClasses.actionButtonPrimary}>
-                              Edit
+                              {t[language].edit}
                             </Button>
                             <Button variant="ghost" size="sm" onClick={() => handleToggleBlock(r)} className={tableClasses.actionButtonSecondary}>
                               {r.status === 'blocked' ? t[language].unblock : t[language].block}

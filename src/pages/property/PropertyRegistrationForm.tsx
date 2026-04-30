@@ -30,16 +30,16 @@ const useEnterKeyNavigation = () => {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      
+
       if (!formRef.current) return;
-      
+
       const focusableElements = formRef.current.querySelectorAll(
         'input:not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled]):not([readonly]), button:not([disabled])'
       );
-      
+
       const currentElement = document.activeElement;
       const currentIndex = Array.from(focusableElements).indexOf(currentElement as Element);
-      
+
       if (currentIndex !== -1 && currentIndex < focusableElements.length - 1) {
         const nextElement = focusableElements[currentIndex + 1] as HTMLElement;
         nextElement.focus();
@@ -68,7 +68,7 @@ export default function PropertyRegistrationForm() {
   const textareaStyles = formFieldStyles.textarea;
 
   // Translation function
-  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
 
   const isEdit = Boolean(id);
 
@@ -92,7 +92,7 @@ export default function PropertyRegistrationForm() {
           setIsLoading(false);
         }
       };
-      
+
       fetchProperty();
     }
   }, [id, reset, t]);
@@ -120,7 +120,7 @@ export default function PropertyRegistrationForm() {
       setIsSubmitting(true);
       setMessage(undefined);
       setIsError(false);
-      
+
       const payload = {
         name: data.name,
         details: data.details,
@@ -150,7 +150,7 @@ export default function PropertyRegistrationForm() {
         const successMsg = t('Property registered successfully', 'சொத்து வெற்றிகரமாக பதிவு செய்யப்பட்டது');
         setMessage(successMsg);
         toast({ title: successMsg });
-        
+
         // Reset form for new entries
         reset({
           name: '',
@@ -158,7 +158,7 @@ export default function PropertyRegistrationForm() {
           value: ''
         });
       }
-      
+
       // Navigate to properties list after a short delay for edit mode
       if (id) {
         setTimeout(() => {
@@ -210,7 +210,7 @@ export default function PropertyRegistrationForm() {
         minLength: { en: 'Details must be at least 10 characters', ta: 'விவரங்கள் குறைந்தது 10 எழுத்துகள் இருக்க வேண்டும்' }
       }
     };
-    
+
     return messages[field]?.[type] ? t(messages[field][type].en, messages[field][type].ta) : '';
   };
 
@@ -220,13 +220,13 @@ export default function PropertyRegistrationForm() {
         <Card className={formFieldStyles.card.container}>
           <CardHeader className={theme.card.header}>
             <CardTitle className="text-2xl font-bold">
-              {isEdit 
-                ? t('Edit Property', 'சொத்து திருத்தம்') 
+              {isEdit
+                ? t('Edit Property', 'சொத்து திருத்தம்')
                 : t('Property Registration', 'சொத்து பதிவு')
               }
             </CardTitle>
           </CardHeader>
-          
+
           <CardContent className="p-6">
             {/* Message Display */}
             {message && (
@@ -242,7 +242,7 @@ export default function PropertyRegistrationForm() {
                 <h3 className="text-xl font-semibold text-gray-800 border-b border-gray-200 pb-2">
                   {t('Property Details', 'சொத்து விவரங்கள்')}
                 </h3>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {/* Property Name */}
                   <div className="md:col-span-2">
@@ -251,10 +251,10 @@ export default function PropertyRegistrationForm() {
                     </Label>
                     <Input
                       id="name"
-                      {...register('name', { 
+                      {...register('name', {
                         required: getValidationMessage('name', 'required'),
-                        minLength: { 
-                          value: 2, 
+                        minLength: {
+                          value: 2,
                           message: getValidationMessage('name', 'minLength')
                         }
                       })}
@@ -279,10 +279,10 @@ export default function PropertyRegistrationForm() {
                       type="number"
                       min="0"
                       step="0.01"
-                      {...register('value', { 
+                      {...register('value', {
                         required: getValidationMessage('value', 'required'),
-                        min: { 
-                          value: 0, 
+                        min: {
+                          value: 0,
                           message: getValidationMessage('value', 'min')
                         }
                       })}
@@ -304,10 +304,10 @@ export default function PropertyRegistrationForm() {
                     </Label>
                     <Textarea
                       id="details"
-                      {...register('details', { 
+                      {...register('details', {
                         required: getValidationMessage('details', 'required'),
-                        minLength: { 
-                          value: 10, 
+                        minLength: {
+                          value: 10,
                           message: getValidationMessage('details', 'minLength')
                         }
                       })}
@@ -337,7 +337,7 @@ export default function PropertyRegistrationForm() {
                     <span className="ml-2">{t('to navigate', 'நகர்வதற்கு')}</span>
                   </div>
                 </div>
-                
+
                 <div className="flex gap-3">
                   <Button
                     type="button"
@@ -349,7 +349,7 @@ export default function PropertyRegistrationForm() {
                   >
                     {t('Cancel', 'ரத்து')}
                   </Button>
-                  
+
                   {!isEdit && (
                     <Button
                       type="button"
@@ -362,7 +362,7 @@ export default function PropertyRegistrationForm() {
                       {t('Clear', 'அழி')}
                     </Button>
                   )}
-                  
+
                   <Button
                     type="submit"
                     size="default"
@@ -375,8 +375,8 @@ export default function PropertyRegistrationForm() {
                         {t('Saving...', 'சேமிக்கிறது...')}
                       </div>
                     ) : (
-                      isEdit 
-                        ? t('Update Property', 'சொத்தை புதுப்பி') 
+                      isEdit
+                        ? t('Update Property', 'சொத்தை புதுப்பி')
                         : t('Register Property', 'சொத்து பதிவு')
                     )}
                   </Button>
@@ -386,7 +386,7 @@ export default function PropertyRegistrationForm() {
           </CardContent>
         </Card>
 
-      
+
       </div>
     </div>
   );

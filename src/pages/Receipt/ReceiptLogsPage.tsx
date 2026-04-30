@@ -6,11 +6,11 @@ import { cn } from "@/lib/utils";
 import { formFieldStyles } from "@/styles/formStyles";
 import { theme } from '@/styles/theme';
 
-interface ReceiptLogsPageProps {}
+interface ReceiptLogsPageProps { }
 
-export default function ReceiptLogsPage({}: ReceiptLogsPageProps) {
+export default function ReceiptLogsPage({ }: ReceiptLogsPageProps) {
   const { language } = useLanguage();
-  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
 
   return (
     <div className="container mx-auto py-6 px-4">

@@ -227,25 +227,31 @@ function createRegistrationsRouter(db) {
         console.warn('Heirs save skipped:', e.message);
       }
 
-      // Handle photo upload
+// Handle photo upload
       if (req.file) {
         try {
           const uploadDir = path.join(__dirname, '../../public/uploads/registrations');
           if (!fs.existsSync(uploadDir)) {
             fs.mkdirSync(uploadDir, { recursive: true });
           }
-          
-          const fileName = `${id}.jpg`; // Always use .jpg for consistency
-          const uploadPath = path.join(uploadDir, fileName);
-          
-          await fs.promises.rename(req.file.path, uploadPath);
-          
-          await db('user_registrations')
-            .where({ id })
-            .update({ 
-              photo_path: `/uploads/registrations/${fileName}`,
-              updated_at: db.fn.now() 
-            });
+
+          // Ensure uploaded file is a valid image before moving
+          const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+          if (!allowedTypes.includes(req.file.mimetype)) {
+            console.warn('Invalid image type:', req.file.mimetype);
+          } else {
+            const fileName = `${id}.jpg`; // Always use .jpg for consistency
+            const uploadPath = path.join(uploadDir, fileName);
+           
+            await fs.promises.rename(req.file.path, uploadPath);
+           
+            await db('user_registrations')
+              .where({ id })
+              .update({ 
+                photo_path: `/uploads/registrations/${fileName}`,
+                updated_at: db.fn.now() 
+              });
+          }
         } catch (err) {
           console.error('Photo upload error:', err);
         }
@@ -604,7 +610,118 @@ function createRegistrationsRouter(db) {
     return s;
   }
 
+  // ========== MEMBER PROFILE API ==========
+  // GET /api/registrations/member/profile
+  router.get('/member/profile', authenticateToken, async (req, res) => {
+    try {
+      const member = await db('user_registrations').where('id', req.user.id).first();
+      if (!member) return res.status(404).json({ error: 'Member profile not found' });
+      res.json({ success: true, member });
+    } catch (err) {
+      console.error('Error fetching member profile:', err);
+      res.status(500).json({ error: 'Database error' });
+    }
+  });
+
+  // PUT /api/registrations/member/profile
+  router.put('/member/profile', authenticateToken, async (req, res) => {
+    const fields = ['name', 'father_name', 'mother_name', 'date_of_birth', 'gender', 'mobile_number',
+      'alternative_mobile', 'email', 'alternative_email', 'address', 'city', 'state', 'pincode',
+      'aadhar_number', 'pan_number', 'gothram', 'masthram', 'birth_star', 'rasi', 'alternative_name',
+      'education_id', 'occupation_id', 'annual_income', 'family_members', 'heir_name', 'heir_relation',
+      'relationship_with_temple', 'suggestions'];
+    const updateData = {};
+    fields.forEach(f => { if (req.body[f] !== undefined) updateData[f] = req.body[f]; });
+    updateData.updated_at = db.fn.now();
+
+    try {
+      const updatedRows = await db('user_registrations').where('id', req.user.id).update(updateData).returning('*');
+      res.json({ success: true, member: updatedRows[0] });
+    } catch (err) {
+      console.error('Error updating member profile:', err);
+      res.status(500).json({ error: 'Database error' });
+    }
+  });
+
+  // ========== ADMIN MEMBER PROFILE API ==========
+  // GET /api/registrations/member/:id
+  router.get('/member/:id', authenticateToken, async (req, res) => {
+    try {
+      const member = await db('user_registrations').where('id', req.params.id).first();
+      if (!member) return res.status(404).json({ error: 'Member not found' });
+      res.json({ success: true, member });
+    } catch (err) {
+      console.error('Error fetching member:', err);
+      res.status(500).json({ error: 'Database error' });
+    }
+  });
+
+  // PUT /api/registrations/member/:id
+  router.put('/member/:id', authenticateToken, async (req, res) => {
+    const fields = ['name', 'father_name', 'mother_name', 'date_of_birth', 'gender', 'mobile_number',
+      'alternative_mobile', 'email', 'alternative_email', 'address', 'city', 'state', 'pincode',
+      'aadhar_number', 'pan_number', 'gothram', 'masthram', 'birth_star', 'rasi', 'alternative_name',
+      'education_id', 'occupation_id', 'annual_income', 'family_members', 'heir_name', 'heir_relation',
+      'relationship_with_temple', 'suggestions'];
+    const updateData = {};
+    fields.forEach(f => { if (req.body[f] !== undefined) updateData[f] = req.body[f]; });
+    updateData.updated_at = db.fn.now();
+
+    try {
+      const updatedRows = await db('user_registrations')
+        .where('id', req.params.id)
+        .where('temple_id', req.user.templeId)
+        .update(updateData)
+        .returning('*');
+      if (!updatedRows.length) return res.status(404).json({ error: 'Member not found or access denied' });
+      res.json({ success: true, member: updatedRows[0] });
+    } catch (err) {
+      console.error('Error updating member:', err);
+      res.status(500).json({ error: 'Database error' });
+    }
+  });
+
+  // GET /api/registrations/members (admin - list with pagination/search)
+  router.get('/members', authenticateToken, async (req, res) => {
+    const { page = 1, pageSize = 20, search = '' } = req.query;
+    try {
+      let q = db('user_registrations').where('temple_id', req.user.templeId);
+      if (search) {
+        q = q.where((b) => {
+          b.orWhere('name', 'like', `%${search}%`)
+            .orWhere('mobile_number', 'like', `%${String(search).replace(/\D/g, '')}%`)
+            .orWhere('aadhaar_number', 'like', `%${String(search).replace(/\D/g, '')}%`)
+            .orWhere('reference_number', 'like', `%${search}%`);
+        });
+      }
+      const total = await q.clone().count('id as count').first().then(r => Number(r?.count || 0));
+      const members = await q.clone()
+        .orderBy('created_at', 'desc')
+        .limit(Number(pageSize))
+        .offset((Number(page) - 1) * Number(pageSize))
+        .select('*');
+      res.json({ success: true, members, page: Number(page), pageSize: Number(pageSize), total });
+    } catch (err) {
+      console.error('Error listing members:', err);
+      res.status(500).json({ error: 'Database error' });
+    }
+  });
+
+  // ========== ADMIN MEMBER LIST (simplified) ==========
+  // GET /api/registrations/members-list
+  router.get('/members-list', authenticateToken, async (req, res) => {
+    try {
+      const members = await db('user_registrations')
+        .where('temple_id', req.user.templeId)
+        .select('id', 'name', 'father_name', 'mobile_number', 'email', 'created_at')
+        .orderBy('created_at', 'desc');
+      res.json({ success: true, members });
+    } catch (err) {
+      console.error('Error fetching members list:', err);
+      res.status(500).json({ error: 'Database error' });
+    }
+  });
+
   return router;
 }
-
 module.exports = createRegistrationsRouter;

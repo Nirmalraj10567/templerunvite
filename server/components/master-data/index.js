@@ -6,12 +6,10 @@ const masterOccupations = require('./masterOccupations');
 const masterEducations = require('./masterEducations');
 const masterHalls = require('./masterHalls');
 const masterHallEvents = require('./masterHallEvents');
-const masterFoodItems = require('./masterFoodItems');
-const masterProductNames = require('./masterProductNames');
 
 module.exports = function({ db, retryOnBusy }) {
   const router = express.Router();
-  
+
   // Mount master data routes
   router.use('/people', masterPeople({ db, retryOnBusy }));
   router.use('/groups', masterGroups({ db, retryOnBusy }));
@@ -20,8 +18,7 @@ module.exports = function({ db, retryOnBusy }) {
   router.use('/educations', masterEducations({ db, retryOnBusy }));
   router.use('/halls', masterHalls({ db, retryOnBusy }));
   router.use('/hall-events', masterHallEvents({ db, retryOnBusy }));
-  router.use('/food-items', masterFoodItems({ db, retryOnBusy }));
-  router.use('/product-names', masterProductNames({ db, retryOnBusy }));
-  
+  // Note: product-names and food-items are mounted separately in backend.js as public routes
+
   return router;
 };

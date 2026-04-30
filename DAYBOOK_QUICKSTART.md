@@ -5,7 +5,7 @@
 cd D:\templerunvite\server
 npm run dev
 ```
-✅ Backend running on: `http://localhost:4000`
+✅ Backend running on: `https://templeapi.agniplay.com`
 
 ## 2️⃣ Start Frontend Server
 ```bash

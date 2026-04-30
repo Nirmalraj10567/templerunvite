@@ -77,7 +77,7 @@ export default function AccountBalanceSheetPage() {
       setError(null);
       const token = getAuthToken();
       const qs = `from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toDate)}`;
-      const resp = await fetch(`http://localhost:4000/api/journal/balance-sheet?${qs}`, {
+      const resp = await fetch(`https://templeapi.agniplay.com/api/journal/balance-sheet?${qs}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
       if (!resp.ok) throw new Error('Failed to load');

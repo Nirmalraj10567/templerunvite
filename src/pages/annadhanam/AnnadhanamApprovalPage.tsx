@@ -117,10 +117,10 @@ interface ApprovalStats {
 }
 
 export default function AnnadhanamApprovalPage() {
-//  const { t } = useLanguage();
-    const { language } = useLanguage();
-    const t = (en: string, ta: string) => language === 'english' ? ta : en;
-  
+  //  const { t } = useLanguage();
+  const { language } = useLanguage();
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);;
+
   const { token } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -234,7 +234,7 @@ export default function AnnadhanamApprovalPage() {
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(visibleCols));
-    } catch {}
+    } catch { }
   }, [visibleCols]);
 
   const onContextMenu = (e: React.MouseEvent) => {
@@ -269,7 +269,7 @@ export default function AnnadhanamApprovalPage() {
     setLogs([]);
     setLogsLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/annadhanam/${annadhanamId}/logs`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/annadhanam/${annadhanamId}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -308,7 +308,7 @@ export default function AnnadhanamApprovalPage() {
   const loadAllAnnadhanamLogs = async (pageNum: number) => {
     setAllLogsLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/annadhanam/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/annadhanam/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -345,7 +345,7 @@ export default function AnnadhanamApprovalPage() {
   // Fetch helpers
   const fetchRequestDetails = async (requestId: number) => {
     try {
-      const response = await fetch(`http://localhost:4000/api/annadhanam-approval/request/${requestId}`, {
+      const response = await fetch(`https://templeapi.agniplay.com/api/annadhanam-approval/request/${requestId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -382,7 +382,7 @@ export default function AnnadhanamApprovalPage() {
     try {
       setLoading(true);
       const response = await fetch(
-        `http://localhost:4000/api/annadhanam-approval/pending?search=${searchTerm}`,
+        `https://templeapi.agniplay.com/api/annadhanam-approval/pending?search=${searchTerm}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -411,7 +411,7 @@ export default function AnnadhanamApprovalPage() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/annadhanam-approval/stats', {
+      const response = await fetch('https://templeapi.agniplay.com/api/annadhanam-approval/stats', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -433,7 +433,7 @@ export default function AnnadhanamApprovalPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
-      const response = await fetch(`http://localhost:4000/api/annadhanam/${deleteTarget.id}`, {
+      const response = await fetch(`https://templeapi.agniplay.com/api/annadhanam/${deleteTarget.id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -482,14 +482,14 @@ export default function AnnadhanamApprovalPage() {
   const handleApprove = async (requestId: number) => {
     try {
       const response = await fetch(
-        `http://localhost:4000/api/annadhanam-approval/approve/${requestId}`,
+        `https://templeapi.agniplay.com/api/annadhanam-approval/approve/${requestId}`,
         {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             admin_notes: adminNotes,
             log_action: 'approve',
             log_notes: `Approved by admin with notes: ${adminNotes}`
@@ -510,7 +510,7 @@ export default function AnnadhanamApprovalPage() {
         setAdminNotes('');
         fetchRequests();
         fetchStats();
-        
+
         // Refresh logs
         if (selectedRequest) {
           fetchRequestDetails(selectedRequest.id);
@@ -529,15 +529,15 @@ export default function AnnadhanamApprovalPage() {
   const handleReject = async (requestId: number) => {
     try {
       const response = await fetch(
-        `http://localhost:4000/api/annadhanam-approval/reject/${requestId}`,
+        `https://templeapi.agniplay.com/api/annadhanam-approval/reject/${requestId}`,
         {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ 
-            rejection_reason: rejectionReason, 
+          body: JSON.stringify({
+            rejection_reason: rejectionReason,
             admin_notes: adminNotes,
             log_action: 'reject',
             log_notes: `Rejected with reason: ${rejectionReason}. Admin notes: ${adminNotes}`
@@ -559,7 +559,7 @@ export default function AnnadhanamApprovalPage() {
         setAdminNotes('');
         fetchRequests();
         fetchStats();
-        
+
         // Refresh logs
         if (selectedRequest) {
           fetchRequestDetails(selectedRequest.id);
@@ -577,7 +577,7 @@ export default function AnnadhanamApprovalPage() {
 
   const handleBulkAction = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/annadhanam-approval/bulk-action', {
+      const response = await fetch('https://templeapi.agniplay.com/api/annadhanam-approval/bulk-action', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -590,8 +590,8 @@ export default function AnnadhanamApprovalPage() {
           admin_notes: adminNotes,
           log_action: `bulk_${bulkAction}`,
           log_notes: `Performed bulk ${bulkAction} on ${selectedRequests.length} requests. ` +
-                    `${bulkAction === 'reject' ? 'Reason: ' + rejectionReason : ''}` +
-                    `${adminNotes ? ' Notes: ' + adminNotes : ''}`
+            `${bulkAction === 'reject' ? 'Reason: ' + rejectionReason : ''}` +
+            `${adminNotes ? ' Notes: ' + adminNotes : ''}`
         }),
       });
 
@@ -622,7 +622,7 @@ export default function AnnadhanamApprovalPage() {
 
   const handleSaveStats = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/annadhanam-approval/update-stats', {
+      const response = await fetch('https://templeapi.agniplay.com/api/annadhanam-approval/update-stats', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -638,7 +638,7 @@ export default function AnnadhanamApprovalPage() {
       });
 
       if (!response.ok) throw new Error('Failed to update stats');
-      
+
       const result = await response.json();
       if (result.success) {
         toast({
@@ -665,7 +665,7 @@ export default function AnnadhanamApprovalPage() {
   // Status badge
   const getStatusBadge = (status: string | undefined) => {
     if (!status) return null;
-    
+
     const statusConfig = {
       pending: { color: 'bg-yellow-100 text-yellow-800', icon: Clock },
       approved: { color: 'bg-green-100 text-green-800', icon: CheckCircle },
@@ -752,791 +752,728 @@ export default function AnnadhanamApprovalPage() {
     window.print();
   };
 
-return (
-  <div className={pageContainerStyles.container}>
-    <Card className={pageContainerStyles.content}>
-      <CardHeader className={theme.header.container}>
-        <div className={theme.header.contentSpacing}>
-          <CardTitle className={theme.header.main}>
-            {t("Annadhanam Approval ", "அன்னதானம் அனுமதி ")}
-          </CardTitle>
-        </div>
-      </CardHeader>
-
-      {/* Stats Cards */}
-      {stats && (
-        <div className="mb-2">
-          <div className="flex items-center gap-1 text-xs">
-            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-yellow-50 rounded">
-              <Clock className="h-2.5 w-2.5 text-yellow-600" />
-              <span className="font-medium text-yellow-600">{stats.status_counts.pending}</span>
-            </div>
-            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-green-50 rounded">
-              <CheckCircle className="h-2.5 w-2.5 text-green-600" />
-              <span className="font-medium text-green-600">{stats.status_counts.approved}</span>
-            </div>
-            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-red-50 rounded">
-              <XCircle className="h-2.5 w-2.5 text-red-600" />
-              <span className="font-medium text-red-600">{stats.status_counts.rejected}</span>
-            </div>
-            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 rounded">
-              <FileText className="h-2.5 w-2.5 text-blue-600" />
-              <span className="font-medium text-blue-600">{stats.total_requests}</span>
-            </div>
-            {hasEditPermission && (
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-1" onClick={() => setIsEditingStats(!isEditingStats)}>
-                <Edit className="h-2.5 w-2.5" />
-              </Button>
-            )}
+  return (
+    <div className={pageContainerStyles.container}>
+      <Card className={pageContainerStyles.content}>
+        <CardHeader className={theme.header.container}>
+          <div className={theme.header.contentSpacing}>
+            <CardTitle className={theme.header.main}>
+              {t("Annadhanam Approval ", "அன்னதானம் அனுமதி ")}
+            </CardTitle>
           </div>
-          {isEditingStats && (
-            <div className="mt-1 p-2 bg-gray-50 rounded text-xs">
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <Label className="text-xs">Pending Count</Label>
-                  <Input 
-                    type="number" 
-                    value={pendingCount} 
-                    onChange={(e) => setPendingCount(Number(e.target.value))}
-                    className={cn(theme.input.base, theme.input.size.sm)}
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Approved Count</Label>
-                  <Input 
-                    type="number" 
-                    value={approvedCount} 
-                    onChange={(e) => setApprovedCount(Number(e.target.value))}
-                    className={cn(theme.input.base, theme.input.size.sm)}
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Rejected Count</Label>
-                  <Input 
-                    type="number" 
-                    value={rejectedCount} 
-                    onChange={(e) => setRejectedCount(Number(e.target.value))}
-                    className={cn(theme.input.base, theme.input.size.sm)}
-                  />
-                </div>
+        </CardHeader>
+
+        {/* Stats Cards */}
+        {stats && (
+          <div className="mb-2">
+            <div className="flex items-center gap-1 text-xs">
+              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-yellow-50 rounded">
+                <Clock className="h-2.5 w-2.5 text-yellow-600" />
+                <span className="font-medium text-yellow-600">{stats.status_counts.pending}</span>
               </div>
-              <div className="flex items-end gap-2 mt-2">
-                <Button size="sm" className="text-xs h-8" onClick={handleSaveStats}>
-                  Save
+              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-green-50 rounded">
+                <CheckCircle className="h-2.5 w-2.5 text-green-600" />
+                <span className="font-medium text-green-600">{stats.status_counts.approved}</span>
+              </div>
+              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-red-50 rounded">
+                <XCircle className="h-2.5 w-2.5 text-red-600" />
+                <span className="font-medium text-red-600">{stats.status_counts.rejected}</span>
+              </div>
+              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 rounded">
+                <FileText className="h-2.5 w-2.5 text-blue-600" />
+                <span className="font-medium text-blue-600">{stats.total_requests}</span>
+              </div>
+              {hasEditPermission && (
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-1" onClick={() => setIsEditingStats(!isEditingStats)}>
+                  <Edit className="h-2.5 w-2.5" />
                 </Button>
-                <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => setIsEditingStats(false)}>
-                  Cancel
-                </Button>
-              </div>
+              )}
             </div>
-          )}
-        </div>
-      )}
-
-      {/* Search + Export Toolbar */}
-      <div className={formFieldStyles.moneyDonationList.filters.container}>
-        <div className={formFieldStyles.moneyDonationList.filters.form}>
-          <div className={formFieldStyles.moneyDonationList.filters.searchContainer}>
-            <div className={formFieldStyles.moneyDonationList.filters.searchIcon}>
-              <Search className={formFieldStyles.moneyDonationList.filters.searchIconSvg} />
-            </div>
-            <Input
-              type="search"
-              placeholder={t('Search by name, mobile, or receipt...', 'பெயர், மொபைல் அல்லது ரசீது மூலம் தேடுக')}
-              className={cn(theme.input.base, theme.input.size.sm, "pl-8")}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); fetchRequests(); } }}
-            />
-          </div>
-          <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>
-            <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => setSearchTerm('')}>
-              {t('Clear', 'அழி')}
-            </Button>
-            <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handleExportCSV}>
-              <FileDown className="h-3 w-3 mr-1" />
-              {t('Export CSV', 'CSV ஏற்றுமதி')}
-            </Button>
-            <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handleExportPDF}>
-              <FileDown className="h-3 w-3 mr-1" />
-              {t('Export PDF', 'PDF ஏற்றுமதி')}
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Table */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                {allColumns.map(
-                  (col) =>
-                    visibleCols[col.key] && (
-                      <th
-                        key={col.key}
-                        className={`px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                          col.align === 'right'
-                            ? 'text-right'
-                            : col.align === 'center'
-                            ? 'text-center'
-                            : 'text-left'
-                        }`}
-                      >
-                        {col.label}
-                      </th>
-                    )
-                )}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {loading ? (
-                <tr>
-                  <td colSpan={visibleColCount} className="px-3 py-2 text-center text-sm text-gray-500">
-                    {t('Loading...', 'ஏற்றுகிறது...')}
-                  </td>
-                </tr>
-              ) : requests.length === 0 ? (
-                <tr>
-                  <td colSpan={visibleColCount} className="px-3 py-2 text-center text-sm text-gray-500">
-                    {t('No pending requests', 'நிலுவையில் உள்ள கோரிக்கைகள் இல்லை')}
-                  </td>
-                </tr>
-              ) : (
-                requests.map((request) => (
-                  <tr key={request.id} className="hover:bg-gray-50">
-                    {visibleCols.select && (
-                      <TableCell className="px-3 py-2 whitespace-nowrap text-center">
-                        <input
-                          type="checkbox"
-                          checked={selectedRequests.includes(request.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedRequests([...selectedRequests, request.id]);
-                            } else {
-                              setSelectedRequests(selectedRequests.filter((id) => id !== request.id));
-                            }
-                          }}
-                        />
-                      </TableCell>
-                    )}
-                    {visibleCols.receipt_number && (
-                      <TableCell className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {request.receipt_number}
-                      </TableCell>
-                    )}
-                    {visibleCols.name && (
-                      <TableCell className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                        {request.name}
-                      </TableCell>
-                    )}
-                    {visibleCols.mobile_number && (
-                      <TableCell className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                        {request.mobile_number}
-                      </TableCell>
-                    )}
-                    {visibleCols.date_range && (
-                      <TableCell className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                        {formatDate(request.from_date)} - {formatDate(request.to_date)}
-                      </TableCell>
-                    )}
-                    {visibleCols.time && (
-                      <TableCell className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                        {request.time}
-                      </TableCell>
-                    )}
-                    {visibleCols.submitted_at && (
-                      <TableCell className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                        {formatDateTime(request.submitted_at)}
-                      </TableCell>
-                    )}
-                    {visibleCols.status && (
-                      <TableCell className="px-3 py-2 whitespace-nowrap text-center">
-                        {getStatusBadge(request.status)}
-                      </TableCell>
-                    )}
-                    {visibleCols.actions && (
-                      <TableCell className="px-3 py-2 whitespace-nowrap text-center text-sm font-medium">
-                        <div className="flex justify-center gap-1.5">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handlePrintRequest(request)}
-                          >
-                            <Printer className="h-3 w-3 mr-1" />
-                            {t('Print', 'அச்சிட')}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedRequest(request);
-                              setIsViewDialogOpen(true);
-                              fetchRequestDetails(request.id);
-                            }}
-                          >
-                            <Eye className="h-3 w-3" />
-                          </Button>
-                        
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => navigate(`/dashboard/annadhanam/edit/${request.id}`)}
-                            title={t('Edit', 'திருத்து')}
-                          >
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                          {/* Approve moved inside View dialog footer; per-row Reject button removed */}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => { setDeleteTarget(request); setIsDeleteDialogOpen(true); }}
-                            className="text-red-600 hover:bg-red-50"
-                            title={t('Delete', 'நீக்கு')}
-                          >
-                            {/* Reuse XCircle for delete icon or add Trash icon if available */}
-                            <XCircle className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    )}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Footer */}
-        <div className="px-3 py-2 flex items-center justify-between border-t border-gray-200">
-          <div className="text-xs text-gray-700">
-            {t('Showing', 'காட்டப்படுகிறது')}{' '}
-            <span className="font-medium">{requests.length}</span> {t('of', 'மொத்தம்')}{' '}
-            <span className="font-medium">{stats?.total_requests || 0}</span> {t('results', 'முடிவுகள்')}
-          </div>
-          <div className="flex flex-wrap gap-2 text-xs text-gray-700">
-            <span>
-              {t('Total', 'மொத்தம்')}: <span className="font-medium">{stats?.total_requests || 0}</span>
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Bulk Action Buttons */}
-      {selectedRequests.length > 0 && (
-        <div className="flex gap-2 mt-4">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setBulkAction('approve');
-              setIsBulkActionDialogOpen(true);
-            }}
-            className="text-green-600 border-green-600 hover:bg-green-50"
-          >
-            <CheckCircle className="h-4 w-4 mr-1" />
-            {t('Bulk Approve', 'மொத்த அனுமதி')}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => {
-              setBulkAction('reject');
-              setIsBulkActionDialogOpen(true);
-            }}
-            className="text-red-600 border-red-600 hover:bg-red-50"
-          >
-            <XCircle className="h-4 w-4 mr-1" />
-            {t('Bulk Reject', 'மொத்த நிராகரிப்பு')}
-          </Button>
-        </div>
-      )}
-
-      {/* Context Menu */}
-      {menuOpen && (
-        <div
-          ref={menuRef}
-          className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 w-64"
-          style={{ left: menuPos.x, top: menuPos.y }}
-        >
-          <div className="px-4 py-3 border-b border-gray-200">
-            <h3 className="text-sm font-medium text-gray-900">{t('Columns', 'நெடுவரிசைகள்')}</h3>
-            <p className="text-xs text-gray-500">
-              {t('Visible', 'காட்டப்படும்')} {Object.values(visibleCols).filter(Boolean).length}/{allColumns.length}
-            </p>
-          </div>
-          <div className="max-h-60 overflow-y-auto p-2">
-            {allColumns.map((col) => (
-              <label
-                key={col.key}
-                className="flex items-center px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer select-none"
-              >
-                <input
-                  type="checkbox"
-                  checked={!!visibleCols[col.key]}
-                  onChange={() =>
-                    setVisibleCols((prev) => ({ ...prev, [col.key]: !prev[col.key] }))
-                  }
-                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <span className="ml-2 text-sm text-gray-700">{col.label}</span>
-              </label>
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-2 p-2 border-t border-gray-200">
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs"
-              onClick={() =>
-                setVisibleCols(
-                  Object.fromEntries(allColumns.map((c) => [c.key, true])) as Record<ColKey, boolean>
-                )
-              }
-            >
-              {t('Select all', 'அனைத்தையும் தேர்ந்தெடு')}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs"
-              onClick={() =>
-                setVisibleCols(
-                  Object.fromEntries(allColumns.map((c) => [c.key, false])) as Record<ColKey, boolean>
-                )
-              }
-            >
-              {t('Clear all', 'அனைத்தையும் அழி')}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs"
-              onClick={() => setVisibleCols({ ...defaultVisible })}
-            >
-              {t('Reset', 'மீட்டமை')}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs ml-auto"
-              onClick={() => setMenuOpen(false)}
-            >
-              {t('Close', 'மூடு')}
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* View Request Dialog */}
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>{t('Request Details', 'கோரிக்கை விவரங்கள்')}</DialogTitle>
-          </DialogHeader>
-          {selectedRequest && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>{t('Receipt Number', 'ரசீது எண்')}</Label>
-                  <p className="font-medium">{selectedRequest.receipt_number}</p>
-                </div>
-                <div>
-                  <Label>{t('Status', 'நிலை')}</Label>
-                  <div className="mt-1">{getStatusBadge(selectedRequest.status)}</div>
-                </div>
-                <div>
-                  <Label>{t('Name', 'பெயர்')}</Label>
-                  <p className="font-medium">{selectedRequest.name}</p>
-                </div>
-                <div>
-                  <Label>{t('Mobile Number', 'மொபைல் எண்')}</Label>
-                  <p className="font-medium">{selectedRequest.mobile_number}</p>
-                </div>
-                <div>
-                  <Label>{t('From Date', 'தொடக்க தேதி')}</Label>
-                  <p className="font-medium">{formatDate(selectedRequest.from_date)}</p>
-                </div>
-                <div>
-                  <Label>{t('To Date', 'முடிவு தேதி')}</Label>
-                  <p className="font-medium">{formatDate(selectedRequest.to_date)}</p>
-                </div>
-                <div>
-                  <Label>{t('Time', 'நேரம்')}</Label>
-                  <p className="font-medium">{selectedRequest.time}</p>
-                </div>
-                <div>
-                  <Label>{t('Submitted At', 'சமர்ப்பிக்கப்பட்ட நேரம்')}</Label>
-                  <p className="font-medium">{formatDateTime(selectedRequest.submitted_at)}</p>
-                </div>
-              </div>
-              {selectedRequest.remarks && (
-                <div>
-                  <Label>{t('Remarks', 'கருத்துகள்')}</Label>
-                  <p className="mt-1 p-3 bg-gray-50 rounded-md">{selectedRequest.remarks}</p>
-                </div>
-              )}
-              {selectedRequest.admin_notes && (
-                <div>
-                  <Label>{t('Admin Notes', 'நிர்வாக குறிப்புகள்')}</Label>
-                  <p className="mt-1 p-3 bg-blue-50 rounded-md">{selectedRequest.admin_notes}</p>
-                </div>
-              )}
-              {selectedRequest.rejection_reason && (
-                <div>
-                  <Label>{t('Rejection Reason', 'நிராகரிப்பு காரணம்')}</Label>
-                  <p className="mt-1 p-3 bg-red-50 rounded-md">{selectedRequest.rejection_reason}</p>
-                </div>
-              )}
-              {/* Approval Logs */}
-              {selectedRequest.logs && selectedRequest.logs.length > 0 && (
-                <div>
-                  <Label>{t('Approval Logs', 'அனுமதி பதிவுகள்')}</Label>
-                  <div className="mt-2 overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>{t('Action', 'செயல்')}</TableHead>
-                          <TableHead>{t('Performed By', 'நடைமுறைப்படுத்தியவர்')}</TableHead>
-                          <TableHead>{t('When', 'எப்போது')}</TableHead>
-                          <TableHead>{t('Status Change', 'நிலை மாற்றம்')}</TableHead>
-                          <TableHead>{t('Notes', 'குறிப்புகள்')}</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {selectedRequest.logs.map((log) => (
-                          <TableRow key={log.id}>
-                            <TableCell className="capitalize">{t(log.action, log.action)}</TableCell>
-                            <TableCell>
-                              {log.performed_by_name || log.performed_by_username || log.performed_by || '-'}
-                            </TableCell>
-                            <TableCell>{formatDateTime(log.performed_at)}</TableCell>
-                            <TableCell>
-                              {log.old_status ? (
-                                <span>
-                                  {t(log.old_status, log.old_status)} → {t(log.new_status || '', log.new_status || '')}
-                                </span>
-                              ) : (
-                                '-'
-                              )}
-                            </TableCell>
-                            <TableCell className="max-w-xs truncate" title={log.notes}>
-                              {log.notes || '-'}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+            {isEditingStats && (
+              <div className="mt-1 p-2 bg-gray-50 rounded text-xs">
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <Label className="text-xs">Pending Count</Label>
+                    <Input
+                      type="number"
+                      value={pendingCount}
+                      onChange={(e) => setPendingCount(Number(e.target.value))}
+                      className={cn(theme.input.base, theme.input.size.sm)}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Approved Count</Label>
+                    <Input
+                      type="number"
+                      value={approvedCount}
+                      onChange={(e) => setApprovedCount(Number(e.target.value))}
+                      className={cn(theme.input.base, theme.input.size.sm)}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Rejected Count</Label>
+                    <Input
+                      type="number"
+                      value={rejectedCount}
+                      onChange={(e) => setRejectedCount(Number(e.target.value))}
+                      className={cn(theme.input.base, theme.input.size.sm)}
+                    />
                   </div>
                 </div>
-              )}
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setIsViewDialogOpen(false)}
-                >
-                  {t('Close', 'மூடு')}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setIsViewDialogOpen(false);
-                    setApproveConfirmed(false);
-                    setIsApproveDialogOpen(true);
-                  }}
-                  disabled={selectedRequest.status !== 'pending'}
-                  title={selectedRequest.status !== 'pending' ? t('Only pending requests can be approved', 'நிலுவையில் உள்ள கோரிக்கைகள் மட்டுமே அனுமதிக்கப்படும்') : t('Approve', 'அனுமதி')}
-                  className="text-green-700 border-green-600 hover:bg-green-50"
-                >
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  {t('Approve', 'அனுமதி')}
-                </Button>
-                <Button
-                  onClick={() => {
-                    setIsViewDialogOpen(false);
-                    setRejectConfirmed(false);
-                    setIsRejectDialogOpen(true);
-                  }}
-                  disabled={selectedRequest.status !== 'pending'}
-                  title={selectedRequest.status !== 'pending' ? t('Only pending requests can be rejected', 'நிலுவையில் உள்ள கோரிக்கைகள் மட்டுமே நிராகரிக்கப்படும்') : t('Reject', 'நிராகரி')}
-                  className="bg-red-600 hover:bg-red-700"
-                >
-                  <XCircle className="w-4 h-4 mr-2" />
-                  {t('Reject', 'நிராகரி')}
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+                <div className="flex items-end gap-2 mt-2">
+                  <Button size="sm" className="text-xs h-8" onClick={handleSaveStats}>
+                    Save
+                  </Button>
+                  <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => setIsEditingStats(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
-      {/* Inline Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{t('Edit Request', 'கோரிக்கையை திருத்து')}</DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="edit_name">{t('Name', 'பெயர்')}</Label>
+        {/* Search + Export Toolbar */}
+        <div className={formFieldStyles.moneyDonationList.filters.container}>
+          <div className={formFieldStyles.moneyDonationList.filters.form}>
+            <div className={formFieldStyles.moneyDonationList.filters.searchContainer}>
+              <div className={formFieldStyles.moneyDonationList.filters.searchIcon}>
+                <Search className={formFieldStyles.moneyDonationList.filters.searchIconSvg} />
+              </div>
               <Input
-                id="edit_name"
-                value={editForm.name}
-                onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-                className={cn(theme.input.base, theme.input.size.md)}
+                type="search"
+                placeholder={t('Search by name, mobile, or receipt...', 'பெயர், மொபைல் அல்லது ரசீது மூலம் தேடுக')}
+                className={cn(theme.input.base, theme.input.size.sm, "pl-8")}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); fetchRequests(); } }}
               />
             </div>
-            <div>
-              <Label htmlFor="edit_mobile">{t('Mobile Number', 'மொபைல் எண்')}</Label>
-              <Input
-                id="edit_mobile"
-                value={editForm.mobile_number}
-                onChange={(e) => setEditForm((f) => ({ ...f, mobile_number: e.target.value }))}
-                className={cn(theme.input.base, theme.input.size.md)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit_from">{t('From Date', 'தொடக்க தேதி')}</Label>
-              <Input
-                id="edit_from"
-                type="date"
-                value={editForm.from_date}
-                onChange={(e) => setEditForm((f) => ({ ...f, from_date: e.target.value }))}
-                className={cn(theme.input.base, theme.input.size.md)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit_to">{t('To Date', 'முடிவு தேதி')}</Label>
-              <Input
-                id="edit_to"
-                type="date"
-                value={editForm.to_date}
-                onChange={(e) => setEditForm((f) => ({ ...f, to_date: e.target.value }))}
-                className={cn(theme.input.base, theme.input.size.md)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit_time">{t('Time', 'நேரம்')}</Label>
-              <Input
-                id="edit_time"
-                type="time"
-                value={editForm.time}
-                onChange={(e) => setEditForm((f) => ({ ...f, time: e.target.value }))}
-                className={cn(theme.input.base, theme.input.size.md)}
-              />
-            </div>
-            <div className="md:col-span-2">
-              <Label htmlFor="edit_remarks">{t('Remarks', 'கருத்துகள்')}</Label>
-              <Textarea
-                id="edit_remarks"
-                value={editForm.remarks || ''}
-                onChange={(e) => setEditForm((f) => ({ ...f, remarks: e.target.value }))}
-                className={cn(theme.textarea.base, theme.textarea.size.md)}
-                rows={3}
-              />
+            <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>
+              <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => setSearchTerm('')}>
+                {t('Clear', 'அழி')}
+              </Button>
+              <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handleExportCSV}>
+                <FileDown className="h-3 w-3 mr-1" />
+                {t('Export CSV', 'CSV ஏற்றுமதி')}
+              </Button>
+              <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handleExportPDF}>
+                <FileDown className="h-3 w-3 mr-1" />
+                {t('Export PDF', 'PDF ஏற்றுமதி')}
+              </Button>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              {t('Cancel', 'ரத்து செய்')}
-            </Button>
+        </div>
+
+        {/* Table */}
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  {allColumns.map(
+                    (col) =>
+                      visibleCols[col.key] && (
+                        <th
+                          key={col.key}
+                          className={`px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider ${col.align === 'right'
+                              ? 'text-right'
+                              : col.align === 'center'
+                                ? 'text-center'
+                                : 'text-left'
+                            }`}
+                        >
+                          {col.label}
+                        </th>
+                      )
+                  )}
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {loading ? (
+                  <tr>
+                    <td colSpan={visibleColCount} className="px-3 py-2 text-center text-sm text-gray-500">
+                      {t('Loading...', 'ஏற்றுகிறது...')}
+                    </td>
+                  </tr>
+                ) : requests.length === 0 ? (
+                  <tr>
+                    <td colSpan={visibleColCount} className="px-3 py-2 text-center text-sm text-gray-500">
+                      {t('No pending requests', 'நிலுவையில் உள்ள கோரிக்கைகள் இல்லை')}
+                    </td>
+                  </tr>
+                ) : (
+                  requests.map((request) => (
+                    <tr key={request.id} className="hover:bg-gray-50">
+                      {visibleCols.select && (
+                        <TableCell className="px-3 py-2 whitespace-nowrap text-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedRequests.includes(request.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedRequests([...selectedRequests, request.id]);
+                              } else {
+                                setSelectedRequests(selectedRequests.filter((id) => id !== request.id));
+                              }
+                            }}
+                          />
+                        </TableCell>
+                      )}
+                      {visibleCols.receipt_number && (
+                        <TableCell className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {request.receipt_number}
+                        </TableCell>
+                      )}
+                      {visibleCols.name && (
+                        <TableCell className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                          {request.name}
+                        </TableCell>
+                      )}
+                      {visibleCols.mobile_number && (
+                        <TableCell className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                          {request.mobile_number}
+                        </TableCell>
+                      )}
+                      {visibleCols.date_range && (
+                        <TableCell className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                          {formatDate(request.from_date)} - {formatDate(request.to_date)}
+                        </TableCell>
+                      )}
+                      {visibleCols.time && (
+                        <TableCell className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                          {request.time}
+                        </TableCell>
+                      )}
+                      {visibleCols.submitted_at && (
+                        <TableCell className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                          {formatDateTime(request.submitted_at)}
+                        </TableCell>
+                      )}
+                      {visibleCols.status && (
+                        <TableCell className="px-3 py-2 whitespace-nowrap text-center">
+                          {getStatusBadge(request.status)}
+                        </TableCell>
+                      )}
+                      {visibleCols.actions && (
+                        <TableCell className="px-3 py-2 whitespace-nowrap text-center text-sm font-medium">
+                          <div className="flex justify-center gap-1.5">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handlePrintRequest(request)}
+                            >
+                              <Printer className="h-3 w-3 mr-1" />
+                              {t('Print', 'அச்சிட')}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedRequest(request);
+                                setIsViewDialogOpen(true);
+                                fetchRequestDetails(request.id);
+                              }}
+                            >
+                              <Eye className="h-3 w-3" />
+                            </Button>
+
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => navigate(`/dashboard/annadhanam/edit/${request.id}`)}
+                              title={t('Edit', 'திருத்து')}
+                            >
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                            {/* Approve moved inside View dialog footer; per-row Reject button removed */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => { setDeleteTarget(request); setIsDeleteDialogOpen(true); }}
+                              className="text-red-600 hover:bg-red-50"
+                              title={t('Delete', 'நீக்கு')}
+                            >
+                              {/* Reuse XCircle for delete icon or add Trash icon if available */}
+                              <XCircle className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      )}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Footer */}
+          <div className="px-3 py-2 flex items-center justify-between border-t border-gray-200">
+            <div className="text-xs text-gray-700">
+              {t('Showing', 'காட்டப்படுகிறது')}{' '}
+              <span className="font-medium">{requests.length}</span> {t('of', 'மொத்தம்')}{' '}
+              <span className="font-medium">{stats?.total_requests || 0}</span> {t('results', 'முடிவுகள்')}
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs text-gray-700">
+              <span>
+                {t('Total', 'மொத்தம்')}: <span className="font-medium">{stats?.total_requests || 0}</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Bulk Action Buttons */}
+        {selectedRequests.length > 0 && (
+          <div className="flex gap-2 mt-4">
             <Button
-              onClick={async () => {
-                if (!selectedRequest) return;
-                try {
-                  const response = await fetch(`http://localhost:4000/api/annadhanam/${selectedRequest.id}`, {
-                    method: 'PUT',
-                    headers: {
-                      'Authorization': `Bearer ${token}`,
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                      name: editForm.name,
-                      mobile_number: editForm.mobile_number,
-                      time: editForm.time,
-                      from_date: editForm.from_date,
-                      to_date: editForm.to_date,
-                      remarks: editForm.remarks,
-                    }),
-                  });
-                  if (!response.ok) throw new Error('Failed to update');
-                  const result = await response.json();
-                  if (result.success !== false) {
-                    toast({
-                      title: t('Success', 'வெற்றி'),
-                      description: t('Request updated successfully', 'கோரிக்கை வெற்றிகரமாக புதுப்பிக்கப்பட்டது'),
-                    });
-                    setIsEditDialogOpen(false);
-                    // Refresh data
-                    fetchRequests();
-                    fetchStats();
-                    fetchRequestDetails(selectedRequest.id);
-                  } else {
-                    throw new Error(result.error || 'Failed to update');
-                  }
-                } catch (error) {
-                  console.error('Error updating request:', error);
-                  toast({
-                    title: t('Error', 'பிழை'),
-                    description: t('Failed to update request', 'கோரிக்கையை புதுப்பிக்க முடியவில்லை'),
-                    variant: 'destructive',
-                  });
-                }
+              variant="outline"
+              onClick={() => {
+                setBulkAction('approve');
+                setIsBulkActionDialogOpen(true);
               }}
+              className="text-green-600 border-green-600 hover:bg-green-50"
             >
-              {t('Save Changes', 'மாற்றங்களைச் சேமிக்கவும்')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('Delete Request', 'கோரிக்கையை நீக்கு')}</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            {t('Are you sure you want to delete this request?', 'இந்த கோரிக்கையை நிச்சயமாக நீக்க விரும்புகிறீர்களா?')}
-          </p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
-              {t('Cancel', 'ரத்து செய்')}
-            </Button>
-            <Button className="bg-red-600 hover:bg-red-700" onClick={handleDelete}>
-              {t('Yes, Delete', 'ஆம், நீக்கு')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Approve Dialog */}
-      <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('Approve Request', 'கோரிக்கையை அனுமதிக்கவும்')}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {selectedRequest && selectedRequest.status !== 'pending' && (
-              <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">
-                {t('Only pending requests can be approved.', 'நிலுவையில் உள்ள கோரிக்கைகள் மட்டுமே அனுமதிக்கப்படலாம்.')}
-              </div>
-            )}
-            <div>
-              <Label htmlFor="adminNotes">{t('Admin Notes (Optional)', 'நிர்வாக குறிப்புகள் (விருப்பமானது)')}</Label>
-              <Textarea
-                id="adminNotes"
-                value={adminNotes}
-                onChange={(e) => setAdminNotes(e.target.value)}
-                className={cn(theme.textarea.base, theme.textarea.size.md)}
-                placeholder={t('Add any notes about this approval...', 'இந்த அனுமதி பற்றி குறிப்புகளைச் சேர்க்கவும்...')}
-              />
-            </div>
-            <div className="flex items-center gap-2 text-sm text-gray-700">
-              <input
-                id="approveConfirm"
-                type="checkbox"
-                checked={approveConfirmed}
-                onChange={(e) => setApproveConfirmed(e.target.checked)}
-              />
-              <Label htmlFor="approveConfirm" className="cursor-pointer">
-                {t('I confirm to approve this request', 'இந்த கோரிக்கையை அனுமதிப்பதை நான் உறுதிப்படுத்துகிறேன்')}
-              </Label>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsApproveDialogOpen(false)}>
-              {t('Cancel', 'ரத்து செய்')}
+              <CheckCircle className="h-4 w-4 mr-1" />
+              {t('Bulk Approve', 'மொத்த அனுமதி')}
             </Button>
             <Button
-              onClick={() => selectedRequest && handleApprove(selectedRequest.id)}
-              className="bg-green-600 hover:bg-green-700"
-              disabled={!approveConfirmed || (selectedRequest ? selectedRequest.status !== 'pending' : true)}
+              variant="outline"
+              onClick={() => {
+                setBulkAction('reject');
+                setIsBulkActionDialogOpen(true);
+              }}
+              className="text-red-600 border-red-600 hover:bg-red-50"
             >
-              <CheckCircle className="w-4 h-4 mr-2" />
-              {t('Approve', 'அனுமதி')}
+              <XCircle className="h-4 w-4 mr-1" />
+              {t('Bulk Reject', 'மொத்த நிராகரிப்பு')}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+        )}
 
-      {/* Reject Dialog */}
-      <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('Reject Request', 'கோரிக்கையை நிராகரிக்கவும்')}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {selectedRequest && selectedRequest.status !== 'pending' && (
-              <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">
-                {t('Only pending requests can be rejected.', 'நிலுவையில் உள்ள கோரிக்கைகள் மட்டுமே நிராகரிக்கப்படலாம்.')}
-              </div>
-            )}
-            <div>
-              <Label htmlFor="rejectionReason">{t('Rejection Reason', 'நிராகரிப்பு காரணம்')} *</Label>
-              <Textarea
-                id="rejectionReason"
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                className={cn(theme.textarea.base, theme.textarea.size.md)}
-                placeholder={t('Please provide a reason for rejection...', 'நிராகரிப்புக்கான காரணத்தை வழங்கவும்...')}
-                required
-              />
+        {/* Context Menu */}
+        {menuOpen && (
+          <div
+            ref={menuRef}
+            className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 w-64"
+            style={{ left: menuPos.x, top: menuPos.y }}
+          >
+            <div className="px-4 py-3 border-b border-gray-200">
+              <h3 className="text-sm font-medium text-gray-900">{t('Columns', 'நெடுவரிசைகள்')}</h3>
+              <p className="text-xs text-gray-500">
+                {t('Visible', 'காட்டப்படும்')} {Object.values(visibleCols).filter(Boolean).length}/{allColumns.length}
+              </p>
             </div>
-            <div>
-              <Label htmlFor="adminNotesReject">{t('Admin Notes (Optional)', 'நிர்வாக குறிப்புகள் (விருப்பமானது)')}</Label>
-              <Textarea
-                id="adminNotesReject"
-                value={adminNotes}
-                onChange={(e) => setAdminNotes(e.target.value)}
-                className={cn(theme.textarea.base, theme.textarea.size.md)}
-                placeholder={t('Add any additional notes...', 'கூடுதல் குறிப்புகளைச் சேர்க்கவும்...')}
-              />
+            <div className="max-h-60 overflow-y-auto p-2">
+              {allColumns.map((col) => (
+                <label
+                  key={col.key}
+                  className="flex items-center px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer select-none"
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!visibleCols[col.key]}
+                    onChange={() =>
+                      setVisibleCols((prev) => ({ ...prev, [col.key]: !prev[col.key] }))
+                    }
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">{col.label}</span>
+                </label>
+              ))}
             </div>
-            <div className="flex items-center gap-2 text-sm text-gray-700">
-              <input
-                id="rejectConfirm"
-                type="checkbox"
-                checked={rejectConfirmed}
-                onChange={(e) => setRejectConfirmed(e.target.checked)}
-              />
-              <Label htmlFor="rejectConfirm" className="cursor-pointer">
-                {t('I confirm to reject this request', 'இந்த கோரிக்கையை நிராகரிப்பதை நான் உறுதிப்படுத்துகிறேன்')}
-              </Label>
+            <div className="flex flex-wrap gap-2 p-2 border-t border-gray-200">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={() =>
+                  setVisibleCols(
+                    Object.fromEntries(allColumns.map((c) => [c.key, true])) as Record<ColKey, boolean>
+                  )
+                }
+              >
+                {t('Select all', 'அனைத்தையும் தேர்ந்தெடு')}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={() =>
+                  setVisibleCols(
+                    Object.fromEntries(allColumns.map((c) => [c.key, false])) as Record<ColKey, boolean>
+                  )
+                }
+              >
+                {t('Clear all', 'அனைத்தையும் அழி')}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={() => setVisibleCols({ ...defaultVisible })}
+              >
+                {t('Reset', 'மீட்டமை')}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs ml-auto"
+                onClick={() => setMenuOpen(false)}
+              >
+                {t('Close', 'மூடு')}
+              </Button>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsRejectDialogOpen(false)}>
-              {t('Cancel', 'ரத்து செய்')}
-            </Button>
-            <Button
-              onClick={() => selectedRequest && handleReject(selectedRequest.id)}
-              className="bg-red-600 hover:bg-red-700"
-              disabled={!rejectionReason.trim() || !rejectConfirmed || (selectedRequest ? selectedRequest.status !== 'pending' : true)}
-            >
-              <XCircle className="w-4 h-4 mr-2" />
-              {t('Reject', 'நிராகரி')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        )}
 
-      {/* Bulk Action Dialog */}
-      <Dialog open={isBulkActionDialogOpen} onOpenChange={setIsBulkActionDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {t(`Bulk ${bulkAction === 'approve' ? 'Approve' : 'Reject'}`, `மொத்த ${bulkAction === 'approve' ? 'அனுமதி' : 'நிராகரிப்பு'}`)}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              {t(`You are about to ${bulkAction} ${selectedRequests.length} request(s).`, `நீங்கள் ${selectedRequests.length} கோரிக்கை(களை) ${bulkAction} செய்யப் போகிறீர்கள்.`)}
-            </p>
-            {bulkAction === 'reject' && (
+        {/* View Request Dialog */}
+        <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>{t('Request Details', 'கோரிக்கை விவரங்கள்')}</DialogTitle>
+            </DialogHeader>
+            {selectedRequest && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>{t('Receipt Number', 'ரசீது எண்')}</Label>
+                    <p className="font-medium">{selectedRequest.receipt_number}</p>
+                  </div>
+                  <div>
+                    <Label>{t('Status', 'நிலை')}</Label>
+                    <div className="mt-1">{getStatusBadge(selectedRequest.status)}</div>
+                  </div>
+                  <div>
+                    <Label>{t('Name', 'பெயர்')}</Label>
+                    <p className="font-medium">{selectedRequest.name}</p>
+                  </div>
+                  <div>
+                    <Label>{t('Mobile Number', 'மொபைல் எண்')}</Label>
+                    <p className="font-medium">{selectedRequest.mobile_number}</p>
+                  </div>
+                  <div>
+                    <Label>{t('From Date', 'தொடக்க தேதி')}</Label>
+                    <p className="font-medium">{formatDate(selectedRequest.from_date)}</p>
+                  </div>
+                  <div>
+                    <Label>{t('To Date', 'முடிவு தேதி')}</Label>
+                    <p className="font-medium">{formatDate(selectedRequest.to_date)}</p>
+                  </div>
+                  <div>
+                    <Label>{t('Time', 'நேரம்')}</Label>
+                    <p className="font-medium">{selectedRequest.time}</p>
+                  </div>
+                  <div>
+                    <Label>{t('Submitted At', 'சமர்ப்பிக்கப்பட்ட நேரம்')}</Label>
+                    <p className="font-medium">{formatDateTime(selectedRequest.submitted_at)}</p>
+                  </div>
+                </div>
+                {selectedRequest.remarks && (
+                  <div>
+                    <Label>{t('Remarks', 'கருத்துகள்')}</Label>
+                    <p className="mt-1 p-3 bg-gray-50 rounded-md">{selectedRequest.remarks}</p>
+                  </div>
+                )}
+                {selectedRequest.admin_notes && (
+                  <div>
+                    <Label>{t('Admin Notes', 'நிர்வாக குறிப்புகள்')}</Label>
+                    <p className="mt-1 p-3 bg-blue-50 rounded-md">{selectedRequest.admin_notes}</p>
+                  </div>
+                )}
+                {selectedRequest.rejection_reason && (
+                  <div>
+                    <Label>{t('Rejection Reason', 'நிராகரிப்பு காரணம்')}</Label>
+                    <p className="mt-1 p-3 bg-red-50 rounded-md">{selectedRequest.rejection_reason}</p>
+                  </div>
+                )}
+                {/* Approval Logs */}
+                {selectedRequest.logs && selectedRequest.logs.length > 0 && (
+                  <div>
+                    <Label>{t('Approval Logs', 'அனுமதி பதிவுகள்')}</Label>
+                    <div className="mt-2 overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{t('Action', 'செயல்')}</TableHead>
+                            <TableHead>{t('Performed By', 'நடைமுறைப்படுத்தியவர்')}</TableHead>
+                            <TableHead>{t('When', 'எப்போது')}</TableHead>
+                            <TableHead>{t('Status Change', 'நிலை மாற்றம்')}</TableHead>
+                            <TableHead>{t('Notes', 'குறிப்புகள்')}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {selectedRequest.logs.map((log) => (
+                            <TableRow key={log.id}>
+                              <TableCell className="capitalize">{t(log.action, log.action)}</TableCell>
+                              <TableCell>
+                                {log.performed_by_name || log.performed_by_username || log.performed_by || '-'}
+                              </TableCell>
+                              <TableCell>{formatDateTime(log.performed_at)}</TableCell>
+                              <TableCell>
+                                {log.old_status ? (
+                                  <span>
+                                    {t(log.old_status, log.old_status)} → {t(log.new_status || '', log.new_status || '')}
+                                  </span>
+                                ) : (
+                                  '-'
+                                )}
+                              </TableCell>
+                              <TableCell className="max-w-xs truncate" title={log.notes}>
+                                {log.notes || '-'}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsViewDialogOpen(false)}
+                  >
+                    {t('Close', 'மூடு')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsViewDialogOpen(false);
+                      setApproveConfirmed(false);
+                      setIsApproveDialogOpen(true);
+                    }}
+                    disabled={selectedRequest.status !== 'pending'}
+                    title={selectedRequest.status !== 'pending' ? t('Only pending requests can be approved', 'நிலுவையில் உள்ள கோரிக்கைகள் மட்டுமே அனுமதிக்கப்படும்') : t('Approve', 'அனுமதி')}
+                    className="text-green-700 border-green-600 hover:bg-green-50"
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    {t('Approve', 'அனுமதி')}
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setIsViewDialogOpen(false);
+                      setRejectConfirmed(false);
+                      setIsRejectDialogOpen(true);
+                    }}
+                    disabled={selectedRequest.status !== 'pending'}
+                    title={selectedRequest.status !== 'pending' ? t('Only pending requests can be rejected', 'நிலுவையில் உள்ள கோரிக்கைகள் மட்டுமே நிராகரிக்கப்படும்') : t('Reject', 'நிராகரி')}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    <XCircle className="w-4 h-4 mr-2" />
+                    {t('Reject', 'நிராகரி')}
+                  </Button>
+                </DialogFooter>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Inline Edit Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>{t('Edit Request', 'கோரிக்கையை திருத்து')}</DialogTitle>
+            </DialogHeader>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="bulkRejectionReason">{t('Rejection Reason', 'நிராகரிப்பு காரணம்')} *</Label>
+                <Label htmlFor="edit_name">{t('Name', 'பெயர்')}</Label>
+                <Input
+                  id="edit_name"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                  className={cn(theme.input.base, theme.input.size.md)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit_mobile">{t('Mobile Number', 'மொபைல் எண்')}</Label>
+                <Input
+                  id="edit_mobile"
+                  value={editForm.mobile_number}
+                  onChange={(e) => setEditForm((f) => ({ ...f, mobile_number: e.target.value }))}
+                  className={cn(theme.input.base, theme.input.size.md)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit_from">{t('From Date', 'தொடக்க தேதி')}</Label>
+                <Input
+                  id="edit_from"
+                  type="date"
+                  value={editForm.from_date}
+                  onChange={(e) => setEditForm((f) => ({ ...f, from_date: e.target.value }))}
+                  className={cn(theme.input.base, theme.input.size.md)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit_to">{t('To Date', 'முடிவு தேதி')}</Label>
+                <Input
+                  id="edit_to"
+                  type="date"
+                  value={editForm.to_date}
+                  onChange={(e) => setEditForm((f) => ({ ...f, to_date: e.target.value }))}
+                  className={cn(theme.input.base, theme.input.size.md)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit_time">{t('Time', 'நேரம்')}</Label>
+                <Input
+                  id="edit_time"
+                  type="time"
+                  value={editForm.time}
+                  onChange={(e) => setEditForm((f) => ({ ...f, time: e.target.value }))}
+                  className={cn(theme.input.base, theme.input.size.md)}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <Label htmlFor="edit_remarks">{t('Remarks', 'கருத்துகள்')}</Label>
                 <Textarea
-                  id="bulkRejectionReason"
+                  id="edit_remarks"
+                  value={editForm.remarks || ''}
+                  onChange={(e) => setEditForm((f) => ({ ...f, remarks: e.target.value }))}
+                  className={cn(theme.textarea.base, theme.textarea.size.md)}
+                  rows={3}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                {t('Cancel', 'ரத்து செய்')}
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (!selectedRequest) return;
+                  try {
+                    const response = await fetch(`https://templeapi.agniplay.com/api/annadhanam/${selectedRequest.id}`, {
+                      method: 'PUT',
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        name: editForm.name,
+                        mobile_number: editForm.mobile_number,
+                        time: editForm.time,
+                        from_date: editForm.from_date,
+                        to_date: editForm.to_date,
+                        remarks: editForm.remarks,
+                      }),
+                    });
+                    if (!response.ok) throw new Error('Failed to update');
+                    const result = await response.json();
+                    if (result.success !== false) {
+                      toast({
+                        title: t('Success', 'வெற்றி'),
+                        description: t('Request updated successfully', 'கோரிக்கை வெற்றிகரமாக புதுப்பிக்கப்பட்டது'),
+                      });
+                      setIsEditDialogOpen(false);
+                      // Refresh data
+                      fetchRequests();
+                      fetchStats();
+                      fetchRequestDetails(selectedRequest.id);
+                    } else {
+                      throw new Error(result.error || 'Failed to update');
+                    }
+                  } catch (error) {
+                    console.error('Error updating request:', error);
+                    toast({
+                      title: t('Error', 'பிழை'),
+                      description: t('Failed to update request', 'கோரிக்கையை புதுப்பிக்க முடியவில்லை'),
+                      variant: 'destructive',
+                    });
+                  }
+                }}
+              >
+                {t('Save Changes', 'மாற்றங்களைச் சேமிக்கவும்')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('Delete Request', 'கோரிக்கையை நீக்கு')}</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              {t('Are you sure you want to delete this request?', 'இந்த கோரிக்கையை நிச்சயமாக நீக்க விரும்புகிறீர்களா?')}
+            </p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+                {t('Cancel', 'ரத்து செய்')}
+              </Button>
+              <Button className="bg-red-600 hover:bg-red-700" onClick={handleDelete}>
+                {t('Yes, Delete', 'ஆம், நீக்கு')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Approve Dialog */}
+        <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('Approve Request', 'கோரிக்கையை அனுமதிக்கவும்')}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {selectedRequest && selectedRequest.status !== 'pending' && (
+                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">
+                  {t('Only pending requests can be approved.', 'நிலுவையில் உள்ள கோரிக்கைகள் மட்டுமே அனுமதிக்கப்படலாம்.')}
+                </div>
+              )}
+              <div>
+                <Label htmlFor="adminNotes">{t('Admin Notes (Optional)', 'நிர்வாக குறிப்புகள் (விருப்பமானது)')}</Label>
+                <Textarea
+                  id="adminNotes"
+                  value={adminNotes}
+                  onChange={(e) => setAdminNotes(e.target.value)}
+                  className={cn(theme.textarea.base, theme.textarea.size.md)}
+                  placeholder={t('Add any notes about this approval...', 'இந்த அனுமதி பற்றி குறிப்புகளைச் சேர்க்கவும்...')}
+                />
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  id="approveConfirm"
+                  type="checkbox"
+                  checked={approveConfirmed}
+                  onChange={(e) => setApproveConfirmed(e.target.checked)}
+                />
+                <Label htmlFor="approveConfirm" className="cursor-pointer">
+                  {t('I confirm to approve this request', 'இந்த கோரிக்கையை அனுமதிப்பதை நான் உறுதிப்படுத்துகிறேன்')}
+                </Label>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsApproveDialogOpen(false)}>
+                {t('Cancel', 'ரத்து செய்')}
+              </Button>
+              <Button
+                onClick={() => selectedRequest && handleApprove(selectedRequest.id)}
+                className="bg-green-600 hover:bg-green-700"
+                disabled={!approveConfirmed || (selectedRequest ? selectedRequest.status !== 'pending' : true)}
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                {t('Approve', 'அனுமதி')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Reject Dialog */}
+        <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('Reject Request', 'கோரிக்கையை நிராகரிக்கவும்')}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {selectedRequest && selectedRequest.status !== 'pending' && (
+                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">
+                  {t('Only pending requests can be rejected.', 'நிலுவையில் உள்ள கோரிக்கைகள் மட்டுமே நிராகரிக்கப்படலாம்.')}
+                </div>
+              )}
+              <div>
+                <Label htmlFor="rejectionReason">{t('Rejection Reason', 'நிராகரிப்பு காரணம்')} *</Label>
+                <Textarea
+                  id="rejectionReason"
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
                   className={cn(theme.textarea.base, theme.textarea.size.md)}
@@ -1544,55 +1481,117 @@ return (
                   required
                 />
               </div>
-            )}
-            <div>
-              <Label htmlFor="bulkAdminNotes">{t('Admin Notes (Optional)', 'நிர்வாக குறிப்புகள் (விருப்பமானது)')}</Label>
-              <Textarea
-                id="bulkAdminNotes"
-                value={adminNotes}
-                onChange={(e) => setAdminNotes(e.target.value)}
-                className={cn(theme.textarea.base, theme.textarea.size.md)}
-                placeholder={t('Add any notes about this action...', 'இந்த செயல்பற்றி குறிப்புகளைச் சேர்க்கவும்...')}
-              />
+              <div>
+                <Label htmlFor="adminNotesReject">{t('Admin Notes (Optional)', 'நிர்வாக குறிப்புகள் (விருப்பமானது)')}</Label>
+                <Textarea
+                  id="adminNotesReject"
+                  value={adminNotes}
+                  onChange={(e) => setAdminNotes(e.target.value)}
+                  className={cn(theme.textarea.base, theme.textarea.size.md)}
+                  placeholder={t('Add any additional notes...', 'கூடுதல் குறிப்புகளைச் சேர்க்கவும்...')}
+                />
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  id="rejectConfirm"
+                  type="checkbox"
+                  checked={rejectConfirmed}
+                  onChange={(e) => setRejectConfirmed(e.target.checked)}
+                />
+                <Label htmlFor="rejectConfirm" className="cursor-pointer">
+                  {t('I confirm to reject this request', 'இந்த கோரிக்கையை நிராகரிப்பதை நான் உறுதிப்படுத்துகிறேன்')}
+                </Label>
+              </div>
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsBulkActionDialogOpen(false)}>
-              {t('Cancel', 'ரத்து செய்')}
-            </Button>
-            <Button
-              onClick={handleBulkAction}
-              className={bulkAction === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
-              disabled={bulkAction === 'reject' && !rejectionReason.trim()}
-            >
-              {bulkAction === 'approve' ? (
-                <>
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  {t('Approve All', 'அனைத்தையும் அனுமதி')}
-                </>
-              ) : (
-                <>
-                  <XCircle className="w-4 h-4 mr-2" />
-                  {t('Reject All', 'அனைத்தையும் நிராகரி')}
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsRejectDialogOpen(false)}>
+                {t('Cancel', 'ரத்து செய்')}
+              </Button>
+              <Button
+                onClick={() => selectedRequest && handleReject(selectedRequest.id)}
+                className="bg-red-600 hover:bg-red-700"
+                disabled={!rejectionReason.trim() || !rejectConfirmed || (selectedRequest ? selectedRequest.status !== 'pending' : true)}
+              >
+                <XCircle className="w-4 h-4 mr-2" />
+                {t('Reject', 'நிராகரி')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      {/* All Logs Modal */}
-      {allLogsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={closeAllLogs} />
-          <div className="relative bg-white rounded shadow-lg w-full max-w-5xl mx-2 p-3">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-sm font-semibold">{t('All Annadhanam Logs', 'அனைத்து அன்னதானம் பதிவுகள்')}</h2>
-              <button onClick={closeAllLogs} className="text-xs px-2 py-1 border rounded">{t('Close', 'மூடு')}</button>
+        {/* Bulk Action Dialog */}
+        <Dialog open={isBulkActionDialogOpen} onOpenChange={setIsBulkActionDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {t(`Bulk ${bulkAction === 'approve' ? 'Approve' : 'Reject'}`, `மொத்த ${bulkAction === 'approve' ? 'அனுமதி' : 'நிராகரிப்பு'}`)}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                {t(`You are about to ${bulkAction} ${selectedRequests.length} request(s).`, `நீங்கள் ${selectedRequests.length} கோரிக்கை(களை) ${bulkAction} செய்யப் போகிறீர்கள்.`)}
+              </p>
+              {bulkAction === 'reject' && (
+                <div>
+                  <Label htmlFor="bulkRejectionReason">{t('Rejection Reason', 'நிராகரிப்பு காரணம்')} *</Label>
+                  <Textarea
+                    id="bulkRejectionReason"
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    className={cn(theme.textarea.base, theme.textarea.size.md)}
+                    placeholder={t('Please provide a reason for rejection...', 'நிராகரிப்புக்கான காரணத்தை வழங்கவும்...')}
+                    required
+                  />
+                </div>
+              )}
+              <div>
+                <Label htmlFor="bulkAdminNotes">{t('Admin Notes (Optional)', 'நிர்வாக குறிப்புகள் (விருப்பமானது)')}</Label>
+                <Textarea
+                  id="bulkAdminNotes"
+                  value={adminNotes}
+                  onChange={(e) => setAdminNotes(e.target.value)}
+                  className={cn(theme.textarea.base, theme.textarea.size.md)}
+                  placeholder={t('Add any notes about this action...', 'இந்த செயல்பற்றி குறிப்புகளைச் சேர்க்கவும்...')}
+                />
+              </div>
             </div>
-            {allLogsLoading ? (
-              <div className="p-3 text-xs text-gray-600">{t('Loading logs...', 'பதிவுகள் ஏற்றப்படுகிறது...')}</div>
-            ) : (
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsBulkActionDialogOpen(false)}>
+                {t('Cancel', 'ரத்து செய்')}
+              </Button>
+              <Button
+                onClick={handleBulkAction}
+                className={bulkAction === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
+                disabled={bulkAction === 'reject' && !rejectionReason.trim()}
+              >
+                {bulkAction === 'approve' ? (
+                  <>
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    {t('Approve All', 'அனைத்தையும் அனுமதி')}
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="w-4 h-4 mr-2" />
+                    {t('Reject All', 'அனைத்தையும் நிராகரி')}
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* All Logs Modal */}
+        {allLogsOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/40" onClick={closeAllLogs} />
+            <div className="relative bg-white rounded shadow-lg w-full max-w-5xl mx-2 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-sm font-semibold">{t('All Annadhanam Logs', 'அனைத்து அன்னதானம் பதிவுகள்')}</h2>
+                <button onClick={closeAllLogs} className="text-xs px-2 py-1 border rounded">{t('Close', 'மூடு')}</button>
+              </div>
+              {allLogsLoading ? (
+                <div className="p-3 text-xs text-gray-600">{t('Loading logs...', 'பதிவுகள் ஏற்றப்படுகிறது...')}</div>
+              ) : (
                 <>
                   <div className="max-h-[70vh] overflow-y-auto border rounded">
                     <table className="min-w-full text-xs">
@@ -1648,52 +1647,52 @@ return (
                   </div>
                 </>
               )}
-          </div>
-        </div>
-      )}
-
-      {/* Logs Modal */}
-      {logsFor !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={closeLogs} />
-          <div className="relative bg-white rounded shadow-lg w-full max-w-4xl mx-2 p-3">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-sm font-semibold">{t('Annadhanam Logs', 'அன்னதானம் பதிவுகள்')} #{logsFor}</h2>
-              <button onClick={closeLogs} className="text-xs px-2 py-1 border rounded">{t('Close', 'மூடு')}</button>
             </div>
-            {logsLoading ? (
-              <div className="p-3 text-xs text-gray-600">{t('Loading logs...', 'பதிவுகள் ஏறுகிறது...')}</div>
-            ) : (
-              <div className="max-h-[70vh] overflow-y-auto border rounded">
-                <table className="min-w-full text-xs">
-                  <thead className="bg-gray-50 sticky top-0">
-                    <tr>
-                      <th className="text-left px-2 py-1">{t('Time', 'நேரம்')}</th>
-                      <th className="text-left px-2 py-1">{t('Action', 'செயல்')}</th>
-                      <th className="text-left px-2 py-1">{t('User', 'பயனர்')}</th>
-                      <th className="text-left px-2 py-1">{t('Details', 'விவரங்கள்')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {logs.length === 0 ? (
-                      <tr><td colSpan={4} className="px-2 py-2 text-center text-gray-500">{t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}</td></tr>
-                    ) : logs.map(lg => (
-                      <tr key={lg.id} className="border-t align-top">
-                        <td className="px-2 py-1 whitespace-nowrap">{lg.created_at ? new Date(lg.created_at).toLocaleString(language === 'tamil' ? 'ta-IN' : 'en-IN') : '-'}</td>
-                        <td className="px-2 py-1">{lg.action}</td>
-                        <td className="px-2 py-1">{lg.created_by ?? '-'}</td>
-                        <td className="px-2 py-1">
-                          <pre className="whitespace-pre-wrap break-words text-[10px] bg-gray-50 p-2 rounded border max-w-[40vw]">{JSON.stringify(lg.details, null, 2)}</pre>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Logs Modal */}
+        {logsFor !== null && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/40" onClick={closeLogs} />
+            <div className="relative bg-white rounded shadow-lg w-full max-w-4xl mx-2 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-sm font-semibold">{t('Annadhanam Logs', 'அன்னதானம் பதிவுகள்')} #{logsFor}</h2>
+                <button onClick={closeLogs} className="text-xs px-2 py-1 border rounded">{t('Close', 'மூடு')}</button>
+              </div>
+              {logsLoading ? (
+                <div className="p-3 text-xs text-gray-600">{t('Loading logs...', 'பதிவுகள் ஏறுகிறது...')}</div>
+              ) : (
+                <div className="max-h-[70vh] overflow-y-auto border rounded">
+                  <table className="min-w-full text-xs">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th className="text-left px-2 py-1">{t('Time', 'நேரம்')}</th>
+                        <th className="text-left px-2 py-1">{t('Action', 'செயல்')}</th>
+                        <th className="text-left px-2 py-1">{t('User', 'பயனர்')}</th>
+                        <th className="text-left px-2 py-1">{t('Details', 'விவரங்கள்')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {logs.length === 0 ? (
+                        <tr><td colSpan={4} className="px-2 py-2 text-center text-gray-500">{t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}</td></tr>
+                      ) : logs.map(lg => (
+                        <tr key={lg.id} className="border-t align-top">
+                          <td className="px-2 py-1 whitespace-nowrap">{lg.created_at ? new Date(lg.created_at).toLocaleString(language === 'tamil' ? 'ta-IN' : 'en-IN') : '-'}</td>
+                          <td className="px-2 py-1">{lg.action}</td>
+                          <td className="px-2 py-1">{lg.created_by ?? '-'}</td>
+                          <td className="px-2 py-1">
+                            <pre className="whitespace-pre-wrap break-words text-[10px] bg-gray-50 p-2 rounded border max-w-[40vw]">{JSON.stringify(lg.details, null, 2)}</pre>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );

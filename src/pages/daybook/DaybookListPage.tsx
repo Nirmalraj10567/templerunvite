@@ -34,6 +34,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import {
   Plus,
+  Utensils,
   Search,
   FileText,
   Trash2,
@@ -48,6 +49,12 @@ import {
   Clock,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { ColumnVisibilityMenu } from '@/components/ui/column-visibility';
+import { tableClasses } from '@/styles/theme';
+
+
 
 export default function DaybookListPage() {
   const { token } = useAuth();
@@ -57,20 +64,62 @@ export default function DaybookListPage() {
   const [entries, setEntries] = useState<DaybookEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const today = new Date().toISOString().split('T')[0];
+  const [fromDate, setFromDate] = useState(today);
+  const [toDate, setToDate] = useState(today);
   const [entryType, setEntryType] = useState('');
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(50);
   const [total, setTotal] = useState(0);
   
   // Stats
   const [stats, setStats] = useState({
     total_income: 0,
     total_expense: 0,
+    opening_balance: 0,
+    period_net: 0,
+    closing_balance: 0,
     current_balance: 0,
   });
   
+  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({
+    receipt: true,
+    booking_date: true,
+    scheduled_date: true,
+    type: true,
+    description: true,
+    party: true,
+    food: true,
+    people: true,
+    payment: true,
+    amount: true,
+    balance: true,
+    actions: true,
+  });
+  
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
+
+  const allColumns = [
+    { key: 'receipt', label: t('Receipt', 'ரசீது') },
+    { key: 'booking_date', label: t('Booking Date', 'பதிவு தேதி') },
+    { key: 'scheduled_date', label: t('Scheduled Date', 'நிகழ்வு தேதி') },
+    { key: 'type', label: t('Type', 'வகை') },
+    { key: 'description', label: t('Description', 'விளக்கம்') },
+    { key: 'party', label: t('Party', 'தரப்பினர்') },
+    { key: 'food', label: t('Food Items', 'உணவு பொருட்கள்') },
+    { key: 'people', label: t('People', 'நபர்கள்') },
+    { key: 'payment', label: t('Payment', 'கட்டணம்') },
+    { key: 'amount', label: t('Amount', 'தொகை') },
+   
+    { key: 'actions', label: t('Actions', 'செயல்கள்') },
+  ];
+
+  const onToggleColumn = (key: string) => {
+    setVisibleColumns(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
   // Delete dialog
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -79,8 +128,6 @@ export default function DaybookListPage() {
   const [logsOpen, setLogsOpen] = useState(false);
   const [logs, setLogs] = useState<DaybookLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
-  
-  const t = (en: string, ta: string) => (language === 'english' ? en : ta);
 
   const fetchEntries = async () => {
     try {
@@ -167,6 +214,71 @@ export default function DaybookListPage() {
     }
   };
 
+  const handleExportPDF = () => {
+    try {
+      const doc = new jsPDF('landscape');
+      
+      // Title
+      doc.setFontSize(20);
+      doc.text(t('Daybook Report', 'டேபுக் அறிக்கை'), 14, 22);
+      
+      doc.setFontSize(11);
+      doc.text(`${t('Period:', 'காலம்:')} ${fromDate} ${t('to', 'முதல்')} ${toDate}`, 14, 30);
+      
+      const tableColumn: string[] = [];
+      const visibleKeys = allColumns.filter(c => c.key !== 'actions' && visibleColumns[c.key]).map(c => c.key);
+      
+      allColumns.forEach(c => {
+        if (c.key !== 'actions' && visibleColumns[c.key]) {
+          tableColumn.push(c.label);
+        }
+      });
+      
+      const tableRows = entries.map(entry => {
+        const row: string[] = [];
+        if (visibleColumns.receipt) row.push(entry.receipt_number);
+        if (visibleColumns.booking_date) row.push(formatDate(entry.created_at));
+        if (visibleColumns.scheduled_date) row.push(formatDate(entry.entry_date));
+        if (visibleColumns.type) {
+          row.push(
+            entry.reference_type === 'annadhanam' ? t('Annadhanam', 'அன்னதானம்') :
+            entry.entry_type === 'income' ? t('Income', 'வருமானம்') : 
+            entry.entry_type === 'expense' ? t('Expense', 'செலவு') : 
+            t('Journal', 'ஜர்னல்')
+          );
+        }
+        if (visibleColumns.description) row.push(entry.description);
+        if (visibleColumns.party) row.push(entry.party_name || '-');
+        if (visibleColumns.food) {
+          row.push(entry.reference_type === 'annadhanam' && entry.notes ? (entry.notes.startsWith('Money:') ? '-' : entry.notes.split('(')[0].trim()) : '-');
+        }
+        if (visibleColumns.people) {
+          row.push(entry.reference_type === 'annadhanam' && entry.notes && !entry.notes.startsWith('Product:') && !entry.notes.startsWith('Money:') && entry.notes.includes('(') ? (entry.notes.match(/\(([^)]+)\)/)?.[1] || '-') : '-');
+        }
+        if (visibleColumns.payment) {
+          row.push(entry.payment_mode === 'in_kind' ? t('In Kind', 'உணவு') : entry.payment_mode);
+        }
+        if (visibleColumns.amount) row.push(entry.amount.toString());
+        if (visibleColumns.balance) row.push(entry.running_balance.toString());
+        return row;
+      });
+      
+      autoTable(doc, {
+        head: [tableColumn],
+        body: tableRows,
+        startY: 35,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [255, 165, 0] } // Orange
+      });
+      
+      doc.save(`daybook_${fromDate}_${toDate}.pdf`);
+      toast.success(t('PDF exported successfully', 'PDF வெற்றிகரமாக ஏற்றுமதி செய்யப்பட்டது'));
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      toast.error(t('Failed to export PDF', 'PDF ஏற்றுமதி செய்வதில் தோல்வி'));
+    }
+  };
+
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -183,7 +295,16 @@ export default function DaybookListPage() {
     }
   };
 
-  const getEntryTypeBadge = (type: string) => {
+  const getEntryTypeBadge = (type: string, referenceType?: string) => {
+    if (referenceType === 'annadhanam') {
+      return (
+        <Badge className="bg-orange-100 text-orange-800 border-orange-200">
+          <Utensils className="h-3 w-3 mr-1" />
+          {t('Annadhanam', 'அன்னதானம்')}
+        </Badge>
+      );
+    }
+
     const variants = {
       income: 'bg-green-100 text-green-800',
       expense: 'bg-red-100 text-red-800',
@@ -223,123 +344,136 @@ export default function DaybookListPage() {
           </div>
           {t('Daybook', 'டேபுக்')}
         </h1>
-        <p className="text-gray-600 mt-1">
-          {t('Manage daily income, expenses, and journal entries', 'தினசரி வருமானம், செலவு மற்றும் ஜர்னல் உள்ளீடுகளை நிர்வகிக்கவும்')}
-        </p>
+       
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      {/* Stats Cards 
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-green-600" />
-              {t('Total Income', 'மொத்த வருமானம்')}
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-xs font-medium text-gray-500 flex items-center gap-2">
+              <Clock className="h-3.5 w-3.5" />
+              {t('Opening Balance', 'தொடக்க இருப்பு')}
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+          <CardContent className="px-4 pb-4">
+            <div className={`text-xl font-bold ${stats.opening_balance >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
+              {formatAmount(stats.opening_balance)}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-xs font-medium text-gray-500 flex items-center gap-2">
+              <TrendingUp className="h-3.5 w-3.5 text-green-600" />
+              {t('Period Income', 'கால வரவு')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className="text-xl font-bold text-green-600">
               {formatAmount(stats.total_income)}
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
-              <TrendingDown className="h-4 w-4 text-red-600" />
-              {t('Total Expense', 'மொத்த செலவு')}
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-xs font-medium text-gray-500 flex items-center gap-2">
+              <TrendingDown className="h-3.5 w-3.5 text-red-600" />
+              {t('Period Expense', 'கால செலவு')}
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
+          <CardContent className="px-4 pb-4">
+            <div className="text-xl font-bold text-red-600">
               {formatAmount(stats.total_expense)}
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
-              <BookOpen className="h-4 w-4 text-blue-600" />
-              {t('Current Balance', 'தற்போதைய இருப்பு')}
+        <Card className="bg-orange-50 border-orange-100 shadow-sm">
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-xs font-medium text-orange-800 flex items-center gap-2">
+              <BookOpen className="h-3.5 w-3.5" />
+              {t('Closing Balance', 'முடிவு இருப்பு')}
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${stats.current_balance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
-              {formatAmount(stats.current_balance)}
+          <CardContent className="px-4 pb-4">
+            <div className={`text-xl font-bold ${stats.closing_balance >= 0 ? 'text-orange-600' : 'text-red-600'}`}>
+              {formatAmount(stats.closing_balance)}
             </div>
           </CardContent>
         </Card>
       </div>
+*/}
+      {/* Filters and Actions Bar */}
+      <div className="flex items-center gap-3 bg-white p-4 rounded-xl border border-gray-100 shadow-sm mb-6">
+        <div className="relative flex-grow max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            type="text"
+            placeholder={t('Search entries...', 'உள்ளீடுகளை தேடுக...')}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10 h-10 border-gray-200"
+          />
+        </div>
 
-      {/* Filters */}
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                type="text"
-                placeholder={t('Search entries...', 'உள்ளீடுகளை தேடுக...')}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-gray-400" />
-              <Input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                placeholder={t('From Date', 'தேதி முதல்')}
-              />
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-gray-400" />
-              <Input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                placeholder={t('To Date', 'தேதி வரை')}
-              />
-            </div>
-            
-            <select
-              value={entryType}
-              onChange={(e) => setEntryType(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-            >
-              <option value="">{t('All Types', 'அனைத்து வகைகள்')}</option>
-              <option value="income">{t('Income', 'வருமானம்')}</option>
-              <option value="expense">{t('Expense', 'செலவு')}</option>
-              <option value="journal">{t('Journal', 'ஜர்னல்')}</option>
-            </select>
-          </div>
+        <div className="flex items-center group">
+          <Input
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="w-[140px] h-10 border-gray-200 focus:ring-orange-500 text-sm"
+          />
+        </div>
+
+        <div className="flex items-center group">
+          <Input
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            className="w-[140px] h-10 border-gray-200 focus:ring-orange-500 text-sm"
+          />
+        </div>
+
+        <select
+          value={entryType}
+          onChange={(e) => setEntryType(e.target.value)}
+          className="px-2 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white h-10 text-sm min-w-[120px]"
+        >
+          <option value="">{t('All Types', 'அனைத்து வகைகள்')}</option>
+          <option value="income">{t('Income', 'வருமானம்')}</option>
+          <option value="expense">{t('Expense', 'செலவு')}</option>
+          <option value="journal">{t('Journal', 'ஜர்னல்')}</option>
+          <option value="annadhanam">{t('Annadhanam', 'அன்னதானம்')}</option>
+        </select>
+
+        <div className="flex items-center gap-2 ml-auto">
+          <ColumnVisibilityMenu 
+            columns={allColumns} 
+            visibleColumns={visibleColumns} 
+            onToggleColumn={onToggleColumn} 
+          />
+          <Button
+            onClick={handleExport}
+            variant="outline"
+            className="h-10 border-gray-200 hover:bg-gray-50 text-gray-700 px-3 text-sm"
+          >
+            <Download className="h-4 w-4 mr-1.5" />
+            {t('Export CSV', 'CSV')}
+          </Button>
           
-          <div className="flex gap-2 mt-4">
-            <Button
-              onClick={() => navigate('/daybook/entry')}
-              className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              {t('New Entry', 'புதிய உள்ளீடு')}
-            </Button>
-            
-            <Button
-              onClick={handleExport}
-              variant="outline"
-              className="ml-auto"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              {t('Export CSV', 'CSV ஏற்றுமதி')}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          <Button
+            onClick={handleExportPDF}
+            variant="outline"
+            className="h-10 border-gray-200 hover:bg-gray-50 text-red-600 px-3 text-sm"
+          >
+            <FileText className="h-4 w-4 mr-1.5" />
+            {t('Export PDF', 'PDF')}
+          </Button>
+        </div>
+      </div>
 
       {/* Table */}
       <Card>
@@ -351,86 +485,136 @@ export default function DaybookListPage() {
           ) : (
             <>
               <Table>
-                <TableHeader>
+                <TableHeader  className={tableClasses.header}>
                   <TableRow>
-                    <TableHead>{t('Receipt', 'ரசீது')}</TableHead>
-                    <TableHead>{t('Date', 'தேதி')}</TableHead>
-                    <TableHead>{t('Type', 'வகை')}</TableHead>
-                    <TableHead>{t('Description', 'விளக்கம்')}</TableHead>
-                    <TableHead>{t('Party', 'தரப்பினர்')}</TableHead>
-                    <TableHead>{t('Payment', 'கட்டணம்')}</TableHead>
-                    <TableHead className="text-right">{t('Amount', 'தொகை')}</TableHead>
-                    <TableHead className="text-right">{t('Balance', 'இருப்பு')}</TableHead>
-                    <TableHead className="text-center">{t('Actions', 'நடவடிக்கைகள்')}</TableHead>
+                    {visibleColumns.receipt && <TableHead>{t('Receipt', 'ரசீது')}</TableHead>}
+                    {visibleColumns.booking_date && <TableHead>{t('Booking Date', 'பதிவு தேதி')}</TableHead>}
+                    {visibleColumns.scheduled_date && <TableHead>{t('Scheduled Date', 'நிகழ்வு தேதி')}</TableHead>}
+                    {visibleColumns.type && <TableHead>{t('Type', 'வகை')}</TableHead>}
+                    {visibleColumns.description && <TableHead>{t('Description', 'விளக்கம்')}</TableHead>}
+                    {visibleColumns.party && <TableHead>{t('Party', 'தரப்பினர்')}</TableHead>}
+                    {visibleColumns.food && <TableHead>{t('Food Items', 'உணவு பொருட்கள்')}</TableHead>}
+                    {visibleColumns.people && <TableHead>{t('People', 'நபர்கள்')}</TableHead>}
+                    {visibleColumns.payment && <TableHead>{t('Payment', 'கட்டணம்')}</TableHead>}
+                    {visibleColumns.amount && <TableHead className="text-right">{t('Amount', 'தொகை')}</TableHead>}
+                 {/*   {visibleColumns.balance && <TableHead className="text-right">{t('Balance', 'இருப்பு')}</TableHead>}*/}
+                    {visibleColumns.actions && <TableHead className="text-center">{t('Actions', 'நடவடிக்கைகள்')}</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {entries.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center py-12 text-gray-500">
-                        {t('No entries found', 'உள்ளீடுகள் எதுவும் கிடைக்கவில்லை')}
-                      </TableCell>
-                    </TableRow>
+                      <TableRow>
+                        <TableCell colSpan={Object.values(visibleColumns).filter(v => v).length} className="text-center py-12 text-gray-500">
+                          {t('No entries found', 'உள்ளீடுகள் எதுவும் கிடைக்கவில்லை')}
+                        </TableCell>
+                      </TableRow>
                   ) : (
                     entries.map((entry) => (
                       <TableRow key={entry.id}>
-                        <TableCell className="font-medium">{entry.receipt_number}</TableCell>
-                        <TableCell>{formatDate(entry.entry_date)}</TableCell>
-                        <TableCell>{getEntryTypeBadge(entry.entry_type)}</TableCell>
-                        <TableCell className="max-w-xs truncate">{entry.description}</TableCell>
-                        <TableCell>
-                          {entry.party_name && (
-                            <div>
-                              <div className="font-medium">{entry.party_name}</div>
-                              {entry.party_mobile && (
-                                <div className="text-sm text-gray-500">{entry.party_mobile}</div>
-                              )}
+                        {visibleColumns.receipt && <TableCell className="font-medium">{entry.receipt_number}</TableCell>}
+                        {visibleColumns.booking_date && <TableCell>{formatDate(entry.created_at)}</TableCell>}
+                        {visibleColumns.scheduled_date && <TableCell>{formatDate(entry.entry_date)}</TableCell>}
+                        {visibleColumns.type && <TableCell>{getEntryTypeBadge(entry.entry_type, entry.reference_type)}</TableCell>}
+                        {visibleColumns.description && <TableCell className="max-w-xs truncate">{entry.description}</TableCell>}
+                        {visibleColumns.party && (
+                          <TableCell>
+                            {entry.party_name && (
+                              <div>
+                                <div className="font-medium">{entry.party_name}</div>
+                                {entry.party_mobile && (
+                                  <div className="text-sm text-gray-500">{entry.party_mobile}</div>
+                                )}
+                              </div>
+                            )}
+                          </TableCell>
+                        )}
+                        {visibleColumns.food && (
+                          <TableCell>
+                            {entry.reference_type === 'annadhanam' && entry.notes ? (
+                              <span className="text-sm">
+                                {entry.notes.startsWith('Money:') ? '-' : 
+                                  entry.notes.split('(')[0].trim()
+                                    .replace(/Product:/i, t('Product:', 'பொருள்:'))
+                                    .replace(/Qty:/i, t('Qty:', 'அளவு:'))}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </TableCell>
+                        )}
+                        {visibleColumns.people && (
+                          <TableCell>
+                            {entry.reference_type === 'annadhanam' && 
+                             entry.notes && 
+                             !entry.notes.startsWith('Product:') && 
+                             !entry.notes.startsWith('Money:') && 
+                             entry.notes.includes('(') ? (
+                              <span className="text-sm font-medium">
+                                {entry.notes.match(/\(([^)]+)\)/)?.[1]?.replace(/people/i, t('people', 'நபர்கள்')) || '-'}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </TableCell>
+                        )}
+                        {visibleColumns.payment && (
+                          <TableCell className="capitalize">
+                            {entry.payment_mode === 'in_kind' ? (
+                              <span className="text-green-600">{t('In Kind', 'உணவு')}</span>
+                            ) : (
+                              <span>
+                                {entry.payment_mode === 'cash' ? t('Cash', 'பணம்') :
+                                 entry.payment_mode === 'card' ? t('Card', 'அட்டை') :
+                                 entry.payment_mode === 'upi' ? t('UPI', 'UPI') :
+                                 entry.payment_mode === 'cheque' ? t('Cheque', 'காசோலை') :
+                                 entry.payment_mode === 'bank_transfer' ? t('Bank Transfer', 'வங்கி பரிமாற்றம்') :
+                                 entry.payment_mode}
+                              </span>
+                            )}
+                          </TableCell>
+                        )}
+                        {visibleColumns.amount && (
+                          <TableCell className="text-right font-medium">
+                            {formatAmount(entry.amount)}
+                          </TableCell>
+                        )}
+                       {/* {visibleColumns.balance && (
+                          <TableCell className="text-right font-medium">
+                            <span className={entry.running_balance >= 0 ? 'text-blue-600' : 'text-red-600'}>
+                              {formatAmount(entry.running_balance)}
+                            </span>
+                          </TableCell>
+                        )} */}
+                        {visibleColumns.actions && (
+                          <TableCell>
+                            <div className="flex items-center justify-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleViewLogs(entry.id)}
+                                title={t('View Logs', 'லோடுகளை காண்க')}
+                              >
+                                <Clock className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => navigate(`/daybook/edit/${entry.id}`)}
+                                title={t('Edit', 'திருத்து')}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setDeleteId(entry.id)}
+                                title={t('Delete', 'நீக்கு')}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-600" />
+                              </Button>
                             </div>
-                          )}
-                        </TableCell>
-                        <TableCell className="capitalize">
-                          {entry.payment_mode === 'in_kind' ? (
-                            <span className="text-green-600">{t('In Kind', 'உணவு')}</span>
-                          ) : (
-                            entry.payment_mode
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {formatAmount(entry.amount)}
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          <span className={entry.running_balance >= 0 ? 'text-blue-600' : 'text-red-600'}>
-                            {formatAmount(entry.running_balance)}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center justify-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleViewLogs(entry.id)}
-                              title={t('View Logs', 'லோடுகளை காண்க')}
-                            >
-                              <Clock className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => navigate(`/daybook/edit/${entry.id}`)}
-                              title={t('Edit', 'திருத்து')}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setDeleteId(entry.id)}
-                              title={t('Delete', 'நீக்கு')}
-                            >
-                              <Trash2 className="h-4 w-4 text-red-600" />
-                            </Button>
-                          </div>
-                        </TableCell>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))
                   )}

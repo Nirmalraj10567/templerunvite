@@ -50,9 +50,9 @@ export default function HallApprovalPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [rejectNotes, setRejectNotes] = useState('');
   const [editOpen, setEditOpen] = useState(false);
-  const [editForm, setEditForm] = useState<{ 
-    date?: string; time?: string; event?: string; name?: string; address?: string; village?: string; mobile?: string; 
-    totalAmount?: string; advanceAmount?: string; balanceAmount?: string; remarks?: string; 
+  const [editForm, setEditForm] = useState<{
+    date?: string; time?: string; event?: string; name?: string; address?: string; village?: string; mobile?: string;
+    totalAmount?: string; advanceAmount?: string; balanceAmount?: string; remarks?: string;
   }>({});
 
   // Logs modal state
@@ -77,7 +77,7 @@ export default function HallApprovalPage() {
   const [allLogsPage, setAllLogsPage] = useState(1);
   const allLogsPageSize = 50;
 
-  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
 
   // Logs functions
   const openLogs = async (hallId: number) => {
@@ -85,7 +85,7 @@ export default function HallApprovalPage() {
     setLogs([]);
     setLogsLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/hall-approval/${hallId}/logs`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/hall-approval/${hallId}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -124,7 +124,7 @@ export default function HallApprovalPage() {
   const loadAllHallLogs = async (pageNum: number) => {
     setAllLogsLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/hall-approval/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/hall-approval/logs?page=${pageNum}&pageSize=${allLogsPageSize}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -277,7 +277,7 @@ export default function HallApprovalPage() {
       <CardHeader className={theme.header.container}>
         <div className={theme.header.contentSpacing}>
           <CardTitle className={theme.header.main}>
-          {t('Hall Booking Approvals', 'மண்டப முன்பதிவு அனுமதிகள்')}
+            {t('Hall Booking Approvals', 'மண்டப முன்பதிவு அனுமதிகள்')}
           </CardTitle>
         </div>
       </CardHeader>
@@ -441,53 +441,53 @@ export default function HallApprovalPage() {
           </DialogHeader>
           <div className="grid grid-cols-2 gap-2 text-sm">
             <label className="col-span-1">
-              <div className="text-xs mb-1">{t('Date','தேதி')}</div>
+              <div className="text-xs mb-1">{t('Date', 'தேதி')}</div>
               <Input type="date" name="date" value={editForm.date || ''} onChange={onChangeEdit} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-1">
-              <div className="text-xs mb-1">{t('Time','நேரம்')}</div>
+              <div className="text-xs mb-1">{t('Time', 'நேரம்')}</div>
               <Input type="time" name="time" value={editForm.time || ''} onChange={onChangeEdit} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-1">
-              <div className="text-xs mb-1">{t('Name','பெயர்')}</div>
+              <div className="text-xs mb-1">{t('Name', 'பெயர்')}</div>
               <Input name="name" value={editForm.name || ''} onChange={onChangeEdit} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-1">
-              <div className="text-xs mb-1">{t('Mobile','தொலைபேசி')}</div>
+              <div className="text-xs mb-1">{t('Mobile', 'தொலைபேசி')}</div>
               <Input name="mobile" value={editForm.mobile || ''} onChange={onChangeEdit} maxLength={10} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-2">
-              <div className="text-xs mb-1">{t('Event','நிகழ்வு')}</div>
+              <div className="text-xs mb-1">{t('Event', 'நிகழ்வு')}</div>
               <Input name="event" value={editForm.event || ''} onChange={onChangeEdit} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-2">
-              <div className="text-xs mb-1">{t('Address','முகவரி')}</div>
+              <div className="text-xs mb-1">{t('Address', 'முகவரி')}</div>
               <Textarea name="address" value={editForm.address || ''} onChange={onChangeEdit} className={cn(theme.textarea.base, theme.textarea.size.md)} rows={2} />
             </label>
             <label className="col-span-2">
-              <div className="text-xs mb-1">{t('Village','கிராமம்')}</div>
+              <div className="text-xs mb-1">{t('Village', 'கிராமம்')}</div>
               <Input name="village" value={editForm.village || ''} onChange={onChangeEdit} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-1">
-              <div className="text-xs mb-1">{t('Total Amount (₹)','மொத்தம் (₹)')}</div>
+              <div className="text-xs mb-1">{t('Total Amount (₹)', 'மொத்தம் (₹)')}</div>
               <Input type="number" step="0.01" min="0" name="totalAmount" value={editForm.totalAmount || ''} onChange={onChangeEdit} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-1">
-              <div className="text-xs mb-1">{t('Advance (₹)','முன்பணம் (₹)')}</div>
+              <div className="text-xs mb-1">{t('Advance (₹)', 'முன்பணம் (₹)')}</div>
               <Input type="number" step="0.01" min="0" name="advanceAmount" value={editForm.advanceAmount || ''} onChange={onChangeEdit} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-1">
-              <div className="text-xs mb-1">{t('Balance (₹)','இருப்பு (₹)')}</div>
+              <div className="text-xs mb-1">{t('Balance (₹)', 'இருப்பு (₹)')}</div>
               <Input readOnly name="balanceAmount" value={editForm.balanceAmount || ''} className={cn(theme.input.base, theme.input.size.md)} />
             </label>
             <label className="col-span-2">
-              <div className="text-xs mb-1">{t('Remarks','குறிப்புகள்')}</div>
+              <div className="text-xs mb-1">{t('Remarks', 'குறிப்புகள்')}</div>
               <Textarea name="remarks" value={editForm.remarks || ''} onChange={onChangeEdit} className={cn(theme.textarea.base, theme.textarea.size.md)} rows={2} />
             </label>
           </div>
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setEditOpen(false)}>{t('Cancel','ரத்து')}</Button>
-            <Button onClick={confirmEdit}>{t('Save Changes','மாற்றங்களை சேமிக்க')}</Button>
+            <Button variant="secondary" onClick={() => setEditOpen(false)}>{t('Cancel', 'ரத்து')}</Button>
+            <Button onClick={confirmEdit}>{t('Save Changes', 'மாற்றங்களை சேமிக்க')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -504,61 +504,61 @@ export default function HallApprovalPage() {
             {allLogsLoading ? (
               <div className="p-3 text-xs text-gray-600">{t('Loading logs...', 'பதிவுகள் ஏற்றப்படுகிறது...')}</div>
             ) : (
-                <>
-                  <div className="max-h-[70vh] overflow-y-auto border rounded">
-                    <table className="min-w-full text-xs">
-                      <thead className="bg-gray-50 sticky top-0">
+              <>
+                <div className="max-h-[70vh] overflow-y-auto border rounded">
+                  <table className="min-w-full text-xs">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th className="text-left px-2 py-1">{t('Time', 'நேரம்')}</th>
+                        <th className="text-left px-2 py-1">{t('Action', 'செயல்')}</th>
+                        <th className="text-left px-2 py-1">{t('Hall ID', 'மண்டப ஐடி')}</th>
+                        <th className="text-left px-2 py-1">{t('Name', 'பெயர்')}</th>
+                        <th className="text-left px-2 py-1">{t('Register No', 'பதிவு எண்')}</th>
+                        <th className="text-left px-2 py-1">{t('User', 'பயனர்')}</th>
+                        <th className="text-left px-2 py-1">{t('Details', 'விவரங்கள்')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allLogs.length === 0 ? (
                         <tr>
-                          <th className="text-left px-2 py-1">{t('Time', 'நேரம்')}</th>
-                          <th className="text-left px-2 py-1">{t('Action', 'செயல்')}</th>
-                          <th className="text-left px-2 py-1">{t('Hall ID', 'மண்டப ஐடி')}</th>
-                          <th className="text-left px-2 py-1">{t('Name', 'பெயர்')}</th>
-                          <th className="text-left px-2 py-1">{t('Register No', 'பதிவு எண்')}</th>
-                          <th className="text-left px-2 py-1">{t('User', 'பயனர்')}</th>
-                          <th className="text-left px-2 py-1">{t('Details', 'விவரங்கள்')}</th>
+                          <td className="px-2 py-2 text-center text-gray-500" colSpan={7}>{t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}</td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {allLogs.length === 0 ? (
-                          <tr>
-                            <td className="px-2 py-2 text-center text-gray-500" colSpan={7}>{t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}</td>
-                          </tr>
-                        ) : allLogs.map((lg) => (
-                          <tr key={lg.id} className="border-t align-top">
-                            <td className="px-2 py-1 whitespace-nowrap">{lg.created_at ? new Date(lg.created_at).toLocaleString(language === 'tamil' ? 'ta-IN' : 'en-IN') : '-'}</td>
-                            <td className="px-2 py-1">{lg.action}</td>
-                            <td className="px-2 py-1">{lg.hall_id}</td>
-                            <td className="px-2 py-1">{lg.hall_name ?? '-'}</td>
-                            <td className="px-2 py-1">{lg.register_number ?? '-'}</td>
-                            <td className="px-2 py-1">{lg.created_by ?? '-'}</td>
-                            <td className="px-2 py-1"><pre className="whitespace-pre-wrap break-words text-[10px] bg-gray-50 p-2 rounded border max-w-[40vw]">{JSON.stringify(lg.details, null, 2)}</pre></td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                      ) : allLogs.map((lg) => (
+                        <tr key={lg.id} className="border-t align-top">
+                          <td className="px-2 py-1 whitespace-nowrap">{lg.created_at ? new Date(lg.created_at).toLocaleString(language === 'tamil' ? 'ta-IN' : 'en-IN') : '-'}</td>
+                          <td className="px-2 py-1">{lg.action}</td>
+                          <td className="px-2 py-1">{lg.hall_id}</td>
+                          <td className="px-2 py-1">{lg.hall_name ?? '-'}</td>
+                          <td className="px-2 py-1">{lg.register_number ?? '-'}</td>
+                          <td className="px-2 py-1">{lg.created_by ?? '-'}</td>
+                          <td className="px-2 py-1"><pre className="whitespace-pre-wrap break-words text-[10px] bg-gray-50 p-2 rounded border max-w-[40vw]">{JSON.stringify(lg.details, null, 2)}</pre></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex items-center justify-between mt-2 text-xs">
+                  <div className="text-gray-700">{t('Total', 'மொத்தம்')}: <span className="font-medium">{allLogsTotal}</span></div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className={cn(theme.input.base, "px-2 py-1 rounded shadow-sm text-xs bg-white hover:bg-gray-50")}
+                      disabled={allLogsPage <= 1}
+                      onClick={() => loadAllHallLogs(allLogsPage - 1)}
+                    >
+                      {t('Previous', 'முந்தைய')}
+                    </button>
+                    <span>{t('Page', 'பக்கம்')} {allLogsPage}</span>
+                    <button
+                      className={cn(theme.input.base, "px-2 py-1 rounded shadow-sm text-xs bg-white hover:bg-gray-50")}
+                      disabled={allLogsPage * allLogsPageSize >= allLogsTotal}
+                      onClick={() => loadAllHallLogs(allLogsPage + 1)}
+                    >
+                      {t('Next', 'அடுத்தது')}
+                    </button>
                   </div>
-                  <div className="flex items-center justify-between mt-2 text-xs">
-                    <div className="text-gray-700">{t('Total', 'மொத்தம்')}: <span className="font-medium">{allLogsTotal}</span></div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        className={cn(theme.input.base, "px-2 py-1 rounded shadow-sm text-xs bg-white hover:bg-gray-50")}
-                        disabled={allLogsPage <= 1}
-                        onClick={() => loadAllHallLogs(allLogsPage - 1)}
-                      >
-                        {t('Previous', 'முந்தைய')}
-                      </button>
-                      <span>{t('Page', 'பக்கம்')} {allLogsPage}</span>
-                      <button
-                        className={cn(theme.input.base, "px-2 py-1 rounded shadow-sm text-xs bg-white hover:bg-gray-50")}
-                        disabled={allLogsPage * allLogsPageSize >= allLogsTotal}
-                        onClick={() => loadAllHallLogs(allLogsPage + 1)}
-                      >
-                        {t('Next', 'அடுத்தது')}
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

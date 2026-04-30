@@ -175,7 +175,7 @@ module.exports = function(deps = {}) {
       const year = new Date().getFullYear();
       const templeId = req.user?.templeId;
       
-      // Build query - first try temple-specific
+      // Build query for temple-specific
       let query = db('pooja')
         .whereNotNull('receipt_number')
         .where('receipt_number', 'like', `${year}-%`)
@@ -187,16 +187,6 @@ module.exports = function(deps = {}) {
       }
       
       let latestPooja = await query.first();
-      
-      // If no result for this temple, check all temples
-      if (!latestPooja && templeId) {
-        latestPooja = await db('pooja')
-          .whereNotNull('receipt_number')
-          .where('receipt_number', 'like', `${year}-%`)
-          .whereNotIn('status', ['cancelled', 'rejected'])
-          .orderBy('receipt_number', 'desc')
-          .first();
-      }
       
       if (latestPooja && latestPooja.receipt_number) {
         const parts = latestPooja.receipt_number.split('-');
@@ -251,6 +241,10 @@ module.exports = function(deps = {}) {
       } else {
         query = query.select('pooja.*');
       }
+      
+      // Filter by temple_id from auth token
+      query = query.where('pooja.temple_id', req.user.templeId);
+      
       query = query.orderBy('pooja.id', 'desc');
 
       // Apply filters
@@ -444,8 +438,13 @@ module.exports = function(deps = {}) {
         updated_at: db.fn.now(),
       };
 
-      const inserted = await db('pooja').insert(record).returning('*');
-      const row = inserted[0];
+      const result = await db('pooja').insert(record);
+      const insertedId = result[0];
+      const row = await db('pooja').where({ id: insertedId }).first();
+
+      if (!row) {
+        throw new Error('Failed to retrieve created pooja record');
+      }
 
       // Mirror to journal so balances reflect in reports
       try {
@@ -454,11 +453,10 @@ module.exports = function(deps = {}) {
         console.log('🔍 Pooja journal mirror check:', { 
           hasJournal, 
           amountNum, 
-          amount: p.amount, 
+          pAmount: p.amount, 
           rowAmount: row.amount,
-          fromAccount: p.fromAccount,
-          transferTo: p.transferTo,
-          poojaId: row.id
+          poojaId: row.id,
+          templeId: row.temple_id
         });
         
         if (hasJournal && !isNaN(amountNum) && amountNum > 0) {
@@ -477,7 +475,10 @@ module.exports = function(deps = {}) {
               from_account: fromAccount,
               to_account: toAccount,
               amount: amountNum,
+              total_amount: amountNum,
               entry_type: 'transfer',
+              description: `Pooja: ${row.name} (${row.receipt_number || row.id})`,
+              reference_number: row.receipt_number || 'POOJA-' + row.id,
               remarks: row.remarks || null,
               reference_type: 'pooja',
               reference_id: row.id,
@@ -567,8 +568,8 @@ module.exports = function(deps = {}) {
         from_date: p.fromDate,
         to_date: p.toDate,
         remarks: p.remarks || null,
-        transfer_to_account: p.transfer_to_account ?? p.transferTo ?? 'INCOME A/C',
-        amount: p.amount != null && p.amount !== '' ? Number(p.amount) : undefined,
+        transfer_to_account: p.transferTo || 'INCOME A/C',
+        amount: p.amount != null && p.amount !== '' ? Number(p.amount) : null,
         updated_at: db.fn.now(),
       };
 
@@ -600,7 +601,10 @@ module.exports = function(deps = {}) {
               from_account: fromAccount,
               to_account: toAccount,
               amount: amountNum,
+              total_amount: amountNum,
               entry_type: 'transfer',
+              description: `Pooja: ${pooja.name} (${pooja.receipt_number || id})`,
+              reference_number: pooja.receipt_number || 'POOJA-' + id,
               remarks: pooja.remarks || null,
               reference_type: 'pooja',
               reference_id: Number(id),

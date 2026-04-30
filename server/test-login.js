@@ -98,7 +98,7 @@ async function testLogin() {
     console.log('TEST CURL COMMAND');
     console.log('='.repeat(60));
     console.log(`
-curl -X POST http://localhost:4000/api/users/login ^
+curl -X POST https://templeapi.agniplay.com/api/users/login ^
   -H "Content-Type: application/json" ^
   -d "{\"mobile\":\"test_admin\",\"username\":\"test_admin\",\"password\":\"test123\"}"
     `);

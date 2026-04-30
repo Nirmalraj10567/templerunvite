@@ -28,8 +28,8 @@ export default function DashboardLayout() {
   const { language } = useLanguage();
   const location = useLocation();
 
-    const lang = (String(language).toLowerCase() === 'english' ? 'tamil' : 'english') as 'tamil' | 'english';
-  
+  const lang = (String(language).toLowerCase() === 'english' ? 'tamil' : 'english') as 'tamil' | 'english';
+
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isHoveringSidebar, setIsHoveringSidebar] = useState(false);
@@ -53,20 +53,20 @@ export default function DashboardLayout() {
 
     const handleScroll = () => {
       if (!mainScrollRef.current || ticking) return;
-      
+
       ticking = true;
       isScrolling = true;
-      
+
       requestAnimationFrame(() => {
         if (!mainScrollRef.current) {
           ticking = false;
           return;
         }
-        
+
         const currentScrollY = mainScrollRef.current.scrollTop;
         const scrollingDown = currentScrollY > lastScrollY;
         const scrollDifference = Math.abs(currentScrollY - lastScrollY);
-        
+
         // Clear any existing timeouts
         if (scrollTimeout) {
           clearTimeout(scrollTimeout);
@@ -74,11 +74,11 @@ export default function DashboardLayout() {
         if (scrollEndTimeout) {
           clearTimeout(scrollEndTimeout);
         }
-        
+
         // Only update if scrolled more than 25px to prevent jitter
         if (scrollDifference > 25) {
           const shouldShowHeader = !scrollingDown || currentScrollY < 50;
-          
+
           // Immediate update for large scrolls, delayed for smaller ones
           if (scrollDifference > 100) {
             setHeaderVisible(shouldShowHeader);
@@ -95,7 +95,7 @@ export default function DashboardLayout() {
         } else {
           ticking = false;
         }
-        
+
         // Reset scrolling flag after a delay
         scrollEndTimeout = setTimeout(() => {
           isScrolling = false;
@@ -209,29 +209,7 @@ export default function DashboardLayout() {
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-      // Desktop-only auto behavior
-      if (window.innerWidth < 768) return;
-
-      // Tailwind widths: w-64 = 16rem (~256px), w-20 = 5rem (~80px)
-      const expandedWidth = 256;
-      const collapsedWidth = 80;
-      const buffer = 40; // hysteresis to avoid flicker
-
-      // Removed pin-open early return so the sidebar can auto-collapse on mouse move out
-
-      // Do not auto-collapse while the user is interacting with the sidebar itself
-      if (!isSidebarCollapsed && isHoveringSidebar) return;
-
-      // Auto-expand when near the left edge (within collapsed width + small buffer)
-      if (isSidebarCollapsed && e.clientX <= collapsedWidth + buffer / 2) {
-        setSidebarCollapsed(false);
-        return;
-      }
-
-      // Auto-collapse when cursor moves sufficiently to the right of the expanded sidebar
-      if (!isSidebarCollapsed && e.clientX > expandedWidth + buffer) {
-        setSidebarCollapsed(true);
-      }
+      // Auto open/close behavior disabled
     };
 
     const handleClickOutside = (e: MouseEvent) => {
@@ -262,6 +240,10 @@ export default function DashboardLayout() {
     }
     // Also scroll window for cases where body scroll is active (mobile/safari)
     window.scrollTo({ top: 0, behavior: 'auto' });
+
+    // Reset header state to prevent jumps
+    setHeaderVisible(true);
+    setLastScrollY(0);
   }, [location.pathname]);
 
   // Translation object
@@ -319,7 +301,7 @@ export default function DashboardLayout() {
     const path = location.pathname;
 
     // Flatten all items (including children) from navigation with permission metadata
-    const flat: Array<{ to: string; permissionId?: string; accessLevel?: 'view'|'edit'|'full' }> = [];
+    const flat: Array<{ to: string; permissionId?: string; accessLevel?: 'view' | 'edit' | 'full' }> = [];
     for (const item of sidebarItems as any[]) {
       if (item.to) flat.push({ to: normalizePath(item.to), permissionId: item.permissionId, accessLevel: item.accessLevel });
       if (Array.isArray(item.children)) {
@@ -386,25 +368,25 @@ export default function DashboardLayout() {
     const path = location.pathname;
     console.log('Current path:', path);
     console.log('Flat routes:', flatRoutes);
-    
+
     // Find exact match first
     const exactMatch = flatRoutes.find(r => {
       const routePath = normalizePath(r.to);
       console.log('Comparing:', routePath, 'with', path);
       return routePath === path || path.endsWith('/' + r.to);
     });
-    
+
     if (exactMatch) {
       console.log('Found exact match:', exactMatch.label);
       return exactMatch.label;
     }
-    
+
     // Find prefix match (for routes with params like /edit/:id)
     const prefixMatch = flatRoutes.find(r => {
       const routePath = normalizePath(r.to);
       return path.startsWith(routePath + '/') || path.startsWith('/dashboard/' + r.to + '/');
     });
-    
+
     const title = prefixMatch?.label || '';
     console.log('Final page title:', title);
     return title;
@@ -440,14 +422,14 @@ export default function DashboardLayout() {
 
   useEffect(() => {
     let mounted = true;
-    fetch('http://localhost:4000/api/system/year-end-status', { headers: { Authorization: `Bearer ${token}` } })
+    fetch('https://templeapi.agniplay.com/api/system/year-end-status', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(d => {
         if (!mounted) return;
         setYearEndEnforced(!!d?.data?.enforced);
         setYearEndLocked(!!d?.data?.locked);
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => { mounted = false; };
   }, [token]);
 
@@ -518,7 +500,7 @@ export default function DashboardLayout() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSearchOpen, selectedIndex, navigate, filteredResults, routeByShortcut]);
 
   const Sidebar = ({ isMobile = false }) => {
@@ -551,8 +533,8 @@ export default function DashboardLayout() {
     }, [location.pathname, allowedSidebarItems, isSidebarCollapsed]);
 
     const toggleItemExpansion = (label: string) => {
-      setExpandedItems(prev => 
-        prev.includes(label) 
+      setExpandedItems(prev =>
+        prev.includes(label)
           ? prev.filter(item => item !== label)
           : [...prev, label]
       );
@@ -578,12 +560,12 @@ export default function DashboardLayout() {
                 <span className="text-xl font-bold text-white">T</span>
               </div>
               <span className="text-2xl font-bold bg-gradient-to-r from-orange-300 to-red-400 bg-clip-text text-transparent">
-               
+
               </span>
             </div>
           )}
-          <button 
-            onClick={() => setSidebarCollapsed(!isSidebarCollapsed)} 
+          <button
+            onClick={() => setSidebarCollapsed(!isSidebarCollapsed)}
             className="hidden md:flex p-3 rounded-xl hover:bg-red-600/30 transition-all duration-200 
                        backdrop-blur-sm border border-red-500/20 hover:border-red-400/40"
           >
@@ -602,11 +584,11 @@ export default function DashboardLayout() {
             if (item.children) {
               const isExpanded = expandedItems.includes(item.label);
               return (
-                <div 
-                  key={item.label} 
+                <div
+                  key={item.label}
                   className="space-y-2"
                 >
-                  <div 
+                  <div
                     onClick={() => toggleItemExpansion(item.label)}
                     className={`
                       group flex items-center p-3 rounded-xl cursor-pointer transition-all duration-500
@@ -633,7 +615,7 @@ export default function DashboardLayout() {
                       </div>
                     )}
                   </div>
-                  
+
                   {!isSidebarCollapsed && isExpanded && (
                     <div className="pl-6 space-y-1 animate-in slide-in-from-top-2 duration-500">
                       {item.children.map((child, childIndex) => (
@@ -643,8 +625,8 @@ export default function DashboardLayout() {
                           end
                           className={({ isActive }) =>
                             `group flex items-center p-3 rounded-lg transition-all duration-500 relative
-                            ${isActive 
-                              ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-lg shadow-red-900/30' 
+                            ${isActive
+                              ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-lg shadow-red-900/30'
                               : 'text-orange-200 hover:bg-orange-800/30 hover:text-white'
                             }`
                           }
@@ -660,7 +642,7 @@ export default function DashboardLayout() {
                 </div>
               );
             }
-            
+
             return (
               <NavLink
                 key={item.to}
@@ -669,8 +651,8 @@ export default function DashboardLayout() {
                 className={({ isActive }) =>
                   `group flex items-center p-3 rounded-xl transition-all duration-200 backdrop-blur-sm
                   ${isSidebarCollapsed ? 'justify-center' : ''} 
-                  ${isActive 
-                    ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-lg shadow-red-900/30' 
+                  ${isActive
+                    ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-lg shadow-red-900/30'
                     : 'text-orange-200 hover:bg-gradient-to-r hover:from-orange-800/40 hover:to-red-800/40 hover:text-white hover:shadow-lg hover:shadow-red-900/20'
                   }`
                 }
@@ -691,8 +673,8 @@ export default function DashboardLayout() {
               className={({ isActive }) =>
                 `group flex items-center p-3 rounded-xl transition-all duration-200 backdrop-blur-sm
                 ${isSidebarCollapsed ? 'justify-center' : ''} 
-                ${isActive 
-                  ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-orange-900/30' 
+                ${isActive
+                  ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-orange-900/30'
                   : 'text-amber-200 hover:bg-gradient-to-r hover:from-amber-800/40 hover:to-orange-800/40 hover:text-white hover:shadow-lg hover:shadow-orange-900/20'
                 }`
               }
@@ -806,113 +788,114 @@ export default function DashboardLayout() {
         }
       `}</style>
       <div className="relative h-screen w-full flex overflow-hidden bg-gradient-to-br from-orange-50 to-red-50">
-      {/* Mobile menu button */}
-      <div className="bg-gradient-to-r from-orange-700 to-red-700 text-white flex justify-between md:hidden shadow-lg">
-        <button 
-          onClick={() => setMobileMenuOpen(true)} 
-          className="mobile-menu-button p-4 hover:bg-orange-600/50 transition-colors duration-200"
-        >
-          <MenuIcon className="w-6 h-6" />
-        </button>
-      </div>
+        {/* Mobile menu button */}
+        <div className="bg-gradient-to-r from-orange-700 to-red-700 text-white flex justify-between md:hidden shadow-lg">
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="mobile-menu-button p-4 hover:bg-orange-600/50 transition-colors duration-200"
+          >
+            <MenuIcon className="w-6 h-6" />
+          </button>
+        </div>
 
-      {/* Sidebar */}
-      <Sidebar />
-      {isMobileMenuOpen && <Sidebar isMobile />}
+        {/* Sidebar */}
+        <Sidebar />
+        {isMobileMenuOpen && <Sidebar isMobile />}
 
-      {/* Main content */}
-      <div ref={mainContentRef} className="flex-1 flex flex-col overflow-hidden">
-        <header 
-          ref={headerRef}
-          className={`flex items-center justify-between bg-white/80 backdrop-blur-lg border-b 
+        {/* Main content */}
+        <div ref={mainContentRef} className="flex-1 flex flex-col overflow-hidden">
+          <header
+            ref={headerRef}
+            className={`flex items-center justify-between bg-white/80 backdrop-blur-lg border-b 
                      border-orange-300/50 px-6 shadow-sm
                      ${headerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full'}`}
-          style={{
-            position: 'sticky',
-            top: 0,
-            zIndex: 20,
-            height: headerVisible ? '5rem' : '0',
-            overflow: headerVisible ? 'visible' : 'hidden',
-            transition: 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            willChange: 'height, opacity, transform',
-          }}>
-          {/* Left side: temple name and optional view-only badge */}
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-semibold text-gray-700">
-              {(user as any)?.temple?.name || 'Temple Management System'}
-            </h2>
-            {isViewOnlyForRoute && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
-                View-only
-              </span>
-            )}
-          </div>
-          <Header />
-        </header>
-        
-        <main 
-          ref={mainScrollRef} 
-          className={`flex-1 overflow-y-auto bg-gradient-to-br from-orange-50 to-red-50 
+            style={{
+              position: 'sticky',
+              top: 0,
+              zIndex: 20,
+              height: headerVisible ? '5rem' : '0',
+              overflow: headerVisible ? 'visible' : 'hidden',
+              transition: 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              willChange: 'height, opacity, transform',
+            }}>
+            {/* Left side: temple name and optional view-only badge */}
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-semibold text-gray-700">
+                {(user as any)?.temple?.name || 'Temple Management System'}
+              </h2>
+              {isViewOnlyForRoute && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                  View-only
+                </span>
+              )}
+            </div>
+            <Header />
+          </header>
+
+          <main
+            ref={mainScrollRef}
+            className={`flex-1 overflow-y-auto bg-gradient-to-br from-orange-50 to-red-50 
                      scrollbar-thin scrollbar-thumb-orange-400 scrollbar-track-transparent 
                      hover:scrollbar-thumb-orange-500
-                     ${headerVisible ? 'pt-2' : 'pt-0'}`} 
-          data-view-only={isViewOnlyForRoute ? 'true' : 'false'}
-          style={{ 
-            WebkitOverflowScrolling: 'touch',
-            transition: 'padding-top 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-            willChange: 'padding-top'
-          }}>
-          <div className={`${headerVisible ? 'pb-8' : 'py-8'} px-8`} style={{
-            transition: 'padding 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-            willChange: 'padding'
-          }}>
-            <div className="max-w-7xl mx-auto">
-              <Outlet />
+                     ${headerVisible ? 'pt-2' : 'pt-0'}`}
+            data-view-only={isViewOnlyForRoute ? 'true' : 'false'}
+            style={{
+              WebkitOverflowScrolling: 'touch',
+              transition: 'padding-top 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+              willChange: 'padding-top',
+              scrollbarGutter: 'stable'
+            }}>
+            <div className={`${headerVisible ? 'pb-8' : 'py-8'} px-8`} style={{
+              transition: 'padding 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+              willChange: 'padding'
+            }}>
+              <div className="max-w-7xl mx-auto">
+                <Outlet />
+              </div>
             </div>
-          </div>
-        </main>
-      </div>
-
-      {/* Mobile overlay */}
-      {isMobileMenuOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 md:hidden transition-all duration-300"
-          onClick={() => setMobileMenuOpen(false)}
-        />
-      )}
-
-      {/* Command palette search (Ctrl+F) */}
-      {isSearchOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 bg-black/40">
-          <div className="w-full max-w-xl rounded-xl shadow-2xl bg-white/95 backdrop-blur-md border border-slate-200">
-            <div className="px-4 py-3 border-b border-slate-200">
-              <input
-                autoFocus
-                value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setSelectedIndex(0); }}
-                placeholder={t[lang].searchPlaceholder}
-                className="w-full outline-none text-slate-800 placeholder-slate-400"
-              />
-            </div>
-            <ul className="max-h-80 overflow-y-auto py-2">
-              {filteredResults.length === 0 && (
-                <h3 className="px-4 py-2 text-sm font-medium text-gray-500">{t[lang].searchResults}</h3>
-              )}
-              {filteredResults.map((r, idx) => (
-                <li
-                  key={`${r.section || 'root'}-${r.to}`}
-                  className={`px-4 py-2 cursor-pointer ${idx === selectedIndex ? 'bg-blue-600 text-white' : 'hover:bg-slate-100'}`}
-                  onMouseEnter={() => setSelectedIndex(idx)}
-                  onClick={() => { setIsSearchOpen(false); setSearchQuery(''); navigate(r.to); }}
-                >
-                  <div className="text-sm font-medium">{r.label}</div>
-                  {r.section && <div className="text-xs opacity-70">{r.section}</div>}
-                </li>
-              ))}
-            </ul>
-          </div>
+          </main>
         </div>
-      )}
+
+        {/* Mobile overlay */}
+        {isMobileMenuOpen && (
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 md:hidden transition-all duration-300"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+        )}
+
+        {/* Command palette search (Ctrl+F) */}
+        {isSearchOpen && (
+          <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 bg-black/40">
+            <div className="w-full max-w-xl rounded-xl shadow-2xl bg-white/95 backdrop-blur-md border border-slate-200">
+              <div className="px-4 py-3 border-b border-slate-200">
+                <input
+                  autoFocus
+                  value={searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); setSelectedIndex(0); }}
+                  placeholder={t[lang].searchPlaceholder}
+                  className="w-full outline-none text-slate-800 placeholder-slate-400"
+                />
+              </div>
+              <ul className="max-h-80 overflow-y-auto py-2">
+                {filteredResults.length === 0 && (
+                  <h3 className="px-4 py-2 text-sm font-medium text-gray-500">{t[lang].searchResults}</h3>
+                )}
+                {filteredResults.map((r, idx) => (
+                  <li
+                    key={`${r.section || 'root'}-${r.to}`}
+                    className={`px-4 py-2 cursor-pointer ${idx === selectedIndex ? 'bg-blue-600 text-white' : 'hover:bg-slate-100'}`}
+                    onMouseEnter={() => setSelectedIndex(idx)}
+                    onClick={() => { setIsSearchOpen(false); setSearchQuery(''); navigate(r.to); }}
+                  >
+                    <div className="text-sm font-medium">{r.label}</div>
+                    {r.section && <div className="text-xs opacity-70">{r.section}</div>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

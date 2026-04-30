@@ -28,6 +28,7 @@ interface Pooja {
 interface PoojaFormData {
   receiptNumber: string;
   name: string;
+  userName: string;
   mobileNumber: string;
   time: string;
   fromDate: string;
@@ -57,7 +58,7 @@ interface ApiResponse<T> {
 }
 
 class PoojaService {
-  private baseUrl = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000'}/api/pooja`;
+  private baseUrl = `${import.meta.env.VITE_API_BASE_URL || 'https://templeapi.agniplay.com'}/api/pooja`;
   private token: string | null = null;
 
   constructor() {
@@ -118,12 +119,12 @@ class PoojaService {
   async createPooja(data: PoojaFormData): Promise<ApiResponse<Pooja>> {
     const payload = {
       receiptNumber: data.receiptNumber,
-      name: data.name,
+      name: data.userName,
       mobileNumber: data.mobileNumber,
       time: data.time,
       fromDate: data.fromDate,
       toDate: data.toDate,
-      remarks: data.remarks || '',
+      remarks: data.name,
       transferTo: data.transferTo || '',
       amount: data.amount || '',
       fromAccount: (data as any).fromAccount || 'POOJA A/C'
@@ -141,12 +142,12 @@ class PoojaService {
   async updatePooja(id: number, data: PoojaFormData): Promise<ApiResponse<Pooja>> {
     const payload = {
       receiptNumber: data.receiptNumber,
-      name: data.name,
+      name: data.userName,
       mobileNumber: data.mobileNumber,
       time: data.time,
       fromDate: data.fromDate,
       toDate: data.toDate,
-      remarks: data.remarks || '',
+      remarks: data.name,
       transferTo: data.transferTo || '',
       amount: data.amount || '',
       fromAccount: (data as any).fromAccount || 'POOJA A/C'

@@ -3,7 +3,7 @@ const router = express.Router();
 const PDFDocument = require('pdfkit');
 
 module.exports = function (deps = {}) {
-  const { db } = deps;
+  const { db, generateDaybookReceiptNumber, calculateDaybookRunningBalance } = deps;
 
   // Helper to write hall booking logs
   async function logHallBookingAction({ hallBookingId, templeId, userId, action, details }) {
@@ -435,7 +435,8 @@ module.exports = function (deps = {}) {
       // Mirror to ledger as a credit so balances reflect revenue collection
       try {
         const under = row.transfer_to_account || p.transferTo || 'CASH A/C';
-        const amountNum = Number(p.advanceAmount || p.totalAmount || 0);
+        // Use advanceAmount if provided (even if 0), otherwise fallback to totalAmount if advance is missing
+        const amountNum = p.advanceAmount !== undefined ? Number(p.advanceAmount) : Number(p.totalAmount || 0);
         if (!isNaN(amountNum) && amountNum > 0) {
           await db('ledger_entries').insert({
             date: row.date || new Date().toISOString().slice(0, 10),
@@ -443,7 +444,7 @@ module.exports = function (deps = {}) {
             type: 'credit',
             under,
             amount: amountNum,
-            remarks: row.remarks || null,
+            note: row.remarks || null,
             temple_id: row.temple_id,
             created_at: db.fn.now(),
             updated_at: db.fn.now(),
@@ -456,14 +457,17 @@ module.exports = function (deps = {}) {
 
       // Mirror to journal: INCOME A/C -> CASH A/C (matching existing pattern)
       try {
-        const amountNum = Number(p.advanceAmount || p.totalAmount || 0);
+        const amountNum = p.advanceAmount !== undefined ? Number(p.advanceAmount) : Number(p.totalAmount || 0);
 
         if (row && row.id && amountNum > 0) {
           const entryData = {
             date: row.date || new Date().toISOString().slice(0, 10),
+            reference_number: row.register_no || `HALL-${row.id}-${Date.now()}`,
+            description: 'Hall Booking - ' + (row.name || 'Unknown'),
             from_account: 'HALL A/C',
             to_account: 'INCOME A/C',
             amount: amountNum,
+            total_amount: amountNum,
             entry_type: 'transfer',
             remarks: row.remarks || p.remarks || `Hall booking payment - ${row.name || 'Unknown'}`,
             reference_type: 'hall_booking',
@@ -575,9 +579,12 @@ module.exports = function (deps = {}) {
         if (amountNum > 0) {
           const entryData = {
             date: booking.date || new Date().toISOString().slice(0, 10),
+            reference_number: booking.register_no || `HALL-${idNum}-${Date.now()}`,
+            description: `Hall Booking - ${booking.name || 'Updated Booking'}`,
             from_account: 'HALL A/C',
             to_account: 'INCOME A/C',
             amount: amountNum,
+            total_amount: amountNum,
             entry_type: 'transfer',
             remarks: booking.remarks || p.remarks || `Updated hall booking payment - ${booking.name || 'Unknown'}`,
             reference_type: 'hall_booking',
@@ -831,6 +838,170 @@ module.exports = function (deps = {}) {
     } catch (err) {
       console.error('DELETE /api/hall-bookings/:id error:', err);
       res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Partial payment for existing booking
+  router.put('/:id/pay', async (req, res) => {
+    try {
+      console.log('🔍 PUT /:id/pay called with params:', req.params, 'body:', req.body);
+      const { id } = req.params;
+      const { 
+        amount, transferTo, remarks, date,
+        checkInDate, checkInTime, checkOutDate, checkOutTime,
+        cleaning, chair, eb, gas, ac
+      } = req.body;
+      const payAmount = Number(amount || 0);
+      const entryDate = date || new Date().toISOString().slice(0, 10);
+      console.log('🔍 Querying for booking id:', id, 'templeId:', req.user.templeId);
+
+      const booking = await db('marriage_hall_bookings')
+        .where({ id, temple_id: req.user.templeId })
+        .first();
+
+      console.log('🔍 Found booking:', booking);
+
+      if (!booking) {
+        return res.status(404).json({ error: 'Booking not found' });
+      }
+
+      // Prepare updates for main booking record
+      const updates = {
+        updated_at: db.fn.now()
+      };
+
+      // Handle optional check-in/out updates
+      if (checkInDate !== undefined) updates.check_in_date = checkInDate;
+      if (checkInTime !== undefined) updates.check_in_time = checkInTime;
+      if (checkOutDate !== undefined) updates.check_out_date = checkOutDate;
+      if (checkOutTime !== undefined) updates.check_out_time = checkOutTime;
+
+      // Handle optional charges updates
+      if (cleaning !== undefined) updates.cleaning = cleaning;
+      if (chair !== undefined) updates.chair = chair;
+      if (eb !== undefined) updates.eb = eb;
+      if (gas !== undefined) updates.gas = gas;
+      if (ac !== undefined) updates.ac = ac;
+
+      // Calculate total if charges changed
+      let newTotal = Number(booking.total_amount || 0);
+      const chargesChanged = [cleaning, chair, eb, gas, ac].some(v => v !== undefined);
+      
+      if (chargesChanged) {
+        // Base total = old total - old charges
+        const oldCharges = (Number(booking.cleaning) || 0) + (Number(booking.chair) || 0) + (Number(booking.eb) || 0) + (Number(booking.gas) || 0) + (Number(booking.ac) || 0);
+        const baseTotal = Math.max(0, newTotal - oldCharges);
+        
+        // New charges = updated values or existing values
+        const nCleaning = cleaning !== undefined ? Number(cleaning || 0) : Number(booking.cleaning || 0);
+        const nChair = chair !== undefined ? Number(chair || 0) : Number(booking.chair || 0);
+        const nEb = eb !== undefined ? Number(eb || 0) : Number(booking.eb || 0);
+        const nGas = gas !== undefined ? Number(gas || 0) : Number(booking.gas || 0);
+        const nAc = ac !== undefined ? Number(ac || 0) : Number(booking.ac || 0);
+        
+        newTotal = baseTotal + nCleaning + nChair + nEb + nGas + nAc;
+        updates.total_amount = newTotal;
+      }
+
+      // Handle payment and balance
+      const currentAdvance = Number(booking.advance_amount || 0);
+      const newAdvance = currentAdvance + payAmount;
+      const newBalance = Math.max(0, newTotal - newAdvance);
+
+      updates.advance_amount = newAdvance;
+      updates.balance_amount = newBalance;
+
+      console.log('🔍 About to update booking with:', updates);
+      await db('marriage_hall_bookings')
+        .where({ id })
+        .update(updates);
+      console.log('🔍 Booking updated successfully');
+
+      // Financial recording only if money was actually paid
+      if (payAmount > 0) {
+        // Mirror to ledger
+        const under = transferTo || 'CASH A/C';
+        await db('ledger_entries').insert({
+          date: entryDate,
+          name: `Hall Payment - ${booking.name || 'Unknown'}`,
+          type: 'credit',
+          under,
+          amount: payAmount,
+          note: remarks || `Partial payment for booking ${booking.register_no}`,
+          temple_id: req.user.templeId,
+          created_at: db.fn.now(),
+          updated_at: db.fn.now(),
+        });
+
+        // Sync to daybook (non-blocking)
+        try {
+          const hasDaybook = await db.schema.hasTable('daybook_entries');
+          if (hasDaybook) {
+            const recNum = await generateDaybookReceiptNumber(req.user.templeId);
+            const runningBalance = await calculateDaybookRunningBalance(req.user.templeId, entryDate);
+            await db('daybook_entries').insert({
+              temple_id: req.user.templeId,
+              entry_date: entryDate,
+              entry_type: 'income',
+              description: `Hall Booking Payment - ${booking.name || 'Unknown'} (Reg: ${booking.register_no})`,
+              reference_type: 'hall_booking',
+              reference_id: Number(id),
+              receipt_number: recNum,
+              amount: payAmount,
+              payment_mode: under,
+              party_name: booking.name || null,
+              party_mobile: booking.mobile || null,
+              notes: remarks || null,
+              running_balance: runningBalance + payAmount,
+              created_by: req.user.id || 1,
+              created_at: db.fn.now(),
+            });
+          }
+        } catch (daybookErr) {
+          console.error('Non-blocking daybook sync error:', daybookErr.message);
+        }
+
+        // Mirror to journal (non-blocking to prevent API failure)
+        try {
+          await db('journal_entries').insert({
+            date: entryDate,
+            description: `Hall Payment - ${booking.name || 'Unknown'}`,
+            from_account: 'HALL A/C',
+            to_account: 'INCOME A/C',
+            amount: payAmount,
+            total_amount: payAmount,
+            entry_type: 'transfer',
+            reference_type: 'hall_booking',
+            reference_id: id,
+            reference_number: booking.register_no || `HALL-PAY-${id}-${Date.now()}`,
+            remarks: remarks || `Hall Payment collected for ${booking.name || 'Unknown'} (Reg: ${booking.register_no})`,
+            temple_id: req.user.templeId,
+            created_by: req.user.id || 1,
+            created_at: db.fn.now()
+          });
+        } catch (journalErr) {
+          console.error('Non-blocking journal insert error:', journalErr.message);
+        }
+      }
+
+      // Log action (Non-blocking)
+      logHallBookingAction({
+        hallBookingId: id,
+        templeId: req.user.templeId,
+        userId: req.user.id,
+        action: payAmount > 0 ? 'payment' : 'update',
+        details: { 
+          amountReceived: payAmount, 
+          prevBalance: Number(booking.balance_amount || 0), 
+          newBalance,
+          updates: Object.keys(updates).filter(k => k !== 'updated_at')
+        }
+      }).catch(err => console.error('Non-blocking log error:', err));
+
+      res.json({ success: true, message: 'Booking updated successfully', newBalance, newTotal });
+    } catch (e) {
+      console.error('Error in hall payment update:', e);
+      res.status(500).json({ error: 'Failed to update booking' });
     }
   });
 

@@ -21,11 +21,11 @@ async function testRegistration() {
     };
 
     console.log('\nSending registration request...');
-    console.log('URL: http://localhost:4000/api/users/register');
+    console.log('URL: https://templeapi.agniplay.com/api/users/register');
     console.log('Data:', JSON.stringify(testData, null, 2));
 
     const response = await axios.post(
-      'http://localhost:4000/api/users/register',
+      'https://templeapi.agniplay.com/api/users/register',
       testData,
       {
         headers: { 'Content-Type': 'application/json' }

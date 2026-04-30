@@ -61,7 +61,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
   const [paidCount, setPaidCount] = useState<number>(0);
   const [pendingCount, setPendingCount] = useState<number>(0);
 
-  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / pageSize)), [total, pageSize]);
 
@@ -138,7 +138,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
     setLogs([]);
     setLogsLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/tax-registrations/${row.id}/logs`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/tax-registrations/${row.id}/logs`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -196,7 +196,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
     const results = await Promise.all(
       missing.map(async (id) => {
         try {
-          const res = await fetch(`http://localhost:4000/api/admin/members/${id}`, {
+          const res = await fetch(`https://templeapi.agniplay.com/api/admin/members/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data = await res.json().catch(() => ({}));
@@ -448,7 +448,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
     setAllLogsLoading(true);
     try {
       const params = new URLSearchParams({ page: String(pageNum), pageSize: String(allLogsPageSize) });
-      const res = await fetch(`http://localhost:4000/api/tax-registrations/logs?${params.toString()}`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/tax-registrations/logs?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -747,7 +747,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
       const paidN = editForm.amount_paid?.trim() ? Number(editForm.amount_paid) : undefined;
       if (typeof taxN === 'number' && Number.isFinite(taxN)) payload.tax_amount = taxN;
       if (typeof paidN === 'number' && Number.isFinite(paidN)) payload.amount_paid = paidN;
-      const res = await fetch(`http://localhost:4000/api/tax-registrations/${editing.id}`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/tax-registrations/${editing.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -775,7 +775,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
     const ok = window.confirm(t('Are you sure you want to delete this tax registration?', 'இந்த வரி பதிவை நிச்சயமாக நீக்க விரும்புகிறீர்களா?'));
     if (!ok) return;
     try {
-      const res = await fetch(`http://localhost:4000/api/tax-registrations/${row.id}`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/tax-registrations/${row.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -794,7 +794,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
     const year = new Date().getFullYear();
     (async () => {
       try {
-        const res = await fetch(`http://localhost:4000/api/tax-settings/year/${year}`, {
+        const res = await fetch(`https://templeapi.agniplay.com/api/tax-settings/year/${year}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -815,7 +815,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
     try {
       // Get current year's tax amount
       const currentYear = new Date().getFullYear();
-      const taxSettingsRes = await fetch(`http://localhost:4000/api/tax-settings/year/${currentYear}`, {
+      const taxSettingsRes = await fetch(`https://templeapi.agniplay.com/api/tax-settings/year/${currentYear}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const taxSettings = await taxSettingsRes.json();
@@ -824,7 +824,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
       // Always fetch all tax registrations matching search (no tab filter; we will filter client-side)
       const taxParams = new URLSearchParams({ page: '1', pageSize: '1000' });
       if (search) taxParams.set('search', search);
-      const taxRes = await fetch(`http://localhost:4000/api/tax-registrations?${taxParams.toString()}`, {
+      const taxRes = await fetch(`https://templeapi.agniplay.com/api/tax-registrations?${taxParams.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const taxData = await taxRes.json();
@@ -876,7 +876,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
       // Fetch base registrations to include users without a tax registration yet
       const regParams = new URLSearchParams({ page: '1', pageSize: '1000' });
       if (search) regParams.set('search', search);
-      const regRes = await fetch(`http://localhost:4000/api/registrations?${regParams.toString()}`, {
+      const regRes = await fetch(`https://templeapi.agniplay.com/api/registrations?${regParams.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const regData = await regRes.json();
@@ -1065,7 +1065,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
 
   const handleDownloadPdf = async (id: number) => {
     try {
-      const res = await fetch(`http://localhost:4000/api/tax-registrations/${id}/pdf`, {
+      const res = await fetch(`https://templeapi.agniplay.com/api/tax-registrations/${id}/pdf`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
@@ -1088,7 +1088,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
       if (statusTab === 'paid') params.set('paid', '1');
 
       const res = await fetch(
-        `http://localhost:4000/api/tax-registrations/export/pdf?${params.toString()}`,
+        `https://templeapi.agniplay.com/api/tax-registrations/export/pdf?${params.toString()}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -1129,17 +1129,17 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
       <Card className="mb-3">
         <CardContent className="p-2">
           <div className="grid grid-cols-3 gap-2 text-center">
-            <div className={cn(theme.input.base, theme.input.size.md, "w-full border border-gray-300 rounded focus:ring-1 focus:ring-orange-500 focus:border-orange-500")}>
-              <div className="text-[11px] text-blue-700 font-medium">{t('Total Users', 'மொத்த பயனர்கள்')}</div>
-              <div className="text-lg font-bold text-blue-900">{totalUsers}</div>
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 shadow-sm">
+              <div className="text-[10px] text-orange-600 font-bold uppercase tracking-widest mb-1">{t('Total Users', 'மொத்த பயனர்கள்')}</div>
+              <div className="text-2xl font-black text-orange-900">{totalUsers}</div>
             </div>
-            <div className="bg-green-50 border border-green-200 rounded p-2">
-              <div className="text-[11px] text-green-700 font-medium">{t('Paid', 'செலுத்தப்பட்டது')}</div>
-              <div className="text-lg font-bold text-green-900">{paidCount}</div>
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 shadow-sm">
+              <div className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest mb-1">{t('Paid', 'செலுத்தப்பட்டது')}</div>
+              <div className="text-2xl font-black text-emerald-900">{paidCount}</div>
             </div>
-            <div className="bg-yellow-50 border border-yellow-200 rounded p-2">
-              <div className="text-[11px] text-yellow-700 font-medium">{t('Pending', 'நிலுவை')}</div>
-              <div className="text-lg font-bold text-yellow-900">{pendingCount}</div>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 shadow-sm">
+              <div className="text-[10px] text-amber-600 font-bold uppercase tracking-widest mb-1">{t('Pending', 'நிலுவை')}</div>
+              <div className="text-2xl font-black text-amber-900">{pendingCount}</div>
             </div>
           </div>
         </CardContent>

@@ -7,7 +7,7 @@
 const axios = require('axios');
 
 // Configuration
-const API_BASE = process.env.API_BASE || 'http://localhost:4000';
+const API_BASE = process.env.API_BASE || 'https://templeapi.agniplay.com';
 const TEST_USER = {
   username: 'test_admin',
   password: 'test123'
@@ -386,14 +386,14 @@ Usage: node test-assets-api.js [options]
 
 Options:
   --help          Show this help message
-  --base=<url>    Set API base URL (default: http://localhost:4000)
+  --base=<url>    Set API base URL (default: https://templeapi.agniplay.com)
 
 Environment Variables:
   API_BASE        API base URL
 
 Example:
-  node test-assets-api.js --base=http://localhost:4000
-  API_BASE=http://localhost:4000 node test-assets-api.js
+  node test-assets-api.js --base=https://templeapi.agniplay.com
+  API_BASE=https://templeapi.agniplay.com node test-assets-api.js
 `);
   process.exit(0);
 }

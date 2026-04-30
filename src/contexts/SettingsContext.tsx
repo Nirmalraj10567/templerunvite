@@ -41,7 +41,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const API_BASE = (import.meta as any)?.env?.VITE_API_BASE_URL || 'http://localhost:4000';
+  const API_BASE = (import.meta as any)?.env?.VITE_API_BASE_URL || 'https://templeapi.agniplay.com';
 
   const refresh = useMemo(() => {
     return async () => {

@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { getAuthToken } from '@/lib/auth';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://templeapi.agniplay.com';
 
 const api = axios.create({ baseURL: API_BASE_URL });
 
@@ -49,7 +49,10 @@ export interface DaybookStats {
   income_count: number;
   expense_count: number;
   journal_count: number;
+  opening_balance: number;
+  period_net: number;
   current_balance: number;
+  closing_balance: number;
   period: {
     from?: string;
     to?: string;
@@ -88,17 +91,17 @@ export const daybookService = {
   }): Promise<PaginatedResponse<DaybookEntry>> {
     const response = await api.get('/api/daybook', { params });
     // API returns { success, data, total, page, pageSize }
-    return response.data;
+    return response.data as PaginatedResponse<DaybookEntry>;
   },
 
   async getEntry(id: number): Promise<{ success: boolean; data: DaybookEntry }> {
     const response = await api.get(`/api/daybook/${id}`);
-    return response.data;
+    return response.data as { success: boolean; data: DaybookEntry };
   },
 
   async createEntry(data: DaybookFormData): Promise<{ success: boolean; data: DaybookEntry }> {
     const response = await api.post('/api/daybook', data);
-    return response.data;
+    return response.data as { success: boolean; data: DaybookEntry };
   },
 
   async updateEntry(
@@ -106,17 +109,17 @@ export const daybookService = {
     data: Partial<DaybookFormData>
   ): Promise<{ success: boolean; data: DaybookEntry }> {
     const response = await api.put(`/api/daybook/${id}`, data);
-    return response.data;
+    return response.data as { success: boolean; data: DaybookEntry };
   },
 
   async deleteEntry(id: number): Promise<{ success: boolean; message: string }> {
     const response = await api.delete(`/api/daybook/${id}`);
-    return response.data;
+    return response.data as { success: boolean; message: string };
   },
 
   async getNextReceiptNumber(): Promise<{ success: boolean; receipt_number: string }> {
     const response = await api.get('/api/daybook/next-receipt');
-    return response.data;
+    return response.data as { success: boolean; receipt_number: string };
   },
 
   async getLogs(params?: {
@@ -124,12 +127,12 @@ export const daybookService = {
     pageSize?: number;
   }): Promise<PaginatedResponse<DaybookLog>> {
     const response = await api.get('/api/daybook/logs', { params });
-    return response.data;
+    return response.data as PaginatedResponse<DaybookLog>;
   },
 
   async getEntryLogs(id: number): Promise<PaginatedResponse<DaybookLog>> {
     const response = await api.get(`/api/daybook/${id}/logs`);
-    return response.data;
+    return response.data as PaginatedResponse<DaybookLog>;
   },
 
   async getStats(params?: {
@@ -137,7 +140,7 @@ export const daybookService = {
     to?: string;
   }): Promise<{ success: boolean; data: DaybookStats }> {
     const response = await api.get('/api/daybook/stats/summary', { params });
-    return response.data;
+    return response.data as { success: boolean; data: DaybookStats };
   },
 
   async exportCSV(params?: {
@@ -151,7 +154,7 @@ export const daybookService = {
     });
     
     // Create a download link
-    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const url = window.URL.createObjectURL(new Blob([response.data as any]));
     const link = document.createElement('a');
     link.href = url;
     const dateStr = new Date().toISOString().split('T')[0];

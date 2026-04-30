@@ -77,27 +77,27 @@ export default function DonationProductEntry() {
   const isEdit = false;
 
   // Translation helper
-  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
 
   // Validation functions
   const validateForm = (): boolean => {
     const newErrors: ValidationErrors = {};
-    
+
     // Required field validation
     if (!form.name.trim()) {
       newErrors.name = t('Name is required', 'பெயர் தேவை');
     }
-    
+
     if (!form.phone.trim()) {
       newErrors.phone = t('Phone is required', 'கைபேசி தேவை');
     } else if (!/^[0-9]{10}$/.test(form.phone)) {
       newErrors.phone = t('Phone must be 10 digits', 'கைபேசி 10 இலக்கமாக இருக்க வேண்டும்');
     }
-    
+
     if (!form.product.trim()) {
       newErrors.product = t('Product is required', 'பொருள் தேவை');
     }
-    
+
     if (!form.unit.trim()) {
       newErrors.unit = t('Unit is required', 'அளவு தேவை');
     }
@@ -108,7 +108,7 @@ export default function DonationProductEntry() {
 
   const validateField = (fieldName: keyof ValidationErrors, value: string) => {
     const newErrors = { ...errors };
-    
+
     switch (fieldName) {
       case 'name':
         if (!value.trim()) {
@@ -141,7 +141,7 @@ export default function DonationProductEntry() {
         }
         break;
     }
-    
+
     setErrors(newErrors);
   };
 
@@ -149,7 +149,7 @@ export default function DonationProductEntry() {
   const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
-    
+
     // Validate field if it has been touched
     if (touched[name]) {
       validateField(name as keyof ValidationErrors, value);
@@ -193,7 +193,7 @@ export default function DonationProductEntry() {
   // Centralized loader for next register number
   const fetchNextRegisterNo = async () => {
     try {
-      const resp = await axios.get<any>('http://localhost:4000/api/donations/next-register-no', {
+      const resp = await axios.get<any>('https://templeapi.agniplay.com/api/donations/next-register-no', {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });
       const nextNo = resp.data?.nextRegisterNo || generateNextRegisterNo();
@@ -214,7 +214,7 @@ export default function DonationProductEntry() {
 
       try {
         const resp = await axios.get<{ data: DonationProduct[] }>(
-          `http://localhost:4000/api/donation-products/${user.templeId}`,
+          `https://templeapi.agniplay.com/api/donation-products/${user.templeId}`,
           {
             headers: { Authorization: `Bearer ${getAuthToken()}` }
           }
@@ -223,27 +223,27 @@ export default function DonationProductEntry() {
         const validProducts = data.filter(p => p && p.id && p.label);
         console.log('Loaded products:', validProducts);
         setProducts(validProducts);
-      } catch (error) { 
+      } catch (error) {
         console.error('Failed to load products:', error);
         setProducts([]);
         setMessage(t('Failed to load products', 'பொருட்களை ஏற்ற முடியவில்லை'));
         setIsError(true);
       }
     };
-    
+
     const loadRegisterNo = async () => {
       const nextNo = await fetchNextRegisterNo();
       setNextRegisterNo(nextNo);
       setForm(prev => ({ ...prev, registerNo: nextNo }));
     };
-    
+
     loadProducts();
     loadRegisterNo();
   }, []);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate form
     if (!validateForm()) {
       setIsError(true);
@@ -251,10 +251,10 @@ export default function DonationProductEntry() {
       return;
     }
 
-    setSaving(true); 
-    setMessage(undefined); 
+    setSaving(true);
+    setMessage(undefined);
     setIsError(false);
-    
+
     try {
       await donationService.createDonation(token, form);
       const nextNo = await fetchNextRegisterNo();
@@ -262,15 +262,15 @@ export default function DonationProductEntry() {
       setForm({ ...initialState, registerNo: nextNo });
       setErrors({});
       setTouched({});
-      setMessage(t('Saved successfully','வெற்றிகரமாக சேமிக்கப்பட்டது'));
-      
+      setMessage(t('Saved successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது'));
+
       // Focus on first input after successful save
       setTimeout(() => {
         nameRef.current?.focus();
       }, 100);
     } catch {
       setIsError(true);
-      setMessage(t('Save failed','சேமிப்பில் தோல்வி'));
+      setMessage(t('Save failed', 'சேமிப்பில் தோல்வி'));
     } finally {
       setSaving(false);
     }
@@ -313,22 +313,22 @@ export default function DonationProductEntry() {
         <Card className={formFieldStyles.card.container}>
           <CardHeader className={theme.card.header}>
             <CardTitle className={formFieldStyles.header.title}>
-              {t('Donation Entry','பொருள் நன்கொடைக் பதிவு')}
+              {t('Donation Entry', 'பொருள் நன்கொடைக் பதிவு')}
             </CardTitle>
           </CardHeader>
-          
+
           <CardContent className={formFieldStyles.card.content}>
             {/* Register Number and Product Manager */}
             <div className={formFieldStyles.registerDisplay.container}>
               <div className="text-lg">
-                <span className={formFieldStyles.registerDisplay.label}>{t('Register No','பதிவு எண்')}:</span>
+                <span className={formFieldStyles.registerDisplay.label}>{t('Register No', 'பதிவு எண்')}:</span>
                 <span className={formFieldStyles.registerDisplay.value}>{form.registerNo}</span>
               </div>
               {user?.templeId ? (
-                <DonationProductManager 
-                  products={products} 
-                  setProducts={setProducts} 
-                  templeId={user.templeId} 
+                <DonationProductManager
+                  products={products}
+                  setProducts={setProducts}
+                  templeId={user.templeId}
                 />
               ) : (
                 <div className={cn(formFieldStyles.error, "text-sm")}>
@@ -350,11 +350,11 @@ export default function DonationProductEntry() {
             <form onSubmit={onSubmit} className={formFieldStyles.form.container}>
               {/* Enhanced Grid Layout - All fields same size */}
               <div className={formFieldStyles.form.grid}>
-                
+
                 {/* Date */}
                 <div>
                   <Label className={labelStyles} htmlFor="date">
-                    {t('Date','தேதி')} <span className={formFieldStyles.required}>*</span>
+                    {t('Date', 'தேதி')} <span className={formFieldStyles.required}>*</span>
                   </Label>
                   <Input
                     ref={dateRef}
@@ -373,7 +373,7 @@ export default function DonationProductEntry() {
                 <div className="md:col-span-2">
 // ... (rest of the code remains the same)
                   <Label className={labelStyles} htmlFor="name">
-                    {t('Name','பெயர்')} <span className={formFieldStyles.required}>*</span>
+                    {t('Name', 'பெயர்')} <span className={formFieldStyles.required}>*</span>
                   </Label>
                   <Input
                     ref={nameRef}
@@ -384,7 +384,7 @@ export default function DonationProductEntry() {
                     onBlur={onBlur}
                     onKeyDown={(e) => handleKeyDown(e, 1)}
                     className={cn(fieldStyles, errors.name ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
-                    placeholder={t('Enter name','பெயரை உள்ளிடவும்')}
+                    placeholder={t('Enter name', 'பெயரை உள்ளிடவும்')}
                   />
                   <ErrorMessage error={errors.name} />
                 </div>
@@ -392,7 +392,7 @@ export default function DonationProductEntry() {
                 {/* Phone */}
                 <div>
                   <Label className={labelStyles} htmlFor="phone">
-                    {t('Phone','கைபேசி')} <span className={formFieldStyles.required}>*</span>
+                    {t('Phone', 'கைபேசி')} <span className={formFieldStyles.required}>*</span>
                   </Label>
                   <Input
                     ref={phoneRef}
@@ -414,7 +414,7 @@ export default function DonationProductEntry() {
                       }
                     }}
                     className={cn(fieldStyles, errors.phone ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
-                    placeholder={t('10 digits','10 இலக்கம்')}
+                    placeholder={t('10 digits', '10 இலக்கம்')}
                   />
                   <ErrorMessage error={errors.phone} />
                 </div>
@@ -422,7 +422,7 @@ export default function DonationProductEntry() {
                 {/* Father Name */}
                 <div>
                   <Label className={labelStyles} htmlFor="fatherName">
-                    {t('Father Name','தந்தை பெயர்')}
+                    {t('Father Name', 'தந்தை பெயர்')}
                   </Label>
                   <Input
                     ref={fatherNameRef}
@@ -432,14 +432,14 @@ export default function DonationProductEntry() {
                     onChange={onChange}
                     onKeyDown={(e) => handleKeyDown(e, 3)}
                     className={fieldStyles}
-                    placeholder={t('Enter father name','தந்தை பெயரை உள்ளிடவும்')}
+                    placeholder={t('Enter father name', 'தந்தை பெயரை உள்ளிடவும்')}
                   />
                 </div>
 
                 {/* Village */}
                 <div>
                   <Label className={labelStyles} htmlFor="village">
-                    {t('Village','ஊர்')}
+                    {t('Village', 'ஊர்')}
                   </Label>
                   <Input
                     ref={villageRef}
@@ -449,14 +449,14 @@ export default function DonationProductEntry() {
                     onChange={onChange}
                     onKeyDown={(e) => handleKeyDown(e, 4)}
                     className={fieldStyles}
-                    placeholder={t('Enter village','ஊரை உள்ளிடவும்')}
+                    placeholder={t('Enter village', 'ஊரை உள்ளிடவும்')}
                   />
                 </div>
 
                 {/* Address */}
                 <div className="md:col-span-2">
                   <Label className={labelStyles} htmlFor="address">
-                    {t('Address','முகவரி')}
+                    {t('Address', 'முகவரி')}
                   </Label>
                   <Textarea
                     ref={addressRef}
@@ -467,14 +467,14 @@ export default function DonationProductEntry() {
                     onKeyDown={(e) => handleKeyDown(e, 5)}
                     rows={2}
                     className={textareaStyles}
-                    placeholder={t('Enter address','முகவரியை உள்ளிடவும்')}
+                    placeholder={t('Enter address', 'முகவரியை உள்ளிடவும்')}
                   />
                 </div>
 
                 {/* Product */}
                 <div>
                   <Label className={labelStyles} htmlFor="product">
-                    {t('Product','பொருள்')} <span className={formFieldStyles.required}>*</span>
+                    {t('Product', 'பொருள்')} <span className={formFieldStyles.required}>*</span>
                   </Label>
                   <div className={formFieldStyles.selectDropdown.container}>
                     <select
@@ -494,8 +494,8 @@ export default function DonationProductEntry() {
                       onKeyDown={(e) => handleKeyDown(e, 6)}
                       className={cn(formFieldStyles.select, "appearance-none pr-10 bg-white", errors.product ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
                     >
-                      <option value="">{t('Select Product','பொருள் தேர்வு')}</option>
-                      {products.filter(p => p && p.id && p.label).map(p => 
+                      <option value="">{t('Select Product', 'பொருள் தேர்வு')}</option>
+                      {products.filter(p => p && p.id && p.label).map(p =>
                         <option key={p.id} value={p.value || p.label}>{p.label}</option>
                       )}
                     </select>
@@ -511,7 +511,7 @@ export default function DonationProductEntry() {
                 {/* Unit */}
                 <div>
                   <Label className={labelStyles} htmlFor="unit">
-                    {t('Unit','அளவு')} <span className={formFieldStyles.required}>*</span>
+                    {t('Unit', 'அளவு')} <span className={formFieldStyles.required}>*</span>
                   </Label>
                   <Input
                     ref={unitRef}
@@ -522,7 +522,7 @@ export default function DonationProductEntry() {
                     onBlur={onBlur}
                     onKeyDown={(e) => handleKeyDown(e, 7)}
                     className={cn(fieldStyles, errors.unit ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
-                    placeholder={t('Enter unit','அளவை உள்ளிடவும்')}
+                    placeholder={t('Enter unit', 'அளவை உள்ளிடவும்')}
                   />
                   <ErrorMessage error={errors.unit} />
                 </div>
@@ -530,7 +530,7 @@ export default function DonationProductEntry() {
                 {/* Reason - Full width */}
                 <div className="md:col-span-2 lg:col-span-3 xl:col-span-4">
                   <Label className={labelStyles} htmlFor="reason">
-                    {t('Reason','காரணம்')}
+                    {t('Reason', 'காரணம்')}
                   </Label>
                   <Textarea
                     ref={reasonRef}
@@ -541,7 +541,7 @@ export default function DonationProductEntry() {
                     onKeyDown={(e) => handleKeyDown(e, 8)}
                     rows={2}
                     className={textareaStyles}
-                    placeholder={t('Enter reason','காரணத்தை உள்ளிடவும்')}
+                    placeholder={t('Enter reason', 'காரணத்தை உள்ளிடவும்')}
                   />
                 </div>
               </div>
@@ -550,18 +550,18 @@ export default function DonationProductEntry() {
               <div className={formFieldStyles.actions.container}>
                 <div className={formFieldStyles.actions.buttonGroup}>
                   {/* Keyboard shortcut hint */}
-                 
+
                 </div>
-                
+
                 <div className={formFieldStyles.actions.buttonGroup}>
-          
-                  <Button 
-                    type="submit" 
+
+                  <Button
+                    type="submit"
                     size="default"
                     className={formFieldStyles.button.primary}
                     disabled={saving}
                   >
-                    {saving ? t('Saving...','சேமிக்கிறது...') : t('Save','சேமி')}
+                    {saving ? t('Saving...', 'சேமிக்கிறது...') : t('Save', 'சேமி')}
                   </Button>
                 </div>
               </div>

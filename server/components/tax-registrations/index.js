@@ -434,29 +434,56 @@ router.post('/', authenticateToken, authorizePermission('tax_registrations', 'ed
       details: insertedRow || { ...insertPayload, id: registrationId },
     });
 
-    // Mirror to journal: INCOME A/C -> selected account (or CASH A/C)
+    // Mirror to journal and daybook
     try {
       const hasJournal = await db.schema.hasTable('journal_entries');
       if (hasJournal && amountPaid > 0) {
         const fromAccount = insertPayload.from_account || 'TAX A/C';
         const toAccount = insertPayload.transfer_to_account || 'INCOME A/C';
+        const remarks = `TAX ${year} - ${insertPayload.name}`;
+        
         await db('journal_entries').insert({
           date: insertPayload.date,
           from_account: fromAccount,
           to_account: toAccount,
           amount: amountPaid,
+          total_amount: amountPaid,
           entry_type: 'transfer',
-          remarks: `TAX ${year} - ${insertPayload.name}`,
+          description: `Tax: ${insertPayload.name} (${year})`,
+          remarks: remarks,
           reference_type: 'tax_registration',
           reference_id: registrationId,
-          reference_number: insertPayload.reference_number || null,
+          // Use TAX- prefix to avoid unique constraint collision with other modules (like Pooja)
+          reference_number: insertPayload.reference_number ? `TAX-${insertPayload.reference_number}` : null,
           temple_id: effectiveTempleId,
           created_by: req.user.id,
           created_at: db.fn.now(),
         });
       }
+
+      // Mirror to daybook
+      const hasDaybook = await db.schema.hasTable('daybook_entries');
+      if (hasDaybook && amountPaid > 0) {
+        await db('daybook_entries').insert({
+          temple_id: effectiveTempleId,
+          entry_date: insertPayload.date,
+          entry_type: 'income',
+          description: `Tax Payment - ${insertPayload.name} (${year})`,
+          reference_type: 'tax_registration',
+          reference_id: registrationId,
+          receipt_number: insertPayload.reference_number,
+          amount: amountPaid,
+          payment_mode: 'Cash',
+          party_name: insertPayload.name,
+          party_mobile: insertPayload.mobile_number,
+          notes: `TAX ${year}`,
+          created_by: req.user.id,
+          created_at: db.fn.now(),
+          updated_at: db.fn.now(),
+        });
+      }
     } catch (e) {
-      console.warn('Failed to mirror tax registration into journal:', e);
+      console.warn('Failed to mirror tax registration into financial records:', e.message);
     }
 
     res.json({ success: true, id: registrationId, message: 'Tax registration submitted successfully' });
@@ -672,40 +699,39 @@ router.put('/:id', authenticateToken, authorizePermission('tax_registrations', '
       details: { before: beforeRow || null, after: row || null },
     });
 
-    // Mirror to journal_entries
+    // Mirror to journal and daybook
     try {
       const hasJournal = await db.schema.hasTable('journal_entries');
+      const amountPaidNow = Number(row?.amount_paid || 0);
+      const dateNow = row?.date || new Date().toISOString().slice(0,10);
+      const fromAccount = row?.from_account || 'TAX A/C';
+      const toAccount = row?.transfer_to_account || 'INCOME A/C';
+      const remarks = `TAX ${row?.year || ''} - ${row?.name || ''}`.trim();
+
       if (hasJournal) {
         const existingJE = await db('journal_entries')
           .where({ reference_type: 'tax_registration', reference_id: numericId, temple_id: templeId })
           .first();
 
-        const amountPaidNow = Number(row?.amount_paid || 0);
-        const dateNow = row?.date || new Date().toISOString().slice(0,10);
-        const fromAccount = row?.from_account || 'TAX A/C';
-        const toAccount = row?.transfer_to_account || 'INCOME A/C';
-        const remarks = `TAX ${row?.year || ''} - ${row?.name || ''}`.trim();
-
         if (amountPaidNow > 0) {
+          const jeData = {
+            date: dateNow,
+            from_account: fromAccount,
+            to_account: toAccount,
+            amount: amountPaidNow,
+            total_amount: amountPaidNow,
+            description: remarks,
+            remarks,
+            // Prefix to avoid collision
+            reference_number: row.reference_number ? `TAX-${row.reference_number}` : null,
+          };
+
           if (existingJE) {
-            await db('journal_entries')
-              .where({ id: existingJE.id })
-              .update({
-                date: dateNow,
-                from_account: fromAccount,
-                to_account: toAccount,
-                amount: amountPaidNow,
-                remarks,
-                updated_at: db.fn.now(),
-              });
+            await db('journal_entries').where({ id: existingJE.id }).update({ ...jeData, updated_at: db.fn.now() });
           } else {
             await db('journal_entries').insert({
-              date: dateNow,
-              from_account: fromAccount,
-              to_account: toAccount,
-              amount: amountPaidNow,
+              ...jeData,
               entry_type: 'transfer',
-              remarks,
               reference_type: 'tax_registration',
               reference_id: numericId,
               temple_id: templeId,
@@ -714,12 +740,51 @@ router.put('/:id', authenticateToken, authorizePermission('tax_registrations', '
             });
           }
         } else if (existingJE) {
-          // If paid is now 0, remove the journal entry
           await db('journal_entries').where({ id: existingJE.id }).del();
         }
       }
+
+      // Sync to daybook
+      const hasDaybook = await db.schema.hasTable('daybook_entries');
+      if (hasDaybook) {
+        if (amountPaidNow > 0) {
+          const dbData = {
+            entry_date: dateNow,
+            entry_type: 'income',
+            description: `Tax Payment (Updated) - ${row.name} (${row.year})`,
+            amount: amountPaidNow,
+            party_name: row.name,
+            party_mobile: row.mobile_number,
+            receipt_number: row.reference_number,
+            notes: `TAX ${row.year}`,
+            updated_at: db.fn.now(),
+          };
+
+          const existingDB = await db('daybook_entries')
+            .where({ reference_type: 'tax_registration', reference_id: numericId, temple_id: templeId })
+            .first();
+
+          if (existingDB) {
+            await db('daybook_entries').where({ id: existingDB.id }).update(dbData);
+          } else {
+            await db('daybook_entries').insert({
+              ...dbData,
+              temple_id: templeId,
+              reference_type: 'tax_registration',
+              reference_id: numericId,
+              payment_mode: 'Cash',
+              created_by: req.user.id,
+              created_at: db.fn.now(),
+            });
+          }
+        } else {
+          await db('daybook_entries')
+            .where({ reference_type: 'tax_registration', reference_id: numericId, temple_id: templeId })
+            .del();
+        }
+      }
     } catch (e) {
-      console.warn('Failed to mirror update into journal:', e.message);
+      console.warn('Failed to mirror update into financial records:', e.message);
     }
 
     res.json({ success: true, data: row });

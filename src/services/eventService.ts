@@ -2,7 +2,7 @@ import { Event, EventImage } from '@/types/event';
 import { toast } from '@/components/ui/use-toast';
 
 class EventService {
-  private apiUrl = 'http://localhost:4000/api/events';
+  private apiUrl = 'https://templeapi.agniplay.com/api/events';
   private get apiOrigin() {
     try {
       return new URL(this.apiUrl).origin;
@@ -179,7 +179,7 @@ class EventService {
     }
   }
 
-  async updateEvent(id: string, eventData: Event): Promise<Event> {
+  async updateEvent(id: string, eventData: Event, deletedImageIds: number[] = []): Promise<Event> {
     try {
       const formData = new FormData();
       
@@ -189,6 +189,11 @@ class EventService {
       formData.append('date', eventData.date);
       formData.append('time', eventData.time);
       formData.append('location', eventData.location);
+
+      // Append deleted image IDs
+      deletedImageIds.forEach(imgId => {
+        formData.append('deletedImageIds', String(imgId));
+      });
 
       // Separate existing vs new images
       const existingImages = eventData.images.filter(img => !img.file && typeof img.id === 'number');

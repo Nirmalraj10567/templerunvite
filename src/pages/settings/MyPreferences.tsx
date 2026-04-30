@@ -49,7 +49,14 @@ const MyPreferences: React.FC = () => {
       quickActionsReady: 'Quick Actions Ready!',
       actionsWillAppear: 'will appear on your dashboard',
       action: 'action',
-      actions: 'actions'
+      actions: 'actions',
+      preferencesSaved: 'Preferences Saved!',
+      preferencesUpdated: 'Your preferences have been updated successfully.',
+      keyboardShortcuts: 'Keyboard Shortcuts',
+      shortcutsDesc: 'Click in a field, then press the desired key combination. Use Ctrl/Shift/Alt/Meta + key. Duplicates will be assigned.',
+      clearShortcut: 'Clear Shortcut',
+      pressKeys: 'Press keys...',
+      ok: 'OK'
     },
   } as const;
 
@@ -105,19 +112,28 @@ const MyPreferences: React.FC = () => {
       if ((item as any).to) {
         const it = item as any;
         if (hasPerm(it.permissionId, it.accessLevel)) {
-          out.push({ to: it.to, label: it.label, Icon: groupIcon });
+          out.push({ 
+            to: it.to, 
+            label: language === 'english' ? it.tamilLabel || it.label : it.label, 
+            Icon: groupIcon 
+          });
         }
       } else if ((item as any).children) {
         const group = item as any;
         for (const child of group.children) {
           if (hasPerm(child.permissionId, child.accessLevel)) {
-            out.push({ to: child.to, label: child.label, section: group.label, Icon: groupIcon });
+            out.push({ 
+              to: child.to, 
+              label: language === 'english' ? child.tamilLabel || child.label : child.label, 
+              section: language === 'english' ? group.tamilLabel || group.label : group.label, 
+              Icon: groupIcon 
+            });
           }
         }
       }
     }
     return out;
-  }, [userPermissions, isSuperAdmin]);
+  }, [userPermissions, isSuperAdmin, language]);
 
   const toggleAction = (to: string) => {
     setSelectedActions((prev) => (prev.includes(to) ? prev.filter((k) => k !== to) : [...prev, to]));
@@ -173,13 +189,13 @@ const MyPreferences: React.FC = () => {
       <Modal open={showSuccess} onClose={() => setShowSuccess(false)}>
         <div className="p-6 text-center">
           <div className="text-4xl mb-2">✅</div>
-          <h2 className="text-xl font-bold mb-2">Preferences Saved!</h2>
-          <p className="mb-4">Your preferences have been updated successfully.</p>
+          <h2 className="text-xl font-bold mb-2">{t[language].preferencesSaved}</h2>
+          <p className="mb-4">{t[language].preferencesUpdated}</p>
           <button
             className="px-6 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
             onClick={() => setShowSuccess(false)}
           >
-            OK
+            {t[language].ok}
           </button>
         </div>
       </Modal>
@@ -359,42 +375,75 @@ const MyPreferences: React.FC = () => {
 
             {/* Shortcuts Config */}
             <div className="rounded-2xl border border-slate-200 bg-white/80 backdrop-blur-sm shadow-lg p-6 mt-6">
-              <div className="mb-4">
-                <h3 className="text-2xl font-bold text-slate-900 mb-1 flex items-center gap-2">
+              <div className="mb-6">
+                <h3 className="text-2xl font-bold text-slate-900 mb-2 flex items-center gap-2">
                   <CalendarIcon className="w-6 h-6 text-indigo-600" />
-                  Keyboard Shortcuts
+                  {t[language].keyboardShortcuts}
                 </h3>
-                <p className="text-slate-600 text-sm">Click in a field, then press the desired key combination. Use Ctrl/Shift/Alt/Meta + key. Duplicates will be reassigned.</p>
+                <p className="text-slate-600 text-sm">{t[language].shortcutsDesc}</p>
               </div>
 
-              <div className="max-h-96 overflow-y-auto divide-y">
+              <div className="max-h-96 overflow-y-auto pr-2 custom-scrollbar divide-y divide-slate-100">
+                <style>{`
+                  .custom-scrollbar::-webkit-scrollbar {
+                    width: 6px;
+                  }
+                  .custom-scrollbar::-webkit-scrollbar-track {
+                    background: transparent;
+                  }
+                  .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: #cbd5e1;
+                    border-radius: 10px;
+                  }
+                  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: #94a3b8;
+                  }
+                `}</style>
                 {availableLeaves.map((action) => (
-                  <div key={`sc-${action.to}`} className="flex items-center gap-4 py-3">
-                    <div className="w-6 h-6 flex items-center justify-center">
-                      <action.Icon className="w-5 h-5 text-slate-600" />
+                  <div key={`sc-${action.to}`} className="flex items-center gap-4 py-4 px-2 hover:bg-slate-50/50 transition-colors rounded-xl group/row">
+                    <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center group-hover/row:bg-white group-hover/row:shadow-sm transition-all">
+                      <action.Icon className="w-5 h-5 text-slate-600 group-hover/row:text-indigo-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-slate-900 truncate">{action.label}</div>
-                      {action.section && <div className="text-xs text-slate-500">{action.section}</div>}
+                      <div className="font-semibold text-slate-900 truncate">{action.label}</div>
+                      {action.section && <div className="text-xs text-slate-500 font-medium">{action.section}</div>}
                     </div>
                     <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        readOnly
-                        value={shortcutMap[action.to] || ''}
-                        placeholder={capturingFor === action.to ? 'Press keys…' : t[language].clickToSelect}
-                        onFocus={() => setCapturingFor(action.to)}
-                        onBlur={() => setCapturingFor((prev) => (prev === action.to ? null : prev))}
-                        onKeyDown={onShortcutKeyDown(action.to)}
-                        className={cn(theme.input.base, theme.input.size.md, "w-48")}
-                      />
+                      <div className="relative">
+                        <input
+                          type="text"
+                          readOnly
+                          value={shortcutMap[action.to] || ''}
+                          placeholder={capturingFor === action.to ? t[language].pressKeys : t[language].clickToSelect}
+                          onFocus={() => setCapturingFor(action.to)}
+                          onBlur={() => setCapturingFor((prev) => (prev === action.to ? null : prev))}
+                          onKeyDown={onShortcutKeyDown(action.to)}
+                          className={cn(
+                            theme.input.base, 
+                            theme.input.size.md, 
+                            theme.input.withoutIcon,
+                            "w-48 transition-all duration-300",
+                            capturingFor === action.to ? "ring-4 ring-indigo-100 border-indigo-400 bg-indigo-50/30" : "bg-white",
+                            shortcutMap[action.to] ? "font-bold text-indigo-700" : "italic text-slate-400"
+                          )}
+                        />
+                        {capturingFor === action.to && (
+                          <div className="absolute -top-1 -right-1 flex h-3 w-3">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-indigo-500"></span>
+                          </div>
+                        )}
+                      </div>
                       {!!shortcutMap[action.to] && (
                         <button
                           type="button"
                           onClick={() => clearShortcut(action.to)}
-                          className="px-3 py-2 text-xs rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50"
+                          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                          title={t[language].clearShortcut}
                         >
-                          Clear
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
                         </button>
                       )}
                     </div>

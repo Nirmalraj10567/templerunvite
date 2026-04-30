@@ -265,7 +265,7 @@ The language switches based on user preference stored in localStorage.
 
 ### Backend Endpoint
 ```
-Base URL: http://localhost:4000/api/daybook
+Base URL: https://templeapi.agniplay.com/api/daybook
 ```
 
 Or use environment variable:

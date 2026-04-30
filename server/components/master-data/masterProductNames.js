@@ -26,6 +26,9 @@ module.exports = function({ db, retryOnBusy }) {
   router.post('/', async (req, res) => {
     // Auto-sync table
     await ensureTable(db);
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
     const { name, description, category } = req.body;
     const templeId = req.user.templeId;
 
@@ -106,7 +109,9 @@ module.exports = function({ db, retryOnBusy }) {
   router.put('/:id', async (req, res) => {
     // Auto-sync table
     await ensureTable(db);
-    
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
     const { id } = req.params;
     const { name, description, category } = req.body;
     const templeId = req.user.templeId;
@@ -158,7 +163,9 @@ module.exports = function({ db, retryOnBusy }) {
   router.delete('/:id', async (req, res) => {
     // Auto-sync table
     await ensureTable(db);
-    
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
     const { id } = req.params;
     const templeId = req.user.templeId;
 

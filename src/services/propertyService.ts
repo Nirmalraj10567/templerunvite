@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://templeapi.agniplay.com/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -29,6 +29,7 @@ export interface Asset {
   name: string;
   details: string;
   value: number;
+  quantity?: number;
   asset_source?: string;
   source_details?: string;
   donor_name?: string;
@@ -36,6 +37,9 @@ export interface Asset {
   status?: string;
   converted_at?: string;
   conversion_income_id?: number;
+  used_qty?: number;
+  for_sell_qty?: number;
+  convert_price?: number;
   created_by?: number;
   temple_id?: number;
   created_at?: string;
@@ -86,9 +90,20 @@ const propertyService = {
     return response.data;
   },
 
-  async convertToCash(id: string, convertValue: number): Promise<{ success: boolean }> {
+  async convertToCash(id: string, convertValue: number, usedQty: number = 0, forSellQty: number = 0, convertPrice: number = 0): Promise<{ success: boolean }> {
     const response = await api.post<{ success: boolean }>(`/assets/${id}/convert-to-cash`, {
       convertValue,
+      usedQty,
+      forSellQty,
+      convertPrice,
+    });
+    return response.data;
+  },
+
+  async updateAssetQty(id: string, usedQty: number, forSellQty: number): Promise<{ success: boolean }> {
+    const response = await api.put<{ success: boolean }>(`/assets/${id}/qty`, {
+      usedQty,
+      forSellQty,
     });
     return response.data;
   },

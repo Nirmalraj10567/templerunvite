@@ -15,7 +15,7 @@ export default function YearEndLockGuard({ children }: Props) {
       setLocked(false);
       return;
     }
-    fetch('http://localhost:4000/api/system/year-end-status', { headers: { Authorization: `Bearer ${token}` } })
+    fetch('https://templeapi.agniplay.com/api/system/year-end-status', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(d => { if (mounted) setLocked(!!d?.data?.locked); })
       .catch(() => { if (mounted) setLocked(false); });
@@ -23,7 +23,7 @@ export default function YearEndLockGuard({ children }: Props) {
   }, [token, isSuperAdmin]);
 
   if (isSuperAdmin) return <>{children}</>;
-  if (locked === null) return <div className="p-6 text-slate-600">Checking year-end status…</div>;
+  if (locked === null) return <>{children}</>;
   if (locked) {
     return (
       <div className="p-6">

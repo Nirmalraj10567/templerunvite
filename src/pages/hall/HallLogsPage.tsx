@@ -5,11 +5,11 @@ import HallLogView from "./HallLogView";
 import { cn, formFieldStyles } from "@/styles/formStyles";
 import { theme } from "@/styles/theme";
 
-interface HallLogsPageProps {}
+interface HallLogsPageProps { }
 
-export default function HallLogsPage({}: HallLogsPageProps) {
+export default function HallLogsPage({ }: HallLogsPageProps) {
   const { language } = useLanguage();
-  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
 
   return (
     <div className="container mx-auto py-6 px-4">

@@ -389,6 +389,32 @@ module.exports = function createRegistrationsRouter({ db, authenticateToken, aut
           })
           .returning('id');
 
+        // Mirror to journal for Trial Balance
+        try {
+          const hasJournal = await db.schema.hasTable('journal_entries');
+          const pAmount = parseFloat(paid_amount || 0);
+          if (hasJournal && pAmount > 0) {
+            await db('journal_entries').insert({
+              date: today,
+              from_account: 'REGISTRATION A/C',
+              to_account: 'INCOME A/C',
+              amount: pAmount,
+              total_amount: pAmount,
+              entry_type: 'transfer',
+              description: `Registration Payment: ${registration.name} (${receipt_no})`,
+              reference_number: receipt_no,
+              reference_type: 'user_registration',
+              reference_id: registration.id,
+              temple_id: effectiveTempleId,
+              created_by: req.user.id,
+              created_at: db.fn.now(),
+            });
+            console.log('Created journal entry for registration payment:', registration.id);
+          }
+        } catch (jeErr) {
+          console.error('Failed to mirror registration payment to journal:', jeErr.message);
+        }
+
         res.status(201).json({ success: true, ledgerId, receipt_no, status });
       } catch (err) {
         console.error('Error creating registration payment:', err);

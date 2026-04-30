@@ -93,7 +93,7 @@ async function createTestUser() {
     console.log(`  Role: ${TEST_USER.role}`);
     console.log(`  Temple ID: ${TEST_USER.temple_id}`);
     console.log('\nNext steps:');
-    console.log('1. Test login: curl -X POST http://localhost:4000/api/login -H "Content-Type: application/json" -d \'{\"username\":\"test_admin\",\"password\":\"test123\"}\'');
+    console.log('1. Test login: curl -X POST https://templeapi.agniplay.com/api/login -H "Content-Type: application/json" -d \'{\"username\":\"test_admin\",\"password\":\"test123\"}\'');
     console.log('2. Run tests: node test-assets-api.js');
     console.log('========================================');
 

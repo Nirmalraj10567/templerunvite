@@ -14,7 +14,22 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { X } from 'lucide-react';
+import {
+  X,
+  Calendar,
+  User,
+  Phone,
+  FileText,
+  IndianRupee,
+  Package,
+  MapPin,
+  Home,
+  Hash,
+  Search,
+  Loader2,
+  Save,
+  ChevronDown
+} from 'lucide-react';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
 import { theme } from '@/styles/theme';
 import axios from 'axios';
@@ -23,7 +38,7 @@ import { getAuthToken } from '@/lib/auth';
 // Money Donation Types
 const createMoneyDonationState = (): MoneyDonationFormData => ({
   registerNo: '',
-  date: new Date().toISOString().slice(0,10),
+  date: new Date().toISOString().slice(0, 10),
   name: '',
   fatherName: '',
   address: '',
@@ -82,7 +97,7 @@ export default function UnifiedDonationEntry() {
 
   // Common state
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string|undefined>();
+  const [message, setMessage] = useState<string | undefined>();
   const [isError, setIsError] = useState(false);
   const [lastCreatedId, setLastCreatedId] = useState<number | null>(null);
   const [showPrintPrompt, setShowPrintPrompt] = useState(false);
@@ -149,7 +164,7 @@ export default function UnifiedDonationEntry() {
     };
   }, []);
 
-  const t = (en: string, ta: string) => language === 'english' ? ta : en;
+  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);;
 
   // Helper function to show success messages in modal
   const showSuccessAlert = (message: string) => {
@@ -164,9 +179,9 @@ export default function UnifiedDonationEntry() {
   // Function to refresh journal after money donation operations
   const refreshJournal = async () => {
     try {
-      await fetch('http://localhost:4000/api/journal/sync-pooja', {
+      await fetch('https://templeapi.agniplay.com/api/journal/sync-pooja', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
@@ -186,19 +201,19 @@ export default function UnifiedDonationEntry() {
   const onProductChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setProductForm(prev => ({ ...prev, [name]: value }));
-    
+
     if (name === 'product') {
       const selectedProduct = products.find(p => p && (p.value === value || p.label === value));
       setProductForm(prev => ({ ...prev, unit: selectedProduct?.unit || '' }));
     }
-    
+
     if (name === 'unit') {
       // Update available units if user enters a new unit
       if (value && !availableUnits.includes(value)) {
         setAvailableUnits(prev => [...prev, value].sort());
       }
     }
-    
+
     if (touched[name]) {
       validateField(name as keyof ValidationErrors, value);
     }
@@ -213,7 +228,7 @@ export default function UnifiedDonationEntry() {
   // Validation functions
   const validateForm = (): boolean => {
     const newErrors: ValidationErrors = {};
-    
+
     if (activeTab === 'money') {
       if (!moneyForm.name.trim()) {
         newErrors.name = t('Name is required', 'பெயர் தேவை');
@@ -249,7 +264,7 @@ export default function UnifiedDonationEntry() {
 
   const validateField = (fieldName: keyof ValidationErrors, value: string) => {
     const newErrors = { ...errors };
-    
+
     switch (fieldName) {
       case 'name':
         if (!value.trim()) {
@@ -289,7 +304,7 @@ export default function UnifiedDonationEntry() {
         }
         break;
     }
-    
+
     setErrors(newErrors);
   };
 
@@ -349,7 +364,7 @@ export default function UnifiedDonationEntry() {
 
       try {
         const resp = await axios.get<{ data: DonationProduct[] }>(
-          `http://localhost:4000/api/donation-products/${user.templeId}`,
+          `https://templeapi.agniplay.com/api/donation-products/${user.templeId}`,
           {
             headers: { Authorization: `Bearer ${getAuthToken()}` }
           }
@@ -357,11 +372,11 @@ export default function UnifiedDonationEntry() {
         const data = Array.isArray(resp.data) ? resp.data : resp.data.data || [];
         const validProducts = data.filter(p => p && p.id && p.label);
         setProducts(validProducts);
-        
+
         // Extract and set available units
         const units = extractUnits(validProducts);
         setAvailableUnits(units);
-      } catch (error) { 
+      } catch (error) {
         console.error('Failed to load products:', error);
         setProducts([]);
         setAvailableUnits([]);
@@ -369,10 +384,10 @@ export default function UnifiedDonationEntry() {
         setIsError(true);
       }
     };
-    
+
     const loadRegisterNo = async () => {
       try {
-        const resp = await axios.get<any>('http://localhost:4000/api/donations/next-register-no', {
+        const resp = await axios.get<any>('https://templeapi.agniplay.com/api/donations/next-register-no', {
           headers: { Authorization: `Bearer ${getAuthToken()}` }
         });
         const nextNo = resp.data?.nextRegisterNo || generateNextRegisterNo();
@@ -384,7 +399,7 @@ export default function UnifiedDonationEntry() {
         setProductForm(prev => ({ ...prev, registerNo: nextNo }));
       }
     };
-    
+
     loadProducts();
     loadRegisterNo();
   }, [user?.templeId]);
@@ -392,9 +407,9 @@ export default function UnifiedDonationEntry() {
   // Compute next register number for money donations
   const computeNextRegisterNo = useCallback(async (): Promise<string | null> => {
     try {
-      const dStr = moneyForm.date && moneyForm.date.length >= 4 ? moneyForm.date : new Date().toISOString().slice(0,10);
-      const yyyy = Number(dStr.slice(0,4));
-      const mm = Number(dStr.slice(5,7));
+      const dStr = moneyForm.date && moneyForm.date.length >= 4 ? moneyForm.date : new Date().toISOString().slice(0, 10);
+      const yyyy = Number(dStr.slice(0, 4));
+      const mm = Number(dStr.slice(5, 7));
       if (!yyyy || isNaN(yyyy) || !mm || isNaN(mm)) return null;
 
       const fyStartYear = mm >= 4 ? yyyy : yyyy - 1;
@@ -403,7 +418,7 @@ export default function UnifiedDonationEntry() {
 
       const resp = await moneyDonationService.list(token);
       const items = resp?.data || [];
-      const sameFY = items.filter((it:any) => {
+      const sameFY = items.filter((it: any) => {
         const d = (it.date || '');
         return d >= fyStart && d <= fyEnd;
       });
@@ -418,7 +433,7 @@ export default function UnifiedDonationEntry() {
         }
       }
       const nextSeq = maxSeq > 0 ? maxSeq + 1 : sameFY.length + 1;
-      return `${fyStartYear}-${String(nextSeq).padStart(4,'0')}`;
+      return `${fyStartYear}-${String(nextSeq).padStart(4, '0')}`;
     } catch (e) {
       console.warn('Failed to compute register number', e);
       return null;
@@ -439,8 +454,8 @@ export default function UnifiedDonationEntry() {
         const rn = await computeNextRegisterNo();
         if (rn) {
           setMoneyForm(prev => {
-            const year = rn.slice(0,4);
-            const prevYear = (prev.registerNo || '').slice(0,4);
+            const year = rn.slice(0, 4);
+            const prevYear = (prev.registerNo || '').slice(0, 4);
             if (!prev.registerNo || prevYear !== year) return { ...prev, registerNo: rn };
             return prev;
           });
@@ -480,7 +495,7 @@ export default function UnifiedDonationEntry() {
       } else {
         const freshRN = await computeNextRegisterNo();
         const payload = { ...moneyForm, registerNo: freshRN || moneyForm.registerNo, fromAccount: 'DONATION A/C', transferTo: moneyForm.transferTo || 'INCOME A/C' } as any;
-        
+
         const resp = await moneyDonationService.create(token, payload);
         const newId = resp?.data?.id;
         const createdId = typeof newId === 'number' ? newId : null;
@@ -493,9 +508,9 @@ export default function UnifiedDonationEntry() {
         }
         setIsError(false);
         showSuccessAlert(t('Saved successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது'));
-        
+
         await refreshJournal();
-        
+
         if (createdId != null) {
           setShowPrintPrompt(true);
         }
@@ -511,17 +526,17 @@ export default function UnifiedDonationEntry() {
 
   const onProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       setIsError(true);
       setMessage(t('Please fix the errors below', 'கீழே உள்ள பிழைகளை சரிசெய்யவும்'));
       return;
     }
 
-    setSaving(true); 
-    setMessage(undefined); 
+    setSaving(true);
+    setMessage(undefined);
     setIsError(false);
-    
+
     try {
       await donationService.createDonation(token, productForm);
       const nextNo = await fetchNextRegisterNo();
@@ -529,10 +544,10 @@ export default function UnifiedDonationEntry() {
       setProductForm({ ...createProductDonationState(), registerNo: nextNo });
       setErrors({});
       setTouched({});
-      showSuccessAlert(t('Saved successfully','வெற்றிகரமாக சேமிக்கப்பட்டது'));
+      showSuccessAlert(t('Saved successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது'));
     } catch {
       setIsError(true);
-      setMessage(t('Save failed','சேமிப்பில் தோல்வி'));
+      setMessage(t('Save failed', 'சேமிப்பில் தோல்வி'));
     } finally {
       setSaving(false);
     }
@@ -540,7 +555,7 @@ export default function UnifiedDonationEntry() {
 
   const fetchNextRegisterNo = async () => {
     try {
-      const resp = await axios.get<any>('http://localhost:4000/api/donations/next-register-no', {
+      const resp = await axios.get<any>('https://templeapi.agniplay.com/api/donations/next-register-no', {
         headers: { Authorization: `Bearer ${getAuthToken()}` }
       });
       const nextNo = resp.data?.nextRegisterNo || generateNextRegisterNo();
@@ -603,7 +618,7 @@ export default function UnifiedDonationEntry() {
               </CardTitle>
             </div>
           </CardHeader>
-          
+
           <CardContent className={formFieldStyles.card.content}>
             {/* Tab Navigation */}
             <div className="mb-4">
@@ -611,24 +626,24 @@ export default function UnifiedDonationEntry() {
                 <button
                   type="button"
                   onClick={() => setActiveTab('money')}
-                  className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all duration-200 ${
-                    activeTab === 'money'
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all duration-200 ${activeTab === 'money'
                       ? 'bg-white text-orange-600 shadow border border-orange-200'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
-                  💰 {t('Money Donation', 'பண நன்கொடை')}
+                  <IndianRupee className="w-4 h-4 inline-block mr-2" />
+                  {t('Money Donation', 'பண நன்கொடை')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveTab('product')}
-                  className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all duration-200 ${
-                    activeTab === 'product'
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all duration-200 ${activeTab === 'product'
                       ? 'bg-white text-orange-600 shadow border border-orange-200'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
-                  📦 {t('Product Donation', 'பொருள் நன்கொடை')}
+                  <Package className="w-4 h-4 inline-block mr-2" />
+                  {t('Product Donation', 'பொருள் நன்கொடை')}
                 </button>
               </div>
             </div>
@@ -645,55 +660,62 @@ export default function UnifiedDonationEntry() {
 
             {/* Money Donation Form */}
             {activeTab === 'money' && (
-              <form 
-                ref={moneyFormRef} 
-                onSubmit={onMoneySubmit} 
+              <form
+                ref={moneyFormRef}
+                onSubmit={onMoneySubmit}
                 onKeyDown={handleKeyDown}
                 className="space-y-6"
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {/* Register No */}
-                  <div>
+                  <div className="relative">
+                    <Hash className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <Input
-                      className={`${fieldStyles} bg-gray-100`}
+                      className={`${fieldStyles} bg-gray-50 pl-12 border-orange-200`}
                       name="registerNo"
                       value={moneyForm.registerNo}
                       readOnly
                       placeholder={t('Register No', 'பதிவு எண்')}
                     />
                   </div>
-                  
+
                   {/* Date */}
-                  <div>
-                    <Input 
-                      type="date" 
-                      className={fieldStyles}
-                      name="date" 
-                      value={moneyForm.date} 
+                  <div className="relative" onClick={(e) => {
+                    const input = e.currentTarget.querySelector('input');
+                    if (input) (input as any).showPicker?.();
+                  }}>
+                    <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      type="date"
+                      className={cn(fieldStyles, "pl-12", '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')}
+                      name="date"
+                      value={moneyForm.date}
                       onChange={onMoneyChange}
                       placeholder={t('Date', 'தேதி')}
+                    />
+                  </div>
+
+                  {/* Name */}
+                  <div className="relative">
+                    <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      className={`${fieldStyles} pl-12`}
+                      name="name"
+                      value={moneyForm.name}
+                      onChange={onMoneyChange}
+                      placeholder={t('Enter name', 'பெயரை உள்ளிடவும்')}
                       autoFocus
                     />
                   </div>
-                  
-                  {/* Name */}
-                  <div>
-                    <Input 
-                      className={fieldStyles}
-                      name="name" 
-                      value={moneyForm.name} 
-                      onChange={onMoneyChange} 
-                      placeholder={t('Enter name', 'பெயரை உள்ளிடவும்')}
-                    />
-                  </div>
-                    
+
                   {/* Phone */}
-                  <div>
-                    <Input 
-                      className={fieldStyles}
-                      name="phone" 
-                      value={moneyForm.phone} 
-                      onChange={onMoneyChange} 
+                  <div className="relative">
+                    <Phone className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      className={`${fieldStyles} pl-12`}
+                      name="phone"
+                      value={moneyForm.phone}
+                      onChange={onMoneyChange}
                       placeholder={t('Enter phone', 'கைபேசி எண்ணை உள்ளிடவும்')}
                       inputMode="numeric"
                       maxLength={10}
@@ -709,70 +731,80 @@ export default function UnifiedDonationEntry() {
                   </div>
 
                   {/* Father Name */}
-                  <div>
-                    <Input 
-                      className={fieldStyles}
-                      name="fatherName" 
-                      value={moneyForm.fatherName} 
-                      onChange={onMoneyChange} 
+                  <div className="relative">
+                    <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      className={`${fieldStyles} pl-12`}
+                      name="fatherName"
+                      value={moneyForm.fatherName}
+                      onChange={onMoneyChange}
                       placeholder={t('Enter father name', 'தந்தை பெயரை உள்ளிடவும்')}
                     />
                   </div>
-                  
+
                   {/* Village */}
-                  <div>
-                    <Input 
-                      className={fieldStyles}
-                      name="village" 
-                      value={moneyForm.village} 
-                      onChange={onMoneyChange} 
+                  <div className="relative">
+                    <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      className={`${fieldStyles} pl-12`}
+                      name="village"
+                      value={moneyForm.village}
+                      onChange={onMoneyChange}
                       placeholder={t('Enter village', 'ஊரை உள்ளிடவும்')}
                     />
                   </div>
-                  
+
                   {/* Address */}
-                  <div>
-                    <Input 
-                      className={fieldStyles}
-                      name="address" 
-                      value={moneyForm.address} 
-                      onChange={onMoneyChange} 
+                  <div className="relative">
+                    <Home className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      className={`${fieldStyles} pl-12`}
+                      name="address"
+                      value={moneyForm.address}
+                      onChange={onMoneyChange}
                       placeholder={t('Enter address', 'முகவரியை உள்ளிடவும்')}
                     />
                   </div>
-                  
+
                   {/* Amount */}
-                  <div>
-                    <Input 
-                      className={fieldStyles}
-                      name="amount" 
-                      value={moneyForm.amount} 
-                      onChange={onMoneyChange} 
+                  <div className="relative">
+                    <IndianRupee className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      className={`${fieldStyles} pl-12`}
+                      name="amount"
+                      value={moneyForm.amount}
+                      onChange={onMoneyChange}
                       placeholder={t('Enter amount', 'தொகையை உள்ளிடவும்')}
                       type="number"
                       min="1"
                     />
                   </div>
-                  
+
                   {/* Reason */}
-                  <div>
-                    <Input 
-                      className={fieldStyles}
-                      name="reason" 
-                      value={moneyForm.reason} 
-                      onChange={onMoneyChange} 
+                  <div className="relative">
+                    <FileText className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      className={`${fieldStyles} pl-12`}
+                      name="reason"
+                      value={moneyForm.reason}
+                      onChange={onMoneyChange}
                       placeholder={t('Enter reason', 'காரணத்தை உள்ளிடவும்')}
                     />
                   </div>
                 </div>
-                
+
                 {/* Action Buttons */}
                 <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
-                  <Button 
-                    disabled={saving} 
+                  <Button
+                    disabled={saving}
                     className="px-6 py-2.5 bg-gradient-to-r from-orange-400 to-red-500 hover:from-orange-500 hover:to-red-600 text-white font-medium rounded-md text-base transition-all duration-200"
                     type="submit"
                   >
+                    {saving ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4 mr-2" />
+                    )}
                     {saving ? (isEdit ? t('Updating...', 'புதுப்பிக்கிறது...') : t('Saving...', 'சேமிக்கிறது...')) : (isEdit ? t('Update', 'புதுப்பிக்க') : t('Save', 'சேமிக்க'))}
                   </Button>
                   <Button
@@ -792,68 +824,73 @@ export default function UnifiedDonationEntry() {
             {activeTab === 'product' && (
               <div>
                 {/* Register Number and Product Manager */}
-                <div className={formFieldStyles.registerDisplay.container}>
-                  <div className="text-lg">
-                    <span className={formFieldStyles.registerDisplay.label}>{t('Register No','பதிவு எண்')}:</span>
-                    <span className={formFieldStyles.registerDisplay.value}>{productForm.registerNo}</span>
-                  </div>
-                  {user?.templeId ? (
-                    <DonationProductManager 
-                      products={products} 
-                      setProducts={(newProducts) => {
-                        setProducts(newProducts);
-                        // Update available units when products change
-                        const units = extractUnits(Array.isArray(newProducts) ? newProducts : []);
-                        setAvailableUnits(units);
-                      }} 
-                      templeId={user.templeId} 
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                  <div className="relative">
+                    <Hash className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      className={`${fieldStyles} bg-gray-50 pl-12 border-orange-200`}
+                      value={productForm.registerNo}
+                      readOnly
+                      placeholder={t('Register No', 'பதிவு எண்')}
                     />
-                  ) : (
-                    <div className={cn(formFieldStyles.error, "text-sm")}>
-                      {t('Temple ID not found. Please login again.', 'கோயில் ID கிடைக்கவில்லை. மீண்டும் உள்நுழையவும்')}
-                    </div>
-                  )}
+                  </div>
+                  <div className="md:col-start-3 flex justify-end">
+                    {user?.templeId ? (
+                      <DonationProductManager
+                        products={products}
+                        setProducts={(newProducts) => {
+                          setProducts(newProducts);
+                          // Update available units when products change
+                          const units = extractUnits(Array.isArray(newProducts) ? newProducts : []);
+                          setAvailableUnits(units);
+                        }}
+                        templeId={user.templeId}
+                      />
+                    ) : (
+                      <div className={cn(formFieldStyles.error, "text-sm")}>
+                        {t('Temple ID not found. Please login again.', 'கோயில் ID கிடைக்கவில்லை. மீண்டும் உள்நுழையவும்')}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <form onSubmit={onProductSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {/* Date */}
-                    <div>
-                      <Label className={labelStyles} htmlFor="date">
-                       
-                      </Label>
+                    <div className="relative" onClick={(e) => {
+                      const input = e.currentTarget.querySelector('input');
+                      if (input) (input as any).showPicker?.();
+                    }}>
+                      <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <Input
                         id="date"
                         type="date"
                         name="date"
                         value={productForm.date}
                         onChange={onProductChange}
-                        className={fieldStyles}
+                        className={cn(fieldStyles, "pl-12", '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')}
                       />
                     </div>
 
                     {/* Name */}
-                    <div>
-                      <Label className={labelStyles} htmlFor="name">
-                       
-                      </Label>
+                    <div className="relative">
+                      <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <Input
                         id="name"
                         name="name"
                         value={productForm.name}
                         onChange={onProductChange}
                         onBlur={onProductBlur}
-                        className={cn(fieldStyles, errors.name ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
-                        placeholder={t('Enter name','பெயரை உள்ளிடவும்')}
+                        className={cn(fieldStyles, 'pl-12', errors.name ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
+                        placeholder={t('Enter name', 'பெயரை உள்ளிடவும்')}
+                        autoFocus
                       />
                       <ErrorMessage error={errors.name} />
                     </div>
 
                     {/* Phone */}
-                    <div>
-                      <Label className={labelStyles} htmlFor="phone">
-                       
-                      </Label>
+                    <div className="relative">
+                      <Phone className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <Input
                         id="phone"
                         type="tel"
@@ -871,62 +908,54 @@ export default function UnifiedDonationEntry() {
                             setProductForm(prev => ({ ...prev, phone: cleaned }));
                           }
                         }}
-                        className={cn(fieldStyles, errors.phone ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
-                        placeholder={t('10 digits','10 இலக்கம்')}
+                        className={cn(fieldStyles, 'pl-12', errors.phone ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
+                        placeholder={t('10 digits', '10 இலக்கம்')}
                       />
                       <ErrorMessage error={errors.phone} />
                     </div>
 
                     {/* Father Name */}
-                    <div>
-                      <Label className={labelStyles} htmlFor="fatherName">
-                        
-                      </Label>
+                    <div className="relative">
+                      <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <Input
                         id="fatherName"
                         name="fatherName"
                         value={productForm.fatherName}
                         onChange={onProductChange}
-                        className={fieldStyles}
-                        placeholder={t('Enter father name','தந்தை பெயரை உள்ளிடவும்')}
+                        className={`${fieldStyles} pl-12`}
+                        placeholder={t('Enter father name', 'தந்தை பெயரை உள்ளிடவும்')}
                       />
                     </div>
 
                     {/* Village */}
-                    <div>
-                      <Label className={labelStyles} htmlFor="village">
-                        
-                      </Label>
+                    <div className="relative">
+                      <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <Input
                         id="village"
                         name="village"
                         value={productForm.village}
                         onChange={onProductChange}
-                        className={fieldStyles}
-                        placeholder={t('Enter village','ஊரை உள்ளிடவும்')}
+                        className={`${fieldStyles} pl-12`}
+                        placeholder={t('Enter village', 'ஊரை உள்ளிடவும்')}
                       />
                     </div>
 
                     {/* Address */}
-                    <div>
-                      <Label className={labelStyles} htmlFor="address">
-                       
-                      </Label>
+                    <div className="relative">
+                      <Home className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <Input
                         id="address"
                         name="address"
                         value={productForm.address}
                         onChange={onProductChange}
-                        className={fieldStyles}
-                        placeholder={t('Enter address','முகவரியை உள்ளிடவும்')}
+                        className={`${fieldStyles} pl-12`}
+                        placeholder={t('Enter address', 'முகவரியை உள்ளிடவும்')}
                       />
                     </div>
 
                     {/* Product */}
-                    <div>
-                      <Label className={labelStyles} htmlFor="product">
-                       
-                      </Label>
+                    <div className="relative">
+                      <Package className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
                       <div className={formFieldStyles.selectDropdown.container}>
                         <select
                           id="product"
@@ -941,10 +970,10 @@ export default function UnifiedDonationEntry() {
                             }
                           }}
                           onBlur={onProductBlur}
-                          className={cn(theme.select.base, theme.select.size.md, "appearance-none pr-10 bg-white", errors.product ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
+                          className={cn(theme.select.base, theme.select.size.md, "appearance-none pl-12 pr-10 bg-white", errors.product ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
                         >
-                          <option value="">{t('Select Product','பொருள் தேர்வு')}</option>
-                          {products.filter(p => p && p.id && p.label).map(p => 
+                          <option value="">{t('Select Product', 'பொருள் தேர்வு')}</option>
+                          {products.filter(p => p && p.id && p.label).map(p =>
                             <option key={p.id} value={p.value || p.label}>{p.label}</option>
                           )}
                         </select>
@@ -959,9 +988,7 @@ export default function UnifiedDonationEntry() {
 
                     {/* Unit */}
                     <div className="relative">
-                      <Label className={labelStyles} htmlFor="unit">
-                       
-                      </Label>
+                      <Hash className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <div className="relative">
                         <Input
                           ref={unitInputRef}
@@ -975,11 +1002,11 @@ export default function UnifiedDonationEntry() {
                             setTimeout(() => setShowUnitDropdown(false), 150);
                           }}
                           onFocus={() => setShowUnitDropdown(true)}
-                          className={cn(fieldStyles, errors.unit ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
-                          placeholder={t('Enter or select unit','அளவை உள்ளிடவும் அல்லது தேர்ந்தெடுக்கவும்')}
+                          className={cn(fieldStyles, 'pl-12', errors.unit ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
+                          placeholder={t('Enter or select unit', 'அளவை உள்ளிடவும் அல்லது தேர்ந்தெடுக்கவும்')}
                           list="unit-options"
                         />
-                        
+
                         {/* Unit Dropdown */}
                         {showUnitDropdown && availableUnits.length > 0 && (
                           <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-auto">
@@ -1001,20 +1028,17 @@ export default function UnifiedDonationEntry() {
                       <ErrorMessage error={errors.unit} />
                     </div>
 
-                    {/* Reason - Full width */}
-                    <div>
-                      <Label className={labelStyles} htmlFor="reason">
-                        
-                      </Label>
-                      <Textarea
-                      id="reason"
-                      name="reason"
-                      value={productForm.reason}
-                      onChange={onProductChange}
-                      rows={1}
-                      className={cn(textareaStyles, 'py-1.5 min-h-[2.25rem]', 'resize-none')}
-                      placeholder={t('Enter reason','காரணத்தை உள்ளிடவும்')}
-                    />
+                    {/* Reason */}
+                    <div className="relative">
+                      <FileText className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        id="reason"
+                        name="reason"
+                        value={productForm.reason}
+                        onChange={onProductChange}
+                        className={`${fieldStyles} pl-12`}
+                        placeholder={t('Enter reason', 'காரணத்தை உள்ளிடவும்')}
+                      />
                     </div>
                   </div>
 
@@ -1026,7 +1050,12 @@ export default function UnifiedDonationEntry() {
                       className="px-6 py-2.5 bg-gradient-to-r from-orange-400 to-red-500 hover:from-orange-500 hover:to-red-600 text-white font-medium rounded-md text-base transition-all duration-200"
                       disabled={saving}
                     >
-                      {saving ? t('Saving...','சேமிக்கிறது...') : t('Save','சேமி')}
+                      {saving ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Save className="w-4 h-4 mr-2" />
+                      )}
+                      {saving ? t('Saving...', 'சேமிக்கிறது...') : t('Save', 'சேமி')}
                     </Button>
                     <Button
                       type="button"
@@ -1043,7 +1072,7 @@ export default function UnifiedDonationEntry() {
             )}
           </CardContent>
         </Card>
-        
+
         {/* Print Prompt Modal */}
         {showPrintPrompt && lastCreatedId != null && (
           <Modal
@@ -1055,8 +1084,8 @@ export default function UnifiedDonationEntry() {
                 {t('Do you want to open the PDF receipt for printing?', 'PDF ரசீதை அச்சிட திறக்க விரும்புகிறீர்களா?')}
               </p>
               <div className={formFieldStyles.modal.actions}>
-                <button 
-                  className={formFieldStyles.modal.button.cancel} 
+                <button
+                  className={formFieldStyles.modal.button.cancel}
                   onClick={() => setShowPrintPrompt(false)}
                 >
                   {t('No', 'இல்லை')}
@@ -1081,13 +1110,13 @@ export default function UnifiedDonationEntry() {
                         window.open(url, '_blank');
                       } finally {
                         setTimeout(() => {
-                          try { document.body.removeChild(iframe); } catch {}
+                          try { document.body.removeChild(iframe); } catch { }
                         }, 1000);
                       }
                     };
                     document.body.appendChild(iframe);
                     setShowPrintPrompt(false);
-                  }} 
+                  }}
                 >
                   {t('Yes, Print', 'ஆம், அச்சிடு')}
                 </button>

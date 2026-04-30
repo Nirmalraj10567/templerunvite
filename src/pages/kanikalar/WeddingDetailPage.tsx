@@ -58,7 +58,7 @@ const WeddingDetailPage: React.FC = () => {
 
   const fetchWedding = async () => {
     try {
-      const response = await fetch(`http://localhost:4000/api/kanikalar/${id}`, {
+      const response = await fetch(`https://templeapi.agniplay.com/api/kanikalar/${id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -82,7 +82,7 @@ const WeddingDetailPage: React.FC = () => {
 
   const fetchEvents = async () => {
     try {
-      const response = await fetch(`http://localhost:4000/api/wedding-events/${id}`, {
+      const response = await fetch(`https://templeapi.agniplay.com/api/wedding-events/${id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -110,7 +110,10 @@ const WeddingDetailPage: React.FC = () => {
     setCurrentEvent({
       event_name: '',
       event_date: format(new Date(), 'yyyy-MM-dd'),
-      event_time: '18:00',
+      event_time: (() => {
+        const now = new Date();
+        return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      })(),
       location: wedding?.venue || '',
       description: ''
     });
@@ -131,7 +134,7 @@ const WeddingDetailPage: React.FC = () => {
     if (!eventToDelete) return;
     
     try {
-      const response = await fetch(`http://localhost:4000/api/wedding-events/${eventToDelete}`, {
+      const response = await fetch(`https://templeapi.agniplay.com/api/wedding-events/${eventToDelete}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -406,13 +409,14 @@ const WeddingDetailPage: React.FC = () => {
                 <label htmlFor="event_time" className="text-right">
                   {t('eventTime')}
                 </label>
-                <Input
+                <input
                   id="event_time"
                   name="event_time"
                   type="time"
                   value={currentEvent?.event_time || ''}
                   onChange={handleInputChange}
-                  className="col-span-3"
+                  onClick={(e) => (e.target as any).showPicker?.()}
+                  className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   required
                 />
               </div>

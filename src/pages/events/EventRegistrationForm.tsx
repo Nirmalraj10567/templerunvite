@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { X, ImagePlus, Trash2 } from 'lucide-react';
+import { X, ImagePlus, Trash2, Calendar, Clock, MapPin, Type, AlignLeft } from 'lucide-react';
 import eventService from '@/services/eventService';
 import { Event, EventImage } from '@/types/event';
 import { toast } from '@/components/ui/use-toast';
@@ -18,6 +18,7 @@ import { theme } from '@/styles/theme';
 const translations = {
   tamil: {
     createEvent: 'Create Event',
+     createEvent1: 'Create',
     editEvent: 'Edit Event',
     eventDetails: 'Event Details',
     eventTitle: 'Event Title',
@@ -42,6 +43,7 @@ const translations = {
   },
   english: {
     createEvent: 'நிகழ்வை உருவாக்கு',
+    createEvent1: 'உருவாக்கு',
     editEvent: 'நிகழ்வைத் திருத்து',
     eventDetails: 'நிகழ்வு விவரங்கள்',
     eventTitle: 'நிகழ்வு தலைப்பு',
@@ -71,6 +73,8 @@ export default function EventRegistrationForm() {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [originalImages, setOriginalImages] = useState<EventImage[]>([]);
+  const [deletedImageIds, setDeletedImageIds] = useState<number[]>([]);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const { language } = useLanguage();
   const t = translations[language];
@@ -85,8 +89,11 @@ export default function EventRegistrationForm() {
     defaultValues: {
       title: '',
       description: '',
-      date: '',
-      time: '',
+      date: new Date().toISOString().slice(0, 10),
+      time: (() => {
+        const now = new Date();
+        return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      })(),
       location: '',
       images: []
     }
@@ -104,14 +111,13 @@ export default function EventRegistrationForm() {
       try {
         setIsLoading(true);
         const data = await eventService.getEventById(id);
-        // Ensure images have the expected shape: may include id, url, title, caption
         const images = (data.images || []).map((img) => ({
           id: img.id,
           url: img.url,
           title: img.title || '',
           caption: img.caption || ''
         } as EventImage));
-        // Populate form
+        setOriginalImages(images);
         reset({
           title: data.title || '',
           description: data.description || '',
@@ -131,8 +137,7 @@ export default function EventRegistrationForm() {
       }
     };
     loadEvent();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, reset, t.error, t.loadError]);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -150,17 +155,13 @@ export default function EventRegistrationForm() {
   const onSubmit = async (data: Event) => {
     try {
       setIsSubmitting(true);
-      
       if (id) {
-        // Update existing event
-        await eventService.updateEvent(id, data);
+        await eventService.updateEvent(id, data, deletedImageIds);
         toast({ title: t.updateEvent + ' ' + t.success });
       } else {
-        // Create new event
         await eventService.createEvent(data);
         toast({ title: t.createEvent + ' ' + t.success });
       }
-      
       navigate('/dashboard/events');
     } catch (error) {
       console.error('Error submitting event:', error);
@@ -174,49 +175,47 @@ export default function EventRegistrationForm() {
     }
   };
 
-  // Enter key handler: focus save button when Enter is pressed
   const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
     if (e.key !== 'Enter') return;
     const t = e.target as HTMLElement;
     const tag = t.tagName?.toLowerCase();
-    if (!tag || ['button', 'textarea'].includes(tag)) return; // allow buttons and textareas to handle Enter normally
+    if (!tag || ['button', 'textarea'].includes(tag)) return;
     e.preventDefault();
-    // Focus the save button
     const submitButton = e.currentTarget.querySelector('button[type="submit"]') as HTMLButtonElement;
     if (submitButton) {
       submitButton.focus();
     }
   };
 
-  // Use styles from formStyles and theme
   const labelStyles = formFieldStyles.label;
 
   return (
-  <div className={pageContainerStyles.container}>
-        <div className={pageContainerStyles.content}>
-          <Card className={formFieldStyles.card.container}>
-            <CardHeader className={theme.header.container}>
-              <div className={theme.header.contentSpacing}>
-                <CardTitle className={theme.header.main}>
-                  {id ? t.editEvent : t.createEvent}
-                </CardTitle>
+    <div className={pageContainerStyles.container}>
+      <div className={pageContainerStyles.content}>
+        <Card className={formFieldStyles.card.container}>
+          <CardHeader className={theme.header.container}>
+            <div className={theme.header.contentSpacing}>
+              <CardTitle className={theme.header.main}>
+                {id ? t.editEvent : t.createEvent}
+              </CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-gray-500">{t.loading}</div>
               </div>
-            </CardHeader>
-            <CardContent className="p-6">
-              {isLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="text-gray-500">{t.loading}</div>
-                </div>
-              ) : (
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-8" onKeyDown={handleKeyDown}>
+            ) : (
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-8" onKeyDown={handleKeyDown}>
                 {/* Main Form Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   
                   {/* Event Details Section */}
-                  <div>
+                  <div className="relative">
+                    <Type className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10 pointer-events-none" />
                     <Input 
                       id="title" 
-                      className={cn(theme.input.base, theme.input.size.md)}
+                      className={cn(theme.input.base, theme.input.size.md, "pl-12")}
                       {...register('title', { required: t.eventTitle + ' ' + t.required })} 
                       placeholder={t.eventTitle + ' *'}
                       autoFocus
@@ -224,96 +223,108 @@ export default function EventRegistrationForm() {
                     {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title.message}</p>}
                   </div>
                     
-                  <div>
+                  <div className="relative">
+                    <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10 pointer-events-none" />
                     <Input 
                       id="date" 
                       type="date" 
-                      className={cn(theme.input.base, theme.input.size.md)}
+                      className={cn(theme.input.base, theme.input.size.md, "pl-12", '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')}
                       {...register('date', { required: t.date + ' ' + t.required })} 
+                      onClick={(e) => (e.target as any).showPicker?.()}
                       placeholder={t.date + ' *'}
                     />
                     {errors.date && <p className="text-red-500 text-sm mt-1">{errors.date.message}</p>}
                   </div>
                   
-                  <div>
+                  <div className="relative">
+                    <Clock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10 pointer-events-none" />
                     <Input 
                       id="time" 
                       type="time" 
-                      className={cn(theme.input.base, theme.input.size.md)}
+                      className={cn(theme.input.base, theme.input.size.md, "pl-12", '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')}
                       {...register('time', { required: t.time + ' ' + t.required })} 
+                      onClick={(e) => (e.target as any).showPicker?.()}
                       placeholder={t.time + ' *'}
                     />
                     {errors.time && <p className="text-red-500 text-sm mt-1">{errors.time.message}</p>}
                   </div>
                     
-                  <div>
+                  <div className="relative">
+                    <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10 pointer-events-none" />
                     <Input 
                       id="location" 
-                      className={cn(theme.input.base, theme.input.size.md)}
+                      className={cn(theme.input.base, theme.input.size.md, "pl-12")}
                       {...register('location', { required: t.location + ' ' + t.required })} 
                       placeholder={t.location + ' *'}
                     />
                     {errors.location && <p className="text-red-500 text-sm mt-1">{errors.location.message}</p>}
                   </div>
 
-                  <div className="md:col-span-2 lg:col-span-3">
+                  <div className="md:col-span-2 lg:col-span-3 relative">
+                    <AlignLeft className="absolute left-4 top-3 w-4 h-4 text-gray-400 z-10 pointer-events-none" />
                     <Textarea 
                       id="description" 
-                      className={cn(theme.textarea.base, theme.textarea.size.md)}
+                      className={cn(theme.textarea.base, theme.textarea.size.md, "pl-12")}
                       {...register('description', { required: t.description + ' ' + t.required })} 
                       placeholder={t.description + ' *'}
                     />
                     {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description.message}</p>}
                   </div>
+                </div>
+                
+                {/* Event Images Section */}
+                <div className="space-y-6">
+                  <div>
+                    <Label className={labelStyles}>
+                      {t.eventImages}
+                    </Label>
+                    
+                    <div className={formFieldStyles.eventForm.imageUpload.container}>
+                      <input 
+                        type="file" 
+                        multiple 
+                        accept="image/*" 
+                        ref={imageInputRef}
+                        onChange={handleImageUpload}
+                        className="hidden"
+                      />
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        className={formFieldStyles.eventForm.imageUpload.button}
+                        onClick={() => imageInputRef.current?.click()}
+                      >
+                        <ImagePlus className="mr-2 h-4 w-4" /> {t.uploadImages}
+                      </Button>
+                      <p className={formFieldStyles.eventForm.imageUpload.helpText}>
+                        {t.imageFormats}
+                      </p>
+                    </div>
                   </div>
                   
-                  {/* Event Images Section */}
-                  <div className="space-y-6">
-                    <div>
-                      <Label className={labelStyles}>
-                        {t.eventImages}
-                      </Label>
-                      
-                      <div className={formFieldStyles.eventForm.imageUpload.container}>
-                        <input 
-                          type="file" 
-                          multiple 
-                          accept="image/*" 
-                          ref={imageInputRef}
-                          onChange={handleImageUpload}
-                          className="hidden"
-                        />
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          className={formFieldStyles.eventForm.imageUpload.button}
-                          onClick={() => imageInputRef.current?.click()}
-                        >
-                          <ImagePlus className="mr-2 h-4 w-4" /> {t.uploadImages}
-                        </Button>
-                        <p className={formFieldStyles.eventForm.imageUpload.helpText}>
-                          {t.imageFormats}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {imageFields.length > 0 && (
-                      <div className={formFieldStyles.eventForm.imagePreview.grid}>
-                        {imageFields.map((field, index) => (
+                  {imageFields.length > 0 && (
+                    <div className={formFieldStyles.eventForm.imagePreview.grid}>
+                      {imageFields.map((field, index) => {
+                        const anyField = field as unknown as EventImage;
+                        const existingImageId = anyField.id;
+                        return (
                           <div key={field.id} className={formFieldStyles.eventForm.imagePreview.item}>
                             <Button 
                               type="button" 
                               variant="ghost" 
                               size="sm" 
                               className={formFieldStyles.eventForm.imagePreview.deleteButton}
-                              onClick={() => remove(index)}
+                              onClick={() => {
+                                if (existingImageId && typeof existingImageId === 'number') {
+                                  setDeletedImageIds(prev => [...prev, existingImageId]);
+                                }
+                                remove(index);
+                              }}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                             
                             {(() => {
-                              // Show preview for either existing URL or newly uploaded File
-                              const anyField = field as unknown as EventImage;
                               const src = anyField.url || (anyField.file instanceof File ? URL.createObjectURL(anyField.file) : undefined);
                               return src ? (
                                 <div className="mb-3">
@@ -323,7 +334,7 @@ export default function EventRegistrationForm() {
                                     className={formFieldStyles.eventForm.imagePreview.image}
                                     onLoad={() => {
                                       if (anyField.file instanceof File) {
-                                        URL.revokeObjectURL(src);
+                                        // URL.revokeObjectURL(src); // Avoid revoking too early if multiple renders happen
                                       }
                                     }}
                                   />
@@ -331,37 +342,37 @@ export default function EventRegistrationForm() {
                               ) : null;
                             })()}
                           
-                          <div className={formFieldStyles.eventForm.imagePreview.form}>
-                            <div>
-                              <Input 
-                                className={cn(theme.input.base, theme.input.size.md)}
-                                placeholder={t.imageTitle} 
-                                {...register(`images.${index}.title`)} 
-                              />
-                            </div>
-                            <div>
-                              <Textarea 
-                                className={cn(theme.textarea.base, theme.textarea.size.md)}
-                                placeholder={t.imageCaption} 
-                                {...register(`images.${index}.caption`)} 
-                              />
+                            <div className={formFieldStyles.eventForm.imagePreview.form}>
+                              <div>
+                                <Input 
+                                  className={cn(theme.input.base, theme.input.size.md)}
+                                  placeholder={t.imageTitle} 
+                                  {...register(`images.${index}.title`)} 
+                                />
+                              </div>
+                              <div>
+                                <Textarea 
+                                  className={cn(theme.textarea.base, theme.textarea.size.md)}
+                                  placeholder={t.imageCaption} 
+                                  {...register(`images.${index}.caption`)} 
+                                />
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
                 
                 {/* Action Buttons */}
                 <div className={formFieldStyles.eventForm.actionButtons}>
-                 
                   <Button 
                     type="submit" 
                     className={formFieldStyles.eventForm.submitButton}
                     disabled={isSubmitting}
                   >
-                    {isSubmitting ? t.saving : (id ? t.updateEvent : t.createEvent)}
+                    {isSubmitting ? t.saving : (id ? t.updateEvent1 : t.createEvent1)}
                   </Button>
                   <Button
                     type="button"

@@ -41,7 +41,7 @@ interface ApiResponse<T> {
 }
 
 class PoojaMobileService {
-  private baseUrl = 'http://localhost:4000/api/pooja-mobile';
+  private baseUrl = 'https://templeapi.agniplay.com/api/pooja-mobile';
 
   private async handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
     if (!response.ok) {

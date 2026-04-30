@@ -54,13 +54,13 @@ export const theme = {
   input: {
     // Full input style with ALL focus states as in AnnadhanamEntryPage.tsx - SINGLE LINE
     //base: 'border-violet-300 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:outline-none shadow-sm focus:shadow-md transition-all duration-200',
-    base: 'border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:outline-none shadow-sm focus:shadow-md transition-all duration-200',
+    base: 'border border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:outline-none shadow-sm focus:shadow-md transition-all duration-200',
     withIcon: 'pl-10',
     withoutIcon: 'pl-4',
     error: 'border-red-500',
     readOnly: 'bg-gray-50',
     // Complete with all padding options - SINGLE LINE
-    complete: 'pl-10 border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:outline-none shadow-sm focus:shadow-md transition-all duration-200',
+    complete: 'pl-10 border border-orange-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:outline-none shadow-sm focus:shadow-md transition-all duration-200',
     // Text field sizes (height and text size only, padding handled by withIcon/withoutIcon)
     size: {
       sm: 'h-8 text-sm',
@@ -155,6 +155,7 @@ export const theme = {
     actionPrimary: 'bg-orange-500 text-white hover:bg-orange-600',
     actionSecondary: 'bg-gray-200 text-gray-700 hover:bg-gray-300',
     actionDanger: 'bg-red-500 text-white hover:bg-red-600',
+    actionSuccess: 'bg-emerald-600 text-white hover:bg-emerald-700',
   },
 
   // Card Styles
@@ -206,11 +207,11 @@ export const theme = {
     // Main sidebar container
     container: 'bg-gradient-to-b from-gray-900 to-black text-white shadow-xl',
     containerDark: 'bg-gradient-to-b from-gray-900 to-black text-white shadow-xl',
-     //container: 'bg-gradient-to-b from-orange-600 to-orange-700 text-white shadow-xl',
-   // containerDark: 'bg-gradient-to-b from-gray-800 to-gray-900 text-white shadow-xl',
+    //container: 'bg-gradient-to-b from-orange-600 to-orange-700 text-white shadow-xl',
+    // containerDark: 'bg-gradient-to-b from-gray-800 to-gray-900 text-white shadow-xl',
     // Sidebar navigation items
     navItem: {
-       //base: 'flex items-center px-4 py-3 text-white rounded-lg transition-all duration-200 hover:bg-orange-500 hover:shadow-md',
+      //base: 'flex items-center px-4 py-3 text-white rounded-lg transition-all duration-200 hover:bg-orange-500 hover:shadow-md',
       //active: 'bg-orange-500 shadow-md border-l-4 border-white',
       //hover: 'hover:bg-orange-500 hover:shadow-md',
       base: 'flex items-center px-4 py-3 text-white rounded-lg transition-all duration-200 hover:bg-gray-800 hover:shadow-md',
@@ -219,16 +220,16 @@ export const theme = {
       icon: 'w-5 h-5 mr-3 text-white',
       text: 'text-white font-medium',
     },
-    
+
     // Sidebar sections/groups
     section: {
-       //header: 'px-4 py-2 text-xs font-semibold text-orange-200 uppercase tracking-wider',
+      //header: 'px-4 py-2 text-xs font-semibold text-orange-200 uppercase tracking-wider',
       //divider: 'border-orange-500 border-t my-2',
       header: 'px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider',
       divider: 'border-gray-700 border-t my-2',
       container: 'space-y-1',
     },
-    
+
     // Sidebar footer
     footer: {
       //container: 'absolute bottom-0 left-0 right-0 p-4 border-t border-orange-500',
@@ -236,14 +237,14 @@ export const theme = {
       container: 'absolute bottom-0 left-0 right-0 p-4 border-t border-gray-700',
       text: 'text-gray-400 text-xs',
     },
-    
+
     // Sidebar toggle button (mobile)
     toggle: {
       //button: 'p-2 rounded-lg bg-orange-600 text-white hover:bg-orange-500 transition-colors',
       button: 'p-2 rounded-lg bg-gray-800 text-white hover:bg-gray-700 transition-colors',
       icon: 'w-6 h-6',
     },
-    
+
     // Sidebar colors for different states
     colors: {
       // background: 'bg-gradient-to-b from-orange-600 to-orange-700',
@@ -269,39 +270,39 @@ export const theme = {
     // Table container
     container: 'w-full border-collapse',
     wrapper: 'overflow-x-auto rounded-lg shadow-sm',
-    
+
     // Table container with horizontal scroll support
     scrollContainer: 'w-full overflow-x-auto',
     scrollContainerWrapper: 'w-full border border-gray-200 rounded-lg shadow-sm',
     tableContainer: 'px-6 pt-6',
-    
+
     // Outer container size for responsive tables
     outerContainer: 'w-full',
     outerContainerSmall: 'w-full max-w-2xl',
     outerContainerMedium: 'w-full max-w-4xl',
     outerContainerLarge: 'w-full max-w-6xl',
     outerContainerFull: 'w-full max-w-full',
-    
+
     // Table header
     header: 'bg-gradient-to-r from-orange-100 to-orange-200 text-gray-800',
     headerCell: 'px-4 py-0 text-left text-xs font-semibold uppercase tracking-wider leading-none h-8',
     headerCellSno: 'px-3 py-0 text-center text-xs font-semibold uppercase tracking-wider w-16 leading-none h-8',
-    
+
     // Table rows
     row: 'border-b border-gray-200 hover:bg-orange-50 transition-colors duration-150 h-8',
     rowEven: 'bg-gray-50 h-8',
     rowOdd: 'bg-white h-8',
     rowHover: 'hover:bg-orange-50',
-    
+
     // Table cells
     cell: 'px-4 py-0 text-xs text-gray-700 leading-none align-middle h-8',
     cellHeader: 'px-4 py-0 text-left text-xs font-semibold text-gray-700 bg-gray-100 border-b border-gray-300 leading-none align-middle h-8',
     cellSno: 'px-3 py-0 text-center text-xs text-gray-700 w-16 leading-none align-middle h-8',
-    
+
     // Table borders
     border: 'border border-gray-200',
     borderOuter: 'border border-gray-300 rounded-lg',
-    
+
     // Table sizes
     size: {
       sm: {
@@ -317,7 +318,7 @@ export const theme = {
         headerCell: 'px-6 py-4 text-base',
       },
     },
-    
+
     // Table variants
     variant: {
       default: 'border border-gray-200',
@@ -325,25 +326,25 @@ export const theme = {
       bordered: 'border border-gray-300',
       hover: 'border border-gray-200',
     },
-    
+
     // Action buttons in table
     actionCell: 'px-4 py-3 text-right',
     actionButton: 'px-3 py-1.5 text-xs font-medium rounded-md transition-colors duration-150',
     actionButtonPrimary: 'bg-orange-500 text-white hover:bg-orange-600',
     actionButtonSecondary: 'bg-gray-200 text-gray-700 hover:bg-gray-300',
     actionButtonDanger: 'bg-red-500 text-white hover:bg-red-600',
-    
+
     // Status badges
     statusBadge: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
     statusSuccess: 'bg-green-100 text-green-800',
     statusWarning: 'bg-yellow-100 text-yellow-800',
     statusError: 'bg-red-100 text-red-800',
     statusInfo: 'bg-blue-100 text-blue-800',
-    
+
     // Empty state
     emptyState: 'px-4 py-8 text-center text-gray-500',
     emptyIcon: 'w-12 h-12 mx-auto mb-2 text-gray-400',
-    
+
     // Pagination
     pagination: 'flex items-center justify-between px-4 py-3 border-t border-gray-200',
     paginationButton: 'px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500',
@@ -387,6 +388,7 @@ export const buttonClasses = {
   actionPrimary: cn(theme.button.action, theme.button.actionPrimary),
   actionSecondary: cn(theme.button.action, theme.button.actionSecondary),
   actionDanger: cn(theme.button.action, theme.button.actionDanger),
+  actionSuccess: cn(theme.button.action, theme.button.actionSuccess),
 };
 
 export const cardClasses = {

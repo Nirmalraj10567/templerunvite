@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from 'react-i18next'; // Import the useTranslation hook
+import { useTranslation } from 'react-i18next';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,723 @@ import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
 import { theme } from '@/styles/theme';
 import { CardHeader, CardTitle } from '@/components/ui/card';
 
+/* ─────────────────────────────────────────────
+   INLINE DESIGN TOKENS & GLOBAL STYLES
+   ───────────────────────────────────────────── */
+const styles = `
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --saffron:      #E8631A;
+    --saffron-lt:   #FFF4EC;
+    --saffron-mid:  #F5994A;
+    --maroon:       #7B1E1E;
+    --maroon-lt:    #F9EDED;
+    --gold:         #C6922A;
+    --gold-lt:      #FEF9ED;
+    --cream:        #FDFAF5;
+    --ink:          #1C1510;
+    --ink-60:       #6B5B52;
+    --ink-30:       #B8A89F;
+    --border:       #E6D8CE;
+    --shadow-sm:    0 1px 3px rgba(28,21,16,0.08);
+    --shadow-md:    0 4px 16px rgba(28,21,16,0.10);
+    --shadow-lg:    0 12px 40px rgba(28,21,16,0.14);
+    --radius:       10px;
+    --radius-sm:    6px;
+  }
+
+  .trp-root {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    min-height: 100vh;
+    color: var(--ink);
+  }
+
+  /* ── Header ── */
+  .trp-header {
+    background: linear-gradient(135deg, var(--saffron) 0%, #C94F0E 100%);
+    padding: 20px 28px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 3px solid var(--gold);
+    z-index: 100;
+    box-shadow: var(--shadow-md);
+  }
+  .trp-header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .trp-header-icon {
+    width: 42px;
+    height: 42px;
+    background: rgba(198,146,42,0.18);
+    border: 1.5px solid var(--gold);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+  }
+  .trp-header h1 {
+    font-family: 'Playfair Display', serif;
+    color: #fff;
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1.2;
+  }
+  .trp-header-sub {
+    color: rgba(255,255,255,0.6);
+    font-size: 12px;
+    margin-top: 2px;
+  }
+  .trp-header-badge {
+    background: rgba(232,99,26,0.25);
+    border: 1px solid var(--saffron-mid);
+    color: var(--saffron-mid);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── Layout ── */
+  .trp-body {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px 20px 40px;
+  }
+  .trp-layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 16px;
+    align-items: start;
+  }
+  @media (max-width: 1024px) {
+    .trp-layout { grid-template-columns: 1fr; }
+  }
+
+  /* ── Cards ── */
+  .trp-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .trp-card-header {
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: var(--cream);
+  }
+  .trp-card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Playfair Display', serif;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--saffron);
+  }
+  .trp-card-title-icon {
+    width: 24px;
+    height: 24px;
+    background: var(--saffron-lt);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+  }
+  .trp-card-body {
+    padding: 14px;
+  }
+
+  /* ── Accent cards ── */
+  .trp-card--saffron .trp-card-header { background: var(--saffron-lt); border-color: #F5C9A9; }
+  .trp-card--saffron .trp-card-title  { color: var(--saffron); }
+  .trp-card--amber .trp-card-header   { background: #FFFBEC; border-color: #F5DFA9; }
+  .trp-card--amber .trp-card-title    { color: #92650A; }
+  .trp-card--gold .trp-card-header    { background: var(--gold-lt); border-color: #E8D5A0; }
+  .trp-card--gold .trp-card-title     { color: var(--gold); }
+
+  /* ── Grid helpers ── */
+  .trp-grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+  .trp-grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+  .trp-grid-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
+  @media (max-width: 900px) {
+    .trp-grid-4 { grid-template-columns: repeat(2,1fr); }
+    .trp-grid-3 { grid-template-columns: repeat(2,1fr); }
+  }
+  @media (max-width: 600px) {
+    .trp-grid-4, .trp-grid-3, .trp-grid-2 { grid-template-columns: 1fr; }
+  }
+
+  /* ── Form Fields ── */
+  .trp-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink-60);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+  .trp-label .req { color: var(--saffron); margin-left: 2px; }
+
+  .trp-input {
+    width: 100%;
+    height: 34px;
+    padding: 0 10px;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--ink);
+    background: #FAFAF9;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    box-sizing: border-box;
+  }
+  .trp-input:focus {
+    border-color: var(--saffron);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(232,99,26,0.10);
+  }
+  .trp-input:read-only, .trp-input[disabled] {
+    background: #F5F2EE;
+    color: var(--ink-60);
+    cursor: not-allowed;
+  }
+  .trp-input--error { border-color: #DC2626 !important; }
+
+  .trp-select {
+    width: 100%;
+    height: 34px;
+    padding: 0 28px 0 10px;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--ink);
+    background: #FAFAF9 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236B5B52' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 10px center;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    outline: none;
+    appearance: none;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    box-sizing: border-box;
+  }
+  .trp-select:focus {
+    border-color: var(--saffron);
+    background-color: #fff;
+    box-shadow: 0 0 0 3px rgba(232,99,26,0.10);
+  }
+
+  .trp-textarea {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--ink);
+    background: #FAFAF9;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    outline: none;
+    resize: vertical;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    box-sizing: border-box;
+  }
+  .trp-textarea:focus {
+    border-color: var(--saffron);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(232,99,26,0.10);
+  }
+
+  .trp-err-text { font-size: 11px; color: #DC2626; margin-top: 3px; }
+
+  /* ── Ref card row ── */
+  .trp-ref-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--gold-lt);
+    border: 1px solid var(--gold);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gold);
+    font-family: 'Playfair Display', serif;
+    letter-spacing: 0.5px;
+  }
+  .trp-ref-label {
+    font-size: 10px;
+    color: var(--ink-30);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  /* ── Buttons ── */
+  .trp-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .trp-btn--primary {
+    background: linear-gradient(135deg, var(--saffron) 0%, #C94F0E 100%);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(232,99,26,0.30);
+  }
+  .trp-btn--primary:hover { filter: brightness(1.08); box-shadow: 0 4px 14px rgba(232,99,26,0.38); }
+  .trp-btn--primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  .trp-btn--outline {
+    background: #fff;
+    color: var(--ink-60);
+    border: 1.5px solid var(--border);
+  }
+  .trp-btn--outline:hover { border-color: var(--saffron); color: var(--saffron); background: var(--saffron-lt); }
+
+  .trp-btn--ghost {
+    background: transparent;
+    color: var(--ink-60);
+    border: none;
+    padding: 0 8px;
+    height: 28px;
+    font-size: 12px;
+  }
+  .trp-btn--ghost:hover { color: var(--saffron); }
+
+  .trp-btn--maroon {
+    background: var(--maroon);
+    color: #fff;
+  }
+  .trp-btn--maroon:hover { background: #5C1515; }
+
+  .trp-btn--icon {
+    width: 34px;
+    padding: 0;
+    flex-shrink: 0;
+  }
+
+  .trp-btn--save {
+    width: 100%;
+    height: 44px;
+    font-size: 15px;
+    border-radius: var(--radius);
+    background: linear-gradient(135deg, var(--saffron) 0%, #C94F0E 100%);
+    color: #fff;
+    border: none;
+    font-family: 'Playfair Display', serif;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(232,99,26,0.28);
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .trp-btn--save:hover { filter: brightness(1.1); box-shadow: 0 6px 20px rgba(232,99,26,0.36); }
+  .trp-btn--save:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  .trp-btn--clear {
+    width: 100%;
+    height: 36px;
+    font-size: 13px;
+    border-radius: var(--radius-sm);
+    background: #fff;
+    color: var(--ink-60);
+    border: 1.5px solid var(--border);
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .trp-btn--clear:hover { border-color: var(--saffron); color: var(--saffron); }
+
+  /* ── Toggle/Collapse header ── */
+  .trp-toggle-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+  }
+  .trp-toggle-header:hover .trp-card-title { color: var(--saffron); }
+
+  /* ── Dropdown suggestions ── */
+  .trp-dropdown {
+    position: absolute;
+    z-index: 50;
+    left: 0;
+    right: 0;
+    top: calc(100% + 4px);
+    background: #fff;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-lg);
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  .trp-dropdown-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .trp-dropdown-item:last-child { border-bottom: none; }
+  .trp-dropdown-item:hover { background: var(--saffron-lt); }
+  .trp-dropdown-name { font-size: 13px; font-weight: 600; color: var(--ink); }
+  .trp-dropdown-meta { font-size: 11px; color: var(--ink-60); margin-top: 2px; }
+  .trp-dropdown-id {
+    font-size: 10px;
+    color: var(--ink-30);
+    background: var(--cream);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+  }
+  .trp-dropdown-empty { padding: 12px; text-align: center; font-size: 12px; color: var(--ink-30); }
+
+  /* ── Input-row ── */
+  .trp-input-row { display: flex; gap: 6px; align-items: flex-end; }
+  .trp-input-row .trp-input { flex: 1; }
+
+  /* ── Amount tiles ── */
+  .trp-amount-tile {
+    background: var(--cream);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+  }
+  .trp-amount-tile-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--ink-60);
+    margin-bottom: 4px;
+  }
+  .trp-amount-tile-value {
+    font-size: 17px;
+    font-weight: 700;
+    font-family: 'Playfair Display', serif;
+    color: var(--saffron);
+  }
+  .trp-amount-tile-value--green { color: #15803D; }
+  .trp-amount-tile-value--red   { color: #DC2626; }
+  .trp-amount-tile-value--blue  { color: #1D4ED8; }
+  .trp-amount-tile--editable {
+    border-color: var(--saffron-mid);
+    background: var(--saffron-lt);
+  }
+  .trp-amount-tile--editable .trp-amount-tile-label { color: var(--saffron); }
+
+  /* ── Photo box ── */
+  .trp-photo-box {
+    width: 100%;
+    aspect-ratio: 3/4;
+    max-height: 180px;
+    background: var(--cream);
+    border: 2px dashed var(--border);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .trp-photo-box:hover { border-color: var(--saffron-mid); }
+  .trp-photo-box img { width: 100%; height: 100%; object-fit: cover; }
+  .trp-photo-placeholder { text-align: center; color: var(--ink-30); }
+  .trp-photo-placeholder svg { display: block; margin: 0 auto 6px; }
+  .trp-photo-placeholder span { font-size: 11px; }
+
+  /* ── Status chips ── */
+  .trp-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 20px;
+  }
+  .trp-chip--orange { background: var(--saffron-lt); color: var(--saffron); border: 1px solid #F5C9A9; }
+  .trp-chip--green  { background: #F0FDF4; color: #15803D; border: 1px solid #BBF7D0; }
+  .trp-chip--red    { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+
+  /* ── Lock toggle ── */
+  .trp-lock-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+  }
+  .trp-lock-btn--locked   { background: #FFF4EC; color: var(--saffron); border: 1px solid #F5C9A9; }
+  .trp-lock-btn--unlocked { background: var(--cream); color: var(--ink-60); border: 1px solid var(--border); }
+  .trp-lock-btn:hover { opacity: 0.8; }
+
+  /* ── Breadcrumb/Meta row ── */
+  .trp-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 8px 14px;
+    background: var(--cream);
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--ink-60);
+  }
+  .trp-meta-row strong { color: var(--ink); }
+
+  /* ── Heirs table ── */
+  .trp-heirs-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .trp-heirs-table th {
+    background: var(--cream);
+    color: var(--ink-60);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 6px 8px;
+    text-align: left;
+    border-bottom: 1.5px solid var(--border);
+  }
+  .trp-heirs-table td {
+    padding: 5px 6px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .trp-heirs-table tr:hover td { background: var(--saffron-lt); }
+  .trp-heirs-input {
+    width: 100%;
+    padding: 4px 6px;
+    font-size: 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: #fff;
+    outline: none;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .trp-heirs-input:focus { border-color: var(--saffron); }
+  .trp-heirs-remove {
+    background: none;
+    border: none;
+    color: #DC2626;
+    font-size: 18px;
+    cursor: pointer;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    transition: background 0.1s;
+  }
+  .trp-heirs-remove:hover { background: #FEF2F2; }
+
+  /* ── Breakdown table ── */
+  .trp-breakdown-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px dashed var(--border);
+    font-size: 12px;
+  }
+  .trp-breakdown-row:last-child { border-bottom: none; }
+  .trp-breakdown-year { font-weight: 600; color: var(--ink); }
+  .trp-breakdown-status { font-size: 10px; color: var(--ink-60); margin-top: 1px; }
+  .trp-breakdown-amt--red    { font-weight: 700; color: #DC2626; }
+  .trp-breakdown-amt--green  { font-weight: 700; color: #15803D; }
+  .trp-breakdown-total {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0 0;
+    border-top: 2px solid var(--saffron);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--saffron);
+    font-family: 'Playfair Display', serif;
+  }
+
+  /* ── Alert ── */
+  .trp-alert-err {
+    background: #FEF2F2;
+    border: 1px solid #FECACA;
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    color: #991B1B;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .trp-alert-err svg { flex-shrink: 0; margin-top: 1px; }
+
+  /* ── Tip text ── */
+  .trp-tip {
+    font-size: 11px;
+    color: var(--ink-60);
+    margin-top: 4px;
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  /* ── Modal overlay ── */
+  .trp-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(28,21,16,0.45);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .trp-modal {
+    background: #fff;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    max-width: 460px;
+    width: 100%;
+    overflow: hidden;
+  }
+  .trp-modal-header {
+    padding: 16px 20px;
+    background: linear-gradient(135deg, var(--saffron) 0%, #C94F0E 100%);
+    color: #fff;
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .trp-modal-close {
+    background: rgba(255,255,255,0.15);
+    border: none;
+    color: #fff;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+  }
+  .trp-modal-close:hover { background: rgba(255,255,255,0.25); }
+  .trp-modal-body { padding: 24px 20px; }
+
+  /* ── Section divider ── */
+  .trp-divider {
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--border), transparent);
+    margin: 4px 0;
+  }
+
+  /* ── Spinner ── */
+  .trp-spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--saffron);
+    border-radius: 50%;
+    animation: trp-spin 0.7s linear infinite;
+    margin: 0 auto 12px;
+  }
+  @keyframes trp-spin { to { transform: rotate(360deg); } }
+
+  /* ── Linked family badge ── */
+  .trp-family-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #FFFBEC;
+    border: 1px solid #F5DFA9;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: #92650A;
+    font-weight: 600;
+  }
+
+  /* ── Search loader dot ── */
+  .trp-dot-loader {
+    display: inline-flex;
+    gap: 3px;
+    align-items: center;
+    margin-left: 6px;
+  }
+  .trp-dot-loader span {
+    width: 4px; height: 4px;
+    background: var(--saffron);
+    border-radius: 50%;
+    animation: trp-dot 0.9s infinite;
+  }
+  .trp-dot-loader span:nth-child(2) { animation-delay: 0.15s; }
+  .trp-dot-loader span:nth-child(3) { animation-delay: 0.30s; }
+  @keyframes trp-dot {
+    0%,80%,100% { transform: scale(0.6); opacity: 0.4; }
+    40%         { transform: scale(1);   opacity: 1;   }
+  }
+
+  fieldset[disabled] .trp-input,
+  fieldset[disabled] .trp-select,
+  fieldset[disabled] .trp-textarea {
+    background: #F5F2EE;
+    color: var(--ink-60);
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+`;
+
+/* ─────────────────────────────────────────────
+   TYPES
+   ───────────────────────────────────────────── */
 interface Heir {
   id: string;
   serialNumber: number;
@@ -24,8 +741,67 @@ interface Heir {
   birthDate: string;
 }
 
+/* ─────────────────────────────────────────────
+   SMALL UI HELPERS
+   ───────────────────────────────────────────── */
+const Field: React.FC<{
+  label: string;
+  required?: boolean;
+  error?: string;
+  hint?: string;
+  children: React.ReactNode;
+  className?: string;
+}> = ({ label, required, error, hint, children, className }) => (
+  <div className={className}>
+    <label className="trp-label">
+      {label}{required && <span className="req"> *</span>}
+    </label>
+    {children}
+    {error && <p className="trp-err-text">⚠ {error}</p>}
+    {hint && !error && <p className="trp-tip">💡 {hint}</p>}
+  </div>
+);
+
+const SectionCard: React.FC<{
+  icon: string;
+  title: string;
+  accent?: 'saffron' | 'amber' | 'gold';
+  action?: React.ReactNode;
+  children: React.ReactNode;
+  collapsible?: boolean;
+  defaultOpen?: boolean;
+}> = ({ icon, title, accent, action, children, collapsible, defaultOpen = true }) => {
+  const [open, setOpen] = useState(defaultOpen);
+  const accentClass = accent ? `trp-card--${accent}` : '';
+
+  return (
+    <div className={`trp-card ${accentClass}`}>
+      <div
+        className="trp-card-header"
+        style={{ cursor: collapsible ? 'pointer' : 'default' }}
+        onClick={collapsible ? () => setOpen(v => !v) : undefined}
+      >
+        <div className="trp-card-title">
+          <div className="trp-card-title-icon">{icon}</div>
+          {title}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {action}
+          {collapsible && (
+            <span style={{ color: 'var(--ink-30)', fontSize: 12, transition: 'transform .2s', display: 'inline-block', transform: open ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▼</span>
+          )}
+        </div>
+      </div>
+      {(!collapsible || open) && <div className="trp-card-body">{children}</div>}
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   MAIN PAGE
+   ───────────────────────────────────────────── */
 export default function TaxUserEntryPage() {
-  const { t, i18n } = useTranslation(); // Initialize the translation hook
+  const { t, i18n } = useTranslation();
   const { language } = useLanguage();
   const { user, token } = useAuth();
   const navigate = useNavigate();
@@ -68,10 +844,7 @@ export default function TaxUserEntryPage() {
     memberId: '',
   });
 
-  const [newUser, setNewUser] = useState({
-    heirs: [] as Heir[],
-    photo: null as File | null,
-  });
+  const [newUser, setNewUser] = useState({ heirs: [] as Heir[], photo: null as File | null });
 
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -83,145 +856,83 @@ export default function TaxUserEntryPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [taxBreakdown, setTaxBreakdown] = useState<any[]>([]);
   const [cumulativeInfo, setCumulativeInfo] = useState<any>(null);
-  const [initialDue, setInitialDue] = useState<number>(0); // current year tax + previous unpaid, from backend settings
+  const [initialDue, setInitialDue] = useState<number>(0);
   const [lastCreatedId, setLastCreatedId] = useState<number | null>(null);
-  const [showPrintPrompt, setShowPrintPrompt] = useState<boolean>(false);
+  const [showPrintPrompt, setShowPrintPrompt] = useState(false);
   const [nameResults, setNameResults] = useState<any[]>([]);
-  const [showNameResults, setShowNameResults] = useState<boolean>(false);
+  const [showNameResults, setShowNameResults] = useState(false);
   const [mobileResults, setMobileResults] = useState<any[]>([]);
-  const [showMobileResults, setShowMobileResults] = useState<boolean>(false);
-  const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
-  const [successMessage, setSuccessMessage] = useState<string>('');
+  const [showMobileResults, setShowMobileResults] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const nameInputRef = useRef<HTMLInputElement>(null);
   const mobileInputRef = useRef<HTMLInputElement>(null);
   const suppressNameLookupRef = useRef<number>(0);
   const suppressMobileLookupRef = useRef<number>(0);
-  // Focus target for fast entry after selection
   const amountPaidRef = useRef<HTMLInputElement>(null);
-  // Separate input for searching by receipt number (do not reuse generated referenceNumber)
-  const [receiptSearch, setReceiptSearch] = useState<string>('');
-  // Existing photo from autofill (when no new upload)
+  const [receiptSearch, setReceiptSearch] = useState('');
   const [existingPhotoUrl, setExistingPhotoUrl] = useState<string | null>(null);
-  // When data is autofilled, lock personal/id/address sections by default
-  const [autoLocked, setAutoLocked] = useState<boolean>(false);
-  // Collapsible sections to reduce scrolling
-  const [showAddress, setShowAddress] = useState<boolean>(false);
-  const [showIdDetails, setShowIdDetails] = useState<boolean>(false);
-  const [showHeirs, setShowHeirs] = useState<boolean>(false);
-  const [showCumulative, setShowCumulative] = useState<boolean>(false);
-  const [showPhoto, setShowPhoto] = useState<boolean>(false);
-
-  // Master data for dropdowns
+  const [autoLocked, setAutoLocked] = useState(false);
   const [masterClans, setMasterClans] = useState<string[]>([]);
   const [masterGroups, setMasterGroups] = useState<string[]>([]);
   const [masterOccupations, setMasterOccupations] = useState<string[]>([]);
   const [masterEducations, setMasterEducations] = useState<string[]>([]);
 
-  // Subdivision removed
-
-  // Master data for races
   const masterRaces = [
-    { value: 'tamil', label: 'Tamil', tamil: 'தமிழ்' },
-    { value: 'telugu', label: 'Telugu', tamil: 'தெலுங்கு' },
-    { value: 'malayalam', label: 'Malayalam', tamil: 'மலையாளம்' },
-    { value: 'kannada', label: 'Kannada', tamil: 'கன்னடம்' },
-    { value: 'hindi', label: 'Hindi', tamil: 'இந்தி' },
-    { value: 'other', label: 'Other', tamil: 'மற்றவை' }
+    { value: 'tamil', label: 'Tamil' },
+    { value: 'telugu', label: 'Telugu' },
+    { value: 'malayalam', label: 'Malayalam' },
+    { value: 'kannada', label: 'Kannada' },
+    { value: 'hindi', label: 'Hindi' },
+    { value: 'other', label: 'Other' },
   ];
-
-  // Marital status options
   const maritalStatusOptions = [
-    { value: 'unmarried', label: 'Unmarried', tamil: 'திருமணமாகாத' },
-    { value: 'married', label: 'Married', tamil: 'திருமணமான' },
-    { value: 'divorced', label: 'Divorced', tamil: 'விவாகரத்து' },
-    { value: 'widowed', label: 'Widowed', tamil: 'விதவை' }
+    { value: 'unmarried', label: 'Unmarried' },
+    { value: 'married', label: 'Married' },
+    { value: 'divorced', label: 'Divorced' },
+    { value: 'widowed', label: 'Widowed' },
   ];
 
-  // Load master data from backend based on temple ID
+  // ── Language helper ──
+  const L = (en: string, ta: string) => (language === 'english' ? ta : en);
+
+  // ── Load master data ──
   useEffect(() => {
     if (user?.templeId && token) {
       (async () => {
         setLoading(true);
         try {
           const [clansRes, groupsRes, occupationsRes, educationsRes] = await Promise.all([
-            fetch(`http://localhost:4000/api/master/clans/${user.templeId}`, {
-              headers: { Authorization: `Bearer ${token}` }
-            }),
-            fetch(`http://localhost:4000/api/master/groups/${user.templeId}`, {
-              headers: { Authorization: `Bearer ${token}` }
-            }),
-            fetch(`http://localhost:4000/api/master/occupations/${user.templeId}`, {
-              headers: { Authorization: `Bearer ${token}` }
-            }),
-            fetch(`http://localhost:4000/api/master/educations/${user.templeId}`, {
-              headers: { Authorization: `Bearer ${token}` }
-            }),
+            fetch(`https://templeapi.agniplay.com/api/master/clans/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`https://templeapi.agniplay.com/api/master/groups/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`https://templeapi.agniplay.com/api/master/occupations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`https://templeapi.agniplay.com/api/master/educations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
           ]);
-
-          if (clansRes.ok) {
-            const clans = await clansRes.json();
-            setMasterClans(clans.map((x: any) => x.name));
-          }
-          if (groupsRes.ok) {
-            const groups = await groupsRes.json();
-            setMasterGroups(groups.map((x: any) => x.name));
-          }
-          if (occupationsRes.ok) {
-            const occupations = await occupationsRes.json();
-            setMasterOccupations(occupations.map((x: any) => x.name));
-          }
+          if (clansRes.ok) setMasterClans((await clansRes.json()).map((x: any) => x.name));
+          if (groupsRes.ok) setMasterGroups((await groupsRes.json()).map((x: any) => x.name));
+          if (occupationsRes.ok) setMasterOccupations((await occupationsRes.json()).map((x: any) => x.name));
           if (educationsRes.ok) {
-            const educations = await educationsRes.json();
-            setMasterEducations(educations.map((x: any) => x.name));
+            setMasterEducations((await educationsRes.json()).map((x: any) => x.name));
           } else {
-            // Fallback static education options
-            setMasterEducations([
-              'Illiterate',
-              'Primary',
-              'Secondary',
-              'Higher Secondary',
-              'Diploma',
-              'Bachelor Degree',
-              'Master Degree',
-              'PhD',
-              'Professional Course',
-              'Technical Training',
-              'Other',
-            ]);
+            setMasterEducations(['Illiterate','Primary','Secondary','Higher Secondary','Diploma','Bachelor Degree','Master Degree','PhD','Professional Course','Technical Training','Other']);
           }
-        } catch (e) {
-          console.error('Error loading master data', e);
-          setErr('Failed to load master data / முதன்மை தரவு ஏற்ற முடியவில்லை');
-        } finally {
-          setLoading(false);
-        }
+        } catch { setErr('Failed to load master data'); }
+        finally { setLoading(false); }
       })();
-    } else {
-      setLoading(false);
-    }
+    } else { setLoading(false); }
   }, [user, token]);
 
-  // Load ledger categories for Transfer To Account
   useEffect(() => {
     if (!token) return;
-    (async () => {
-      try {
-        const resp =await axios.get<any>('http://localhost:4000/api/ledger/categories', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = (resp?.data && Array.isArray(resp.data.data)) ? resp.data.data : (Array.isArray(resp?.data) ? resp.data : []);
-        const mapped = (data || []).map((item: any, index: number) => {
-          if (typeof item === 'string') return { id: index + 1, value: item, label: item };
-          return { id: item.id || index + 1, value: item.value || item.label, label: item.label || item.value };
-        });
-        setCategories(mapped);
-      } catch (e) {
-        console.error('Failed to load ledger categories', e);
-      }
-    })();
+    axios.get<any>('https://templeapi.agniplay.com/api/ledger/categories', { headers: { Authorization: `Bearer ${token}` } })
+      .then(resp => {
+        const data = (resp?.data?.data && Array.isArray(resp.data.data)) ? resp.data.data : (Array.isArray(resp?.data) ? resp.data : []);
+        setCategories(data.map((item: any, i: number) =>
+          typeof item === 'string' ? { id: i+1, value: item, label: item } : { id: item.id||i+1, value: item.value||item.label, label: item.label||item.value }
+        ));
+      }).catch(console.error);
   }, [token]);
 
-  // Load tax amount and next Ref No for current year on mount
   useEffect(() => {
     if (user?.templeId && token && !loading) {
       fetchTaxAmountForYear(form.year);
@@ -229,153 +940,65 @@ export default function TaxUserEntryPage() {
     }
   }, [user?.templeId, token, loading]);
 
-  const set = (k: string, v: any) => setForm(p => ({ ...p, [k]: v }));
-
-  // Helper to show text in current language only
-  const L = (en: string, ta: string) => (language === 'english' ? ta : en);
-
-  // Helper function to intelligently determine when to show dropdown
-  const shouldShowDropdown = (results: any[], searchType: 'mobile' | 'name') => {
-    if (!results || results.length === 0) {
-      return false; // No matches - don't show dropdown
-    }
-    
-    if (results.length === 1) {
-      // Single match - auto-fill and don't show dropdown
-      return false;
-    }
-    
-    // 2+ matches - show dropdown for user to choose
-    return true;
-  };
-
-  // Helper function to show success messages in modal
-  const showSuccessAlert = (message: string) => {
-    setSuccessMessage(message);
-    setShowSuccessModal(true);
-    // Auto-close after 4 seconds
-    setTimeout(() => {
-      setShowSuccessModal(false);
-      setSuccessMessage('');
-    }, 4000);
-  };
-
-  // Input formatting functions
-  const formatMobileNumber = (value: string) => {
-    const clean = value.replace(/\D/g, '').slice(0, 10);
-    if (clean.length >= 6) return `${clean.slice(0, 3)}-${clean.slice(3, 6)}-${clean.slice(6)}`;
-    if (clean.length >= 3) return `${clean.slice(0, 3)}-${clean.slice(3)}`;
-    return clean;
-  };
-
-  // Derived remaining due after payment
-  const remainingDue = Math.max(
-    0,
-    Number(form.outstandingAmount || 0) - Number(form.amountPaid || 0)
-  );
-
-  // Debounced auto-lookup for Name and Mobile (replaces search buttons)
+  // Debounced name lookup
   useEffect(() => {
-    // Suppress lookup shortly after a selection to avoid reopening dropdown
     if (suppressNameLookupRef.current && Date.now() < suppressNameLookupRef.current) return;
     const q = form.name?.trim() || '';
     if (!q || q.length < 2) return;
-    const t = setTimeout(() => {
-      try {
-        (lookupUsersByName as any)?.(q);
-      } catch (e) {
-        // no-op if function not present
-      }
-    }, 400);
+    const t = setTimeout(() => lookupUsersByName(q), 400);
     return () => clearTimeout(t);
   }, [form.name]);
 
+  // Debounced mobile lookup
   useEffect(() => {
     const digits = form.mobileNumber?.replace(/\D/g, '') || '';
     if (digits.length !== 10) return;
-    const t = setTimeout(() => {
-      try {
-        (lookupUserByMobile as any)?.(form.mobileNumber);
-      } catch (e) {}
-    }, 300);
+    const t = setTimeout(() => lookupUserByMobile(form.mobileNumber), 300);
     return () => clearTimeout(t);
   }, [form.mobileNumber]);
 
-  // Manual search only - no auto-lookup for reference number
-
-  // Auto-fill: default Amount to be paid from Outstanding (or Tax Amount) if empty
+  // Auto-fill amount paid
   useEffect(() => {
     const due = Number(form.outstandingAmount || form.taxAmount || 0);
     if ((!form.amountPaid || Number(form.amountPaid) <= 0) && Number.isFinite(due) && due > 0) {
       setForm(prev => ({ ...prev, amountPaid: String(due) }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.outstandingAmount, form.taxAmount]);
 
-  // Fast navigation: focus save button on Enter
-  const handleFormKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== 'Enter') return;
-    const t = e.target as HTMLElement;
-    const tag = t.tagName?.toLowerCase();
-    if (!tag || ['button', 'textarea'].includes(tag)) return; // allow buttons and textareas to handle Enter normally
-    e.preventDefault();
-    // Focus the save button
-    const saveButton = document.querySelector('button[type="submit"]') as HTMLButtonElement;
-    if (saveButton) {
-      saveButton.focus();
-    }
-  };
-
-  // Handle click outside to close dropdowns
+  // Click outside dropdowns
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (nameInputRef.current && !nameInputRef.current.contains(target)) {
-        setShowNameResults(false);
-      }
-      if (mobileInputRef.current && !mobileInputRef.current.contains(target)) {
-        setShowMobileResults(false);
-      }
+    const h = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (nameInputRef.current && !nameInputRef.current.closest('.trp-relative')?.contains(t)) setShowNameResults(false);
+      if (mobileInputRef.current && !mobileInputRef.current.closest('.trp-relative')?.contains(t)) setShowMobileResults(false);
     };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
   }, []);
 
-  // Fetch next yearly reference number (read-only Ref No)
-  const fetchNextReferenceNumber = async (year: number) => {
-    if (!token || !year) return;
-    try {
-      const res = await fetch(`http://localhost:4000/api/tax-registrations/next-ref?year=${year}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.success && data?.ref) {
-          setForm(prev => ({ ...prev, referenceNumber: data.ref }));
-        }
-      }
-    } catch (e) {
-      console.error('Failed to fetch next reference number', e);
-    }
+  const set = (k: string, v: any) => setForm(p => ({ ...p, [k]: v }));
+
+  const remainingDue = Math.max(0, Number(form.outstandingAmount || 0) - Number(form.amountPaid || 0));
+
+  const showSuccessAlert = (message: string) => {
+    setSuccessMessage(message);
+    setShowSuccessModal(true);
+    setTimeout(() => { setShowSuccessModal(false); setSuccessMessage(''); }, 4000);
   };
 
+  const formatMobileNumber = (value: string) => {
+    const clean = value.replace(/\D/g, '').slice(0, 10);
+    if (clean.length >= 6) return `${clean.slice(0,3)}-${clean.slice(3,6)}-${clean.slice(6)}`;
+    if (clean.length >= 3) return `${clean.slice(0,3)}-${clean.slice(3)}`;
+    return clean;
+  };
   const formatAadhaarNumber = (value: string) => {
     const clean = value.replace(/\D/g, '').slice(0, 12);
-    if (clean.length >= 8) return `${clean.slice(0, 4)}-${clean.slice(4, 8)}-${clean.slice(8)}`;
-    if (clean.length >= 4) return `${clean.slice(0, 4)}-${clean.slice(4)}`;
+    if (clean.length >= 8) return `${clean.slice(0,4)}-${clean.slice(4,8)}-${clean.slice(8)}`;
+    if (clean.length >= 4) return `${clean.slice(0,4)}-${clean.slice(4)}`;
     return clean;
   };
 
-  const handleFormattedInput = (field: string, value: string, formatter: (v: string) => string) => {
-    const formatted = formatter(value);
-    setForm(prev => ({ ...prev, [field]: formatted }));
-    if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
-  };
-
-  // Helper: fill form fields from a registration row
   const fillFormFromRegistration = (userData: any) => {
     setForm(prev => ({
       ...prev,
@@ -404,453 +1027,206 @@ export default function TaxUserEntryPage() {
       mobileNumber: userData.mobile_number ? formatMobileNumber(userData.mobile_number) : prev.mobileNumber,
       memberId: userData.reference_number ? userData.reference_number.toString() : '',
     }));
-    // Enable lock after autofill
     setAutoLocked(true);
-    // Try to capture existing photo URL from various possible keys
-    const resolveImageUrl = (raw?: string | null) => {
+    const img = (() => {
+      const raw = userData.photo_path || userData.photoUrl || userData.image_path || userData.photo || userData.image;
       if (!raw) return null;
-      // helper: backend base (dev: force :4000 for local hosts irrespective of FE port)
-      const getBackendBase = () => {
-        const { origin } = window.location;
-        try {
-          const url = new URL(origin);
-          const host = url.hostname;
-          const isLocal = host === 'localhost' || host === '127.0.0.1' || /^192\.168\./.test(host);
-          if (isLocal) {
-            return `${url.protocol}//${host}:4000`;
-          }
-        } catch {}
-        return origin; // same-origin in prod or if parsing fails
-      };
-      // Absolute URL
       if (/^https?:\/\//i.test(raw)) return raw;
-      const path = raw.startsWith('/public/') ? raw : (raw.startsWith('/uploads/') ? `/public${raw}` : null);
+      const path = raw.startsWith('/public/') ? raw : raw.startsWith('/uploads/') ? `/public${raw}` : null;
       if (!path) return null;
-      return `${getBackendBase()}${path}`;
-    };
-    const img = resolveImageUrl(
-      userData.photo_path || userData.photoUrl || userData.image_path || userData.photo || userData.image
-    );
-    setExistingPhotoUrl(img || null);
+      const { origin } = window.location;
+      try {
+        const u = new URL(origin);
+        const isLocal = u.hostname === 'localhost' || u.hostname === '127.0.0.1';
+        return isLocal ? `${u.protocol}//${u.hostname}:4000${path}` : `${origin}${path}`;
+      } catch { return `${origin}${path}`; }
+    })();
+    setExistingPhotoUrl(img);
   };
 
+  const fetchNextReferenceNumber = async (year: number) => {
+    if (!token || !year) return;
+    try {
+      const res = await fetch(`https://templeapi.agniplay.com/api/tax-registrations/next-ref?year=${year}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.success && data?.ref) setForm(prev => ({ ...prev, referenceNumber: data.ref }));
+      }
+    } catch {}
+  };
 
-  // Mobile number lookup function
   const lookupUserByMobile = async (mobileNumber: string) => {
     const cleanMobile = mobileNumber.replace(/\D/g, '');
-    console.log('Looking up mobile:', cleanMobile); // Debug log
-
-    if (cleanMobile.length < 3) {
-      setMobileResults([]);
-      setShowMobileResults(false);
-      return;
-    }
-
-    // Suppress lookup shortly after a selection to avoid reopening dropdown
-    if (suppressMobileLookupRef.current && Date.now() < suppressMobileLookupRef.current) {
-      console.log('Lookup suppressed'); // Debug log
-      return;
-    }
-
+    if (cleanMobile.length < 3) { setMobileResults([]); setShowMobileResults(false); return; }
+    if (suppressMobileLookupRef.current && Date.now() < suppressMobileLookupRef.current) return;
     setLookingUp(true);
-    setErr(null);
-
     try {
-      console.log('Fetching results for mobile:', cleanMobile); // Debug log
-      // Search in user_registrations table for existing user data using the search parameter
-      const response = await fetch(`http://localhost:4000/api/registrations?search=${cleanMobile}&pageSize=10`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
+      const response = await fetch(`https://templeapi.agniplay.com/api/registrations?search=${cleanMobile}&pageSize=10`, { headers: { Authorization: `Bearer ${token}` } });
       if (response.ok) {
         const data = await response.json();
-        console.log('Mobile search results:', data); // Debug log
         const rows = (data?.data && Array.isArray(data.data)) ? data.data : [];
         setMobileResults(rows);
-        
-        // Use intelligent dropdown logic
-        const shouldShow = shouldShowDropdown(rows, 'mobile');
-        setShowMobileResults(shouldShow);
-        
-        if (rows.length === 0) {
-          setMsg(L('No matches found', 'பொருந்தும் பதிவுகள் இல்லை'));
-          setTimeout(() => setMsg(null), 3000);
-        } else if (rows.length === 1) {
-          // Auto-fill single match
-          const userData = rows[0];
-          fillFormFromRegistration(userData);
-          const mobile = userData?.mobile_number ? formatMobileNumber(userData.mobile_number) : '';
-          if (mobile && user?.templeId && token) {
-            fetchCumulativeTax(mobile, form.year);
-          }
-          showSuccessAlert(`✅ Auto-filled: ${userData.name} - Registration ID ${userData.id}`);
-        }
+        if (rows.length === 0) { setShowMobileResults(false); setMsg(L('No matches found','பொருந்தும் பதிவுகள் இல்லை')); setTimeout(()=>setMsg(null),3000); }
+        else if (rows.length === 1) { setShowMobileResults(false); fillFormFromRegistration(rows[0]); const mob = rows[0]?.mobile_number ? formatMobileNumber(rows[0].mobile_number) : ''; if (mob && user?.templeId && token) fetchCumulativeTax(mob, form.year); showSuccessAlert(`✅ Auto-filled: ${rows[0].name}`); }
+        else { setShowMobileResults(true); }
       }
-    } catch (error) {
-      console.error('Error looking up user:', error);
-      // Don't show error for lookup failure, just continue with manual entry
-    } finally {
-      setLookingUp(false);
-    }
+    } catch {}
+    finally { setLookingUp(false); }
   };
 
-  // Name lookup: search registrations by name (or partial)
   const lookupUsersByName = async (query: string) => {
     const q = (query || '').trim();
-    if (!q || q.length < 2 || !token) {
-      setNameResults([]);
-      setShowNameResults(false);
-      return;
-    }
-
+    if (!q || q.length < 2 || !token) { setNameResults([]); setShowNameResults(false); return; }
     setNameLookingUp(true);
-    setErr(null);
     try {
-      const response = await fetch(`http://localhost:4000/api/registrations?search=${encodeURIComponent(q)}&pageSize=10`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await fetch(`https://templeapi.agniplay.com/api/registrations?search=${encodeURIComponent(q)}&pageSize=10`, { headers: { Authorization: `Bearer ${token}` } });
       if (response.ok) {
         const data = await response.json();
         const rows = (data?.data && Array.isArray(data.data)) ? data.data : [];
         setNameResults(rows);
-        
-        // Use intelligent dropdown logic
-        const shouldShow = shouldShowDropdown(rows, 'name');
-        setShowNameResults(shouldShow);
-        
-        if (rows.length === 0) {
-          setMsg(L('No matches found', 'பொருந்தும் பதிவுகள் இல்லை'));
-          setTimeout(() => setMsg(null), 3000);
-        } else if (rows.length === 1) {
-          // Auto-fill single match
-          const userData = rows[0];
-          fillFormFromRegistration(userData);
-          const mobile = userData?.mobile_number ? formatMobileNumber(userData.mobile_number) : '';
-          if (mobile && user?.templeId && token) {
-            fetchCumulativeTax(mobile, form.year);
-          }
-          showSuccessAlert(`✅ Auto-filled: ${userData.name} - Registration ID ${userData.id}`);
-        }
+        if (rows.length === 0) { setShowNameResults(false); }
+        else if (rows.length === 1) { setShowNameResults(false); fillFormFromRegistration(rows[0]); const mob = rows[0]?.mobile_number ? formatMobileNumber(rows[0].mobile_number) : ''; if (mob && user?.templeId && token) fetchCumulativeTax(mob, form.year); showSuccessAlert(`✅ Auto-filled: ${rows[0].name}`); }
+        else { setShowNameResults(true); }
       }
-    } catch (error) {
-      console.error('Error looking up by name:', error);
-    } finally {
-      setNameLookingUp(false);
-    }
+    } catch {}
+    finally { setNameLookingUp(false); }
   };
 
-  // Receipt number lookup function
   const lookupByReceiptNumber = async (receiptNumber: string) => {
     const cleanReceipt = (receiptNumber || '').trim();
-    console.log('Looking up receipt:', cleanReceipt);
-
-    if (cleanReceipt.length < 3) {
-      setErr(L('Receipt number too short', 'ரசீது எண் மிகவும் குறுகியது'));
-      return;
-    }
-
-    setLookingUp(true);
-    setErr(null);
-    setMsg(null);
-
+    if (cleanReceipt.length < 3) { setErr(L('Receipt number too short','ரசீது எண் மிகவும் குறுகியது')); return; }
+    setLookingUp(true); setErr(null); setMsg(null);
     try {
-      console.log('Fetching results for receipt:', cleanReceipt);
-      // Search in user_registrations table for existing user data using reference number
-      const response = await fetch(`http://localhost:4000/api/registrations?search=${encodeURIComponent(cleanReceipt)}&pageSize=10`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
+      const response = await fetch(`https://templeapi.agniplay.com/api/registrations?search=${encodeURIComponent(cleanReceipt)}&pageSize=10`, { headers: { Authorization: `Bearer ${token}` } });
       if (response.ok) {
         const data = await response.json();
-        console.log('Receipt search results:', data);
         const rows = (data?.data && Array.isArray(data.data)) ? data.data : [];
-        
-        if (rows.length > 0) {
-          // Auto-fill the first matching result
-          const userData = rows[0];
-          fillFormFromRegistration(userData);
-          showSuccessAlert(`✅ Found: ${userData.name} - Reference ${userData.reference_number} (Member ID: ${userData.id || 'N/A'})`);
-        } else {
-          setErr(L('No user registration found with this reference number', 'இந்த குறிப்பு எண்ணுடன் பயனர் பதிவு இல்லை'));
+        if (rows.length > 0) { 
+          fillFormFromRegistration(rows[0]); 
+          const mob = rows[0]?.mobile_number ? formatMobileNumber(rows[0].mobile_number) : '';
+          if (mob && user?.templeId && token) fetchCumulativeTax(mob, form.year);
+          showSuccessAlert(`✅ Found: ${rows[0].name} — Ref ${rows[0].reference_number}`); 
         }
-      } else {
-        setErr(L('Failed to search reference number', 'குறிப்பு எண்ணைத் தேட முடியவில்லை'));
-      }
-    } catch (error) {
-      console.error('Error looking up receipt:', error);
-      setErr(L('Error searching reference number', 'குறிப்பு எண்ணைத் தேடுவதில் பிழை'));
-    } finally {
-      setLookingUp(false);
-    }
+        else setErr(L('No user registration found','இந்த குறிப்பு எண்ணுடன் பயனர் பதிவு இல்லை'));
+      } else setErr(L('Failed to search','தேட முடியவில்லை'));
+    } catch { setErr(L('Error searching','தேடுவதில் பிழை')); }
+    finally { setLookingUp(false); }
   };
 
-  // Family reference lookup - for married man to find father's tax record
   const lookupFamilyByReference = async (refNumber: string) => {
     const cleanRef = (refNumber || '').trim();
-    if (!cleanRef || cleanRef.length < 3) {
-      setErr(L('Reference number too short', 'குறிப்பு எண் மிகவும் குறுகியது'));
-      return;
-    }
-
-    setLookingUp(true);
-    setErr(null);
-    setMsg(null);
-
+    if (!cleanRef || cleanRef.length < 3) { setErr(L('Reference number too short','குறிப்பு எண் மிகவும் குறுகியது')); return; }
+    setLookingUp(true); setErr(null); setMsg(null);
     try {
-      // Search in user_tax_registrations table by reference number
-      const response = await fetch(`http://localhost:4000/api/tax-registrations/by-reference/${encodeURIComponent(cleanRef)}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
+      const response = await fetch(`https://templeapi.agniplay.com/api/tax-registrations/by-reference/${encodeURIComponent(cleanRef)}`, { headers: { Authorization: `Bearer ${token}` } });
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data) {
-          const familyData = data.data;
-          // Auto-fill family details from father's record
-          setForm(prev => ({
-            ...prev,
-            address: familyData.address || prev.address,
-            village: familyData.village || prev.village,
-            fatherName: familyData.name || prev.fatherName, // Father's name as this person's father
-            mobileNumber: familyData.mobile_number ? formatMobileNumber(familyData.mobile_number) : prev.mobileNumber,
-            clan: familyData.clan || prev.clan,
-            group: familyData.group || prev.group,
-            postalCode: familyData.postal_code || prev.postalCode,
-            parentReferenceId: cleanRef,
-          }));
-          showSuccessAlert(`✅ Linked to Family: ${familyData.name} - ${cleanRef} / குடும்பத்துடன் இணைக்கப்பட்டது: ${familyData.name}`);
-        } else {
-          setErr(L('No tax registration found with this reference', 'இந்த குறிப்பு எண்ணுடன் வரி பதிவு இல்லை'));
-        }
-      } else {
-        setErr(L('Failed to search family reference', 'குடும்ப குறிப்பு எண்ணைத் தேட முடியவில்லை'));
-      }
-    } catch (error) {
-      console.error('Error looking up family reference:', error);
-      setErr(L('Error searching family reference', 'குடும்ப குறிப்பு எண்ணைத் தேடுவதில் பிழை'));
-    } finally {
-      setLookingUp(false);
-    }
+          const fd = data.data;
+          setForm(prev => ({ ...prev, address: fd.address||prev.address, village: fd.village||prev.village, fatherName: fd.name||prev.fatherName, mobileNumber: fd.mobile_number ? formatMobileNumber(fd.mobile_number) : prev.mobileNumber, clan: fd.clan||prev.clan, group: fd.group||prev.group, postalCode: fd.postal_code||prev.postalCode, parentReferenceId: cleanRef }));
+          const mob = fd.mobile_number ? formatMobileNumber(fd.mobile_number) : '';
+          if (mob && user?.templeId && token) fetchCumulativeTax(mob, form.year);
+          showSuccessAlert(`✅ Linked to family: ${fd.name}`);
+        } else setErr(L('No tax registration found','இந்த குறிப்பு எண்ணுடன் வரி பதிவு இல்லை'));
+      } else setErr(L('Failed to search','தேட முடியவில்லை'));
+    } catch { setErr(L('Error searching','தேடுவதில் பிழை')); }
+    finally { setLookingUp(false); }
   };
 
   const handleSelectRegistration = (userData: any) => {
     fillFormFromRegistration(userData);
-    // If mobile found, also fetch cumulative tax
     const mobile = userData?.mobile_number ? formatMobileNumber(userData.mobile_number) : '';
-    if (mobile && user?.templeId && token) {
-      fetchCumulativeTax(mobile, form.year);
-    }
-    showSuccessAlert(`✅ Selected: ${userData.name} - Registration ID ${userData.id}`);
-    setShowNameResults(false);
-    setNameResults([]);
-    // Briefly suppress auto-lookup to prevent dropdown from reopening
+    if (mobile && user?.templeId && token) fetchCumulativeTax(mobile, form.year);
+    showSuccessAlert(`✅ Selected: ${userData.name} — ID ${userData.id}`);
+    setShowNameResults(false); setNameResults([]);
     suppressNameLookupRef.current = Date.now() + 800;
-    // Blur name input to close any native suggestions and move on
     if (nameInputRef.current) nameInputRef.current.blur();
-    // Move focus to Amount to be paid for quick collection entry
-    setTimeout(() => {
-      if (amountPaidRef.current) {
-        amountPaidRef.current.focus();
-        amountPaidRef.current.select();
-      }
-    }, 0);
+    setTimeout(() => { if (amountPaidRef.current) { amountPaidRef.current.focus(); amountPaidRef.current.select(); } }, 0);
   };
 
-  // Handle mobile number change with lookup and cumulative calculation
-  const handleMobileChange = (value: string) => {
-    console.log('Mobile value changed:', value); // Debug log
-    const formatted = formatMobileNumber(value);
-    setForm(prev => ({ ...prev, mobileNumber: formatted }));
-    if (errors.mobileNumber) setErrors(prev => ({ ...prev, mobileNumber: '' }));
-
-    // Trigger lookup after 3 digits with debounce
-    const cleanMobile = value.replace(/\D/g, '');
-    console.log('Clean mobile:', cleanMobile, 'length:', cleanMobile.length); // Debug log
-
-    if (cleanMobile.length >= 3 && user?.templeId && token) {
-      console.log('Will trigger lookup'); // Debug log
-      lookupUserByMobile(formatted);
-    } else {
-      console.log('Clearing results'); // Debug log
-      setMobileResults([]);
-      setShowMobileResults(false);
-    }
-  };
-
-  // Handle selection from mobile suggestions
   const handleSelectMobile = (userData: any) => {
     fillFormFromRegistration(userData);
     const mobile = userData?.mobile_number ? formatMobileNumber(userData.mobile_number) : '';
-    if (mobile && user?.templeId && token) {
-      fetchCumulativeTax(mobile, form.year);
-    }
-    showSuccessAlert(`✅ Selected: ${userData.name} - Registration ID ${userData.id}`);
-    setShowMobileResults(false);
-    setMobileResults([]);
-    // Briefly suppress auto-lookup to prevent dropdown from reopening
+    if (mobile && user?.templeId && token) fetchCumulativeTax(mobile, form.year);
+    showSuccessAlert(`✅ Selected: ${userData.name} — ID ${userData.id}`);
+    setShowMobileResults(false); setMobileResults([]);
     suppressMobileLookupRef.current = Date.now() + 800;
-    // Blur mobile input to close any native suggestions and move on
     if (mobileInputRef.current) mobileInputRef.current.blur();
-    // Move focus to Amount to be paid for quick collection entry
-    setTimeout(() => {
-      if (amountPaidRef.current) {
-        amountPaidRef.current.focus();
-        amountPaidRef.current.select();
-      }
-    }, 0);
+    setTimeout(() => { if (amountPaidRef.current) { amountPaidRef.current.focus(); amountPaidRef.current.select(); } }, 0);
   };
 
-  // Fetch cumulative tax calculation for mobile number
+  const handleMobileChange = (value: string) => {
+    const formatted = formatMobileNumber(value);
+    setForm(prev => ({ ...prev, mobileNumber: formatted }));
+    if (errors.mobileNumber) setErrors(prev => ({ ...prev, mobileNumber: '' }));
+    const cleanMobile = value.replace(/\D/g, '');
+    if (cleanMobile.length >= 3 && user?.templeId && token) lookupUserByMobile(formatted);
+    else { setMobileResults([]); setShowMobileResults(false); }
+  };
+
   const fetchCumulativeTax = async (mobileNumber: string, year: number) => {
     if (!token || !mobileNumber || !year) return;
-
     const cleanMobile = mobileNumber.replace(/\D/g, '');
     if (cleanMobile.length !== 10) return;
-
     try {
-      const response = await fetch(`http://localhost:4000/api/tax-calculations/cumulative/${cleanMobile}?currentYear=${year}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
+      const response = await fetch(`https://templeapi.agniplay.com/api/tax-calculations/cumulative/${cleanMobile}?currentYear=${year}`, { headers: { Authorization: `Bearer ${token}` } });
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data) {
           const { cumulativeOutstanding, currentYearTax, totalTaxDue, yearBreakdown } = data.data;
-          
-          setForm(prev => ({ 
-            ...prev, 
-            taxAmount: currentYearTax.toString(),
-            outstandingAmount: totalTaxDue.toString()
-          }));
+          setForm(prev => ({ ...prev, taxAmount: currentYearTax.toString(), outstandingAmount: totalTaxDue.toString() }));
           setInitialDue(totalTaxDue);
-
-          // Store breakdown for display
           setTaxBreakdown(yearBreakdown || []);
-          setCumulativeInfo({
-            cumulativeOutstanding,
-            currentYearTax,
-            totalTaxDue,
-            hasExistingRegistration: data.data.hasExistingRegistration
-          });
-
-          // Show breakdown message
-          const breakdownMsg = yearBreakdown
-            .filter((b: any) => b.outstanding > 0)
-            .map((b: any) => `${b.year}: ₹${b.outstanding}`)
-            .join(', ');
-          
-          if (data.data.isNewUser && cumulativeOutstanding > 0) {
-            showSuccessAlert(`🆕 NEW Registration: Total ₹${totalTaxDue} (Previous Years: ₹${cumulativeOutstanding}, ${form.year}: ₹${currentYearTax}) | ${breakdownMsg}`);
-          } else if (cumulativeOutstanding > 0) {
-            showSuccessAlert(`📊 Existing User Outstanding: ₹${totalTaxDue} (Previous: ₹${cumulativeOutstanding}, Current: ₹${currentYearTax})`);
-          } else {
-            showSuccessAlert(`✅ Current year tax: ₹${currentYearTax} (No previous outstanding)`);
-          }
+          setCumulativeInfo({ cumulativeOutstanding, currentYearTax, totalTaxDue, hasExistingRegistration: data.data.hasExistingRegistration });
         }
       }
-    } catch (error) {
-      console.error('Error fetching cumulative tax:', error);
-    }
+    } catch {}
   };
 
-  // Fetch tax amount for selected year (fallback if no mobile)
   const fetchTaxAmountForYear = async (year: number) => {
     if (!token || !year) return;
-
     try {
-      const response = await fetch(`http://localhost:4000/api/tax-settings/year/${year}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
+      const response = await fetch(`https://templeapi.agniplay.com/api/tax-settings/year/${year}`, { headers: { Authorization: `Bearer ${token}` } });
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data) {
-          setForm(prev => ({ 
-            ...prev, 
-            taxAmount: data.data.tax_amount.toString(),
-            outstandingAmount: data.data.tax_amount.toString()
-          }));
+          setForm(prev => ({ ...prev, taxAmount: data.data.tax_amount.toString(), outstandingAmount: data.data.tax_amount.toString() }));
           setInitialDue(Number(data.data.tax_amount) || 0);
-          showSuccessAlert(`Tax amount for ${year}: ₹${data.data.tax_amount} loaded / ${year} வரி தொகை: ₹${data.data.tax_amount} ஏற்றப்பட்டது`);
         } else {
           setForm(prev => ({ ...prev, taxAmount: '', outstandingAmount: '' }));
-          setMsg(`No tax setting found for year ${year} / ${year} ஆண்டுக்கான வரி அமைப்பு இல்லை`);
-          setTimeout(() => setMsg(null), 3000);
         }
       }
-    } catch (error) {
-      console.error('Error fetching tax amount:', error);
-    }
+    } catch {}
   };
 
-  // Handle year change
   const handleYearChange = (year: number) => {
     setForm(prev => ({ ...prev, year }));
-    // If mobile number exists, fetch cumulative calculation, otherwise just year amount
-    if (form.mobileNumber && form.mobileNumber.replace(/\D/g, '').length === 10) {
-      fetchCumulativeTax(form.mobileNumber, year);
-    } else {
-      fetchTaxAmountForYear(year);
-    }
-    // Update reference number for the selected year
+    if (form.mobileNumber && form.mobileNumber.replace(/\D/g,'').length === 10) fetchCumulativeTax(form.mobileNumber, year);
+    else fetchTaxAmountForYear(year);
     fetchNextReferenceNumber(year);
   };
 
-  // Calculate outstanding amount when amount paid changes
   const handleAmountPaidChange = (amountPaid: string) => {
     const paid = parseFloat(amountPaid) || 0;
     const totalDue = Number.isFinite(initialDue) ? initialDue : (parseFloat(form.outstandingAmount) || 0);
-    const outstanding = Math.max(0, totalDue - paid);
-    
-    setForm(prev => ({ 
-      ...prev, 
-      amountPaid,
-      outstandingAmount: outstanding.toString()
-    }));
+    setForm(prev => ({ ...prev, amountPaid, outstandingAmount: Math.max(0, totalDue - paid).toString() }));
   };
 
   const addHeir = () => {
-    const newHeir: Heir = {
-      id: Date.now().toString(),
-      serialNumber: newUser.heirs.length + 1,
-      name: '',
-      race: '',
-      maritalStatus: 'unmarried',
-      education: '',
-      birthDate: '',
-    };
-    setNewUser(prev => ({
-      ...prev,
-      heirs: [...prev.heirs, newHeir]
-    }));
+    setNewUser(prev => ({ ...prev, heirs: [...prev.heirs, { id: Date.now().toString(), serialNumber: prev.heirs.length + 1, name: '', race: '', maritalStatus: 'unmarried', education: '', birthDate: '' }] }));
   };
-
   const updateHeir = (id: string, field: keyof Heir, value: string) => {
-    setNewUser(prev => ({
-      ...prev,
-      heirs: prev.heirs.map(heir =>
-        heir.id === id ? { ...heir, [field]: value } : heir
-      )
-    }));
+    setNewUser(prev => ({ ...prev, heirs: prev.heirs.map(h => h.id === id ? { ...h, [field]: value } : h) }));
   };
-
   const removeHeir = (id: string) => {
-    setNewUser(prev => ({
-      ...prev,
-      heirs: prev.heirs.filter(heir => heir.id !== id)
-        .map((heir, index) => ({ ...heir, serialNumber: index + 1 }))
-    }));
+    setNewUser(prev => ({ ...prev, heirs: prev.heirs.filter(h => h.id !== id).map((h, i) => ({ ...h, serialNumber: i + 1 })) }));
   };
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 100 * 1024) {
-        setErr('Photo size must be less than 100KB / புகைப்படம் 100KB-க்கும் குறைவாக இருக்க வேண்டும்');
-        return;
-      }
+      if (file.size > 100 * 1024) { setErr('Photo must be < 100KB'); return; }
       setNewUser(prev => ({ ...prev, photo: file }));
-      // Once user selects a new photo, ignore existing URL preview
       if (existingPhotoUrl) setExistingPhotoUrl(null);
       setErr(null);
     }
@@ -858,1175 +1234,687 @@ export default function TaxUserEntryPage() {
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-
-    if (!form.referenceNumber || !form.referenceNumber.trim()) {
-      newErrors.referenceNumber = 'Ref No not generated yet / குறிப்பு எண் இல்லை';
-    }
-
-    if (!form.year || isNaN(Number(form.year))) {
-      newErrors.year = 'Year is required / வருடம் அவசியம்';
-    }
-
-    if (!form.name.trim()) {
-      newErrors.name = 'Name is required / பெயர் அவசியம்';
-    }
-
-    if (!form.fatherName.trim()) {
-      newErrors.fatherName = 'Father name is required / தந்தை பெயர் அவசியம்';
-    }
-
-    if (!form.address.trim()) {
-      newErrors.address = 'Address is required / முகவரி அவசியம்';
-    }
-
-    if (form.mobileNumber && form.mobileNumber.replace(/\D/g, '').length !== 10) {
-      newErrors.mobileNumber = 'Mobile number must be 10 digits / கைபேசி எண் 10 இலக்கமாக இருக்க வேண்டும்';
-    }
-
-    if (form.aadhaarNumber && form.aadhaarNumber.replace(/\D/g, '').length !== 12) {
-      newErrors.aadhaarNumber = 'Aadhaar number must be 12 digits / ஆதார் எண் 12 இலக்கமாக இருக்க வேண்டும்';
-    }
-
-    // Transfer and amounts (transferTo is set by default and hidden)
+    if (!form.referenceNumber?.trim()) newErrors.referenceNumber = 'Ref No not generated yet';
+    if (!form.year || isNaN(Number(form.year))) newErrors.year = 'Year is required';
+    if (!form.name.trim()) newErrors.name = 'Name is required';
+    if (!form.fatherName.trim()) newErrors.fatherName = 'Father name is required';
+    if (!form.address.trim()) newErrors.address = 'Address is required';
+    if (form.mobileNumber && form.mobileNumber.replace(/\D/g,'').length !== 10) newErrors.mobileNumber = 'Must be 10 digits';
+    if (form.aadhaarNumber && form.aadhaarNumber.replace(/\D/g,'').length !== 12) newErrors.aadhaarNumber = 'Must be 12 digits';
     const paid = Number(form.amountPaid);
-    if (!form.amountPaid || isNaN(paid) || paid <= 0) {
-      newErrors.amountPaid = 'Enter a valid amount to be paid (> 0) / செலுத்தும் தொகையை சரியாக உள்ளிடவும்';
-    }
-
-    newUser.heirs.forEach((heir, index) => {
-      if (!heir.name.trim()) {
-        newErrors[`heir_${index}_name`] = 'Heir name is required / வாரிசு பெயர் அவசியம்';
-      }
-      if (!heir.race) {
-        newErrors[`heir_${index}_race`] = 'Race is required / இனம் அவசியம்';
-      }
+    if (!form.amountPaid || isNaN(paid) || paid <= 0) newErrors.amountPaid = 'Enter a valid amount (> 0)';
+    newUser.heirs.forEach((heir, i) => {
+      if (!heir.name.trim()) newErrors[`heir_${i}_name`] = 'Heir name required';
+      if (!heir.race) newErrors[`heir_${i}_race`] = 'Race required';
     });
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const submit = async () => {
-    if (!validateForm()) {
-      setErr('Please fix the validation errors / தவறுகளை சரிசெய்யவும்');
-      return;
-    }
-
-    if (!user?.templeId) {
-      setErr('Temple ID not found. Please login again / கோயில் ID கிடைக்கவில்லை. மீண்டும் உள்நுழையவும்');
-      return;
-    }
-
-    setSaving(true);
-    setErr(null);
-    setMsg(null);
-
-    try {
-      // Create FormData for multipart request
-      const formData = new FormData();
-      
-      // Append all form fields
-      formData.append('referenceNumber', form.referenceNumber);
-      formData.append('date', form.date);
-      formData.append('name', form.name);
-      formData.append('alternativeName', form.alternativeName);
-      formData.append('wifeName', form.wifeName);
-      formData.append('wifeFatherName', form.wifeFatherName);
-      formData.append('education', form.education);
-      formData.append('occupation', form.occupation);
-      formData.append('fatherName', form.fatherName);
-      formData.append('address', form.address);
-      formData.append('birthDate', form.birthDate);
-      formData.append('village', form.village);
-      formData.append('mobileNumber', form.mobileNumber.replace(/\D/g, ''));
-      formData.append('aadhaarNumber', form.aadhaarNumber.replace(/\D/g, ''));
-      formData.append('panNumber', form.panNumber);
-      formData.append('clan', form.clan);
-      formData.append('group', form.group);
-      formData.append('postalCode', form.postalCode);
-      formData.append('maleHeirs', form.maleHeirs.toString());
-      formData.append('femaleHeirs', form.femaleHeirs.toString());
-      formData.append('gender', form.gender);
-      formData.append('maritalStatus', form.maritalStatus);
-      formData.append('parentReferenceId', form.parentReferenceId);
-      formData.append('familyHeadReference', form.familyHeadReference);
-      formData.append('relationshipType', form.relationshipType);
-      formData.append('separateFromFamily', String(form.separateFromFamily));
-      formData.append('year', form.year.toString());
-      formData.append('taxAmount', form.taxAmount);
-      formData.append('amountPaid', form.amountPaid);
-      // Send remaining due as outstandingAmount
-      formData.append('outstandingAmount', String(remainingDue));
-      formData.append('fromAccount', (form as any).fromAccount || 'TAX A/C');
-      formData.append('transferTo', (form as any).transferTo || 'INCOME A/C');
-      formData.append('templeId', user.templeId.toString());
-      // Add member_id field - this should be populated when user is found via lookup
-      formData.append('memberId', (form as any).memberId || '');
-
-      // Append heirs as JSON array if present
-      if (newUser.heirs && newUser.heirs.length > 0) {
-        const heirsPayload = newUser.heirs.map(h => ({
-          serialNumber: h.serialNumber,
-          name: h.name,
-          race: h.race,
-          maritalStatus: h.maritalStatus,
-          education: h.education,
-          birthDate: h.birthDate,
-        }));
-        formData.append('heirs', JSON.stringify(heirsPayload));
-      }
-      
-      // Append photo if exists
-      if (newUser.photo) {
-        formData.append('photo', newUser.photo);
-      }
-
-      const res = await fetch('http://localhost:4000/api/tax-registrations', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`
-        },
-        body: formData,
-      });
-
-      let data: any = null;
-      try {
-        data = await res.json();
-      } catch (e) {
-        // ignore parse errors
-      }
-      if (!res.ok) {
-        const message = data?.error || data?.message || `Failed to save (${res.status})`;
-        throw new Error(message);
-      }
-
-      showSuccessAlert(`Tax registration ID ${data.id} saved successfully / வரி பதிவு ID ${data.id} வெற்றிகரமாக சேமிக்கப்பட்டது`);
-      if (typeof data?.id === 'number') {
-        setLastCreatedId(data.id);
-        setShowPrintPrompt(true);
-      }
-
-      // Reset form
-      setForm({
-        referenceNumber: '',
-        date: today,
-        name: '',
-        alternativeName: '',
-        wifeName: '',
-        wifeFatherName: '',
-        wifeContact: '',
-        education: '',
-        occupation: '',
-        fatherName: '',
-        address: '',
-        birthDate: '',
-        village: '',
-        mobileNumber: '',
-        aadhaarNumber: '',
-        panNumber: '',
-        clan: '',
-        group: '',
-        postalCode: '',
-        maleHeirs: 0,
-        femaleHeirs: 0,
-        gender: '',
-        maritalStatus: '',
-        parentReferenceId: '',
-        familyHeadReference: '',
-        relationshipType: 'self',
-        separateFromFamily: true,
-        year: new Date().getFullYear(),
-        taxAmount: '',
-        amountPaid: '',
-        outstandingAmount: '',
-        fromAccount: 'TAX A/C',
-        transferTo: 'INCOME A/C',
-        memberId: '',
-      });
-
-      setNewUser({
-        heirs: [],
-        photo: null,
-      });
-      setExistingPhotoUrl(null);
-      // Prepare next reference number for the next entry
-      fetchNextReferenceNumber(new Date().getFullYear());
-
-    } catch (e: any) {
-      setErr(e.message || 'Failed to save / சேமிக்க முடியவில்லை');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const clearForm = () => {
     const currentYear = new Date().getFullYear();
-    setForm({
-      referenceNumber: '',
-      date: today,
-      name: '',
-      alternativeName: '',
-      wifeName: '',
-      wifeFatherName: '',
-      wifeContact: '',
-      education: '',
-      occupation: '',
-      fatherName: '',
-      address: '',
-      birthDate: '',
-      village: '',
-      mobileNumber: '',
-      aadhaarNumber: '',
-      panNumber: '',
-      clan: '',
-      group: '',
-      postalCode: '',
-      maleHeirs: 0,
-      femaleHeirs: 0,
-      gender: '',
-      maritalStatus: '',
-      parentReferenceId: '',
-      familyHeadReference: '',
-      relationshipType: 'self',
-      separateFromFamily: true,
-      year: currentYear,
-      taxAmount: '',
-      amountPaid: '',
-      outstandingAmount: '',
-      fromAccount: 'TAX A/C',
-      transferTo: 'INCOME A/C',
-      memberId: '',
-    });
-    // Fetch tax amount for current year after clearing
+    setForm({ referenceNumber:'', date:today, name:'', alternativeName:'', wifeName:'', wifeFatherName:'', wifeContact:'', education:'', occupation:'', fatherName:'', address:'', birthDate:'', village:'', mobileNumber:'', aadhaarNumber:'', panNumber:'', clan:'', group:'', postalCode:'', maleHeirs:0, femaleHeirs:0, gender:'', maritalStatus:'', parentReferenceId:'', familyHeadReference:'', relationshipType:'self', separateFromFamily:true, year:currentYear, taxAmount:'', amountPaid:'', outstandingAmount:'', fromAccount:'TAX A/C', transferTo:'INCOME A/C', memberId:'' });
     fetchTaxAmountForYear(currentYear);
     fetchNextReferenceNumber(currentYear);
-    setNewUser({
-      heirs: [],
-      photo: null,
-    });
+    setNewUser({ heirs:[], photo:null });
     setExistingPhotoUrl(null);
     setAutoLocked(false);
-    setErrors({});
-    setErr(null);
+    setErrors({}); setErr(null);
+    setCumulativeInfo(null); setTaxBreakdown([]);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">{L('Loading master data...', 'முதன்மை தரவு ஏற்றுகிறது...')}</p>
-        </div>
-      </div>
-    );
-  }
+  const submit = async () => {
+    if (!validateForm()) { setErr('Please fix the highlighted errors'); return; }
+    if (!user?.templeId) { setErr('Temple ID not found. Please login again.'); return; }
 
-  return (
-    <div className={pageContainerStyles.container}>
-      <div className={pageContainerStyles.content}>
-        {/* Language Toggle + Header */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-center flex-1">
-          <CardHeader className={theme.header.container}>
-            <div className={theme.header.contentSpacing}>
-              <CardTitle className={theme.header.main}>
-                {L('Tax Registration', 'வரி பதிவு')}
-              </CardTitle>
-            </div>
-          </CardHeader>
-          </div>
-     
-        </div>
+    if (cumulativeInfo?.hasExistingRegistration) {
+      const isFullyPaid = Number(cumulativeInfo.totalTaxDue) <= 0;
+      const confirmMsg = isFullyPaid 
+        ? L(`This user is already fully paid for ${form.year}. Create another registration anyway?`, `இந்த பயனர் ஏற்கனவே ${form.year} ஆண்டிற்கு முழுமையாக பணம் செலுத்திவிட்டார். மற்றொரு பதிவை உருவாக்க வேண்டுமா?`)
+        : L(`This user already has a registration for ${form.year}. Add another payment/registration?`, `இந்த பயனர் ஏற்கனவே ${form.year} ஆண்டிற்கு ஒரு பதிவைக் கொண்டுள்ளார். மற்றொரு பணம்/பதிவைச் சேர்க்க வேண்டுமா?`);
+      
+      if (!window.confirm(confirmMsg)) return;
+    }
 
-        {/* Main Container */}
-        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-2" onKeyDown={handleFormKeyDown}>
-          {/* Error Messages Only - Success messages now use modal */}
-          {err && (
-            <div className="mb-3">
-              <Alert variant="destructive">
-                <AlertTitle>Error / பிழை</AlertTitle>
-                <AlertDescription>{err}</AlertDescription>
-              </Alert>
-            </div>
-          )}
+    setSaving(true); setErr(null); setMsg(null);
+    try {
+      const formData = new FormData();
+      const fields: Record<string, any> = { referenceNumber:form.referenceNumber, date:form.date, name:form.name, alternativeName:form.alternativeName, wifeName:form.wifeName, wifeFatherName:form.wifeFatherName, education:form.education, occupation:form.occupation, fatherName:form.fatherName, address:form.address, birthDate:form.birthDate, village:form.village, mobileNumber:form.mobileNumber.replace(/\D/g,''), aadhaarNumber:form.aadhaarNumber.replace(/\D/g,''), panNumber:form.panNumber, clan:form.clan, group:form.group, postalCode:form.postalCode, maleHeirs:form.maleHeirs.toString(), femaleHeirs:form.femaleHeirs.toString(), gender:form.gender, maritalStatus:form.maritalStatus, parentReferenceId:form.parentReferenceId, familyHeadReference:form.familyHeadReference, relationshipType:form.relationshipType, separateFromFamily:String(form.separateFromFamily), year:form.year.toString(), taxAmount:form.taxAmount, amountPaid:form.amountPaid, outstandingAmount:String(remainingDue), fromAccount:(form as any).fromAccount||'TAX A/C', transferTo:(form as any).transferTo||'INCOME A/C', templeId:user.templeId.toString(), memberId:(form as any).memberId||'' };
+      Object.entries(fields).forEach(([k, v]) => formData.append(k, v));
+      if (newUser.heirs.length > 0) formData.append('heirs', JSON.stringify(newUser.heirs.map(h => ({ serialNumber:h.serialNumber, name:h.name, race:h.race, maritalStatus:h.maritalStatus, education:h.education, birthDate:h.birthDate }))));
+      if (newUser.photo) formData.append('photo', newUser.photo);
+      const res = await fetch('https://templeapi.agniplay.com/api/tax-registrations', { method:'POST', headers:{ Authorization:`Bearer ${token}` }, body:formData });
+      let data: any = null;
+      try { data = await res.json(); } catch {}
+      if (!res.ok) throw new Error(data?.error || data?.message || `Failed (${res.status})`);
+      showSuccessAlert(`Tax Registration #${data.id} saved successfully!`);
+      if (typeof data?.id === 'number') { setLastCreatedId(data.id); setShowPrintPrompt(true); }
+      clearForm();
+    } catch (e: any) { setErr(e.message || 'Failed to save'); }
+    finally { setSaving(false); }
+  };
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-2">
-            {/* Left Column - Main Form Fields (3/4 width) */}
-            <div className="lg:col-span-3 space-y-2">
-              {/* Basic Info Section */}
-              <div className="bg-gray-50 rounded-lg p-1.5">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-semibold text-gray-900">{L('Basic Information', 'அடிப்படை தகவல்')}</h3>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={clearForm}
-                    className="h-8 text-xs"
-                    title={L('Clear all fields', 'அனைத்தையும் அழி')}
-                  >
-                    🗑️ {L('Clear', 'அழிக்க')}
-                  </Button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
-                  <div>
-                    <Label className={formFieldStyles.label}>{L('Date', 'தேதி')}</Label>
-                    <Input
-                      type="date"
-                      className={formFieldStyles.input}
-                      value={form.date}
-                      onChange={e => set('date', e.target.value)}
-                      autoFocus
-                    />
-                  </div>
-                  <div>
-                    <Label className={formFieldStyles.label}>{L('Year', 'வருடம்')} *</Label>
-                    <select
-                      className={formFieldStyles.select}
-                      value={form.year}
-                      onChange={e => handleYearChange(parseInt(e.target.value))}
-                    >
-                      {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map(year => (
-                        <option key={year} value={year}>{year}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <Label className={formFieldStyles.label}>{L('Reference No (auto)', 'குறிப்பு எண் (தானாக)')}</Label>
-                    <Input
-                      type="text"
-                      className={cn(formFieldStyles.input, errors.referenceNumber && formFieldStyles.error, "bg-gray-100 cursor-not-allowed")}
-                      value={form.referenceNumber}
-                      readOnly
-                      title={L('Auto-generated when year changes', 'வருடம் மாற்றும் போது தானாக உருவாகும்')}
-                    />
-                    {errors.referenceNumber && <p className="text-red-500 text-xs mt-1">{errors.referenceNumber}</p>}
-                  </div>
-
-                  <div>
-                    <Label className={formFieldStyles.label}>
-                      {L('Reference No Search', 'குறிப்பு எண் தேடல்')}
-                      {lookingUp && <span className="ml-2 text-blue-600 text-xs">🔍 {L('Searching...', 'தேடுகிறது...')}</span>}
-                    </Label>
-                    <div className="flex gap-1">
-                      <Input
-                        className={formFieldStyles.input}
-                        value={receiptSearch}
-                        onChange={e => setReceiptSearch(e.target.value)}
-                        placeholder={L('Enter reference number to search', 'குறிப்பு எண்ணைத் தட்டச்சு செய்து தேடு')}
-                        title={L('Enter reference number to auto-fill details', 'குறிப்பு எண்ணை உள்ளிட்டு விவரங்களை தானாக நிரப்பு')}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => lookupByReceiptNumber(receiptSearch)}
-                        disabled={!receiptSearch.trim() || lookingUp}
-                        className="h-8 text-xs"
-                        title={L('Search by reference number', 'குறிப்பு எண்ணால் தேடு')}
-                      >
-                        🔍
-                      </Button>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      💡 {L('Search with an existing reference number to auto-fill details', 'இருந்த குறிப்பு எண்ணை உள்ளிட்டு விவரங்களை தானாக நிரப்பு')}
-                    </p>
-                  </div>
-                  
-                </div>
-              </div>
-              {/* Gender & Marital Status */}
-              <div className="bg-blue-50 rounded-lg p-1.5 border border-blue-200">
-                <h3 className="text-sm font-semibold text-blue-900 mb-2">{L('Personal Status', 'தனிப்பட்ட நிலை')}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-1.5">
-                  <div>
-                    <Label className={formFieldStyles.label}>{L('Gender', 'பாலினம்')} *</Label>
-                    <select
-                      className={cn(formFieldStyles.select, errors.gender && formFieldStyles.error)}
-                      value={form.gender}
-                      onChange={e => set('gender', e.target.value)}
-                    >
-                      <option value="">{L('Select', 'தேர்ந்தெடு')}</option>
-                      <option value="male">{L('Male', 'ஆண்')}</option>
-                      <option value="female">{L('Female', 'பெண்')}</option>
-                      <option value="other">{L('Other', 'மற்றவை')}</option>
-                    </select>
-                  </div>
-                  <div>
-                    <Label className={formFieldStyles.label}>{L('Marital Status', 'திருமண நிலை')} *</Label>
-                    <select
-                      className={cn(formFieldStyles.select, errors.maritalStatus && formFieldStyles.error)}
-                      value={form.maritalStatus}
-                      onChange={e => set('maritalStatus', e.target.value)}
-                    >
-                      <option value="">{L('Select', 'தேர்ந்தெடு')}</option>
-                      <option value="unmarried">{L('Unmarried', 'திருமணமாகாத')}</option>
-                      <option value="married">{L('Married', 'திருமணமான')}</option>
-                      <option value="divorced">{L('Divorced', 'விவாகரத்து')}</option>
-                      <option value="widowed">{L('Widowed', 'விதவை/விதவன்')}</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Family Reference Search - Show only for Married + Male */}
-              {form.maritalStatus === 'married' && form.gender === 'male' && (
-                <div className="bg-amber-50 rounded-lg p-1.5 border border-amber-200">
-                  <h3 className="text-sm font-semibold text-amber-900 mb-2">{L('Family Reference (Father/Husband)', 'குடும்ப குறிப்பு எண் (தந்தை/கணவர்)')}</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-1.5">
-                    <div>
-                      <Label className={formFieldStyles.label}>
-                        {L('Search Father\'s Tax Ref', 'தந்தையின் வரி குறிப்பு எண் தேடு')}
-                      </Label>
-                      <div className="flex gap-1">
-                        <Input
-                          className={formFieldStyles.input}
-                          value={form.parentReferenceId}
-                          onChange={e => set('parentReferenceId', e.target.value)}
-                          placeholder={L('Enter father\'s reference', 'தந்தையின் குறிப்பு எண்ணை உள்ளிடவும்')}
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => lookupFamilyByReference(form.parentReferenceId)}
-                          disabled={!form.parentReferenceId.trim() || lookingUp}
-                          className="h-8 text-xs"
-                        >
-                          🔍
-                        </Button>
-                      </div>
-                    </div>
-                    {form.parentReferenceId && (
-                      <div className="md:col-span-2 flex items-center">
-                        <div className="bg-white px-3 py-1.5 rounded border border-amber-300 text-xs">
-                          <span className="text-amber-700 font-medium">{L('Linked to Family:', 'குடும்பத்துடன் இணைக்கப்பட்டது:')}</span>
-                          <span className="ml-1 text-gray-700">{form.parentReferenceId}</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-xs text-amber-700 mt-1">
-                    💡 {L('Enter father\'s tax reference to auto-fill family details (address, village, etc.)', 'குடும்ப விவரங்களை தானாக நிரப்ப தந்தையின் வரி குறிப்பு எண்ணை உள்ளிடவும்')}
-                  </p>
-                </div>
-              )}
-
-              {/* Personal Details */}
-              <div className="bg-gray-50 rounded-lg p-1.5">
-                <div className="flex items-center justify-between mb-1">
-                  <h3 className="text-sm font-semibold text-gray-900">{L('Personal Details', 'தனிப்பட்ட விவரங்கள்')}</h3>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setAutoLocked(v => !v)}
-                    className={`h-7 text-xs ${autoLocked ? 'text-orange-600' : 'text-gray-600'}`}
-                    title={autoLocked ? L('Unlock to edit autofilled fields', 'தானாக நிரப்பப்பட்டவற்றை திருத்த திறக்க') : L('Lock autofilled fields', 'தானாக நிரப்பப்பட்டவற்றை பூட்டு')}
-                  >
-                    {autoLocked ? L('Locked', 'பூட்டப்பட்டது') : L('Unlock', 'திற')}
-                  </Button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-1.5">
-                  <div>
-                    <Label className={formFieldStyles.label}>
-                      {L('Mobile Number', 'கைபேசி எண்')} *
-                      {lookingUp && <span className="ml-2 text-blue-600 text-xs">🔍 {L('Looking up...', 'தேடுகிறது...')}</span>}
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        type="tel"
-                        ref={mobileInputRef}
-                        className={cn(formFieldStyles.input, errors.mobileNumber && formFieldStyles.error)}
-                        value={form.mobileNumber}
-                        onChange={e => {
-                          handleMobileChange(e.target.value);
-                          // Clear dropdown when user starts typing
-                          if (showMobileResults) {
-                            setShowMobileResults(false);
-                          }
-                        }}
-                        placeholder={L('Enter mobile number to search', 'கைபேசி எண்ணைத் தட்டச்சு செய்து தேடு')}
-                        maxLength={12}
-                        autoComplete="off"
-                      />
-                      {/* Debug info */}
-                      {lookingUp && <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-blue-600">🔍</div>}
-                      
-                      {/* Suggestions dropdown */}
-                      {showMobileResults && (
-                        <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg max-h-56 overflow-auto">
-                          {mobileResults.length > 0 ? (
-                            mobileResults.map((row: any) => (
-                              <button
-                                key={row.id}
-                                type="button"
-                                onClick={() => handleSelectMobile(row)}
-                                className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b last:border-b-0 transition-colors"
-                              >
-                                <div className="flex items-center justify-between">
-                                  <span className="font-medium">{row.name}</span>
-                                  <span className="text-xs text-gray-500">#{row.id}</span>
-                                </div>
-                                <div className="text-xs text-gray-600 mt-0.5">
-                                  {(row.mobile_number ? `📱 ${formatMobileNumber(row.mobile_number)} · ` : '')}
-                                  {(row.village ? `${row.village}` : '')}
-                                </div>
-                              </button>
-                            ))
-                          ) : (
-                            <div className="px-3 py-2 text-sm text-gray-500">
-                              {L('No matches found', 'பொருந்தும் பதிவுகள் இல்லை')}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    {errors.mobileNumber && <p className="text-red-500 text-xs mt-1">{errors.mobileNumber}</p>}
-                  </div>
-                  <div className="relative">
-                    <Label className={formFieldStyles.label}>
-                      {L('Name', 'பெயர்')} *
-                      {nameLookingUp && <span className="ml-2 text-blue-600 text-xs">🔍 {L('Searching...', 'தேடுகிறது...')}</span>}
-                    </Label>
-                    <div>
-                      <Input
-                        className={cn(formFieldStyles.input, errors.name && formFieldStyles.error)}
-                        value={form.name}
-                        onChange={e => {
-                          set('name', e.target.value);
-                          // Clear dropdown when user starts typing
-                          if (showNameResults) {
-                            setShowNameResults(false);
-                          }
-                        }}
-                        placeholder={L('Type a name to search', 'பெயரைத் தட்டச்சு செய்து தேடு')}
-                        ref={nameInputRef}
-                      />
-                    </div>
-                    {showNameResults && (
-                      <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded shadow max-h-56 overflow-auto text-sm">
-                        {nameResults.length > 0 ? (
-                          nameResults.map((row: any) => (
-                            <button
-                              key={row.id}
-                              type="button"
-                              onClick={() => handleSelectRegistration(row)}
-                              className="w-full text-left px-2 py-1 hover:bg-gray-50 border-b last:border-b-0"
-                            >
-                              <div className="flex items-center justify-between">
-                                <span className="font-medium">{row.name}</span>
-                                <span className="text-xs text-gray-500">#{row.id}</span>
-                              </div>
-                              <div className="text-xs text-gray-600">
-                                {(row.mobile_number ? `📱 ${formatMobileNumber(row.mobile_number)} · ` : '')}
-                                {(row.village ? `${row.village}` : '')}
-                              </div>
-                            </button>
-                          ))
-                        ) : (
-                          <div className="px-3 py-2 text-sm text-gray-500">
-                            {L('No matches found', 'பொருந்தும் பதிவுகள் இல்லை')}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
-                  </div>
-                  <div>
-                    <Label className={formFieldStyles.label}>
-                      {L('Last Name', 'கடைசி பெயர்')}
-                    </Label>
-                    <Input
-                      className={formFieldStyles.input}
-                      value={form.alternativeName}
-                      onChange={e => set('alternativeName', e.target.value)}
-                    />
-                  </div>
-                  
-                  {/* Wife Details - Only for Married + Male */}
-                  {form.maritalStatus === 'married' && form.gender === 'male' && (
-                    <>
-                      <div>
-                        <Label className={formFieldStyles.label}>{L('Wife\'s Name', 'மனைவி பெயர்')}</Label>
-                        <Input
-                          className={formFieldStyles.input}
-                          value={form.wifeName}
-                          onChange={e => set('wifeName', e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <Label className={formFieldStyles.label}>{L('Wife\'s Father Name', 'மனைவி தந்தை பெயர்')}</Label>
-                        <Input
-                          className={formFieldStyles.input}
-                          value={form.wifeFatherName}
-                          onChange={e => set('wifeFatherName', e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <Label className={formFieldStyles.label}>{L('Wife Contact', 'மனைவி தொடர்பு')}</Label>
-                        <Input
-                          className={formFieldStyles.input}
-                          value={form.wifeContact}
-                          onChange={e => set('wifeContact', e.target.value)}
-                          placeholder={L('Mobile/Phone', 'கைபேசி/தொலைபேசி')}
-                        />
-                      </div>
-                      <div className="md:col-span-2">
-                        <label className="flex items-center space-x-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={form.separateFromFamily}
-                            onChange={e => set('separateFromFamily', e.target.checked)}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span className="text-xs font-medium text-gray-900">
-                            {L('Create Separate Tax ID (New Family Branch)', 'தனி வரி ID உருவாக்கு (புதிய குடும்ப கிளை)')}
-                          </span>
-                        </label>
-                        <p className="text-xs text-gray-500 mt-1 ml-5">
-                          {L('If unchecked, this will be linked to existing family record', 'தேர்ந்தெடுக்காவிட்டால், இது இருக்கும் குடும்ப பதிவுடன் இணைக்கப்படும்')}
-                        </p>
-                      </div>
-                    </>
-                  )}
-                  {/* Begin locked fields */}
-                  <fieldset disabled={autoLocked} className="contents">
-                  <div>
-                    <Label className={formFieldStyles.label}>{L('Alt Name', 'மாற்று பெயர்')}</Label>
-                    <Input
-                      className={formFieldStyles.input}
-                      value={form.alternativeName}
-                      onChange={e => set('alternativeName', e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label className={formFieldStyles.label}>{L('Spouse', 'மனைவி')}</Label>
-                    <Input
-                      className={formFieldStyles.input}
-                      value={form.wifeName}
-                      onChange={e => set('wifeName', e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label className={formFieldStyles.label}>{L('Father', 'தந்தை')} *</Label>
-                    <Input
-                      className={cn(formFieldStyles.input, errors.fatherName && formFieldStyles.error)}
-                      value={form.fatherName}
-                      onChange={e => set('fatherName', e.target.value)}
-                    />
-                    {errors.fatherName && <p className="text-red-500 text-xs mt-1">{errors.fatherName}</p>}
-                  </div>
-                  <div>
-                    <Label className={formFieldStyles.label}>{L('Birth Date', 'பிறந்த தேதி')}</Label>
-                    <Input
-                      type="date"
-                      className={formFieldStyles.input}
-                      value={form.birthDate}
-                      onChange={e => set('birthDate', e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label className={formFieldStyles.label}>{L('Education', 'கல்வி')}</Label>
-                    <select
-                      className={formFieldStyles.select}
-                      value={form.education}
-                      onChange={e => set('education', e.target.value)}
-                    >
-                      <option value="">{L('Select', 'தேர்ந்தெடு')}</option>
-                      {masterEducations.map((edu) => (
-                        <option key={edu} value={edu}>{edu}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <Label className={formFieldStyles.label}>{L('Village', 'கிராமம்')}</Label>
-                    <Input
-                      className={formFieldStyles.input}
-                      value={form.village}
-                      onChange={e => set('village', e.target.value)}
-                    />
-                  </div>
-                  </fieldset>
-                  {/* End locked fields */}
-                </div>
-              </div>
-              
-
-           
-
-              {/* Address (collapsible) */}
-              <div className="bg-gray-50 rounded-lg p-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-gray-900">{L('Address', 'முகவரி')} *</h3>
-                  <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-orange-600" onClick={() => setShowAddress(v => !v)}>
-                    {showAddress ? L('Hide', 'மறை') : L('Show', 'காட்டு')}
-                  </Button>
-                </div>
-                {showAddress && (
-                  <fieldset disabled={autoLocked} className="contents">
-                    <Textarea
-                      className={cn(formFieldStyles.textarea, errors.address && formFieldStyles.error)}
-                      rows={2}
-                      value={form.address}
-                      onChange={e => set('address', e.target.value)}
-                    />
-                    {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address}</p>}
-                  </fieldset>
-                )}
-              </div>
-
-              {/* ID Numbers & Other Info (collapsible) */}
-              <div className="bg-gray-50 rounded-lg p-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-gray-900">{L('ID & Other Details', 'அடையாள விவரங்கள்')}</h3>
-                  <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-orange-600" onClick={() => setShowIdDetails(v => !v)}>
-                    {showIdDetails ? L('Hide', 'மறை') : L('Show', 'காட்டு')}
-                  </Button>
-                </div>
-                {showIdDetails && (
-                  <fieldset disabled={autoLocked} className="contents">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-900 mb-1">{L('Aadhaar', 'ஆதார்')}</label>
-                    <Input
-                      type="text"
-                      className={cn(formFieldStyles.input, errors.aadhaarNumber && formFieldStyles.error)}
-                      value={form.aadhaarNumber}
-                      onChange={e => handleFormattedInput('aadhaarNumber', e.target.value, formatAadhaarNumber)}
-                      placeholder="XXXX-XXXX-XXXX"
-                      maxLength={14}
-                    />
-                    {errors.aadhaarNumber && <p className="text-red-500 text-xs mt-1">{errors.aadhaarNumber}</p>}
-                  </div>
-                  <div>
-                    <Label className={formFieldStyles.label}>{L('PAN', 'பான்')}</Label>
-                    <Input
-                      className={formFieldStyles.input}
-                      value={form.panNumber}
-                      onChange={e => set('panNumber', e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label className={formFieldStyles.label}>{L('Clan', 'குலம்')}</Label>
-                    <select
-                      className={formFieldStyles.select}
-                      value={form.clan}
-                      onChange={e => set('clan', e.target.value)}
-                    >
-                      <option value="">{L('Select', 'தேர்ந்தெடு')}</option>
-                      {masterClans.map((clan) => (
-                        <option key={clan} value={clan}>{clan}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <Label className={formFieldStyles.label}>{L('Group', 'குழு')}</Label>
-                    <select
-                      className={formFieldStyles.select}
-                      value={form.group}
-                      onChange={e => set('group', e.target.value)}
-                    >
-                      <option value="">{L('Select', 'தேர்ந்தெடு')}</option>
-                      {masterGroups.map((group) => (
-                        <option key={group} value={group}>{group}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <Label className={formFieldStyles.label}>{L('Postal Code', 'அஞ்சல் குறியீடு')}</Label>
-                    <Input
-                      className={formFieldStyles.input}
-                      value={form.postalCode}
-                      onChange={e => set('postalCode', e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label className={formFieldStyles.label}>{L('Male Heirs', 'ஆண் வாரிசு')}</Label>
-                    <Input
-                      type="number"
-                      className={formFieldStyles.input}
-                      value={form.maleHeirs}
-                      onChange={e => set('maleHeirs', parseInt(e.target.value) || 0)}
-                      min="0"
-                    />
-                  </div>
-                  <div>
-                    <Label className={formFieldStyles.label}>{L('Female Heirs', 'பெண் வாரிசு')}</Label>
-                    <Input
-                      type="number"
-                      className={formFieldStyles.input}
-                      value={form.femaleHeirs}
-                      onChange={e => set('femaleHeirs', parseInt(e.target.value) || 0)}
-                      min="0"
-                    />
-                  </div>
-                </div>
-                </fieldset>
-                )}
-              </div>
-              {/* Cumulative Tax Breakdown (collapsible) */}
-              {cumulativeInfo && taxBreakdown.length > 0 && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-1.5">
-                  <div className="flex items-center justify-between mb-1">
-                    <h3 className="text-sm font-semibold text-yellow-900">
-                      📊 {L('Outstanding Balance Calculation', 'நிலுவை கணக்கீடு')}
-                    </h3>
-                    <button type="button" className="text-xs text-blue-700" onClick={() => setShowCumulative(v => !v)}>
-                      {showCumulative ? L('Hide', 'மறை') : L('Show', 'காட்டு')}
-                    </button>
-                  </div>
-                  {showCumulative && (
-                    <>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <h4 className="text-xs font-medium text-yellow-800 mb-2">{L('Year-wise Breakdown:', 'ஆண்டு வாரியாக:')}</h4>
-                          <div className="space-y-1">
-                            {taxBreakdown.map((item: any) => (
-                              <div key={item.year} className="flex justify-between text-xs">
-                                <span className={`${item.status.includes('current') ? 'font-semibold text-blue-700' : 'text-gray-700'}`}>
-                                  {item.year}{' '}
-                                  {
-                                    item.status === 'new_registration_previous_year' ? L('(NEW - Previous Year)', '(புதியது - முந்தைய ஆண்டு)') :
-                                    item.status === 'registered' ? L('(Registered)', '(பதிவு செய்யப்பட்டது)') : 
-                                    item.status === 'current_new' ? L('(NEW - Current)', '(புதியது - தற்போதைய)') : 
-                                    item.status === 'current_registered' ? L('(Current - Registered)', '(தற்போதைய - பதிவு)') :
-                                    L('(Not Paid)', '(செலுத்தப்படவில்லை)')
-                                  }
-                                  {':'}
-                                </span>
-                                <span className={`font-medium ${item.outstanding > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                  ₹{item.outstanding.toLocaleString()}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        <div>
-                          <h4 className="text-xs font-medium text-yellow-800 mb-2">{L('Summary:', 'சுருக்கம்:')}</h4>
-                          <div className="space-y-1 text-xs">
-                            <div className="flex justify-between">
-                              <span>{L('Previous Years Outstanding:', 'முந்தைய ஆண்டுகளின் நிலுவை:')}</span>
-                              <span className="font-medium text-red-600">₹{cumulativeInfo.cumulativeOutstanding.toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>{L('Current Year', 'தற்போதைய ஆண்டு')} ({form.year}):</span>
-                              <span className="font-medium text-blue-600">₹{cumulativeInfo.currentYearTax.toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between border-t pt-1 font-bold">
-                              <span>{L('Total Due:', 'மொத்த நிலுவை:')}</span>
-                              <span className="text-green-600">₹{cumulativeInfo.totalTaxDue.toLocaleString()}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      {cumulativeInfo.hasExistingRegistration ? (
-                        <p className="text-xs text-yellow-700 mt-2">
-                          ⚠️ {L('Existing user: Only actual unpaid amounts from registered years included.', 'ஏற்கனவே பதிவு செய்தவர்: பதிவு செய்யப்பட்ட ஆண்டுகளில் செலுத்தாத தொகைகள் மட்டும் சேர்க்கப்பட்டுள்ளது.')}
-                        </p>
-                      ) : (
-                        <p className="text-xs text-green-700 mt-2">
-                          🆕 {L('NEW Registration: Previous years included based on Tax Settings (ON/OFF mode).', 'புதிய பதிவு: வரி அமைப்பின் அடிப்படையில் (ON/OFF) முந்தைய ஆண்டுகள் சேர்க்கப்பட்டுள்ளது.')}
-                        </p>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* Heirs Section - Compact Table (collapsible) */}
-              <div className="bg-gray-50 rounded-lg p-2">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-semibold text-gray-900">
-                    {L('Heirs Details', 'வாரிசு விவரம்')}
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      className="text-xs text-blue-600"
-                      onClick={() => setShowHeirs(v => !v)}
-                    >
-                      {showHeirs ? L('Hide', 'மறை') : L('Show', 'காட்டு')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={addHeir}
-                      className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
-                    >
-                      + {L('Add', 'சேர்க்க')}
-                    </button>
-                  </div>
-                </div>
-                {showHeirs && newUser.heirs && newUser.heirs.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full bg-white border border-gray-300 rounded text-xs">
-                      <thead className="bg-gray-100">
-                        <tr>
-                          <th className="px-2 py-1 text-left font-medium text-gray-900 border-b">S.No</th>
-                          <th className="px-2 py-1 text-left font-medium text-gray-900 border-b">{L('Name', 'பெயர்')}</th>
-                          <th className="px-2 py-1 text-left font-medium text-gray-900 border-b">{L('Race', 'இனம்')}</th>
-                          <th className="px-2 py-1 text-left font-medium text-gray-900 border-b">{L('Status', 'நிலை')}</th>
-                          <th className="px-2 py-1 text-left font-medium text-gray-900 border-b">{L('Education', 'கல்வி')}</th>
-                          <th className="px-2 py-1 text-left font-medium text-gray-900 border-b">{L('DOB', 'பிறந்த தேதி')}</th>
-                          <th className="px-2 py-1 text-center font-medium text-gray-900 border-b">{L('Action', 'நடவடிக்கை')}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {newUser.heirs.map((heir, index) => (
-                          <tr key={heir.id} className="hover:bg-gray-50">
-                            <td className="px-2 py-1 text-center border-b">{heir.serialNumber}</td>
-                            <td className="px-2 py-1 border-b">
-                              <input
-                                type="text"
-                                value={heir.name}
-                                onChange={(e) => updateHeir(heir.id, 'name', e.target.value)}
-                                className={`w-full px-1 py-0.5 text-xs border rounded ${errors[`heir_${index}_name`] ? 'border-red-300' : 'border-gray-300'
-                                  }`}
-                              />
-                            </td>
-                            <td className="px-2 py-1 border-b">
-                              <select
-                                value={heir.race}
-                                onChange={(e) => updateHeir(heir.id, 'race', e.target.value)}
-                                className={`w-full px-1 py-0.5 text-xs border rounded ${errors[`heir_${index}_race`] ? 'border-red-300' : 'border-gray-300'
-                                  }`}
-                              >
-                                <option value="">{L('Select', 'தேர்ந்தெடு')}</option>
-                                {masterRaces.map((race) => (
-                                  <option key={race.value} value={race.value}>
-                                    {race.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-                            <td className="px-2 py-1 border-b">
-                              <select
-                                value={heir.maritalStatus}
-                                onChange={(e) => updateHeir(heir.id, 'maritalStatus', e.target.value)}
-                                className="w-full px-1 py-0.5 text-xs border border-gray-300 rounded"
-                              >
-                                {maritalStatusOptions.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-                            <td className="px-2 py-1 border-b">
-                              <select
-                                value={heir.education}
-                                onChange={(e) => updateHeir(heir.id, 'education', e.target.value)}
-                                className="w-full px-1 py-0.5 text-xs border border-gray-300 rounded"
-                              >
-                                <option value="">{L('Select', 'தேர்ந்தெடு')}</option>
-                                {masterEducations.map((edu) => (
-                                  <option key={edu} value={edu}>{edu}</option>
-                                ))}
-                              </select>
-                            </td>
-                            <td className="px-2 py-1 border-b">
-                              <input
-                                type="date"
-                                value={heir.birthDate}
-                                onChange={(e) => updateHeir(heir.id, 'birthDate', e.target.value)}
-                                className="w-full px-1 py-0.5 text-xs border border-gray-300 rounded"
-                              />
-                            </td>
-                            <td className="px-2 py-1 border-b text-center">
-                              <button
-                                onClick={() => removeHeir(heir.id)}
-                                className="text-red-600 hover:text-red-800 text-sm"
-                              >
-                                ×
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  showHeirs && (
-                    <div className="text-center py-4 text-gray-500 text-xs bg-white rounded border border-gray-200">
-                      <p>{L('No heirs added', 'வாரிசுகள் இல்லை')}</p>
-                    </div>
-                  )
-                )}
-              </div>
-            </div>
-
-            {/* Right Column - Photo, Amounts & Actions (1/4 width) */}
-            <div className="space-y-2">
-              {/* Photo Upload - Toggleable */}
-              <div className="bg-gray-50 rounded-lg p-2">
-                <div className="flex items-center justify-between mb-1">
-                  <h3 className="text-sm font-semibold text-gray-900">{L('Photo', 'புகைப்படம்')}</h3>
-                  <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-orange-600" onClick={() => setShowPhoto(v => !v)}>
-                    {showPhoto ? L('Hide', 'மறை') : L('Show', 'காட்டு')}
-                  </Button>
-                </div>
-                {showPhoto && (
-                  <div className="flex flex-col items-center">
-                    <div className="w-24 h-28 bg-white border-2 border-dashed border-gray-300 rounded flex items-center justify-center mb-2">
-                      {(!newUser.photo && existingPhotoUrl) ? (
-                        <img src={existingPhotoUrl} alt="Profile" className="w-full h-full object-cover rounded" />
-                      ) : newUser.photo ? (
-                        <img src={URL.createObjectURL(newUser.photo)} alt="Preview" className="w-full h-full object-cover rounded" />
-                      ) : (
-                        <div className="text-center text-gray-500">
-                          <svg className="w-8 h-8 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
-                          <p className="text-xs">{L('Photo', 'புகைப்படம்')}</p>
-                        </div>
-                      )}
-                    </div>
-                
-                  </div>
-                )}
-              </div>
-
-              {/* Transfer To Account - hidden (default set to INCOME A/C) */}
-              {false && (
-              <div className="bg-gray-50 rounded-lg p-2">
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">{L('Transfer To Account', 'எந்த கணக்கிற்கு மாற்றுவது')}</h3>
-                <Label htmlFor="transfer-to" className={formFieldStyles.label}>
-                  {L('Account', 'கணக்கு')} <span className="text-red-600">*</span>
-                </Label>
-                <select
-                  id="transfer-to"
-                  required
-                  className={cn(formFieldStyles.select, errors.transferTo && formFieldStyles.error)}
-                  value={(form as any).transferTo || ''}
-                  onChange={e => set('transferTo' as any, e.target.value)}
-                >
-                  <option value="">{L('Select', 'தேர்ந்தெடு')}</option>
-                  {categories.map(c => (
-                    <option key={c.id} value={c.value}>{c.label}</option>
-                  ))}
-                </select>
-                {errors.transferTo && (
-                  <p className="text-red-500 text-xs mt-1">{errors.transferTo}</p>
-                )}
-              </div>
-              )}
-
-              {/* Amounts Summary */}
-              <div className="bg-gray-50 rounded-lg p-2">
-                <h3 className="text-sm font-semibold text-gray-900 mb-2">{L('Amounts', 'தொகைகள்')}</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label className={formFieldStyles.label}>{L('Tax Amount', 'வரி தொகை')}</Label>
-                    <Input
-                      readOnly
-                      value={form.taxAmount}
-                      className={cn(formFieldStyles.input, "bg-gray-100")}
-                    />
-                  </div>
-                  <div>
-                    <Label className={formFieldStyles.label}>{L('Amount due', 'நிறுவை தொகை')}</Label>
-                    <Input
-                      readOnly
-                      value={remainingDue.toString()}
-                      className={cn(formFieldStyles.input, "bg-gray-100")}
-                    />
-                  </div>
-                  <div>
-                    <Label className={formFieldStyles.label}>{L('Amount to be paid', 'செலுத்தும் தொகை')}</Label>
-                    <Input
-                      type="number"
-                      value={form.amountPaid}
-                      onFocus={(e) => e.currentTarget.select()}
-                      onChange={e => handleAmountPaidChange(e.target.value)}
-                      ref={amountPaidRef}
-                      className={formFieldStyles.input}
-                    />
-                  </div>
-                  <div>
-                    <Label className={formFieldStyles.label}>{L('Remaining due', 'மீதமுள்ள நிலுவை')}</Label>
-                    <Input
-                      readOnly
-                      value={remainingDue.toString()}
-                      className={cn(formFieldStyles.input, "bg-gray-100")}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons - Compact */}
-              <div className="space-y-2">
-                <Button
-                  disabled={saving}
-                  onClick={submit}
-                  className={cn(theme.button.primary, "w-full")}
-                  size="sm"
-                >
-                  {saving ? L('Saving...', 'சேமிக்கிறது...') : L('Save', 'சேமிக்க')}
-                </Button>
-
-                <Button
-                  variant="outline"
-                  onClick={clearForm}
-                  className="w-full"
-                  size="sm"
-                >
-                  {L('Clear', 'அழிக்க')}
-                </Button>
-              </div>
-            </div>
-          </div>
-        {showPrintPrompt && lastCreatedId != null && (
-          <Modal
-            title={L('Print Receipt', 'ரசீதை அச்சிடவா?')}
-            onClose={() => setShowPrintPrompt(false)}
-          >
-            <p className="mb-4 text-sm">
-              {L('Do you want to open the PDF receipt for printing?', 'PDF ரசீதை அச்சிட திறக்க விரும்புகிறீர்களா?')}
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                className="px-4 py-2 rounded border"
-                onClick={() => setShowPrintPrompt(false)}
-              >
-                {L('No', 'இல்லை')}
-              </button>
-              <button
-                className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
-                onClick={() => {
-                  const t = token ? encodeURIComponent(token) : '';
-                  const url = `http://localhost:4000/api/tax-registrations/${lastCreatedId}/receipt.pdf${t ? `?token=${t}` : ''}`;
-                  window.open(url, '_blank');
-                  setShowPrintPrompt(false);
-                }}
-              >
-                {L('Yes, Print', 'ஆம், அச்சிடு')}
-              </button>
-            </div>
-          </Modal>
-        )}
-
-        {/* Success Alert Modal */}
-        {showSuccessModal && (
-          <Modal
-            title={L('Success', 'வெற்றி')}
-            onClose={() => setShowSuccessModal(false)}
-          >
-            <div className="text-center">
-              <div className="text-green-600 text-4xl mb-4">✅</div>
-              <p className="text-sm text-gray-700 mb-4">
-                {successMessage}
-              </p>
-              <button
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                onClick={() => setShowSuccessModal(false)}
-              >
-                {L('OK', 'சரி')}
-              </button>
-            </div>
-          </Modal>
-        )}
+  if (loading) return (
+    <div className="trp-root" style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh' }}>
+      <style>{styles}</style>
+      <div style={{ textAlign:'center' }}>
+        <div className="trp-spinner" />
+        <p style={{ color:'var(--ink-60)', fontSize:14 }}>{L('Loading master data…','முதன்மை தரவு ஏற்றுகிறது…')}</p>
       </div>
     </div>
-  </div>
-);
+  );
+
+  const isMarriedMale = form.maritalStatus === 'married' && form.gender === 'male';
+
+  return (
+    <div className="trp-root">
+      <style>{styles}</style>
+
+      {/* ── Header ── */}
+      <header className="trp-header">
+        <div className="trp-header-left">
+          <div className="trp-header-icon">🛕</div>
+          <div>
+            <h1>{L('Tax Entry', 'வரி பதிவு')}</h1>
+
+          </div>
+        </div>
+        
+      </header>
+
+      <div className="trp-body">
+        {/* Error Alert */}
+        {err && (
+          <div className="trp-alert-err">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#DC2626" strokeWidth="1.5"/><path d="M8 5v3M8 10.5v.5" stroke="#DC2626" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            {err}
+          </div>
+        )}
+
+        <div className="trp-layout">
+          {/* ─── LEFT COLUMN ─── */}
+          <div>
+
+            {/* ① Basic Info */}
+            <SectionCard icon="📋" title={L('Basic Information','அடிப்படை தகவல்')} action={
+              <button className="trp-btn trp-btn--ghost" onClick={clearForm} title="Clear all">🗑 {L('Clear','அழிக்க')}</button>
+            }>
+              <div className="trp-grid-4">
+                <Field label={L('Date','தேதி')}>
+                  <input type="date" className="trp-input" value={form.date} onChange={e => set('date', e.target.value)} autoFocus />
+                </Field>
+
+                <Field label={L('Year','வருடம்')} required error={errors.year}>
+                  <select className="trp-select" value={form.year} onChange={e => handleYearChange(parseInt(e.target.value))}>
+                    {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map(y => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </Field>
+
+                <Field label={L('Reference No','குறிப்பு எண்')} error={errors.referenceNumber}>
+                  <div className="trp-ref-badge" style={{ display:'flex', height:34, alignItems:'center' }}>
+                    {form.referenceNumber || <span style={{ color:'var(--ink-30)' }}>Generating…</span>}
+                  </div>
+                </Field>
+
+                <Field label={L('Search by Ref No','குறிப்பு எண் தேடல்')}>
+                  <div className="trp-input-row">
+                    <input
+                      className="trp-input"
+                      value={receiptSearch}
+                      onChange={e => setReceiptSearch(e.target.value)}
+                      placeholder={L('Enter reference…','குறிப்பு எண்…')}
+                      onKeyDown={e => e.key === 'Enter' && lookupByReceiptNumber(receiptSearch)}
+                    />
+                    <button
+                      className="trp-btn trp-btn--outline trp-btn--icon"
+                      onClick={() => lookupByReceiptNumber(receiptSearch)}
+                      disabled={!receiptSearch.trim() || lookingUp}
+                      title="Search"
+                    >
+                      {lookingUp ? '⏳' : '🔍'}
+                    </button>
+                  </div>
+                </Field>
+              </div>
+            </SectionCard>
+
+            {/* ② Personal Status */}
+            <SectionCard icon="👤" title={L('Personal Status','தனிப்பட்ட நிலை')} accent="saffron">
+              <div className="trp-grid-4">
+                <Field label={L('Gender','பாலினம்')} required error={errors.gender}>
+                  <select className={`trp-select${errors.gender?' trp-input--error':''}`} value={form.gender} onChange={e => set('gender', e.target.value)}>
+                    <option value="">{L('Select','தேர்ந்தெடு')}</option>
+                    <option value="male">{L('Male','ஆண்')}</option>
+                    <option value="female">{L('Female','பெண்')}</option>
+                    <option value="other">{L('Other','மற்றவை')}</option>
+                  </select>
+                </Field>
+                <Field label={L('Marital Status','திருமண நிலை')} required error={errors.maritalStatus}>
+                  <select className={`trp-select${errors.maritalStatus?' trp-input--error':''}`} value={form.maritalStatus} onChange={e => set('maritalStatus', e.target.value)}>
+                    <option value="">{L('Select','தேர்ந்தெடு')}</option>
+                    <option value="unmarried">{L('Unmarried','திருமணமாகாத')}</option>
+                    <option value="married">{L('Married','திருமணமான')}</option>
+                    <option value="divorced">{L('Divorced','விவாகரத்து')}</option>
+                    <option value="widowed">{L('Widowed','விதவை/விதவன்')}</option>
+                  </select>
+                </Field>
+              </div>
+            </SectionCard>
+
+            {/* ③ Family Reference — only married male */}
+            {isMarriedMale && (
+              <SectionCard icon="🏠" title={L("Father's Family Reference","தந்தையின் குடும்ப குறிப்பு")} accent="amber">
+                <div className="trp-grid-3">
+                  <Field label={L("Father's Tax Ref","தந்தையின் வரி குறிப்பு")} hint={L("Link to father's tax record to auto-fill family details","தானாக நிரப்ப தந்தையின் வரி குறிப்பு எண்ணை உள்ளிடவும்")}>
+                    <div className="trp-input-row">
+                      <input className="trp-input" value={form.parentReferenceId} onChange={e => set('parentReferenceId', e.target.value)} placeholder={L('Enter reference…','குறிப்பு எண்…')} />
+                      <button className="trp-btn trp-btn--outline trp-btn--icon" onClick={() => lookupFamilyByReference(form.parentReferenceId)} disabled={!form.parentReferenceId.trim() || lookingUp}>🔍</button>
+                    </div>
+                  </Field>
+                  {form.parentReferenceId && (
+                    <div style={{ display:'flex', alignItems:'flex-end', paddingBottom:2 }}>
+                      <div className="trp-family-badge">🔗 {L('Linked:','இணைக்கப்பட்டது:')} <strong>{form.parentReferenceId}</strong></div>
+                    </div>
+                  )}
+                </div>
+              </SectionCard>
+            )}
+
+            {/* ④ Personal Details */}
+            <SectionCard
+              icon="📝"
+              title={L('Personal Details','தனிப்பட்ட விவரங்கள்')}
+              action={
+                <button
+                  className={`trp-lock-btn ${autoLocked ? 'trp-lock-btn--locked' : 'trp-lock-btn--unlocked'}`}
+                  onClick={() => setAutoLocked(v => !v)}
+                  title={autoLocked ? L('Unlock fields','திற') : L('Lock fields','பூட்டு')}
+                >
+                  {autoLocked ? '🔒' : '🔓'} {autoLocked ? L('Locked','பூட்டப்பட்டது') : L('Unlocked','திறக்கப்பட்டது')}
+                </button>
+              }
+            >
+              <div className="trp-grid-4">
+                {/* Mobile */}
+                <Field label={L('Mobile Number','கைபேசி எண்')} required error={errors.mobileNumber}>
+                  <div className="trp-relative" style={{ position:'relative' }}>
+                    <input
+                      type="tel"
+                      ref={mobileInputRef}
+                      className={`trp-input${errors.mobileNumber?' trp-input--error':''}`}
+                      value={form.mobileNumber}
+                      onChange={e => { handleMobileChange(e.target.value); if (showMobileResults) setShowMobileResults(false); }}
+                      placeholder={L('Search by mobile…','கைபேசி எண்…')}
+                      maxLength={12}
+                      autoComplete="off"
+                    />
+                    {lookingUp && <div className="trp-dot-loader" style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)' }}><span/><span/><span/></div>}
+                    {showMobileResults && (
+                      <div className="trp-dropdown">
+                        {mobileResults.length > 0 ? mobileResults.map((row: any) => (
+                          <button key={row.id} type="button" className="trp-dropdown-item" onClick={() => handleSelectMobile(row)}>
+                            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                              <span className="trp-dropdown-name">{row.name}</span>
+                              <span className="trp-dropdown-id">#{row.id}</span>
+                            </div>
+                            <div className="trp-dropdown-meta">
+                              {row.mobile_number ? `📱 ${formatMobileNumber(row.mobile_number)}` : ''}
+                              {row.village ? ` · ${row.village}` : ''}
+                            </div>
+                          </button>
+                        )) : <div className="trp-dropdown-empty">{L('No matches','பொருந்தும் பதிவுகள் இல்லை')}</div>}
+                      </div>
+                    )}
+                  </div>
+                </Field>
+
+                {/* Name */}
+                <Field label={L('Name','பெயர்')} required error={errors.name}>
+                  <div className="trp-relative" style={{ position:'relative' }}>
+                    <input
+                      ref={nameInputRef}
+                      className={`trp-input${errors.name?' trp-input--error':''}`}
+                      value={form.name}
+                      onChange={e => { set('name', e.target.value); if (showNameResults) setShowNameResults(false); }}
+                      placeholder={L('Type name to search…','பெயரைத் தட்டச்சு…')}
+                    />
+                    {nameLookingUp && <div className="trp-dot-loader" style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)' }}><span/><span/><span/></div>}
+                    {showNameResults && (
+                      <div className="trp-dropdown">
+                        {nameResults.length > 0 ? nameResults.map((row: any) => (
+                          <button key={row.id} type="button" className="trp-dropdown-item" onClick={() => handleSelectRegistration(row)}>
+                            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                              <span className="trp-dropdown-name">{row.name}</span>
+                              <span className="trp-dropdown-id">#{row.id}</span>
+                            </div>
+                            <div className="trp-dropdown-meta">
+                              {row.mobile_number ? `📱 ${formatMobileNumber(row.mobile_number)}` : ''}
+                              {row.village ? ` · ${row.village}` : ''}
+                            </div>
+                          </button>
+                        )) : <div className="trp-dropdown-empty">{L('No matches','பொருந்தும் பதிவுகள் இல்லை')}</div>}
+                      </div>
+                    )}
+                  </div>
+                </Field>
+
+                <Field label={L('Last Name','கடைசி பெயர்')}>
+                  <input className="trp-input" value={form.alternativeName} onChange={e => set('alternativeName', e.target.value)} />
+                </Field>
+
+                {/* Wife fields — married male only */}
+                {isMarriedMale && (
+                  <>
+                    <Field label={L("Wife's Name","மனைவி பெயர்")}>
+                      <input className="trp-input" value={form.wifeName} onChange={e => set('wifeName', e.target.value)} />
+                    </Field>
+                    <Field label={L("Wife's Father","மனைவி தந்தை")}>
+                      <input className="trp-input" value={form.wifeFatherName} onChange={e => set('wifeFatherName', e.target.value)} />
+                    </Field>
+                    <Field label={L('Wife Contact','மனைவி தொடர்பு')}>
+                      <input className="trp-input" value={form.wifeContact} onChange={e => set('wifeContact', e.target.value)} placeholder={L('Mobile/Phone','கைபேசி')} />
+                    </Field>
+                  </>
+                )}
+
+                {/* Locked fields */}
+                <fieldset disabled={autoLocked} className="contents" style={{ all:'unset', display:'contents' }}>
+                  <Field label={L('Father','தந்தை')} required error={errors.fatherName}>
+                    <input className={`trp-input${errors.fatherName?' trp-input--error':''}`} value={form.fatherName} onChange={e => set('fatherName', e.target.value)} />
+                  </Field>
+                  <Field label={L('Birth Date','பிறந்த தேதி')}>
+                    <input type="date" className="trp-input" value={form.birthDate} onChange={e => set('birthDate', e.target.value)} />
+                  </Field>
+                  <Field label={L('Education','கல்வி')}>
+                    <select className="trp-select" value={form.education} onChange={e => set('education', e.target.value)}>
+                      <option value="">{L('Select','தேர்ந்தெடு')}</option>
+                      {masterEducations.map(edu => <option key={edu} value={edu}>{edu}</option>)}
+                    </select>
+                  </Field>
+                  <Field label={L('Occupation','தொழில்')}>
+                    <select className="trp-select" value={form.occupation} onChange={e => set('occupation', e.target.value)}>
+                      <option value="">{L('Select','தேர்ந்தெடு')}</option>
+                      {masterOccupations.map(occ => <option key={occ} value={occ}>{occ}</option>)}
+                    </select>
+                  </Field>
+                  <Field label={L('Village','கிராமம்')}>
+                    <input className="trp-input" value={form.village} onChange={e => set('village', e.target.value)} />
+                  </Field>
+                </fieldset>
+
+                {isMarriedMale && (
+                  <div style={{ gridColumn: '1 / -1', display:'flex', alignItems:'center', gap:8, background:'var(--saffron-lt)', border:'1px solid #F5C9A9', borderRadius:6, padding:'8px 12px' }}>
+                    <input type="checkbox" id="sep-family" checked={form.separateFromFamily} onChange={e => set('separateFromFamily', e.target.checked)} style={{ accentColor:'var(--saffron)', width:15, height:15, flexShrink:0 }} />
+                    <label htmlFor="sep-family" style={{ fontSize:12, color:'var(--saffron)', fontWeight:600, cursor:'pointer' }}>
+                      {L('Create Separate Tax ID (New Family Branch)','தனி வரி ID உருவாக்கு (புதிய குடும்ப கிளை)')}
+                    </label>
+                  </div>
+                )}
+              </div>
+            </SectionCard>
+
+            {/* ⑤ Address */}
+            <SectionCard icon="🏘" title={L('Address','முகவரி')} collapsible defaultOpen={false}>
+              <fieldset disabled={autoLocked} style={{ all:'unset', display:'block' }}>
+                <Field label={L('Full Address','முழு முகவரி')} required error={errors.address}>
+                  <textarea className={`trp-textarea${errors.address?' trp-input--error':''}`} rows={3} value={form.address} onChange={e => set('address', e.target.value)} />
+                </Field>
+              </fieldset>
+            </SectionCard>
+
+            {/* ⑥ ID & Other Details */}
+            <SectionCard icon="🪪" title={L('ID & Other Details','அடையாள விவரங்கள்')} collapsible defaultOpen={false}>
+              <fieldset disabled={autoLocked} style={{ all:'unset', display:'block' }}>
+                <div className="trp-grid-4">
+                  <Field label={L('Aadhaar','ஆதார்')} error={errors.aadhaarNumber}>
+                    <input className={`trp-input${errors.aadhaarNumber?' trp-input--error':''}`} value={form.aadhaarNumber} onChange={e => { const f = formatAadhaarNumber(e.target.value); setForm(p=>({...p,aadhaarNumber:f})); if(errors.aadhaarNumber) setErrors(p=>({...p,aadhaarNumber:''})); }} placeholder="XXXX-XXXX-XXXX" maxLength={14} />
+                  </Field>
+                  <Field label="PAN">
+                    <input className="trp-input" value={form.panNumber} onChange={e => set('panNumber', e.target.value)} placeholder="AAAPX1234X" />
+                  </Field>
+                  <Field label={L('Clan','குலம்')}>
+                    <select className="trp-select" value={form.clan} onChange={e => set('clan', e.target.value)}>
+                      <option value="">{L('Select','தேர்ந்தெடு')}</option>
+                      {masterClans.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </Field>
+                  <Field label={L('Group','குழு')}>
+                    <select className="trp-select" value={form.group} onChange={e => set('group', e.target.value)}>
+                      <option value="">{L('Select','தேர்ந்தெடு')}</option>
+                      {masterGroups.map(g => <option key={g} value={g}>{g}</option>)}
+                    </select>
+                  </Field>
+                  <Field label={L('Postal Code','அஞ்சல் குறியீடு')}>
+                    <input className="trp-input" value={form.postalCode} onChange={e => set('postalCode', e.target.value)} maxLength={6} />
+                  </Field>
+                  <Field label={L('Male Heirs','ஆண் வாரிசு')}>
+                    <input type="number" className="trp-input" value={form.maleHeirs} onChange={e => set('maleHeirs', parseInt(e.target.value)||0)} min="0" />
+                  </Field>
+                  <Field label={L('Female Heirs','பெண் வாரிசு')}>
+                    <input type="number" className="trp-input" value={form.femaleHeirs} onChange={e => set('femaleHeirs', parseInt(e.target.value)||0)} min="0" />
+                  </Field>
+                </div>
+              </fieldset>
+            </SectionCard>
+
+            {/* ⑦ Cumulative Tax Breakdown */}
+            {cumulativeInfo && taxBreakdown.length > 0 && (
+              <SectionCard icon="📊" title={L('Outstanding Balance','நிலுவை கணக்கீடு')} accent="gold" collapsible defaultOpen>
+                <div className="trp-grid-2">
+                  <div>
+                    <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.5px', color:'var(--ink-60)', marginBottom:8 }}>{L('Year-wise Breakdown','ஆண்டு வாரியாக')}</div>
+                    {taxBreakdown.map((item: any) => (
+                      <div key={item.year} className="trp-breakdown-row">
+                        <div>
+                          <div className="trp-breakdown-year">{item.year}</div>
+                        </div>
+                        <div className={`trp-breakdown-amt--${item.outstanding > 0 ? 'red':'green'}`}>
+                          ₹{item.outstanding.toLocaleString()}
+                        </div>
+                      </div>
+                    ))}
+                    <div className="trp-breakdown-total">
+                      <span>{L('Total Due','மொத்த நிலுவை')}</span>
+                      <span>₹{cumulativeInfo.totalTaxDue.toLocaleString()}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.5px', color:'var(--ink-60)', marginBottom:8 }}>{L('Summary','சுருக்கம்')}</div>
+                    <div className="trp-amount-tile" style={{ marginBottom:8 }}>
+                      <div className="trp-amount-tile-label">{L('Previous Outstanding','முந்தைய நிலுவை')}</div>
+                      <div className="trp-amount-tile-value trp-amount-tile-value--red">₹{cumulativeInfo.cumulativeOutstanding.toLocaleString()}</div>
+                    </div>
+                    <div className="trp-amount-tile" style={{ marginBottom:8 }}>
+                      <div className="trp-amount-tile-label">{L('Current Year','தற்போதைய ஆண்டு')} ({form.year})</div>
+                      <div className="trp-amount-tile-value trp-amount-tile-value--blue">₹{cumulativeInfo.currentYearTax.toLocaleString()}</div>
+                    </div>
+                    <div style={{ background:'var(--maroon-lt)', border:'1.5px solid var(--maroon)', borderRadius:8, padding:'10px 12px' }}>
+                      <div className="trp-amount-tile-label" style={{ color:'var(--maroon)' }}>{L('Total Due','மொத்த நிலுவை')}</div>
+                      <div className="trp-amount-tile-value">₹{cumulativeInfo.totalTaxDue.toLocaleString()}</div>
+                    </div>
+                    <p className="trp-tip" style={{ marginTop:8 }}>
+                      {cumulativeInfo.hasExistingRegistration
+                        ? `⚠ ${L('Only actual unpaid amounts included.','பதிவு செய்யப்பட்ட ஆண்டுகளில் செலுத்தாத தொகைகள் மட்டும்.')}`
+                        : `🆕 ${L('NEW Registration: Previous years per Tax Settings.','புதிய பதிவு: வரி அமைப்பின் அடிப்படையில் முந்தைய ஆண்டுகள்.')}`}
+                    </p>
+                  </div>
+                </div>
+              </SectionCard>
+            )}
+
+            {/* ⑧ Heirs */}
+            <SectionCard
+              icon="👨‍👩‍👦"
+              title={L('Heirs Details','வாரிசு விவரம்')}
+              collapsible
+              defaultOpen={newUser.heirs.length > 0}
+              action={
+                <button className="trp-btn trp-btn--outline" style={{ fontSize:12, height:28, padding:'0 10px', color:'var(--maroon)', borderColor:'var(--maroon)' }} onClick={addHeir}>
+                  + {L('Add Heir','வாரிசு சேர்')}
+                </button>
+              }
+            >
+              {newUser.heirs.length > 0 ? (
+                <div style={{ overflowX:'auto' }}>
+                  <table className="trp-heirs-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>{L('Name','பெயர்')}</th>
+                        <th>{L('Race','இனம்')}</th>
+                        <th>{L('Status','நிலை')}</th>
+                        <th>{L('Education','கல்வி')}</th>
+                        <th>{L('DOB','பிறந்த தேதி')}</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {newUser.heirs.map((heir, index) => (
+                        <tr key={heir.id}>
+                          <td style={{ textAlign:'center', color:'var(--ink-60)', fontWeight:600 }}>{heir.serialNumber}</td>
+                          <td>
+                            <input
+                              type="text"
+                              value={heir.name}
+                              onChange={e => updateHeir(heir.id, 'name', e.target.value)}
+                              className={`trp-heirs-input${errors[`heir_${index}_name`]?' trp-input--error':''}`}
+                              placeholder={L('Full name','முழு பெயர்')}
+                            />
+                          </td>
+                          <td>
+                            <select value={heir.race} onChange={e => updateHeir(heir.id,'race',e.target.value)} className={`trp-heirs-input${errors[`heir_${index}_race`]?' trp-input--error':''}`}>
+                              <option value="">{L('Select','தேர்ந்தெடு')}</option>
+                              {masterRaces.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                            </select>
+                          </td>
+                          <td>
+                            <select value={heir.maritalStatus} onChange={e => updateHeir(heir.id,'maritalStatus',e.target.value)} className="trp-heirs-input">
+                              {maritalStatusOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                            </select>
+                          </td>
+                          <td>
+                            <select value={heir.education} onChange={e => updateHeir(heir.id,'education',e.target.value)} className="trp-heirs-input">
+                              <option value="">{L('Select','தேர்ந்தெடு')}</option>
+                              {masterEducations.map(edu => <option key={edu} value={edu}>{edu}</option>)}
+                            </select>
+                          </td>
+                          <td>
+                            <input type="date" value={heir.birthDate} onChange={e => updateHeir(heir.id,'birthDate',e.target.value)} className="trp-heirs-input" />
+                          </td>
+                          <td>
+                            <button className="trp-heirs-remove" onClick={() => removeHeir(heir.id)} title="Remove">×</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div style={{ textAlign:'center', padding:'20px 0', color:'var(--ink-30)', fontSize:13 }}>
+                  <div style={{ fontSize:28, marginBottom:6 }}>👥</div>
+                  {L('No heirs added yet. Click "+ Add Heir" to begin.','வாரிசுகள் இல்லை. "+ வாரிசு சேர்" கிளிக் செய்யவும்.')}
+                </div>
+              )}
+            </SectionCard>
+
+          </div>
+
+          {/* ─── RIGHT COLUMN ─── */}
+          <div>
+
+            {/* Photo */}
+            <SectionCard icon="📷" title={L('Photo','புகைப்படம்')} collapsible defaultOpen>
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:10 }}>
+                <label className="trp-photo-box" style={{ cursor:'pointer', width:'100%' }}>
+                  {(!newUser.photo && existingPhotoUrl) ? (
+                    <img src={existingPhotoUrl} alt="Profile" />
+                  ) : newUser.photo ? (
+                    <img src={URL.createObjectURL(newUser.photo)} alt="Preview" />
+                  ) : (
+                    <div className="trp-photo-placeholder">
+                      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
+                        <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                      </svg>
+                      <span>{L('Click to upload','கிளிக் செய்து பதிவேற்றவும்')}</span>
+                      <span style={{ fontSize:10, marginTop:4, color:'var(--ink-30)' }}>Max 100KB</span>
+                    </div>
+                  )}
+                  <input type="file" accept="image/*" style={{ display:'none' }} onChange={handlePhotoChange} />
+                </label>
+                {(newUser.photo || existingPhotoUrl) && (
+                  <button className="trp-btn trp-btn--ghost" style={{ fontSize:11 }} onClick={() => { setNewUser(p=>({...p,photo:null})); setExistingPhotoUrl(null); }}>
+                    🗑 {L('Remove','நீக்கு')}
+                  </button>
+                )}
+              </div>
+            </SectionCard>
+
+            {/* Amounts */}
+            <SectionCard icon="💰" title={L('Payment Summary','செலுத்தும் சுருக்கம்')} accent="saffron">
+              {cumulativeInfo?.hasExistingRegistration && (
+                <div style={{ 
+                  background: '#FFFBEB', 
+                  border: '1px solid #FDE68A', 
+                  color: '#92400E', 
+                  padding: '10px 12px', 
+                  borderRadius: 8, 
+                  fontSize: 12, 
+                  fontWeight: 600, 
+                  marginBottom: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                }}>
+                  <span style={{ fontSize: 16 }}>⚠️</span>
+                  <div>
+                    {L(`Registered for ${form.year}`, `${form.year} ஆண்டிற்கு ஏற்கனவே பதிவு செய்யப்பட்டுள்ளது`)}
+                    {Number(cumulativeInfo.totalTaxDue) <= 0 && <span style={{ marginLeft: 6, color: '#15803D' }}>({L('Fully Paid', 'முழுமையாக செலுத்தப்பட்டது')})</span>}
+                  </div>
+                </div>
+              )}
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                <div className="trp-amount-tile">
+                  <div className="trp-amount-tile-label">{L('Tax Amount','வரி தொகை')}</div>
+                  <div className="trp-amount-tile-value">₹{Number(form.taxAmount||0).toLocaleString()}</div>
+                </div>
+                <div className="trp-amount-tile">
+                  <div className="trp-amount-tile-label">{L('Total Due','மொத்த நிலுவை')}</div>
+                  <div className="trp-amount-tile-value trp-amount-tile-value--red">₹{Number(form.outstandingAmount||0).toLocaleString()}</div>
+                </div>
+                <div className="trp-amount-tile trp-amount-tile--editable">
+                  <div className="trp-amount-tile-label">{L('Amount to Pay','செலுத்தும் தொகை')} <span style={{ color:'#DC2626' }}>*</span></div>
+                  <input
+                    ref={amountPaidRef}
+                    type="number"
+                    className={`trp-input${errors.amountPaid?' trp-input--error':''}`}
+                    value={form.amountPaid}
+                    onFocus={e => e.currentTarget.select()}
+                    onChange={e => handleAmountPaidChange(e.target.value)}
+                    style={{ marginTop:4, fontSize:17, fontWeight:700, fontFamily:"'Playfair Display',serif", height:38 }}
+                  />
+                  {errors.amountPaid && <p className="trp-err-text">⚠ {errors.amountPaid}</p>}
+                </div>
+                <div className="trp-amount-tile">
+                  <div className="trp-amount-tile-label">{L('Remaining Due','மீதமுள்ள நிலுவை')}</div>
+                  <div className={`trp-amount-tile-value ${remainingDue > 0 ? 'trp-amount-tile-value--red' : 'trp-amount-tile-value--green'}`}>
+                    ₹{remainingDue.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+            </SectionCard>
+
+            {/* Actions */}
+            <div className="trp-card" style={{ padding:14 }}>
+              <button 
+                className="trp-btn trp-btn--save" 
+                disabled={saving || (cumulativeInfo?.hasExistingRegistration && Number(cumulativeInfo.totalTaxDue) <= 0)} 
+                onClick={submit}
+              >
+                {saving ? (
+                  <>
+                    <span style={{ width:16, height:16, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'#fff', borderRadius:'50%', animation:'trp-spin 0.7s linear infinite', display:'inline-block' }} />
+                    {L('Saving…','சேமிக்கிறது…')}
+                  </>
+                ) : (cumulativeInfo?.hasExistingRegistration && Number(cumulativeInfo.totalTaxDue) <= 0) ? (
+                  <>{L('Already Paid','ஏற்கனவே செலுத்தப்பட்டது')} ✓</>
+                ) : (
+                  <>{L('Save Registration','பதிவு சேமிக்க')} ✓</>
+                )}
+              </button>
+              <div style={{ height:8 }} />
+              <button className="trp-btn trp-btn--clear" onClick={clearForm}>
+                🗑 {L('Clear All Fields','அனைத்தையும் அழி')}
+              </button>
+
+            
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      {/* ── Direct Download Helper ── */}
+      {(() => {
+        const handleDownloadReceipt = async (id: number) => {
+          try {
+            const response = await fetch(`https://templeapi.agniplay.com/api/tax-registrations/${id}/receipt.pdf`, {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
+
+            if (!response.ok) {
+              throw new Error('Failed to fetch receipt');
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `tax-receipt-${id}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+          } catch (error) {
+            console.error("Error downloading receipt:", error);
+            alert(L("Failed to download receipt. Please try again.", "ரசீதைப் பதிவிறக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்."));
+          }
+        };
+
+        (window as any).taxHandleDownloadReceipt = handleDownloadReceipt;
+        return null;
+      })()}
+
+      {/* ── Print Prompt Modal ── */}
+      {showPrintPrompt && lastCreatedId != null && (
+        <div className="trp-modal-overlay">
+          <div className="trp-modal">
+            <div className="trp-modal-header">
+              <span>🖨 {L('Print Receipt','ரசீதை அச்சிடவா?')}</span>
+              <button className="trp-modal-close" onClick={() => setShowPrintPrompt(false)}>×</button>
+            </div>
+            <div className="trp-modal-body">
+              <p style={{ fontSize:14, color:'var(--ink-60)', marginBottom:20 }}>
+                {L('Do you want to open the PDF receipt for printing?','PDF ரசீதை அச்சிட திறக்க விரும்புகிறீர்களா?')}
+              </p>
+              <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
+                <button className="trp-btn trp-btn--outline" onClick={() => setShowPrintPrompt(false)}>
+                  {L('No','இல்லை')}
+                </button>
+                <button className="trp-btn trp-btn--primary" onClick={() => {
+                  (window as any).taxHandleDownloadReceipt(lastCreatedId);
+                  setShowPrintPrompt(false);
+                }}>
+                  🖨 {L('Yes, Print','ஆம், அச்சிடு')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Success Modal ── */}
+      {showSuccessModal && (
+        <div className="trp-modal-overlay" onClick={() => setShowSuccessModal(false)}>
+          <div className="trp-modal" style={{ maxWidth:380 }} onClick={e => e.stopPropagation()}>
+            <div className="trp-modal-header" style={{ background:'linear-gradient(135deg,#15803D,#166534)' }}>
+              <span>✅ {L('Success','வெற்றி')}</span>
+              <button className="trp-modal-close" onClick={() => setShowSuccessModal(false)}>×</button>
+            </div>
+            <div className="trp-modal-body" style={{ textAlign:'center' }}>
+              <div style={{ fontSize:40, marginBottom:12 }}>✅</div>
+              <p style={{ fontSize:13, color:'var(--ink-60)', marginBottom:20, lineHeight:1.6 }}>{successMessage}</p>
+              <button className="trp-btn trp-btn--primary" style={{ background:'linear-gradient(135deg,#15803D,#166534)', minWidth:100 }} onClick={() => setShowSuccessModal(false)}>
+                {L('OK','சரி')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

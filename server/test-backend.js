@@ -31,7 +31,7 @@ function fetch(url, options = {}) {
   });
 }
 
-const BASE_URL = 'http://localhost:4000';
+const BASE_URL = 'https://templeapi.agniplay.com';
 
 async function testBackend() {
   console.log('🧪 Testing Backend API...\n');

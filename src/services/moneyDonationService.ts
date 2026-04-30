@@ -34,7 +34,7 @@ export interface ApiResponse<T> {
 }
 
 class MoneyDonationService {
-  private baseUrl = 'http://localhost:4000/api/money-donations';
+  private baseUrl = 'https://templeapi.agniplay.com/api/money-donations';
 
   private getHeaders(token: string | null): HeadersInit {
     const headers: HeadersInit = { 'Content-Type': 'application/json' };
