@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
@@ -10,9 +10,16 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useLanguage } from '@/lib/language';
 import axios from 'axios';
+import { accountService, type AccountItem } from '@/services/accountService';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
 import { theme } from '@/styles/theme';
 import { CardHeader, CardTitle } from '@/components/ui/card';
+import SearchableSelect from '@/components/ui/SearchableSelect';
+
+const RAW_API_BASE =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || window.location.origin;
+const NORMALIZED_API_BASE = RAW_API_BASE.replace(/\/+$/, '');
+const API_BASE_URL = NORMALIZED_API_BASE.endsWith('/api') ? NORMALIZED_API_BASE : `${NORMALIZED_API_BASE}/api`;
 
 /* ─────────────────────────────────────────────
    INLINE DESIGN TOKENS & GLOBAL STYLES
@@ -841,6 +848,8 @@ export default function TaxUserEntryPage() {
     outstandingAmount: '',
     fromAccount: 'TAX A/C',
     transferTo: 'INCOME A/C',
+    paymentMode: 'cash' as 'cash' | 'bank' | 'upi',
+    accountId: null as number | null,
     memberId: '',
   });
 
@@ -853,6 +862,7 @@ export default function TaxUserEntryPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [categories, setCategories] = useState<Array<{ id: number; value: string; label: string }>>([]);
+  const [paymentAccounts, setPaymentAccounts] = useState<AccountItem[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [taxBreakdown, setTaxBreakdown] = useState<any[]>([]);
   const [cumulativeInfo, setCumulativeInfo] = useState<any>(null);
@@ -896,6 +906,19 @@ export default function TaxUserEntryPage() {
   // ── Language helper ──
   const L = (en: string, ta: string) => (language === 'english' ? ta : en);
 
+  useEffect(() => {
+    const loadAccounts = async () => {
+      if (!token) return;
+      try {
+        const list = await accountService.list(token);
+        setPaymentAccounts(list);
+      } catch (e) {
+        console.error('Failed to load payment accounts', e);
+      }
+    };
+    loadAccounts();
+  }, [token]);
+
   // ── Load master data ──
   useEffect(() => {
     if (user?.templeId && token) {
@@ -903,10 +926,10 @@ export default function TaxUserEntryPage() {
         setLoading(true);
         try {
           const [clansRes, groupsRes, occupationsRes, educationsRes] = await Promise.all([
-            fetch(`https://templeapi.agniplay.com/api/master/clans/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
-            fetch(`https://templeapi.agniplay.com/api/master/groups/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
-            fetch(`https://templeapi.agniplay.com/api/master/occupations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
-            fetch(`https://templeapi.agniplay.com/api/master/educations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`${API_BASE_URL}/master/clans/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`${API_BASE_URL}/master/groups/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`${API_BASE_URL}/master/occupations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+            fetch(`${API_BASE_URL}/master/educations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
           ]);
           if (clansRes.ok) setMasterClans((await clansRes.json()).map((x: any) => x.name));
           if (groupsRes.ok) setMasterGroups((await groupsRes.json()).map((x: any) => x.name));
@@ -922,9 +945,26 @@ export default function TaxUserEntryPage() {
     } else { setLoading(false); }
   }, [user, token]);
 
+  // Refetch master data after creating a new entry
+  const refetchMasterData = useCallback(async () => {
+    if (!user?.templeId || !token) return;
+    try {
+      const [clansRes, groupsRes, occupationsRes, educationsRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/master/clans/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_BASE_URL}/master/groups/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_BASE_URL}/master/occupations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_BASE_URL}/master/educations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      if (clansRes.ok) setMasterClans((await clansRes.json()).map((x: any) => x.name));
+      if (groupsRes.ok) setMasterGroups((await groupsRes.json()).map((x: any) => x.name));
+      if (occupationsRes.ok) setMasterOccupations((await occupationsRes.json()).map((x: any) => x.name));
+      if (educationsRes.ok) setMasterEducations((await educationsRes.json()).map((x: any) => x.name));
+    } catch {}
+  }, [user?.templeId, token]);
+
   useEffect(() => {
     if (!token) return;
-    axios.get<any>('https://templeapi.agniplay.com/api/ledger/categories', { headers: { Authorization: `Bearer ${token}` } })
+    axios.get<any>(`${API_BASE_URL}/ledger/categories`, { headers: { Authorization: `Bearer ${token}` } })
       .then(resp => {
         const data = (resp?.data?.data && Array.isArray(resp.data.data)) ? resp.data.data : (Array.isArray(resp?.data) ? resp.data : []);
         setCategories(data.map((item: any, i: number) =>
@@ -1047,7 +1087,7 @@ export default function TaxUserEntryPage() {
   const fetchNextReferenceNumber = async (year: number) => {
     if (!token || !year) return;
     try {
-      const res = await fetch(`https://templeapi.agniplay.com/api/tax-registrations/next-ref?year=${year}`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_BASE_URL}/tax-registrations/next-ref?year=${year}`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) {
         const data = await res.json();
         if (data?.success && data?.ref) setForm(prev => ({ ...prev, referenceNumber: data.ref }));
@@ -1061,7 +1101,7 @@ export default function TaxUserEntryPage() {
     if (suppressMobileLookupRef.current && Date.now() < suppressMobileLookupRef.current) return;
     setLookingUp(true);
     try {
-      const response = await fetch(`https://templeapi.agniplay.com/api/registrations?search=${cleanMobile}&pageSize=10`, { headers: { Authorization: `Bearer ${token}` } });
+      const response = await fetch(`${API_BASE_URL}/registrations?search=${cleanMobile}&pageSize=10`, { headers: { Authorization: `Bearer ${token}` } });
       if (response.ok) {
         const data = await response.json();
         const rows = (data?.data && Array.isArray(data.data)) ? data.data : [];
@@ -1079,7 +1119,7 @@ export default function TaxUserEntryPage() {
     if (!q || q.length < 2 || !token) { setNameResults([]); setShowNameResults(false); return; }
     setNameLookingUp(true);
     try {
-      const response = await fetch(`https://templeapi.agniplay.com/api/registrations?search=${encodeURIComponent(q)}&pageSize=10`, { headers: { Authorization: `Bearer ${token}` } });
+      const response = await fetch(`${API_BASE_URL}/registrations?search=${encodeURIComponent(q)}&pageSize=10`, { headers: { Authorization: `Bearer ${token}` } });
       if (response.ok) {
         const data = await response.json();
         const rows = (data?.data && Array.isArray(data.data)) ? data.data : [];
@@ -1097,7 +1137,7 @@ export default function TaxUserEntryPage() {
     if (cleanReceipt.length < 3) { setErr(L('Receipt number too short','ரசீது எண் மிகவும் குறுகியது')); return; }
     setLookingUp(true); setErr(null); setMsg(null);
     try {
-      const response = await fetch(`https://templeapi.agniplay.com/api/registrations?search=${encodeURIComponent(cleanReceipt)}&pageSize=10`, { headers: { Authorization: `Bearer ${token}` } });
+      const response = await fetch(`${API_BASE_URL}/registrations?search=${encodeURIComponent(cleanReceipt)}&pageSize=10`, { headers: { Authorization: `Bearer ${token}` } });
       if (response.ok) {
         const data = await response.json();
         const rows = (data?.data && Array.isArray(data.data)) ? data.data : [];
@@ -1118,7 +1158,7 @@ export default function TaxUserEntryPage() {
     if (!cleanRef || cleanRef.length < 3) { setErr(L('Reference number too short','குறிப்பு எண் மிகவும் குறுகியது')); return; }
     setLookingUp(true); setErr(null); setMsg(null);
     try {
-      const response = await fetch(`https://templeapi.agniplay.com/api/tax-registrations/by-reference/${encodeURIComponent(cleanRef)}`, { headers: { Authorization: `Bearer ${token}` } });
+      const response = await fetch(`${API_BASE_URL}/tax-registrations/by-reference/${encodeURIComponent(cleanRef)}`, { headers: { Authorization: `Bearer ${token}` } });
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data) {
@@ -1169,7 +1209,7 @@ export default function TaxUserEntryPage() {
     const cleanMobile = mobileNumber.replace(/\D/g, '');
     if (cleanMobile.length !== 10) return;
     try {
-      const response = await fetch(`https://templeapi.agniplay.com/api/tax-calculations/cumulative/${cleanMobile}?currentYear=${year}`, { headers: { Authorization: `Bearer ${token}` } });
+      const response = await fetch(`${API_BASE_URL}/tax-calculations/cumulative/${cleanMobile}?currentYear=${year}`, { headers: { Authorization: `Bearer ${token}` } });
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data) {
@@ -1186,7 +1226,7 @@ export default function TaxUserEntryPage() {
   const fetchTaxAmountForYear = async (year: number) => {
     if (!token || !year) return;
     try {
-      const response = await fetch(`https://templeapi.agniplay.com/api/tax-settings/year/${year}`, { headers: { Authorization: `Bearer ${token}` } });
+      const response = await fetch(`${API_BASE_URL}/tax-settings/year/${year}`, { headers: { Authorization: `Bearer ${token}` } });
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data) {
@@ -1253,7 +1293,7 @@ export default function TaxUserEntryPage() {
 
   const clearForm = () => {
     const currentYear = new Date().getFullYear();
-    setForm({ referenceNumber:'', date:today, name:'', alternativeName:'', wifeName:'', wifeFatherName:'', wifeContact:'', education:'', occupation:'', fatherName:'', address:'', birthDate:'', village:'', mobileNumber:'', aadhaarNumber:'', panNumber:'', clan:'', group:'', postalCode:'', maleHeirs:0, femaleHeirs:0, gender:'', maritalStatus:'', parentReferenceId:'', familyHeadReference:'', relationshipType:'self', separateFromFamily:true, year:currentYear, taxAmount:'', amountPaid:'', outstandingAmount:'', fromAccount:'TAX A/C', transferTo:'INCOME A/C', memberId:'' });
+    setForm({ referenceNumber:'', date:today, name:'', alternativeName:'', wifeName:'', wifeFatherName:'', wifeContact:'', education:'', occupation:'', fatherName:'', address:'', birthDate:'', village:'', mobileNumber:'', aadhaarNumber:'', panNumber:'', clan:'', group:'', postalCode:'', maleHeirs:0, femaleHeirs:0, gender:'', maritalStatus:'', parentReferenceId:'', familyHeadReference:'', relationshipType:'self', separateFromFamily:true, year:currentYear, taxAmount:'', amountPaid:'', outstandingAmount:'', fromAccount:'TAX A/C', transferTo:'INCOME A/C', paymentMode:'cash', accountId:null, memberId:'' });
     fetchTaxAmountForYear(currentYear);
     fetchNextReferenceNumber(currentYear);
     setNewUser({ heirs:[], photo:null });
@@ -1266,6 +1306,7 @@ export default function TaxUserEntryPage() {
   const submit = async () => {
     if (!validateForm()) { setErr('Please fix the highlighted errors'); return; }
     if (!user?.templeId) { setErr('Temple ID not found. Please login again.'); return; }
+    if ((form as any).paymentMode !== 'cash' && !(form as any).accountId) { setErr('Please select a Bank / UPI account'); return; }
 
     if (cumulativeInfo?.hasExistingRegistration) {
       const isFullyPaid = Number(cumulativeInfo.totalTaxDue) <= 0;
@@ -1279,11 +1320,11 @@ export default function TaxUserEntryPage() {
     setSaving(true); setErr(null); setMsg(null);
     try {
       const formData = new FormData();
-      const fields: Record<string, any> = { referenceNumber:form.referenceNumber, date:form.date, name:form.name, alternativeName:form.alternativeName, wifeName:form.wifeName, wifeFatherName:form.wifeFatherName, education:form.education, occupation:form.occupation, fatherName:form.fatherName, address:form.address, birthDate:form.birthDate, village:form.village, mobileNumber:form.mobileNumber.replace(/\D/g,''), aadhaarNumber:form.aadhaarNumber.replace(/\D/g,''), panNumber:form.panNumber, clan:form.clan, group:form.group, postalCode:form.postalCode, maleHeirs:form.maleHeirs.toString(), femaleHeirs:form.femaleHeirs.toString(), gender:form.gender, maritalStatus:form.maritalStatus, parentReferenceId:form.parentReferenceId, familyHeadReference:form.familyHeadReference, relationshipType:form.relationshipType, separateFromFamily:String(form.separateFromFamily), year:form.year.toString(), taxAmount:form.taxAmount, amountPaid:form.amountPaid, outstandingAmount:String(remainingDue), fromAccount:(form as any).fromAccount||'TAX A/C', transferTo:(form as any).transferTo||'INCOME A/C', templeId:user.templeId.toString(), memberId:(form as any).memberId||'' };
+      const fields: Record<string, any> = { referenceNumber:form.referenceNumber, date:form.date, name:form.name, alternativeName:form.alternativeName, wifeName:form.wifeName, wifeFatherName:form.wifeFatherName, education:form.education, occupation:form.occupation, fatherName:form.fatherName, address:form.address, birthDate:form.birthDate, village:form.village, mobileNumber:form.mobileNumber.replace(/\D/g,''), aadhaarNumber:form.aadhaarNumber.replace(/\D/g,''), panNumber:form.panNumber, clan:form.clan, group:form.group, postalCode:form.postalCode, maleHeirs:form.maleHeirs.toString(), femaleHeirs:form.femaleHeirs.toString(), gender:form.gender, maritalStatus:form.maritalStatus, parentReferenceId:form.parentReferenceId, familyHeadReference:form.familyHeadReference, relationshipType:form.relationshipType, separateFromFamily:String(form.separateFromFamily), year:form.year.toString(), taxAmount:form.taxAmount, amountPaid:form.amountPaid, outstandingAmount:String(remainingDue), fromAccount:(form as any).fromAccount||'TAX A/C', transferTo:(form as any).transferTo||'INCOME A/C', paymentMode:(form as any).paymentMode||'cash', accountId:((form as any).paymentMode==='cash') ? '' : String((form as any).accountId||''), templeId:user.templeId.toString(), memberId:(form as any).memberId||'' };
       Object.entries(fields).forEach(([k, v]) => formData.append(k, v));
       if (newUser.heirs.length > 0) formData.append('heirs', JSON.stringify(newUser.heirs.map(h => ({ serialNumber:h.serialNumber, name:h.name, race:h.race, maritalStatus:h.maritalStatus, education:h.education, birthDate:h.birthDate }))));
       if (newUser.photo) formData.append('photo', newUser.photo);
-      const res = await fetch('https://templeapi.agniplay.com/api/tax-registrations', { method:'POST', headers:{ Authorization:`Bearer ${token}` }, body:formData });
+      const res = await fetch(`${API_BASE_URL}/tax-registrations`, { method:'POST', headers:{ Authorization:`Bearer ${token}` }, body:formData });
       let data: any = null;
       try { data = await res.json(); } catch {}
       if (!res.ok) throw new Error(data?.error || data?.message || `Failed (${res.status})`);
@@ -1528,16 +1569,30 @@ export default function TaxUserEntryPage() {
                     <input type="date" className="trp-input" value={form.birthDate} onChange={e => set('birthDate', e.target.value)} />
                   </Field>
                   <Field label={L('Education','கல்வி')}>
-                    <select className="trp-select" value={form.education} onChange={e => set('education', e.target.value)}>
-                      <option value="">{L('Select','தேர்ந்தெடு')}</option>
-                      {masterEducations.map(edu => <option key={edu} value={edu}>{edu}</option>)}
-                    </select>
+                    <SearchableSelect
+                      className="trp-input"
+                      value={form.education}
+                      onChange={v => set('education', v)}
+                      options={masterEducations}
+                      placeholder={L('Select','தேர்ந்தெடு')}
+                      createEndpoint={`${API_BASE_URL}/master/educations`}
+                      token={token}
+                      onCreated={refetchMasterData}
+                      disabled={autoLocked}
+                    />
                   </Field>
                   <Field label={L('Occupation','தொழில்')}>
-                    <select className="trp-select" value={form.occupation} onChange={e => set('occupation', e.target.value)}>
-                      <option value="">{L('Select','தேர்ந்தெடு')}</option>
-                      {masterOccupations.map(occ => <option key={occ} value={occ}>{occ}</option>)}
-                    </select>
+                    <SearchableSelect
+                      className="trp-input"
+                      value={form.occupation}
+                      onChange={v => set('occupation', v)}
+                      options={masterOccupations}
+                      placeholder={L('Select','தேர்ந்தெடு')}
+                      createEndpoint={`${API_BASE_URL}/master/occupations`}
+                      token={token}
+                      onCreated={refetchMasterData}
+                      disabled={autoLocked}
+                    />
                   </Field>
                   <Field label={L('Village','கிராமம்')}>
                     <input className="trp-input" value={form.village} onChange={e => set('village', e.target.value)} />
@@ -1575,16 +1630,30 @@ export default function TaxUserEntryPage() {
                     <input className="trp-input" value={form.panNumber} onChange={e => set('panNumber', e.target.value)} placeholder="AAAPX1234X" />
                   </Field>
                   <Field label={L('Clan','குலம்')}>
-                    <select className="trp-select" value={form.clan} onChange={e => set('clan', e.target.value)}>
-                      <option value="">{L('Select','தேர்ந்தெடு')}</option>
-                      {masterClans.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
+                    <SearchableSelect
+                      className="trp-input"
+                      value={form.clan}
+                      onChange={v => set('clan', v)}
+                      options={masterClans}
+                      placeholder={L('Select','தேர்ந்தெடு')}
+                      createEndpoint={`${API_BASE_URL}/master/clans`}
+                      token={token}
+                      onCreated={refetchMasterData}
+                      disabled={autoLocked}
+                    />
                   </Field>
                   <Field label={L('Group','குழு')}>
-                    <select className="trp-select" value={form.group} onChange={e => set('group', e.target.value)}>
-                      <option value="">{L('Select','தேர்ந்தெடு')}</option>
-                      {masterGroups.map(g => <option key={g} value={g}>{g}</option>)}
-                    </select>
+                    <SearchableSelect
+                      className="trp-input"
+                      value={form.group}
+                      onChange={v => set('group', v)}
+                      options={masterGroups}
+                      placeholder={L('Select','தேர்ந்தெடு')}
+                      createEndpoint={`${API_BASE_URL}/master/groups`}
+                      token={token}
+                      onCreated={refetchMasterData}
+                      disabled={autoLocked}
+                    />
                   </Field>
                   <Field label={L('Postal Code','அஞ்சல் குறியீடு')}>
                     <input className="trp-input" value={form.postalCode} onChange={e => set('postalCode', e.target.value)} maxLength={6} />
@@ -1797,6 +1866,57 @@ export default function TaxUserEntryPage() {
                   />
                   {errors.amountPaid && <p className="trp-err-text">⚠ {errors.amountPaid}</p>}
                 </div>
+
+                <div className="trp-amount-tile">
+                  <div className="trp-amount-tile-label">{L('Payment Mode','பணம் செலுத்தும் முறை')}</div>
+                  <div style={{ display:'flex', gap:8, marginTop:8, flexWrap:'wrap' }}>
+                    <button
+                      type="button"
+                      className={`trp-btn ${form.paymentMode === 'cash' ? 'trp-btn--save' : 'trp-btn--ghost'}`}
+                      onClick={() => setForm(prev => ({ ...prev, paymentMode: 'cash', accountId: null }))}
+                      style={{ padding:'8px 12px', fontSize:12 }}
+                    >
+                      {L('Cash','பணம்')}
+                    </button>
+                    <button
+                      type="button"
+                      className={`trp-btn ${form.paymentMode === 'bank' ? 'trp-btn--save' : 'trp-btn--ghost'}`}
+                      onClick={() => setForm(prev => ({ ...prev, paymentMode: 'bank' }))}
+                      style={{ padding:'8px 12px', fontSize:12 }}
+                    >
+                      {L('Bank','வங்கி')}
+                    </button>
+                    <button
+                      type="button"
+                      className={`trp-btn ${form.paymentMode === 'upi' ? 'trp-btn--save' : 'trp-btn--ghost'}`}
+                      onClick={() => setForm(prev => ({ ...prev, paymentMode: 'upi' }))}
+                      style={{ padding:'8px 12px', fontSize:12 }}
+                    >
+                      {L('UPI','UPI')}
+                    </button>
+                  </div>
+                </div>
+
+                {(form.paymentMode === 'bank' || form.paymentMode === 'upi') && (
+                  <div className="trp-amount-tile">
+                    <div className="trp-amount-tile-label">{L('Bank / UPI Account','வங்கி / UPI கணக்கு')} <span style={{ color:'#DC2626' }}>*</span></div>
+                    <select
+                      className="trp-input"
+                      value={form.accountId ?? ''}
+                      onChange={(e) => setForm(prev => ({ ...prev, accountId: e.target.value ? Number(e.target.value) : null }))}
+                      style={{ marginTop:8 }}
+                    >
+                      <option value="">{L('Select account','கணக்கைத் தேர்ந்தெடு')}</option>
+                      {paymentAccounts
+                        .filter(a => a.accountType === form.paymentMode)
+                        .map(a => (
+                          <option key={a.id} value={a.id}>
+                            {a.accountName}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                )}
                 <div className="trp-amount-tile">
                   <div className="trp-amount-tile-label">{L('Remaining Due','மீதமுள்ள நிலுவை')}</div>
                   <div className={`trp-amount-tile-value ${remainingDue > 0 ? 'trp-amount-tile-value--red' : 'trp-amount-tile-value--green'}`}>
@@ -1840,7 +1960,7 @@ export default function TaxUserEntryPage() {
       {(() => {
         const handleDownloadReceipt = async (id: number) => {
           try {
-            const response = await fetch(`https://templeapi.agniplay.com/api/tax-registrations/${id}/receipt.pdf`, {
+            const response = await fetch(`${API_BASE_URL}/tax-registrations/${id}/receipt.pdf`, {
               headers: {
                 'Authorization': `Bearer ${token}`
               }

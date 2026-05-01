@@ -203,6 +203,7 @@ export default function ReceiptListPage() {
         <table className="min-w-full text-xs border">
           <thead>
             <tr className="bg-gray-100">
+              <th className="p-1.5 text-left w-[50px]">{t('S.No', 'வ.எண்')}</th>
               <th className="p-1.5 text-left">{t('Reg No', 'பதிவு எண்')}</th>
               <th className="p-1.5 text-left">{t('Date', 'தேதி')}</th>
               <th className="p-1.5 text-left">{t('Type', 'Type')}</th>
@@ -216,16 +217,17 @@ export default function ReceiptListPage() {
           <tbody>
             {loading && (
               <tr>
-                <td className="p-1.5" colSpan={8}>{t('Loading...', 'ஏற்றுகிறது...')}</td>
+                <td className="p-1.5" colSpan={9}>{t('Loading...', 'ஏற்றுகிறது...')}</td>
               </tr>
             )}
             {!loading && items.length === 0 && (
               <tr>
-                <td className="p-1.5" colSpan={8}>{t('No data', 'தரவு இல்லை')}</td>
+                <td className="p-1.5" colSpan={9}>{t('No data', 'தரவு இல்லை')}</td>
               </tr>
             )}
-            {!loading && items.map((item) => (
+            {!loading && items.map((item, index) => (
               <tr key={item.id} className="border-t">
+                <td className="p-1.5">{index + 1}</td>
                 <td className="p-1.5">{item.registerNo}</td>
                 <td className="p-1.5">{item.date}</td>
                 <td className="p-1.5">{item.type}</td>

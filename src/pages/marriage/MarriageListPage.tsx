@@ -1,12 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import { PrintButton } from '@/components/ui/print-button';
+import { Button } from '@/components/ui/button';
 import { theme } from '@/styles/theme';
 import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { toast } from "@/components/ui/use-toast";
+import { Pencil, Loader2 } from 'lucide-react';
 
 interface MarriageItem {
   id: number;
@@ -28,6 +31,7 @@ interface MarriageItem {
 export default function MarriageListPage() {
   const { token } = useAuth();
   const { language } = useLanguage();
+  const navigate = useNavigate();
   const [items, setItems] = useState<MarriageItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState('');
@@ -35,6 +39,10 @@ export default function MarriageListPage() {
   const [to, setTo] = useState('');
 
   const t = (en: string, ta: string) => (language === 'tamil' ? ta : en);
+
+  const handleEdit = (id: number) => {
+    navigate(`/dashboard/marriage/edit/${id}`);
+  };
 
   // Column keys and labels
   type ColKey =
@@ -47,19 +55,21 @@ export default function MarriageListPage() {
     | 'event'
     | 'remarks'
     | 'amount'
-    | 'print';
+    | 'print'
+    | 'edit';
 
   const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' | 'center' }> = [
-    { key: '#', label: '#' },
+    { key: '#', label: t('S.No', 'வ.எண்') },
     { key: 'register_no', label: t('Reg No', 'பதிவு எண்') },
     { key: 'date_time', label: t('Date', 'தேதி') },
-    { key: 'groom_name', label: t('Groom', 'வரன்') },
+    { key: 'groom_name', label: t('Groom', 'மணமகன்') },
     { key: 'bride_name', label: t('Bride', 'மணமகள்') },
     { key: 'village', label: t('Village', 'கிராமம்') },
     { key: 'event', label: t('Event', 'நிகழ்வு') },
     { key: 'remarks', label: t('Remarks', 'குறிப்புகள்') },
     { key: 'amount', label: t('Amount', 'தொகை'), align: 'right' },
     { key: 'print', label: t('Print', 'அச்சிட'), align: 'center' },
+    { key: 'edit', label: t('Actions', 'செயல்கள்'), align: 'center' },
   ];
 
   const STORAGE_KEY = 'marriage_list_visible_columns_v1';
@@ -74,20 +84,25 @@ export default function MarriageListPage() {
     remarks: true,
     amount: true,
     print: true,
+    edit: true,
   };
 
   const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) return { ...defaultVisible, ...JSON.parse(raw) };
-    } catch {}
+    } catch {
+      // Ignore parse errors
+    }
     return defaultVisible;
   });
 
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(visibleCols));
-    } catch {}
+    } catch {
+      // Ignore storage errors
+    }
   }, [visibleCols]);
 
   // Context menu state
@@ -287,7 +302,7 @@ export default function MarriageListPage() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={onKeyDownSearch}
-              placeholder={t('Search by name/receipt/village/phone', 'பெயர்/ரசீது/கிராமம்/தொலைபேசி எண் மூலம் தேடுக')}
+              placeholder={t('Search by name/register no/village/phone', 'பெயர்/பதிவு எண்/கிராமம்/தொலைபேசி எண் மூலம் தேடுக')}
               className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
             />
           </div>
@@ -414,6 +429,20 @@ export default function MarriageListPage() {
                       <td className="px-3 py-4 whitespace-nowrap text-center text-sm font-medium align-middle w-16">
                         <div className="flex justify-center items-center gap-1">
                           <PrintButton onClick={() => window.print()} />
+                        </div>
+                      </td>
+                    )}
+                    {visibleCols.edit && (
+                      <td className="px-3 py-4 whitespace-nowrap text-center text-sm font-medium align-middle w-16">
+                        <div className="flex justify-center items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(r.id)}
+                            title={t('Edit', 'திருத்து')}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
                       </td>
                     )}

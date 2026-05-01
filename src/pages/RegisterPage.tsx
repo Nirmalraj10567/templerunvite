@@ -220,6 +220,7 @@ export default function RegisterPage() {
     try {
       const result = await register({
         name: `${formData.firstName} ${formData.lastName}`,
+        templeName: formData.templeName,
         username: formData.username,
         mobileNumber: formData.mobileNumber,
         gmail: formData.gmail,

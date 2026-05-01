@@ -164,12 +164,12 @@ export default function ReceiptEntryPage() {
   const typeValue = watch('type');
   const amountValue = watch('amount');
   const donorValue = watch('donor');
+  const receiverValue = watch('receiver');
   const isExpense = typeValue === 'expense';
   const amountNum = Number(amountValue || 0);
   const isBalanceKnown = fromBalance !== null && !Number.isNaN(fromBalance as number);
   const exceedsBalance = isExpense && isBalanceKnown && amountNum > 0 && amountNum > (fromBalance as number);
   const isZeroBalance = isExpense && isBalanceKnown && (fromBalance as number) === 0;
-  const isDonorMissingForExpense = isExpense && (!donorValue || donorValue.trim() === '');
   const isSaveDisabledByBalance = exceedsBalance || isZeroBalance;
 
   // Auto-dismiss success messages
@@ -321,6 +321,11 @@ export default function ReceiptEntryPage() {
       if (!data.amount || Number(data.amount) <= 0) {
         setIsError(true);
         setMessage(t('invalidAmount'));
+        return;
+      }
+      if (data.donor && data.receiver && data.donor === data.receiver) {
+        setIsError(true);
+        setMessage('Donor and Receiver should not be same');
         return;
       }
 
@@ -591,7 +596,9 @@ export default function ReceiptEntryPage() {
                         {...register('donor', { onChange: handleDonorChange })}
                       >
                         <option value="">{t('donor')}</option>
-                        {ledgerNames.map((n) => (
+                        {ledgerNames
+                          .filter((n) => !receiverValue || n !== receiverValue)
+                          .map((n) => (
                           <option key={n} value={n}>{n}</option>
                         ))}
                       </select>
@@ -618,7 +625,9 @@ export default function ReceiptEntryPage() {
                         {...register('receiver')}
                       >
                         <option value="">{t('receiver')}</option>
-                        {ledgerNames.map((n) => (
+                        {ledgerNames
+                          .filter((n) => !donorValue || n !== donorValue)
+                          .map((n) => (
                           <option key={n} value={n}>{n}</option>
                         ))}
                       </select>
@@ -644,15 +653,13 @@ export default function ReceiptEntryPage() {
               </div>
 
               {/* Validation Messages */}
-              {(isSaveDisabledByBalance || isDonorMissingForExpense) && (
+              {isSaveDisabledByBalance && (
                 <Alert variant="destructive" className="mb-6">
                   <AlertTitle>{t('error')}</AlertTitle>
                   <AlertDescription>
-                    {isDonorMissingForExpense
-                      ? t('selectFromCategory')
-                      : (isZeroBalance
-                          ? t('zeroBalance')
-                          : t('exceedsBalance'))}
+                    {isZeroBalance
+                      ? t('zeroBalance')
+                      : t('exceedsBalance')}
                   </AlertDescription>
                 </Alert>
               )}
@@ -689,7 +696,7 @@ export default function ReceiptEntryPage() {
                     type="submit"
                     size="default"
                     className="px-8 py-2 text-sm bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-md min-w-[140px]"
-                    disabled={isSubmitting || isSaveDisabledByBalance || isDonorMissingForExpense}
+                    disabled={isSubmitting || isSaveDisabledByBalance}
                   >
                     {isSubmitting ? (
                       <div className="flex items-center gap-2">

@@ -76,6 +76,8 @@ import UnifiedDonationEntry from './pages/donations/UnifiedDonationEntry';
 import UnifiedDonationList from './pages/donations/UnifiedDonationList';
 import DaybookListPage from './pages/daybook/DaybookListPage';
 import DaybookEntryPage from './pages/daybook/DaybookEntryPage';
+import ProfilePage from './pages/ProfilePage';
+import AccountCreatePage from './pages/accounts/AccountCreatePage';
 
 function App() {
   return (
@@ -143,6 +145,17 @@ function App() {
                           accessLevel="edit"
                         >
                           <UnifiedDonationEntry />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="accounts/create"
+                      element={
+                        <PermissionGuard
+                          requiredPermission="ledger_management"
+                          accessLevel="edit"
+                        >
+                          <AccountCreatePage />
                         </PermissionGuard>
                       }
                     />
@@ -597,6 +610,19 @@ function App() {
                           accessLevel="view"
                         >
                           <BalanceSheetPage />
+                        </PermissionGuard>
+                      }
+                    />
+
+                    {/* Profile */}
+                    <Route
+                      path="profile"
+                      element={
+                        <PermissionGuard
+                          requiredPermission="setting"
+                          accessLevel="view"
+                        >
+                          <ProfilePage />
                         </PermissionGuard>
                       }
                     />

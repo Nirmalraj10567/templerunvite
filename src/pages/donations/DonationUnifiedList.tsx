@@ -21,6 +21,8 @@ interface UnifiedDonationRow {
   id: number;
   type: 'money' | 'product';
   registerNo: string | null;
+  entryDate: string | null;
+  bookingDate: string | null;
   date: string | null;
   name: string | null; // donor name
   phone: string | null;
@@ -48,7 +50,7 @@ export default function DonationUnifiedList() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
+  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
   // Visible columns (union of both types)
   type ColKey = '#' | 'type' | 'receipt' | 'date' | 'name' | 'phone' | 'amount' | 'product' | 'qty' | 'reason' | 'actions';
@@ -56,7 +58,8 @@ export default function DonationUnifiedList() {
     { key: '#', label: '#' },
     { key: 'type', label: t('Type', 'வகை') },
     { key: 'receipt', label: t('Receipt No', 'ரசீது எண்') },
-    { key: 'date', label: t('Date', 'தேதி') },
+    { key: 'entryDate', label: t('Entry Date', 'நுழைவு தேதி') },
+    { key: 'date', label: t('Booking Date', 'பதிவு தேதி') },
     { key: 'name', label: t('Name', 'பெயர்') },
     { key: 'phone', label: t('Phone', 'கைபேசி') },
     { key: 'amount', label: t('Amount', 'தொகை'), align: 'right' },
@@ -71,6 +74,7 @@ export default function DonationUnifiedList() {
     '#': true,
     type: true,
     receipt: true,
+    entryDate: true,
     date: true,
     name: true,
     phone: true,
@@ -97,6 +101,20 @@ export default function DonationUnifiedList() {
     if (v == null) return 0;
     const n = parseFloat(String(v).replace(/[^0-9.-]/g, ''));
     return isNaN(n) ? 0 : n;
+  };
+
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return '-';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
+      const d = date.getDate().toString().padStart(2, '0');
+      const m = (date.getMonth() + 1).toString().padStart(2, '0');
+      const y = date.getFullYear();
+      return `${d}/${m}/${y}`;
+    } catch (e) {
+      return dateString;
+    }
   };
 
   const receiptNum = (s: any) => parseInt(String(s || '').replace(/\D/g, '') || '0', 10);
@@ -225,6 +243,8 @@ export default function DonationUnifiedList() {
         id: m.id,
         type: 'money',
         registerNo: m.register_no || null,
+        entryDate: (m as any).entry_date || null,
+        bookingDate: m.date || null,
         date: m.date || null,
         name: m.name || null,
         phone: m.phone || null,
@@ -237,6 +257,8 @@ export default function DonationUnifiedList() {
         id: p.id,
         type: 'product',
         registerNo: p.register_no || null,
+        entryDate: (p as any).entry_date || null,
+        bookingDate: p.donation_date || null,
         date: (p.donation_date || null),
         name: p.donor_name || null,
         phone: p.donor_contact || null,
@@ -376,7 +398,8 @@ export default function DonationUnifiedList() {
       const headers = [
         t("Type", "வகை"),
         t("Receipt No", "ரசீது எண்"),
-        t("Date", "தேதி"),
+        t("Entry Date", "நுழைவு தேதி"),
+        t("Booking Date", "பதிவு தேதி"),
         t("Name", "பெயர்"),
         t("Phone", "கைபேசி"),
         t("Amount", "தொகை"),
@@ -388,7 +411,8 @@ export default function DonationUnifiedList() {
       const exportRows = rows.map((r) => [
         r.type === 'money' ? t('Money', 'பணம்') : t('Product', 'பொருள்'),
         r.registerNo || "",
-        (r.date || "").slice(0, 10),
+        formatDate(r.entryDate),
+        formatDate(r.bookingDate),
         r.name || "",
         r.phone || "",
         r.type === 'money' ? toNum(r.amount) : "",
@@ -424,7 +448,8 @@ export default function DonationUnifiedList() {
       const headCells = [
         t("Type", "வகை"),
         t("Receipt No", "ரசீது எண்"),
-        t("Date", "தேதி"),
+        t("Entry Date", "நுழைவு தேதி"),
+        t("Booking Date", "பதிவு தேதி"),
         t("Name", "பெயர்"),
         t("Phone", "கைபேசி"),
         t("Amount", "தொகை"),
@@ -435,7 +460,8 @@ export default function DonationUnifiedList() {
       const exportRows = rows.map((r) => [
         r.type === 'money' ? t('Money', 'பணம்') : t('Product', 'பொருள்'),
         r.registerNo || "",
-        (r.date || "").slice(0, 10),
+        formatDate(r.entryDate),
+        formatDate(r.bookingDate),
         r.name || "",
         r.phone || "",
         r.type === 'money' ? toNum(r.amount).toLocaleString() : "-",
@@ -588,7 +614,8 @@ export default function DonationUnifiedList() {
                           {visibleCols['#'] && <TableCell className={tableClasses.cellSno}>{startIndex + idx + 1}</TableCell>}
                           {visibleCols['type'] && <TableCell className={tableClasses.cell}>{r.type === 'money' ? t('Money', 'பணம்') : t('Product', 'பொருள்')}</TableCell>}
                           {visibleCols['receipt'] && <TableCell className={tableClasses.cell}>{r.registerNo || '-'}</TableCell>}
-                          {visibleCols['date'] && <TableCell className={tableClasses.cell}>{(r.date || '').slice(0, 10) || '-'}</TableCell>}
+                          {visibleCols['entryDate'] && <TableCell className={tableClasses.cell}>{formatDate(r.entryDate)}</TableCell>}
+                          {visibleCols['date'] && <TableCell className={tableClasses.cell}>{formatDate(r.bookingDate)}</TableCell>}
                           {visibleCols['name'] && <TableCell className={tableClasses.cell}>{r.name || '-'}</TableCell>}
                           {visibleCols['phone'] && <TableCell className={tableClasses.cell}>{r.phone || '-'}</TableCell>}
                           {visibleCols['amount'] && (

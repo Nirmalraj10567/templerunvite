@@ -659,7 +659,19 @@ export default function AnnadhanamApprovalPage() {
   };
 
   // Format helpers
-  const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString();
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return '-';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
+      const d = date.getDate().toString().padStart(2, '0');
+      const m = (date.getMonth() + 1).toString().padStart(2, '0');
+      const y = date.getFullYear();
+      return `${d}/${m}/${y}`;
+    } catch (e) {
+      return dateString;
+    }
+  };
   const formatDateTime = (dateString: string) => new Date(dateString).toLocaleString();
 
   // Status badge

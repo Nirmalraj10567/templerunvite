@@ -61,6 +61,8 @@ router.get('/:id', async (req, res) => {
       title: event.title,
       description: event.description,
       date: event.date,
+      from_date: event.from_date || event.date,
+      to_date: event.to_date || event.from_date || event.date,
       time: event.time,
       location: event.location,
       images: imageObjs,
@@ -91,14 +93,16 @@ router.put('/:id', upload.fields([
       .first();
     if (!existing) return res.status(404).json({ error: 'Event not found' });
 
-    const { title, description, date, time, location } = req.body;
+    const { title, description, date, from_date, to_date, time, location } = req.body;
 
     await req.db('events')
       .where({ id })
       .update({
         title: title ?? existing.title,
         description: description ?? existing.description,
-        date: date ?? existing.date,
+        date: from_date ?? date ?? existing.date,
+        from_date: from_date ?? date ?? existing.from_date,
+        to_date: to_date ?? from_date ?? date ?? existing.to_date,
         time: time ?? existing.time,
         location: location ?? existing.location,
         updated_at: req.db.fn.now(),
@@ -235,6 +239,7 @@ router.get('/', async (req, res) => {
     const events = await base
       .clone()
       .select('*')
+      .orderBy('from_date', 'desc')
       .orderBy('date', 'desc')
       .orderBy('time', 'desc')
       .limit(pageSize)
@@ -291,16 +296,18 @@ router.post('/', upload.fields([
   { name: 'eventImages', maxCount: 10 }
 ]), compressImage, async (req, res) => {
   try {
-    const { title, description, date, time, location } = req.body;
+    const { title, description, date, from_date, to_date, time, location } = req.body;
     
-    if (!title || !date || !time || !location) {
+    if (!title || (!from_date && !date) || !time || !location) {
       return res.status(400).json({ error: 'Title, date, time and location are required' });
     }
     
     const [id] = await req.db('events').insert({
       title,
       description,
-      date,
+      date: from_date ?? date,
+      from_date: from_date ?? date,
+      to_date: to_date ?? from_date ?? date,
       time,
       location,
       created_by: req.user.id,
@@ -370,7 +377,9 @@ router.get('/mobile/events', async (req, res) => {
     const mobileEvents = events.map(event => ({
       id: event.id,
       title: event.title,
-      date: event.date,
+      date: event.from_date || event.date,
+      from_date: event.from_date || event.date,
+      to_date: event.to_date || event.from_date || event.date,
       time: event.time,
       location: event.location,
       image: images.find(img => img.event_id === event.id) 

@@ -87,7 +87,9 @@ export const navigationTranslations = {
     generalSettings: 'பொது அமைப்புகள்',
     pdfSettings: 'PDF அமைப்புகள்',
     myPreferences: 'எனது விருப்பங்கள்',
-    logPage: 'பதிவு பக்கம்'
+    logPage: 'பதிவு பக்கம்',
+    accounts: 'கணக்குகள்',
+    accountsCreate: 'வங்கி / UPI'
   },
   english: {
     overview: 'Home',
@@ -147,7 +149,9 @@ export const navigationTranslations = {
     generalSettings: 'General Settings',
     pdfSettings: 'PDF Settings',
     myPreferences: 'My Preferences',
-    logPage: 'Log Page'
+    logPage: 'Log Page',
+    accounts: 'Accounts',
+    accountsCreate: 'Bank / UPI'
   }
 } as const;
 
@@ -303,6 +307,13 @@ export const sidebarItems: NavItem[] = [
         tamilLabel: navigationTranslations.tamil.viewEntries,
         permissionId: 'ledger_management',
         accessLevel: 'view'
+      },
+      {
+        to: 'accounts/create',
+        label: navigationTranslations.english.accountsCreate,
+        tamilLabel: navigationTranslations.tamil.accountsCreate,
+        permissionId: 'ledger_management',
+        accessLevel: 'edit'
       },
     ]
   },
@@ -492,6 +503,13 @@ export const sidebarItems: NavItem[] = [
     tamilLabel: navigationTranslations.tamil.settings,
     icon: SettingsIcon,
     children: [
+      { 
+        to: 'profile', 
+        label: 'Profile', 
+        tamilLabel: 'சுயசரிப்பு', 
+        permissionId: 'setting',
+        accessLevel: 'view'
+      },
       { 
         to: 'settings', 
         label: navigationTranslations.english.generalSettings, 

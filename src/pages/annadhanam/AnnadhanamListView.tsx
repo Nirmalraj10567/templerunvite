@@ -39,6 +39,7 @@ import { cn, pageContainerStyles, formFieldStyles } from "@/styles/formStyles";
 import { theme, tableClasses, buttonClasses } from '@/styles/theme';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import apiClient from "@/lib/apiClient";
 
 interface Annadhanam {
   id: number;
@@ -716,25 +717,38 @@ export default function AnnadhanamListView() {
 
   const handleDownloadReceipt = async (annadhanamId: number, receiptNumber: string) => {
     try {
-      const response = await fetch(`https://templeapi.agniplay.com/api/annadhanam/${annadhanamId}/receipt.pdf`, {
+      const activeToken = token || localStorage.getItem('authToken');
+      if (!activeToken) {
+        toast({
+          title: t("Authentication Error", "அங்கீகாரப் பிழை"),
+          description: t("Please login again.", "தயவுசெய்து மீண்டும் உள்நுழையவும்."),
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Use the proxy-friendly /api path and also append token to query string for better compatibility
+      const url = `/api/annadhanam/${annadhanamId}/receipt.pdf?token=${encodeURIComponent(activeToken)}`;
+      
+      const response = await fetch(url, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${activeToken}`
         }
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch receipt');
+        throw new Error(`Failed to fetch receipt: ${response.status}`);
       }
 
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = url;
+      link.href = downloadUrl;
       link.download = `receipt-${receiptNumber || annadhanamId}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      window.URL.revokeObjectURL(downloadUrl);
     } catch (error) {
       console.error("Error downloading receipt:", error);
       toast({
@@ -745,8 +759,18 @@ export default function AnnadhanamListView() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return '-';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
+      const d = date.getDate().toString().padStart(2, '0');
+      const m = (date.getMonth() + 1).toString().padStart(2, '0');
+      const y = date.getFullYear();
+      return `${d}/${m}/${y}`;
+    } catch (e) {
+      return dateString;
+    }
   };
 
   const formatTime = (timeString: string) => {
@@ -827,7 +851,7 @@ export default function AnnadhanamListView() {
                           data.map((annadhanam, index) => (
                             <TableRow key={annadhanam.id} className={tableClasses.row}>
                               <TableCell className={tableClasses.cellSno}>
-                                {index + 1}
+                                {pagination.pageIndex * pagination.pageSize + index + 1}
                               </TableCell>
                               <TableCell className={tableClasses.cell}>
                                 {annadhanam.receipt_number}
@@ -1254,7 +1278,7 @@ export default function AnnadhanamListView() {
                                               <div className="space-y-2">
                                                 <div className="bg-green-50 p-2 rounded border text-xs">
                                                   <div className="font-medium text-green-700 mb-1">{t('Money Donation', 'பண தானம்')}</div>
-                                                  <div className="text-gray-600">₹{amount}</div>
+                                                  <div className="text-gray-600">{amount}</div>
                                                 </div>
                                               </div>
                                             );
@@ -1430,7 +1454,7 @@ export default function AnnadhanamListView() {
                                           <div className="space-y-2">
                                             <div className="bg-green-50 p-2 rounded border text-xs">
                                               <div className="font-medium text-green-700 mb-1">{t('Money Donation', 'பண தானம்')}</div>
-                                              <div className="text-gray-600">₹{amount}</div>
+                                              <div className="text-gray-600">{amount}</div>
                                             </div>
                                           </div>
                                         );

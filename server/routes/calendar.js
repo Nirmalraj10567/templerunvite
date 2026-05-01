@@ -43,17 +43,41 @@ module.exports = function(deps = {}) {
         .andWhere('check_in_date', date)
         .orderBy('check_in_time', 'asc');
 
+      // Fetch annadhanam food donations for the date
+      const hasAnnadhanamStatus = await db.schema.hasColumn('annadhanam', 'status').catch(() => false);
+      const annadhanam = await db('annadhanam')
+        .select('id', 'name', 'food', 'peoples', 'time', 'from_date')
+        .where('temple_id', templeId)
+        .andWhere((qb) => {
+          qb.where('donation_type', 'food').orWhereNull('donation_type').orWhere('donation_type', '');
+        })
+        .modify((qb) => {
+          if (hasAnnadhanamStatus) qb.andWhere('status', 'approved');
+        })
+        .andWhereRaw('DATE(from_date) = ?', [date])
+        .orderBy('time', 'asc');
+
       // Format the response
       const calendarData = {
         date,
-        events: events.map(event => ({
-          id: event.id,
-          title: event.title,
-          description: event.description,
-          time: event.time,
-          location: event.location,
-          type: 'event'
-        })),
+        events: [
+          ...events.map(event => ({
+            id: event.id,
+            title: event.title,
+            description: event.description,
+            time: event.time,
+            location: event.location,
+            type: 'event'
+          })),
+          ...annadhanam.map((row) => ({
+            id: row.id,
+            title: `Food Donation - ${row.name || 'Annadhanam'}`,
+            description: `${row.food || 'Food donation'}${row.peoples ? ` (${row.peoples} people)` : ''}`,
+            time: row.time,
+            location: 'Annadhanam',
+            type: 'event'
+          }))
+        ],
         pooja: pooja.map(p => ({
           id: p.id,
           name: p.name,
@@ -128,6 +152,22 @@ module.exports = function(deps = {}) {
         .orderBy('check_in_date', 'asc')
         .orderBy('check_in_time', 'asc');
 
+      // Fetch annadhanam food donations for the date range
+      const hasAnnadhanamStatus = await db.schema.hasColumn('annadhanam', 'status').catch(() => false);
+      const annadhanam = await db('annadhanam')
+        .select('id', 'name', 'food', 'peoples', 'time', 'from_date')
+        .where('temple_id', templeId)
+        .andWhere((qb) => {
+          qb.where('donation_type', 'food').orWhereNull('donation_type').orWhere('donation_type', '');
+        })
+        .modify((qb) => {
+          if (hasAnnadhanamStatus) qb.andWhere('status', 'approved');
+        })
+        .andWhereRaw('DATE(from_date) >= ?', [String(from)])
+        .andWhereRaw('DATE(from_date) <= ?', [String(to)])
+        .orderBy('from_date', 'asc')
+        .orderBy('time', 'asc');
+
       // Group data by date
       const calendarData = {};
       
@@ -173,6 +213,22 @@ module.exports = function(deps = {}) {
           name: booking.name,
           checkInTime: booking.check_in_time,
           type: 'hall_booking'
+        });
+      });
+
+      // Process annadhanam food donations
+      annadhanam.forEach((row) => {
+        const date = String(row.from_date).split('T')[0];
+        if (!calendarData[date]) {
+          calendarData[date] = { events: [], pooja: [], hallBookings: [] };
+        }
+        calendarData[date].events.push({
+          id: row.id,
+          title: `Food Donation - ${row.name || 'Annadhanam'}`,
+          description: `${row.food || 'Food donation'}${row.peoples ? ` (${row.peoples} people)` : ''}`,
+          time: row.time,
+          location: 'Annadhanam',
+          type: 'event'
         });
       });
 
@@ -228,6 +284,22 @@ module.exports = function(deps = {}) {
         .limit(parseInt(limit))
         .offset(parseInt(offset));
 
+      // Fetch annadhanam food donations
+      const hasAnnadhanamStatus = await db.schema.hasColumn('annadhanam', 'status').catch(() => false);
+      const annadhanam = await db('annadhanam')
+        .select('id', 'name', 'food', 'peoples', 'time', 'from_date')
+        .where('temple_id', templeId)
+        .andWhere((qb) => {
+          qb.where('donation_type', 'food').orWhereNull('donation_type').orWhere('donation_type', '');
+        })
+        .modify((qb) => {
+          if (hasAnnadhanamStatus) qb.andWhere('status', 'approved');
+        })
+        .orderBy('from_date', 'desc')
+        .orderBy('time', 'desc')
+        .limit(parseInt(limit))
+        .offset(parseInt(offset));
+
       // Format the response
       const allEvents = [
         ...events.map(event => ({
@@ -256,6 +328,15 @@ module.exports = function(deps = {}) {
           location: 'Marriage Hall',
           date: booking.check_in_date,
           type: 'hall_booking'
+        })),
+        ...annadhanam.map((row) => ({
+          id: row.id,
+          title: `Food Donation - ${row.name || 'Annadhanam'}`,
+          description: `${row.food || 'Food donation'}${row.peoples ? ` (${row.peoples} people)` : ''}`,
+          time: row.time,
+          location: 'Annadhanam',
+          date: String(row.from_date).split('T')[0],
+          type: 'event'
         }))
       ].sort((a, b) => {
         // Sort by date (newest first), then by time

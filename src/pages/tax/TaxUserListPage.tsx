@@ -74,9 +74,10 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
   }, [rows, familyFilter]);
 
   // Column Keys
-  type ColKey = 'name' | 'mobile_number' | 'aadhaar_number' | 'reference_number' | 'village' | 'created_at' | 'status' | 'actions' | 'father_name' | 'education' | 'occupation' | 'clan' | 'group' | 'address' | 'birth_date' | 'pan_number' | 'postal_code' | 'male_heirs' | 'female_heirs' | 'member_id' | 'gender' | 'marital_status' | 'family_chain';
+  type ColKey = 'sno' | 'name' | 'mobile_number' | 'aadhaar_number' | 'reference_number' | 'village' | 'created_at' | 'status' | 'actions' | 'father_name' | 'education' | 'occupation' | 'clan' | 'group' | 'address' | 'birth_date' | 'pan_number' | 'postal_code' | 'male_heirs' | 'female_heirs' | 'member_id' | 'gender' | 'marital_status' | 'family_chain';
 
   const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' | 'center' }> = [
+    { key: 'sno', label: t('S.No', 'வ.எண்') },
     { key: 'name', label: t('Name', 'பெயர்') },
     { key: 'mobile_number', label: t('Mobile', 'தொலைபேசி') },
     { key: 'aadhaar_number', label: t('Aadhaar', 'ஆதார்') },
@@ -104,6 +105,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
 
   const STORAGE_KEY = 'tax_user_list_visible_columns_v2';
   const defaultVisible: Record<ColKey, boolean> = {
+    sno: true,
     name: true,
     mobile_number: true,
     aadhaar_number: true,
@@ -231,7 +233,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
   // Helper function to format amounts
   const formatAmount = (amount: any) => {
     const num = Number(amount);
-    return Number.isFinite(num) ? `₹${num.toFixed(2)}` : '-';
+    return Number.isFinite(num) ? `${num.toFixed(2)}` : '-';
   };
 
   // Helper function to get amount info
@@ -1258,8 +1260,13 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredRows.map((r) => (
+                filteredRows.map((r, index) => (
                   <TableRow key={r.id} className={tableClasses.row}>
+                    {visibleCols.sno && (
+                      <TableCell className={tableClasses.cellSno}>
+                        {(page - 1) * pageSize + index + 1}
+                      </TableCell>
+                    )}
                     {visibleCols.name && (
                       <TableCell className={tableClasses.cell}>
                         {r.name}
@@ -1420,7 +1427,7 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
                                 {isPaid ? t('Paid', 'செலுத்தப்பட்டது') : t('Pending', 'நிலுவை')}
                               </span>
                               <span className="text-[9px] text-gray-500 mt-0.5">
-                                ₹{paid.toFixed(0)} / ₹{tax.toFixed(0)}
+                                {paid.toFixed(0)} / {tax.toFixed(0)}
                               </span>
                             </div>
                           );

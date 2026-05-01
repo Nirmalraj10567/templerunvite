@@ -67,9 +67,10 @@ export default function PropertyListView() {
     );
 
   // Column Keys
-  type ColKey = 'name' | 'details' | 'value' | 'actions';
+  type ColKey = 'sno' | 'name' | 'details' | 'value' | 'actions';
 
   const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' | 'center' }> = [
+    { key: 'sno', label: language === 'tamil' ? 'S.No' : 'வ.எண்' },
     { key: 'name', label: t('Name', 'பெயர்') },
     { key: 'details', label: t('Details', 'விவரங்கள்') },
     { key: 'value', label: t('Value', 'மதிப்பு'), align: 'right' },
@@ -78,6 +79,7 @@ export default function PropertyListView() {
 
   const STORAGE_KEY = 'property_list_visible_columns_v1';
   const defaultVisible: Record<ColKey, boolean> = {
+    sno: true,
     name: true,
     details: true,
     value: true,
@@ -148,7 +150,19 @@ export default function PropertyListView() {
     return /[",\n]/.test(s) ? '"' + s + '"' : s;
   };
 
-  const formatDate = (s?: string) => (s ? new Date(s).toLocaleDateString() : '');
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return '-';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
+      const d = date.getDate().toString().padStart(2, '0');
+      const m = (date.getMonth() + 1).toString().padStart(2, '0');
+      const y = date.getFullYear();
+      return `${d}/${m}/${y}`;
+    } catch (e) {
+      return dateString;
+    }
+  };
 
   // Fetch properties
   const fetchProperties = async () => {
@@ -497,8 +511,13 @@ export default function PropertyListView() {
                     </td>
                   </tr>
                 ) : (
-                  data.map((property) => (
+                  data.map((property, index) => (
                     <tr key={property.id} className="hover:bg-gray-50">
+                      {visibleCols.sno && (
+                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {pagination.pageIndex * pagination.pageSize + index + 1}
+                        </TableCell>
+                      )}
                       {visibleCols.name && (
                         <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {property.name}

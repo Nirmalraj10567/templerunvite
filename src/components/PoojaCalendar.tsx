@@ -73,8 +73,9 @@ export default function PoojaCalendar({
     // Normalize date strings from backend: they may be 'YYYY-MM-DD' or ISO with time (e.g., '2025-09-20T00:00:00.000Z')
     const norm = (s: string) => (s || '').slice(0, 10);
     return bookings.filter((booking) => {
-      const from = norm((booking as any).from_date);
-      const to = norm((booking as any).to_date);
+      const bDate = (booking as any).booking_date || booking.from_date;
+      const from = norm(bDate);
+      const to = norm((booking as any).to_date || bDate);
 
       // Simple string comparison for YYYY-MM-DD format dates
       const checkDateNorm = date.slice(0, 10);

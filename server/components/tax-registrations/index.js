@@ -318,6 +318,18 @@ router.post('/', authenticateToken, authorizePermission('tax_registrations', 'ed
       );
       await ensureColumn(
         'user_tax_registrations',
+        'payment_mode',
+        (t) => { try { t.string('payment_mode', 20).nullable(); } catch (e) {} },
+        'ALTER TABLE user_tax_registrations ADD COLUMN payment_mode VARCHAR(20) NULL'
+      );
+      await ensureColumn(
+        'user_tax_registrations',
+        'account_id',
+        (t) => { try { t.integer('account_id').nullable(); } catch (e) {} },
+        'ALTER TABLE user_tax_registrations ADD COLUMN account_id INT NULL'
+      );
+      await ensureColumn(
+        'user_tax_registrations',
         'member_id',
         (t) => { try { t.integer('member_id'); } catch (e) {} },
         'ALTER TABLE user_tax_registrations ADD COLUMN member_id INT NULL'
@@ -386,12 +398,32 @@ router.post('/', authenticateToken, authorizePermission('tax_registrations', 'ed
       tax_amount: taxAmount,
       amount_paid: amountPaid,
       outstanding_amount: outstandingAmount,
-      from_account: cleanedData.fromAccount || cleanedData.from_account || 'TAX A/C',
-      transfer_to_account: cleanedData.transferTo || cleanedData.transfer_to || 'INCOME A/C',
+      payment_mode: (cleanedData.paymentMode || 'cash').toString(),
+      account_id: cleanedData.accountId ? Number(cleanedData.accountId) : null,
+      from_account: 'TAX INCOME A/C',
+      transfer_to_account: 'CASH A/C',
       member_id: cleanedData.memberId || null,
       created_at: db.fn.now(),
       updated_at: db.fn.now(),
     };
+
+    // Resolve to-account ledger for bank/upi
+    try {
+      const pm = (cleanedData.paymentMode || 'cash').toString().toLowerCase();
+      if (pm !== 'cash') {
+        if (!cleanedData.accountId) throw new Error('Account is required for Bank / UPI');
+        const acc = await db('accounts as a')
+          .leftJoin('account_ledgers as l', 'a.ledger_id', 'l.id')
+          .where('a.id', Number(cleanedData.accountId))
+          .andWhere('a.temple_id', effectiveTempleId)
+          .select('l.name as ledger_name', 'a.account_name', 'a.name')
+          .first();
+        if (!acc) throw new Error('Selected account not found');
+        insertPayload.transfer_to_account = acc.ledger_name || acc.account_name || acc.name || insertPayload.transfer_to_account;
+      }
+    } catch (e) {
+      return res.status(400).json({ success: false, error: e.message || 'Invalid account selection' });
+    }
 
     const [registrationId] = await db('user_tax_registrations').insert(insertPayload);
 
@@ -473,7 +505,7 @@ router.post('/', authenticateToken, authorizePermission('tax_registrations', 'ed
           reference_id: registrationId,
           receipt_number: insertPayload.reference_number,
           amount: amountPaid,
-          payment_mode: 'Cash',
+          payment_mode: insertPayload.payment_mode || 'Cash',
           party_name: insertPayload.name,
           party_mobile: insertPayload.mobile_number,
           notes: `TAX ${year}`,

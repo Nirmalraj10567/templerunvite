@@ -81,7 +81,7 @@ module.exports = function(deps = {}) {
       const hasDaybook = await db.schema.hasTable('daybook_entries');
       if (!hasDaybook) return;
 
-      let entryDate = row.from_date;
+      let entryDate = row.entry_date || row.from_date;
       if (entryDate) {
         const d = new Date(entryDate);
         if (d.toString() !== 'Invalid Date') {
@@ -127,7 +127,7 @@ module.exports = function(deps = {}) {
         party_name: row.name || null,
         party_mobile: row.mobile_number || null,
         notes: `${row.food || ''} (${peoples} people)`.trim(),
-        running_balance: (typeof calculateDaybookRunningBalance === 'function' ? await calculateDaybookRunningBalance(db, templeId, entryDate) : 0) + entryAmount,
+        running_balance: (typeof calculateDaybookRunningBalance === 'function' ? await calculateDaybookRunningBalance(templeId, entryDate) : 0) + entryAmount,
         created_by: userId ? Number(userId) : null,
         created_at: db.fn.now(),
       });
@@ -331,6 +331,7 @@ module.exports = function(deps = {}) {
         productName: body.productName ?? body.product_name,
         quantity: body.quantity,
         amount: body.amount,
+        entryDate: body.entryDate ?? body.entry_date,
       };
 
       // Basic validations
@@ -401,6 +402,7 @@ module.exports = function(deps = {}) {
         time: p.time,
         from_date: p.fromDate,
         to_date: p.toDate,
+        entry_date: p.entryDate || new Date().toISOString().slice(0, 10),
         remarks: p.remarks || null,
         amount: p.amount ? Number(p.amount) : null,
         donation_type: p.donationType || 'food',
@@ -457,9 +459,9 @@ module.exports = function(deps = {}) {
           if (annadhanamRow.amount && Number(annadhanamRow.amount) > 0) {
             const hasJournal = await db.schema.hasTable('journal_entries');
             if (hasJournal) {
-              const entryDate = annadhanamRow.from_date instanceof Date 
-                ? annadhanamRow.from_date.toISOString().slice(0, 10) 
-                : String(annadhanamRow.from_date).split('T')[0];
+              const entryDate = annadhanamRow.entry_date instanceof Date 
+                ? annadhanamRow.entry_date.toISOString().slice(0, 10) 
+                : String(annadhanamRow.entry_date || annadhanamRow.from_date).split('T')[0];
                 
               await db('journal_entries').insert({
                 date: entryDate,
@@ -559,6 +561,7 @@ module.exports = function(deps = {}) {
         productName: body.productName ?? body.product_name,
         quantity: body.quantity,
         amount: body.amount,
+        entryDate: body.entryDate ?? body.entry_date,
       };
 
       // Basic validations
@@ -628,6 +631,7 @@ module.exports = function(deps = {}) {
         time: p.time,
         from_date: p.fromDate,
         to_date: p.toDate,
+        entry_date: p.entryDate,
         remarks: p.remarks || null,
         amount: p.amount ? Number(p.amount) : null,
         donation_type: p.donationType || 'food',
@@ -654,9 +658,9 @@ module.exports = function(deps = {}) {
             .del();
           const amountNum = Number(annadhanam?.amount || 0);
           if (amountNum > 0) {
-            const entryDate = annadhanam.from_date instanceof Date 
-              ? annadhanam.from_date.toISOString().slice(0, 10) 
-              : String(annadhanam.from_date).split('T')[0];
+            const entryDate = annadhanam.entry_date instanceof Date 
+              ? annadhanam.entry_date.toISOString().slice(0, 10) 
+              : String(annadhanam.entry_date || annadhanam.from_date).split('T')[0];
 
             await db('journal_entries').insert({
               date: entryDate,

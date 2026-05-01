@@ -655,6 +655,16 @@ async function removeMoneyDonationFromDaybook({ donationId, templeId }) {
   }
 })();
 
+// Accounts router (bank/upi/cash account management with ledger mapping)
+(() => {
+  try {
+    const accountsRouter = require('./routes/accounts')({ db, authenticateToken, authorizePermission });
+    app.use('/api/accounts', accountsRouter);
+  } catch (e) {
+    console.error('Failed to mount accounts router:', e);
+  }
+})();
+
 // Pooja → Daybook sync function
 async function syncPoojaToDaybook({ poojaId, templeId, userId }) {
   try {
@@ -812,6 +822,152 @@ async function removePoojaFromDaybook({ poojaId, templeId }) {
   const express = require('express');
   const r = express.Router();
 
+  async function ensureMoneyDonationColumns() {
+    const hasPaymentMode = await db.schema.hasColumn('money_donations', 'payment_mode');
+    if (!hasPaymentMode) {
+      await db.schema.alterTable('money_donations', (table) => {
+        table.string('payment_mode', 20).notNullable().defaultTo('cash');
+      });
+    }
+    const hasAccountId = await db.schema.hasColumn('money_donations', 'account_id');
+    if (!hasAccountId) {
+      await db.schema.alterTable('money_donations', (table) => {
+        table.integer('account_id').nullable().index();
+      });
+    }
+  }
+
+  async function getOrCreateCashAccount(templeId) {
+    const hasAccountLedgers = await db.schema.hasTable('account_ledgers');
+    if (!hasAccountLedgers) {
+      await db.schema.createTable('account_ledgers', (table) => {
+        table.increments('id').primary();
+        table.integer('temple_id').notNullable().index();
+        table.string('name', 150).notNullable();
+        table.string('category', 40).notNullable().defaultTo('asset');
+        table.timestamp('created_at').defaultTo(db.fn.now());
+        table.timestamp('updated_at').defaultTo(db.fn.now());
+      });
+    } else {
+      const requiredLedgerColumns = [
+        ['temple_id', (t) => t.integer('temple_id').notNullable().defaultTo(1).index()],
+        ['name', (t) => t.string('name', 150).nullable()],
+        ['category', (t) => t.string('category', 40).notNullable().defaultTo('asset')],
+      ];
+      for (const [col, addColumn] of requiredLedgerColumns) {
+        const hasCol = await db.schema.hasColumn('account_ledgers', col);
+        if (!hasCol) {
+          await db.schema.alterTable('account_ledgers', (table) => addColumn(table));
+        }
+      }
+    }
+    const hasAccounts = await db.schema.hasTable('accounts');
+    if (!hasAccounts) {
+      await db.schema.createTable('accounts', (table) => {
+        table.increments('id').primary();
+        table.string('code', 60).nullable();
+        table.string('category', 60).nullable();
+        table.integer('temple_id').notNullable().index();
+        table.string('account_name', 150).notNullable();
+        table.enum('account_type', ['cash', 'bank', 'upi']).notNullable();
+        table.string('bank_name', 120).nullable();
+        table.string('account_number', 50).nullable();
+        table.string('ifsc_code', 20).nullable();
+        table.string('upi_id', 120).nullable();
+        table.decimal('opening_balance', 14, 2).notNullable().defaultTo(0);
+        table.integer('ledger_id').notNullable().index();
+        table.timestamp('created_at').defaultTo(db.fn.now());
+        table.timestamp('updated_at').defaultTo(db.fn.now());
+      });
+    } else {
+      const requiredAccountColumns = [
+        ['code', (t) => t.string('code', 60).nullable()],
+        ['category', (t) => t.string('category', 60).nullable()],
+        ['name', (t) => t.string('name', 150).nullable()],
+        ['account_name', (t) => t.string('account_name', 150).nullable()],
+        ['temple_id', (t) => t.integer('temple_id').notNullable().defaultTo(1).index()],
+        ['account_type', (t) => t.enum('account_type', ['cash', 'bank', 'upi']).notNullable().defaultTo('cash')],
+        ['bank_name', (t) => t.string('bank_name', 120).nullable()],
+        ['account_number', (t) => t.string('account_number', 50).nullable()],
+        ['ifsc_code', (t) => t.string('ifsc_code', 20).nullable()],
+        ['upi_id', (t) => t.string('upi_id', 120).nullable()],
+        ['opening_balance', (t) => t.decimal('opening_balance', 14, 2).notNullable().defaultTo(0)],
+        ['ledger_id', (t) => t.integer('ledger_id').nullable().index()],
+      ];
+      for (const [col, addColumn] of requiredAccountColumns) {
+        const hasCol = await db.schema.hasColumn('accounts', col);
+        if (!hasCol) {
+          await db.schema.alterTable('accounts', (table) => addColumn(table));
+        }
+      }
+    }
+
+    const existing = await db('accounts')
+      .where('temple_id', templeId)
+      .andWhere((q) => q.where('account_type', 'cash').orWhere('type', 'cash'))
+      .first();
+    if (existing) return existing;
+
+    let ledger = await db('account_ledgers').where({ temple_id: templeId, name: 'CASH A/C' }).first();
+    if (!ledger) {
+      const [ledgerId] = await db('account_ledgers').insert({
+        temple_id: templeId,
+        name: 'CASH A/C',
+        category: 'cash',
+        created_at: db.fn.now(),
+        updated_at: db.fn.now(),
+      });
+      ledger = { id: ledgerId, name: 'CASH A/C' };
+    }
+    const [accountId] = await db('accounts').insert({
+      code: `CASH-${templeId}`,
+      category: 'cash',
+      name: 'Cash A/c',
+      temple_id: templeId,
+      account_name: 'Cash A/c',
+      account_type: 'cash',
+      opening_balance: 0,
+      ledger_id: ledger.id,
+      created_at: db.fn.now(),
+      updated_at: db.fn.now(),
+    });
+    return db('accounts').where({ id: accountId }).first();
+  }
+
+  async function resolveDonationAccount(templeId, paymentModeInput, accountIdInput) {
+    const paymentMode = String(paymentModeInput || 'cash').toLowerCase();
+    if (paymentMode === 'cash') {
+      const cashAccount = await getOrCreateCashAccount(templeId);
+      return {
+        paymentMode: 'cash',
+        accountId: Number(cashAccount.id),
+        accountLedgerName: 'CASH A/C',
+      };
+    }
+
+    if (!accountIdInput) {
+      throw new Error('Account is required for bank or UPI payments');
+    }
+    const account = await db('accounts as a')
+      .leftJoin('account_ledgers as l', 'a.ledger_id', 'l.id')
+      .where('a.id', Number(accountIdInput))
+      .andWhere('a.temple_id', templeId)
+      .select('a.*', 'l.name as ledger_name')
+      .first();
+    if (!account) {
+      throw new Error('Selected account not found');
+    }
+    return {
+      paymentMode,
+      accountId: Number(account.id),
+      accountLedgerName: account.ledger_name || account.account_name,
+    };
+  }
+
+  ensureMoneyDonationColumns().catch((e) => {
+    console.error('Failed ensuring money donation columns:', e.message);
+  });
+
   // Helper to write money donation logs
   async function logMoneyDonationAction({ donationId, templeId, userId, action, details }) {
     try {
@@ -848,6 +1004,61 @@ async function removePoojaFromDaybook({ poojaId, templeId }) {
       console.error('Error details:', e);
       throw e; // Re-throw to let caller handle
     }
+  }
+
+  async function getOrCreateCashAccount(templeId) {
+    const existing = await db('accounts')
+      .where('temple_id', templeId)
+      .andWhere((q) => q.where('account_type', 'cash').orWhere('type', 'cash').orWhere('category', 'cash'))
+      .first();
+    if (existing) return existing;
+
+    let ledger = await db('account_ledgers').where({ temple_id: templeId, name: 'CASH A/C' }).first();
+    if (!ledger) {
+      const [ledgerId] = await db('account_ledgers').insert({
+        temple_id: templeId,
+        name: 'CASH A/C',
+        category: 'cash',
+        created_at: db.fn.now(),
+        updated_at: db.fn.now(),
+      });
+      ledger = { id: ledgerId, name: 'CASH A/C' };
+    }
+
+    const [accountId] = await db('accounts').insert({
+      code: `CASH-${templeId}`,
+      name: 'Cash A/c',
+      category: 'cash',
+      temple_id: templeId,
+      account_name: 'Cash A/c',
+      account_type: 'cash',
+      opening_balance: 0,
+      ledger_id: ledger.id,
+      created_at: db.fn.now(),
+      updated_at: db.fn.now(),
+    });
+    return db('accounts').where({ id: accountId }).first();
+  }
+
+  async function resolveDonationAccount(templeId, paymentModeInput, accountIdInput) {
+    const paymentMode = String(paymentModeInput || 'cash').toLowerCase();
+    if (paymentMode === 'cash') {
+      const cash = await getOrCreateCashAccount(templeId);
+      return { paymentMode: 'cash', accountId: Number(cash.id), accountLedgerName: 'CASH A/C' };
+    }
+    if (!accountIdInput) throw new Error('Account is required for bank or UPI payments');
+    const account = await db('accounts as a')
+      .leftJoin('account_ledgers as l', 'a.ledger_id', 'l.id')
+      .where('a.id', Number(accountIdInput))
+      .andWhere('a.temple_id', templeId)
+      .select('a.*', 'l.name as ledger_name')
+      .first();
+    if (!account) throw new Error('Selected account not found');
+    return {
+      paymentMode,
+      accountId: Number(account.id),
+      accountLedgerName: account.ledger_name || account.account_name || account.name,
+    };
   }
 
   async function generateDaybookReceiptNumber(templeId) {
@@ -1058,10 +1269,40 @@ async function removePoojaFromDaybook({ poojaId, templeId }) {
     }
   })();
 
+  const DEFAULT_LEDGER_CATEGORIES = [
+    { value: 'INCOME A/C', label: 'INCOME A/C' },
+    { value: 'EXPENSE A/C', label: 'EXPENSE A/C' },
+  ];
+
+  async function ensureDefaultLedgerCategories(templeId) {
+    const existingRows = await db('ledger_categories')
+      .where('temple_id', templeId)
+      .select('value', 'label');
+    const existing = new Set(
+      existingRows.flatMap((r) => [
+        String(r.value || '').toLowerCase(),
+        String(r.label || '').toLowerCase(),
+      ])
+    );
+    const missing = DEFAULT_LEDGER_CATEGORIES.filter(
+      (c) => !existing.has(c.value.toLowerCase()) && !existing.has(c.label.toLowerCase())
+    );
+    if (!missing.length) return;
+    await db('ledger_categories').insert(
+      missing.map((c) => ({
+        value: c.value,
+        label: c.label,
+        temple_id: templeId,
+        created_at: db.fn.now(),
+      }))
+    );
+  }
+
   // GET /api/ledger/categories
   r.get('/categories', authenticateToken, async (req, res) => {
     try {
       const templeId = req.user.templeId || req.query.templeId || 1;
+      await ensureDefaultLedgerCategories(templeId);
       const rows = await db('ledger_categories')
         .where('temple_id', templeId)
         .select('*')
@@ -1503,6 +1744,60 @@ app.get('/api/mobile/events', async (req, res) => {
     }
   }
 
+  async function getOrCreateMoneyRouteCashAccount(templeId) {
+    const existing = await db('accounts')
+      .where('temple_id', templeId)
+      .andWhere((q) => q.where('account_type', 'cash').orWhere('type', 'cash').orWhere('category', 'cash'))
+      .first();
+    if (existing) return existing;
+
+    let ledger = await db('account_ledgers').where({ temple_id: templeId, name: 'CASH A/C' }).first();
+    if (!ledger) {
+      const [ledgerId] = await db('account_ledgers').insert({
+        temple_id: templeId,
+        name: 'CASH A/C',
+        category: 'cash',
+        created_at: db.fn.now(),
+        updated_at: db.fn.now(),
+      });
+      ledger = { id: ledgerId, name: 'CASH A/C' };
+    }
+    const [accountId] = await db('accounts').insert({
+      code: `CASH-${templeId}`,
+      name: 'Cash A/c',
+      category: 'cash',
+      temple_id: templeId,
+      account_name: 'Cash A/c',
+      account_type: 'cash',
+      opening_balance: 0,
+      ledger_id: ledger.id,
+      created_at: db.fn.now(),
+      updated_at: db.fn.now(),
+    });
+    return db('accounts').where({ id: accountId }).first();
+  }
+
+  async function resolveMoneyRouteDonationAccount(templeId, paymentModeInput, accountIdInput) {
+    const paymentMode = String(paymentModeInput || 'cash').toLowerCase();
+    if (paymentMode === 'cash') {
+      const cash = await getOrCreateMoneyRouteCashAccount(templeId);
+      return { paymentMode: 'cash', accountId: Number(cash.id), accountLedgerName: 'CASH A/C' };
+    }
+    if (!accountIdInput) throw new Error('Account is required for bank or UPI payments');
+    const account = await db('accounts as a')
+      .leftJoin('account_ledgers as l', 'a.ledger_id', 'l.id')
+      .where('a.id', Number(accountIdInput))
+      .andWhere('a.temple_id', templeId)
+      .select('a.*', 'l.name as ledger_name')
+      .first();
+    if (!account) throw new Error('Selected account not found');
+    return {
+      paymentMode,
+      accountId: Number(account.id),
+      accountLedgerName: account.ledger_name || account.account_name || account.name,
+    };
+  }
+
   // List money donations (current user temple)
   r.get('/', authenticateToken, authorizePermission('view_donations', 'view'), async (req, res) => {
     try {
@@ -1563,9 +1858,20 @@ app.get('/api/mobile/events', async (req, res) => {
       const b = req.body || {};
       const amount = Number(b.amount || 0);
       if (!amount || isNaN(amount)) return res.status(400).json({ error: 'Valid amount is required' });
+      let accountSelection;
+      try {
+        accountSelection = await resolveMoneyRouteDonationAccount(
+          req.user.templeId,
+          b.paymentMode,
+          b.accountId
+        );
+      } catch (accountErr) {
+        return res.status(400).json({ error: accountErr.message || 'Invalid account selection' });
+      }
       const payload = {
         register_no: b.registerNo || '',
-        date: b.date || new Date().toISOString().slice(0, 10),
+        entry_date: b.entryDate || b.date || new Date().toISOString().slice(0, 10),
+        date: b.bookingDate || b.date || new Date().toISOString().slice(0, 10),
         name: b.name || '',
         father_name: b.fatherName || '',
         address: b.address || '',
@@ -1573,7 +1879,9 @@ app.get('/api/mobile/events', async (req, res) => {
         phone: b.phone || '',
         amount: amount,
         reason: b.reason || '',
-        transfer_to_account: b.transfer_to_account || b.transferTo || 'INCOME A/C',
+        transfer_to_account: 'DONATION INCOME A/C',
+        payment_mode: accountSelection.paymentMode,
+        account_id: accountSelection.accountId,
         temple_id: req.user.templeId,
         created_at: db.fn.now(),
         updated_at: db.fn.now(),
@@ -1597,10 +1905,10 @@ app.get('/api/mobile/events', async (req, res) => {
         // Don't fail the request if logging fails, but log the error
       }
 
-      // Also record a journal entry: DONATION A/C -> INCOME A/C (or selected)
+      // Double-entry mirror: Debit selected account ledger, Credit donation income ledger.
       try {
-        const fromAccount = b.fromAccount || 'DONATION A/C';
-        const toAccount = row.transfer_to_account || b.transferTo || 'INCOME A/C';
+        const fromAccount = 'DONATION INCOME A/C'; // credit
+        const toAccount = accountSelection.accountLedgerName || 'CASH A/C'; // debit
         const hasJournal = await db.schema.hasTable('journal_entries');
         if (hasJournal) {
           const entryDate = row.date instanceof Date
@@ -1615,7 +1923,7 @@ app.get('/api/mobile/events', async (req, res) => {
             to_account: toAccount,
             amount: Number(row.amount),
             total_amount: Number(row.amount),
-            entry_type: 'transfer',
+            entry_type: 'donation',
             remarks: row.reason || null,
             reference_type: 'money_donation',
             reference_id: row.id,
@@ -1709,7 +2017,8 @@ app.get('/api/mobile/events', async (req, res) => {
 
       const update = {
         register_no: b.registerNo,
-        date: b.date,
+        entry_date: b.entryDate,
+        date: b.bookingDate || b.date,
         name: b.name,
         father_name: b.fatherName,
         address: b.address,
@@ -1717,9 +2026,18 @@ app.get('/api/mobile/events', async (req, res) => {
         phone: b.phone,
         amount: b.amount != null ? Number(b.amount) : undefined,
         reason: b.reason,
-        transfer_to_account: b.transfer_to_account ?? b.transferTo,
+        transfer_to_account: 'DONATION INCOME A/C',
+        payment_mode: b.paymentMode ? String(b.paymentMode).toLowerCase() : undefined,
+        account_id: b.accountId != null ? Number(b.accountId) : undefined,
         updated_at: db.fn.now(),
       };
+      if (update.payment_mode && ['bank', 'upi'].includes(update.payment_mode) && !update.account_id) {
+        return res.status(400).json({ error: 'Account is required for bank or UPI payments' });
+      }
+      if (update.payment_mode === 'cash') {
+        const cash = await getOrCreateMoneyRouteCashAccount(templeId);
+        update.account_id = Number(cash.id);
+      }
       // remove undefined keys
       Object.keys(update).forEach(k => update[k] === undefined && delete update[k]);
       const changed = await db('money_donations').where({ id }).andWhere('temple_id', templeId).update(update);
@@ -1742,13 +2060,24 @@ app.get('/api/mobile/events', async (req, res) => {
           // Create new journal entry with updated data
           const amountNum = Number(row.amount || 0);
           if (amountNum > 0) {
+            let debitAccount = 'CASH A/C';
+            if (Number(row.account_id) > 0) {
+              const accountWithLedger = await db('accounts as a')
+                .leftJoin('account_ledgers as l', 'a.ledger_id', 'l.id')
+                .where('a.id', Number(row.account_id))
+                .andWhere('a.temple_id', templeId)
+                .select('a.account_name', 'l.name as ledger_name')
+                .first();
+              debitAccount = accountWithLedger?.ledger_name || accountWithLedger?.account_name || debitAccount;
+            }
+
             const entryData = {
               date: row.date || new Date().toISOString().slice(0, 10),
               reference_number: 'JE-' + id + '-' + Date.now(),
               description: 'Donation from ' + row.name,
               total_amount: amountNum,
-              from_account: 'DONATION A/C',
-              to_account: row.transfer_to_account || 'INCOME A/C',
+              from_account: 'DONATION INCOME A/C',
+              to_account: debitAccount,
               amount: amountNum,
               entry_type: 'transfer',
               remarks: row.reason || `Updated money donation - ${row.name || 'Unknown'}`,
@@ -1987,7 +2316,16 @@ app.get('/api/main-logs', authenticateToken, async (req, res) => {
 // Middleware to verify JWT from query parameter for file downloads (e.g., PDFs opened via window.open)
 function verifyQueryToken(req, res, next) {
   try {
-    const token = req.query.token;
+    let token = req.query.token;
+    
+    // Also check Authorization header if query token is missing
+    if (!token && req.headers.authorization) {
+      const parts = req.headers.authorization.split(' ');
+      if (parts.length === 2 && parts[0] === 'Bearer') {
+        token = parts[1];
+      }
+    }
+
     if (!token || typeof token !== 'string') {
       return res.status(401).json({ error: 'Access denied. No token provided.' });
     }
@@ -2314,8 +2652,9 @@ const ledgerCategoriesCompat = (() => {
     try {
       const { from, to } = req.query;
       const base = db('journal_entries').where('journal_entries.temple_id', req.user.templeId);
-      if (from) base.andWhere('journal_entries.date', '>=', String(from));
-      if (to) base.andWhere('journal_entries.date', '<=', String(to));
+      // Compare by calendar date to avoid dropping same-day rows when datetime values include time.
+      if (from) base.andWhereRaw('DATE(journal_entries.date) >= ?', [String(from)]);
+      if (to) base.andWhereRaw('DATE(journal_entries.date) <= ?', [String(to)]);
 
       // Get all distinct accounts from both from_account and to_account
       const fromAccounts = await base
@@ -2454,8 +2793,8 @@ const ledgerCategoriesCompat = (() => {
     try {
       const { from, to } = req.query;
       const base = db('journal_entries').where('temple_id', req.user.templeId);
-      if (from) base.andWhere('date', '>=', String(from));
-      if (to) base.andWhere('date', '<=', String(to));
+      if (from) base.andWhereRaw('DATE(date) >= ?', [String(from)]);
+      if (to) base.andWhereRaw('DATE(date) <= ?', [String(to)]);
 
       const inflows = await base.clone().select('to_account as account').sum({ inflow: 'amount' }).groupBy('to_account');
       const outflows = await base.clone().select('from_account as account').sum({ outflow: 'amount' }).groupBy('from_account');
@@ -2548,7 +2887,7 @@ const ledgerCategoriesCompat = (() => {
       const { from, to } = req.query;
       const base = db('journal_entries').where('temple_id', req.user.templeId);
       // if (from) base.andWhere('date', '>=', String(from));
-      if (to) base.andWhere('date', '<=', String(to));
+      if (to) base.andWhereRaw('DATE(date) <= ?', [String(to)]);
 
       const inflows = await base
         .clone()
@@ -2594,6 +2933,15 @@ const ledgerCategoriesCompat = (() => {
 
       const controlAccounts = ['CASH A/C', 'BANK A/C', 'INCOME A/C', 'EXPENSE A/C', 'CASH', 'BANK', 'TOTAL'];
 
+      const isIncomeCategory = (category = '') => {
+        const c = String(category || '').toLowerCase().trim();
+        return c === 'income' || c.includes('income');
+      };
+      const isExpenseCategory = (category = '') => {
+        const c = String(category || '').toLowerCase().trim();
+        return c === 'expense' || c.includes('expense');
+      };
+
       Array.from(map.values()).forEach((r) => {
         const net = (r.inflow || 0) - (r.outflow || 0);
         if (Math.abs(net) < 0.01) return;
@@ -2606,9 +2954,9 @@ const ledgerCategoriesCompat = (() => {
         const category = ledgerMap[r.account] || '';
         const isControl = controlAccounts.includes(r.account.toUpperCase());
         
-        if (category === 'income' || (category === '' && !isControl && net < 0)) {
+        if (isIncomeCategory(category) || (category === '' && !isControl && net < 0)) {
            incomeItems.push(item);
-        } else if (category === 'expense' || (category === '' && !isControl && net > 0)) {
+        } else if (isExpenseCategory(category) || (category === '' && !isControl && net > 0)) {
            expenseItems.push(item);
         } else {
            if (net >= 0) assets.push(item); else liabilities.push(item);
@@ -3887,6 +4235,14 @@ app.post('/api/members',
         }
       }
 
+      // Check if email already exists when creating login
+      if (createLogin && email) {
+        const existingEmail = await db('users').where({ email }).first();
+        if (existingEmail) {
+          return res.status(409).json({ error: 'Email already exists' });
+        }
+      }
+
       const safeEmail = email && String(email).trim() !== '' ? String(email).trim() : null;
 
       const newMember = await db.transaction(async trx => {
@@ -3960,7 +4316,7 @@ app.post('/api/members',
               email: safeEmail,
               password: hashedPassword,
               temple_id: req.user.templeId,
-              role: mobile === '9999999999' ? 'superadmin' : role || 'member'
+              role: role || 'member'
             });
 
           // Fetch the created user to ensure we have the full object
@@ -4037,6 +4393,18 @@ app.post('/api/members',
       console.error('Member registration error:', err);
       console.error('Error details:', err.message);
       console.error('Error stack:', err.stack);
+
+      // Handle duplicate entry errors
+      if (err.code === 'ER_DUP_ENTRY') {
+        if (err.message.includes('users_email_unique')) {
+          return res.status(409).json({ error: 'Email already exists' });
+        }
+        if (err.message.includes('users_username_unique')) {
+          return res.status(409).json({ error: 'Username already exists' });
+        }
+        return res.status(409).json({ error: 'Duplicate entry found' });
+      }
+
       res.status(500).json({ error: 'Error registering member', details: err.message });
     }
   });

@@ -1,6 +1,13 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { setGlobalLogoutCallback, isTokenExpired } from '@/lib/apiClient';
 
+const RAW_API_BASE =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || window.location.origin;
+const NORMALIZED_API_BASE = RAW_API_BASE.replace(/\/+$/, '');
+const API_BASE = NORMALIZED_API_BASE.endsWith('/api')
+  ? NORMALIZED_API_BASE
+  : `${NORMALIZED_API_BASE}/api`;
+
 interface User {
   id: number;
   name: string;
@@ -26,6 +33,7 @@ interface UserPermission {
 
 interface RegisterData {
   name: string;
+  templeName?: string;
   username?: string;
   mobileNumber: string;
   gmail: string;
@@ -98,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Function to fetch temple data
   const fetchTempleData = async (templeId: number, token: string): Promise<Temple | null> => {
     try {
-      const response = await fetch(`https://templeapi.agniplay.com/api/temples/${templeId}`, {
+      const response = await fetch(`${API_BASE}/temples/${templeId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -173,7 +181,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, isLoading: true, error: '' }));
 
     try {
-      const response = await fetch('https://templeapi.agniplay.com/api/users/login', {
+      const response = await fetch(`${API_BASE}/users/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mobile: identifier, username: identifier, password }),
@@ -234,7 +242,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const deviceId = localStorage.getItem('deviceId') || `device_${Date.now()}`;
       localStorage.setItem('deviceId', deviceId);
 
-      const response = await fetch('https://templeapi.agniplay.com/api/mobile-auth/guest-login', {
+      const response = await fetch(`${API_BASE}/mobile-auth/guest-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -289,42 +297,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, isLoading: true, error: '' }));
     
     try {
-      const response = await fetch('https://templeapi.agniplay.com/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mobile: userData.mobileNumber,
-          username: (userData.username?.trim() || userData.name.replace(/\s+/g, '').toLowerCase()),
-          password: userData.password,
-          email: userData.gmail,
-          fullName: userData.name,
-          websiteLink: userData.weblink,
-          isTrust: userData.isTrust,
-          trustType: userData.trustType,
-          trustRegistrationNumber: userData.trustRegistrationNumber,
-          dateOfRegistration: userData.dateOfRegistration,
-          panNumber: userData.panNumber,
-          tanNumber: userData.tanNumber,
-          gstNumber: userData.gstNumber,
-          reg12A: userData.reg12A,
-          reg80G: userData.reg80G,
-        }),
-      });
+      const payload = {
+        mobile: userData.mobileNumber,
+        username: (userData.username?.trim() || userData.name.replace(/\s+/g, '').toLowerCase()),
+        password: userData.password,
+        email: userData.gmail,
+        fullName: userData.name,
+        templeName: userData.templeName || userData.name, // Temple name from registration form
+        websiteLink: userData.weblink,
+        isTrust: userData.isTrust,
+        trustType: userData.trustType,
+        trustRegistrationNumber: userData.trustRegistrationNumber,
+        dateOfRegistration: userData.dateOfRegistration,
+        panNumber: userData.panNumber,
+        tanNumber: userData.tanNumber,
+        gstNumber: userData.gstNumber,
+        reg12A: userData.reg12A,
+        reg80G: userData.reg80G,
+      };
+
+      let response: Response;
+      if (userData.image) {
+        const fd = new FormData();
+        Object.entries(payload).forEach(([k, v]) => {
+          if (v !== undefined && v !== null) fd.append(k, String(v));
+        });
+        fd.append('image', userData.image);
+        response = await fetch(`${API_BASE}/register`, {
+          method: 'POST',
+          body: fd,
+        });
+      } else {
+        response = await fetch(`${API_BASE}/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
 
       const data = await response.json();
 
       if (!response.ok) {
         // Handle validation errors or other API errors
-        const errorMessage = data.message || data.error || 'Registration failed';
+        const errorMessage = data.error || data.message || 'Registration failed';
         throw new Error(errorMessage);
       }
 
-      if (data.success) {
+      if (data.success !== false) {
         // Ensure loading state is cleared on success
         setState(prev => ({ ...prev, isLoading: false, error: '' }));
-        return { success: true };
+        return { success: true, user: data.user };
       } else {
-        const message = data.message || data.error || 'Registration failed';
+        const message = data.error || data.message || 'Registration failed';
         setState(prev => ({ ...prev, error: message, isLoading: false }));
         return { success: false, error: message };
       }

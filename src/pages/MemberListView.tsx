@@ -475,7 +475,7 @@ export default function MemberListView({
                       members.map((member, index) => (
                         <TableRow key={member.id} className={tableClasses.row}>
                           <TableCell className={tableClasses.cellSno}>
-                            {index + 1}
+                            {(currentPage - 1) * 10 + index + 1}
                           </TableCell>
                           <TableCell className={tableClasses.cell}>
                             <div className="font-medium text-gray-900">{member.fullName}</div>
@@ -588,7 +588,7 @@ export default function MemberListView({
               {/* Pagination */}
               <div className={tableClasses.pagination}>
                 <div className="text-sm text-gray-700">
-                  {t("Showing", "காட்டப்படுகிறது")} {(currentPage - 1) * 20 + 1} {t("to", "இலிருந்து")} {Math.min(currentPage * 20, totalMembers)} {t("of", "இல்")}{" "}
+                  {t("Showing", "காட்டப்படுகிறது")} {(currentPage - 1) * 10 + 1} {t("to", "இலிருந்து")} {Math.min(currentPage * 10, totalMembers)} {t("of", "இல்")}{" "}
                   <span className="font-medium">{totalMembers}</span> {t("items", "உருப்படிகள்")}
                 </div>
                 <div className="flex gap-2">

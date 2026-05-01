@@ -247,18 +247,18 @@ export const formFieldStyles = {
     
     // Image Upload
     imageUpload: {
-      container: "border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-orange-400 transition-colors",
-      button: "px-4 py-2 text-sm border-orange-500 text-orange-600 hover:bg-orange-50 hover:text-orange-700",
-      helpText: "text-xs text-gray-500 mt-2"
+      container: "border-2 border-dashed border-orange-200 rounded-xl p-8 text-center hover:border-orange-400 hover:bg-orange-50/50 transition-all duration-300 group cursor-pointer bg-gray-50/30",
+      button: "px-6 py-2.5 text-sm bg-white border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white shadow-sm font-medium transition-all duration-200",
+      helpText: "text-xs text-gray-400 mt-3 font-medium"
     },
     
     // Image Preview
     imagePreview: {
-      grid: "grid grid-cols-1 gap-4",
-      item: "relative border border-gray-200 rounded-lg p-4 bg-gray-50",
-      deleteButton: "absolute top-2 right-2 h-8 w-8 bg-white hover:bg-red-50 hover:text-red-600",
-      image: "w-full h-40 object-cover rounded-md",
-      form: "space-y-3"
+      grid: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-6",
+      item: "relative bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200",
+      deleteButton: "absolute top-2 right-2 h-8 w-8 bg-white/90 backdrop-blur-sm text-red-500 hover:bg-red-600 hover:text-white rounded-full shadow-md z-10 transition-all duration-200 flex items-center justify-center border border-gray-100",
+      image: "w-full aspect-square object-cover bg-gray-100 border-b border-gray-100",
+      form: "p-4 space-y-3"
     },
     
     // Action Buttons
