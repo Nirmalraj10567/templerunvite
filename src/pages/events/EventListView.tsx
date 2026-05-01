@@ -35,6 +35,8 @@ const translations = {
     date: 'Date',
     time: 'Time',
     location: 'Location',
+    fromDate: 'From',
+    toDate: 'To',
     edit: 'Edit',
     delete: 'Delete'
   },
@@ -52,6 +54,8 @@ const translations = {
     date: 'தேதி',
     time: 'நேரம்',
     location: 'இடம்',
+    fromDate: 'இருந்து',
+    toDate: 'வரை',
     edit: 'திருத்து',
     delete: 'நீக்கு'
   }
@@ -138,7 +142,13 @@ export default function EventListView() {
                       <h3 className="font-medium">{event.title}</h3>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Calendar className="h-3 w-3" />
-                        <span>{t.date}: {new Date(event.date).toLocaleDateString()}</span>
+                        <span>
+                          {t.date}: {event.fromDate && event.toDate && event.fromDate !== event.toDate ? (
+                            `${new Date(event.fromDate).toLocaleDateString()} - ${new Date(event.toDate).toLocaleDateString()}`
+                          ) : (
+                            new Date(event.fromDate || event.date).toLocaleDateString()
+                          )}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />

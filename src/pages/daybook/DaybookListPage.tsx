@@ -47,6 +47,10 @@ import {
   TrendingDown,
   BookOpen,
   Clock,
+  Wallet,
+  ArrowUpRight,
+  ArrowDownRight,
+  Banknote,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
@@ -76,6 +80,8 @@ export default function DaybookListPage() {
   const [stats, setStats] = useState({
     total_income: 0,
     total_expense: 0,
+    income_count: 0,
+    expense_count: 0,
     opening_balance: 0,
     period_net: 0,
     closing_balance: 0,
@@ -97,7 +103,7 @@ export default function DaybookListPage() {
     actions: true,
   });
   
-  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
+  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
   const allColumns = [
     { key: 'receipt', label: t('Receipt', 'ரசீது') },
@@ -281,8 +287,7 @@ export default function DaybookListPage() {
 
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
+      style: 'decimal',
       maximumFractionDigits: 0,
     }).format(amount);
   };
@@ -337,75 +342,160 @@ export default function DaybookListPage() {
     <div className="w-full min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto space-y-4">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-          <div className="p-2 bg-gradient-to-r from-orange-500 to-red-600 rounded-lg">
-            <FileText className="h-8 w-8 text-white" />
+      <div className="mb-4">
+        <h1 className="text-xl font-bold text-gray-900 flex items-center gap-3">
+          <div className="p-1.5 bg-gradient-to-r from-orange-500 to-red-600 rounded-lg">
+            <FileText className="h-5 w-5 text-white" />
           </div>
           {t('Daybook', 'டேபுக்')}
         </h1>
-       
       </div>
 
-      {/* Stats Cards 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-xs font-medium text-gray-500 flex items-center gap-2">
-              <Clock className="h-3.5 w-3.5" />
+      {/* Improved Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-3 mb-6">
+        {/* Opening Balance */}
+        <Card className="border-none shadow-sm bg-white overflow-hidden relative group hover:shadow-md transition-all duration-300">
+          <div className="absolute top-0 left-0 w-1 h-full bg-blue-500" />
+          <CardHeader className="pb-2 pt-3 px-3 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
               {t('Opening Balance', 'தொடக்க இருப்பு')}
             </CardTitle>
+            <Clock className="h-3 w-3 text-blue-500 opacity-70" />
           </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className={`text-xl font-bold ${stats.opening_balance >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
+          <CardContent className="px-3 pb-3">
+            <div className={`text-base font-bold tracking-tight ${stats.opening_balance >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
               {formatAmount(stats.opening_balance)}
             </div>
+            <p className="text-[9px] text-gray-400 mt-0.5">{t('At start of period', 'கால தொடக்கத்தில்')}</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-xs font-medium text-gray-500 flex items-center gap-2">
-              <TrendingUp className="h-3.5 w-3.5 text-green-600" />
+        {/* Period Income */}
+        <Card className="border-none shadow-sm bg-white overflow-hidden relative group hover:shadow-md transition-all duration-300">
+          <div className="absolute top-0 left-0 w-1 h-full bg-green-500" />
+          <CardHeader className="pb-2 pt-3 px-3 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
               {t('Period Income', 'கால வரவு')}
             </CardTitle>
+            <ArrowUpRight className="h-3 w-3 text-green-500 opacity-70" />
           </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="text-xl font-bold text-green-600">
+          <CardContent className="px-3 pb-3">
+            <div className="text-base font-bold text-green-600 tracking-tight">
               {formatAmount(stats.total_income)}
             </div>
+            <div className="flex items-center gap-1 mt-0.5">
+              <Badge variant="outline" className="text-[8px] py-0 px-1 bg-green-50 text-green-700 border-green-100">
+                {stats.income_count} {t('Entries', 'உள்ளீடுகள்')}
+              </Badge>
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-xs font-medium text-gray-500 flex items-center gap-2">
-              <TrendingDown className="h-3.5 w-3.5 text-red-600" />
+        {/* Period Expense */}
+        <Card className="border-none shadow-sm bg-white overflow-hidden relative group hover:shadow-md transition-all duration-300">
+          <div className="absolute top-0 left-0 w-1 h-full bg-red-500" />
+          <CardHeader className="pb-2 pt-3 px-3 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
               {t('Period Expense', 'கால செலவு')}
             </CardTitle>
+            <ArrowDownRight className="h-3 w-3 text-red-500 opacity-70" />
           </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="text-xl font-bold text-red-600">
+          <CardContent className="px-3 pb-3">
+            <div className="text-base font-bold text-red-600 tracking-tight">
               {formatAmount(stats.total_expense)}
+            </div>
+            <div className="flex items-center gap-1 mt-0.5">
+              <Badge variant="outline" className="text-[8px] py-0 px-1 bg-red-50 text-red-700 border-red-100">
+                {stats.expense_count} {t('Entries', 'உள்ளீடுகள்')}
+              </Badge>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-orange-50 border-orange-100 shadow-sm">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-xs font-medium text-orange-800 flex items-center gap-2">
-              <BookOpen className="h-3.5 w-3.5" />
+        {/* Period Net */}
+        <Card className="border-none shadow-sm bg-white overflow-hidden relative group hover:shadow-md transition-all duration-300">
+          <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500" />
+          <CardHeader className="pb-2 pt-3 px-3 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+              {t('Net Balance', 'நிகர இருப்பு')}
+            </CardTitle>
+            <TrendingUp className={`h-3 w-3 opacity-70 ${stats.period_net >= 0 ? 'text-green-500' : 'text-red-500'}`} />
+          </CardHeader>
+          <CardContent className="px-3 pb-3">
+            <div className={`text-base font-bold tracking-tight ${stats.period_net >= 0 ? 'text-indigo-600' : 'text-red-600'}`}>
+              {formatAmount(stats.period_net)}
+            </div>
+            <p className="text-[9px] text-gray-400 mt-0.5">{t('Income - Expense', 'வரவு - செலவு')}</p>
+          </CardContent>
+        </Card>
+
+        {/* Closing Balance */}
+        <Card className="border-none shadow-sm bg-white overflow-hidden relative group hover:shadow-md transition-all duration-300">
+          <div className="absolute top-0 left-0 w-1 h-full bg-orange-500" />
+          <CardHeader className="pb-2 pt-3 px-3 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
               {t('Closing Balance', 'முடிவு இருப்பு')}
             </CardTitle>
+            <BookOpen className="h-3 w-3 text-orange-500 opacity-70" />
           </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className={`text-xl font-bold ${stats.closing_balance >= 0 ? 'text-orange-600' : 'text-red-600'}`}>
+          <CardContent className="px-3 pb-3">
+            <div className={`text-base font-bold tracking-tight ${stats.closing_balance >= 0 ? 'text-orange-600' : 'text-red-600'}`}>
               {formatAmount(stats.closing_balance)}
             </div>
+            <p className="text-[9px] text-gray-400 mt-0.5">{t('At end of period', 'கால இறுதியில்')}</p>
+          </CardContent>
+        </Card>
+
+        {/* Overall Income */}
+        <Card className="border-none shadow-sm bg-white overflow-hidden relative group hover:shadow-md transition-all duration-300">
+          <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
+          <CardHeader className="pb-2 pt-3 px-3 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+              {t('Overall Income', 'மொத்த வரவு')}
+            </CardTitle>
+            <Banknote className="h-3 w-3 text-emerald-500 opacity-70" />
+          </CardHeader>
+          <CardContent className="px-3 pb-3">
+            <div className="text-base font-bold text-emerald-600 tracking-tight">
+              {formatAmount((stats as any).all_time_income || 0)}
+            </div>
+            <p className="text-[9px] text-gray-400 mt-0.5">{t('All time total', 'அனைத்து நேரமும்')}</p>
+          </CardContent>
+        </Card>
+
+        {/* Overall Expense */}
+        <Card className="border-none shadow-sm bg-white overflow-hidden relative group hover:shadow-md transition-all duration-300">
+          <div className="absolute top-0 left-0 w-1 h-full bg-rose-500" />
+          <CardHeader className="pb-2 pt-3 px-3 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+              {t('Overall Expense', 'மொத்த செலவு')}
+            </CardTitle>
+            <ArrowDownRight className="h-3 w-3 text-rose-500 opacity-70" />
+          </CardHeader>
+          <CardContent className="px-3 pb-3">
+            <div className="text-base font-bold text-rose-600 tracking-tight">
+              {formatAmount((stats as any).all_time_expense || 0)}
+            </div>
+            <p className="text-[9px] text-gray-400 mt-0.5">{t('All time total', 'அனைத்து நேரமும்')}</p>
+          </CardContent>
+        </Card>
+
+        {/* Current Balance */}
+        <Card className="border-none shadow-md bg-gradient-to-br from-orange-500 to-red-600 overflow-hidden relative group hover:shadow-lg transition-all duration-300">
+          <CardHeader className="pb-2 pt-3 px-3 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-[10px] font-bold text-white uppercase tracking-wider">
+              {t('Total Cash in Hand', 'மொத்த கையிருப்பு')}
+            </CardTitle>
+            <Wallet className="h-3 w-3 text-white opacity-80" />
+          </CardHeader>
+          <CardContent className="px-3 pb-3">
+            <div className="text-lg font-black text-white tracking-tight drop-shadow-sm">
+              {formatAmount(stats.current_balance)}
+            </div>
+            <p className="text-[9px] text-orange-100 font-medium uppercase tracking-tight">{t('Live Balance', 'தற்போதைய இருப்பு')}</p>
           </CardContent>
         </Card>
       </div>
-*/}
       {/* Filters and Actions Bar */}
       <div className="flex items-center gap-3 bg-white p-4 rounded-xl border border-gray-100 shadow-sm mb-6">
         <div className="relative flex-grow max-w-md">
@@ -487,6 +577,7 @@ export default function DaybookListPage() {
               <Table>
                 <TableHeader  className={tableClasses.header}>
                   <TableRow>
+                    <TableHead className="w-[50px]">{t('S.No', 'வ.எண்')}</TableHead>
                     {visibleColumns.receipt && <TableHead>{t('Receipt', 'ரசீது')}</TableHead>}
                     {visibleColumns.booking_date && <TableHead>{t('Booking Date', 'பதிவு தேதி')}</TableHead>}
                     {visibleColumns.scheduled_date && <TableHead>{t('Scheduled Date', 'நிகழ்வு தேதி')}</TableHead>}
@@ -497,20 +588,21 @@ export default function DaybookListPage() {
                     {visibleColumns.people && <TableHead>{t('People', 'நபர்கள்')}</TableHead>}
                     {visibleColumns.payment && <TableHead>{t('Payment', 'கட்டணம்')}</TableHead>}
                     {visibleColumns.amount && <TableHead className="text-right">{t('Amount', 'தொகை')}</TableHead>}
-                 {/*   {visibleColumns.balance && <TableHead className="text-right">{t('Balance', 'இருப்பு')}</TableHead>}*/}
+                    {visibleColumns.balance && <TableHead className="text-right">{t('Balance', 'இருப்பு')}</TableHead>}
                     {visibleColumns.actions && <TableHead className="text-center">{t('Actions', 'நடவடிக்கைகள்')}</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {entries.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={Object.values(visibleColumns).filter(v => v).length} className="text-center py-12 text-gray-500">
+                        <TableCell colSpan={Object.values(visibleColumns).filter(v => v).length + 1} className="text-center py-12 text-gray-500">
                           {t('No entries found', 'உள்ளீடுகள் எதுவும் கிடைக்கவில்லை')}
                         </TableCell>
                       </TableRow>
                   ) : (
-                    entries.map((entry) => (
+                    entries.map((entry, index) => (
                       <TableRow key={entry.id}>
+                        <TableCell className="font-medium">{(page - 1) * pageSize + index + 1}</TableCell>
                         {visibleColumns.receipt && <TableCell className="font-medium">{entry.receipt_number}</TableCell>}
                         {visibleColumns.booking_date && <TableCell>{formatDate(entry.created_at)}</TableCell>}
                         {visibleColumns.scheduled_date && <TableCell>{formatDate(entry.entry_date)}</TableCell>}
@@ -578,13 +670,13 @@ export default function DaybookListPage() {
                             {formatAmount(entry.amount)}
                           </TableCell>
                         )}
-                       {/* {visibleColumns.balance && (
+                        {visibleColumns.balance && (
                           <TableCell className="text-right font-medium">
                             <span className={entry.running_balance >= 0 ? 'text-blue-600' : 'text-red-600'}>
                               {formatAmount(entry.running_balance)}
                             </span>
                           </TableCell>
-                        )} */}
+                        )}
                         {visibleColumns.actions && (
                           <TableCell>
                             <div className="flex items-center justify-center gap-2">

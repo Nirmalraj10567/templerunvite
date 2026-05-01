@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,7 +16,9 @@ import {
   IndianRupee, 
   Hash,
   MessageSquare,
-  Users
+  Users,
+  ArrowLeft,
+  Loader2
 } from 'lucide-react';
 import { theme } from '@/styles/theme';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
@@ -56,15 +59,56 @@ const initialState: FormState = {
 };
 
 export default function MarriageEntryPage() {
+  const { id } = useParams<{ id: string }>();
+  const isEditMode = !!id;
+  const navigate = useNavigate();
   const { token } = useAuth();
   const { language } = useLanguage();
   const [form, setForm] = useState<FormState>(initialState);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(isEditMode);
   const [message, setMessage] = useState<string|undefined>();
   const [isError, setIsError] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   const t = (en: string, ta: string) => language === 'tamil' ? ta : en;
+
+  // Load existing data for editing
+  useEffect(() => {
+    if (!isEditMode) return;
+    const loadEntry = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch(`https://templeapi.agniplay.com/api/marriages/${id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Failed to load');
+        const data = await res.json();
+        const entry = data.data || data;
+        setForm({
+          registerNo: entry.register_no || '',
+          date: entry.date || '',
+          time: entry.time || '',
+          event: entry.event || '',
+          groomName: entry.groom_name || '',
+          brideName: entry.bride_name || '',
+          address: entry.address || '',
+          village: entry.village || '',
+          guardianName: entry.guardian_name || '',
+          witnessOne: entry.witness_one || '',
+          witnessTwo: entry.witness_two || '',
+          remarks: entry.remarks || '',
+          amount: entry.amount?.toString() || ''
+        });
+      } catch (err) {
+        console.error('Error loading marriage entry:', err);
+        setMessage(t('Failed to load entry', 'உள்ளீட்டை ஏற்றுவதில் தோல்வி'));
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadEntry();
+  }, [id, isEditMode, token, t]);
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -89,23 +133,38 @@ export default function MarriageEntryPage() {
     setMessage(undefined);
     setIsError(false);
     try {
-      const res = await fetch('https://templeapi.agniplay.com/api/marriages', {
-        method: 'POST',
+      const url = isEditMode
+        ? `https://templeapi.agniplay.com/api/marriages/${id}`
+        : 'https://templeapi.agniplay.com/api/marriages';
+      const method = isEditMode ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(form)
       });
       if (!res.ok) throw new Error('Failed');
-      setForm({
-        ...initialState,
-        time: (() => {
-          const now = new Date();
-          return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-        })()
-      });
-      setMessage(t('Saved successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது'));
+      if (!isEditMode) {
+        setForm({
+          ...initialState,
+          time: (() => {
+            const now = new Date();
+            return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+          })()
+        });
+      }
+      setMessage(t(
+        isEditMode ? 'Updated successfully' : 'Saved successfully',
+        isEditMode ? 'வெற்றிகரமாக புதுப்பிக்கப்பட்டது' : 'வெற்றிகரமாக சேமிக்கப்பட்டது'
+      ));
+      if (isEditMode) {
+        setTimeout(() => navigate('/dashboard/marriage/list'), 1500);
+      }
     } catch (err) {
       setIsError(true);
-      setMessage(t('Save failed', 'சேமிப்பில் தோல்வி'));
+      setMessage(t(
+        isEditMode ? 'Update failed' : 'Save failed',
+        isEditMode ? 'புதுப்பிப்பதில் தோல்வி' : 'சேமிப்பில் தோல்வி'
+      ));
     } finally {
       setSaving(false);
     }
@@ -117,16 +176,40 @@ export default function MarriageEntryPage() {
     "w-full bg-white transition-all duration-200 pl-10"
   );
 
+  if (loading) {
+    return (
+      <div className={pageContainerStyles.container}>
+        <div className="flex items-center justify-center min-h-screen">
+          <Loader2 className="h-12 w-12 animate-spin text-orange-500" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={pageContainerStyles.container}>
       <div className={pageContainerStyles.content}>
         <Card className={formFieldStyles.card.container}>
           <CardHeader className={theme.header.container}>
             <div className={theme.header.contentSpacing}>
-              <CardTitle className={theme.header.main}>
-                <PartyPopper className="inline-block mr-2 w-6 h-6" />
-                {t('Marriage Register Entry', 'திருமண பதிவு பதிவு')}
-              </CardTitle>
+              <div className="flex items-center gap-2">
+                {isEditMode && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => navigate('/dashboard/marriage/list')}
+                    className="mb-0"
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    {t('Back', 'திரும்பு')}
+                  </Button>
+                )}
+                <CardTitle className={theme.header.main}>
+                  <PartyPopper className="inline-block mr-2 w-6 h-6" />
+                  {isEditMode
+                    ? t('Edit Marriage Entry', 'திருமண பதிவை திருத்து')
+                    : t('Marriage Register Entry', 'திருமண பதிவு பதிவு')}
+                </CardTitle>
+              </div>
             </div>
           </CardHeader>
 

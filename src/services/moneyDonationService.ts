@@ -1,6 +1,8 @@
 export interface MoneyDonationFormData {
   registerNo: string;
-  date: string;
+  entryDate: string;
+  bookingDate: string;
+  date: string; // legacy support
   name: string;
   fatherName: string;
   address: string;
@@ -9,6 +11,8 @@ export interface MoneyDonationFormData {
   amount: string; // keep as string in form, cast to number server-side
   reason: string;
   transferTo?: string;
+  paymentMode?: 'cash' | 'bank' | 'upi';
+  accountId?: number | null;
 }
 
 export interface MoneyDonationItem {
@@ -34,7 +38,7 @@ export interface ApiResponse<T> {
 }
 
 class MoneyDonationService {
-  private baseUrl = 'https://templeapi.agniplay.com/api/money-donations';
+  private baseUrl = `${((import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || window.location.origin).replace(/\/+$/, '').endsWith('/api') ? ((import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || window.location.origin).replace(/\/+$/, '') : `${((import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || window.location.origin).replace(/\/+$/, '')}/api`}/money-donations`;
 
   private getHeaders(token: string | null): HeadersInit {
     const headers: HeadersInit = { 'Content-Type': 'application/json' };

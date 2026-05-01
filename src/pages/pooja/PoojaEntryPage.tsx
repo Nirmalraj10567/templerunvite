@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -13,10 +13,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import PoojaCalendar from '@/components/PoojaCalendar';
 import { poojaService, PoojaFormData } from '@/services/poojaService';
+import { accountService, type AccountItem } from '@/services/accountService';
 import axios from 'axios';
-import { Calendar, EyeOff, Tag, User, Phone, Clock, IndianRupee, Hash, Sparkles } from 'lucide-react';
+import { Calendar, EyeOff, Tag, User, Phone, Clock, IndianRupee, Hash, Sparkles, AlignLeft } from 'lucide-react';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
 import { theme } from '@/styles/theme';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 
 // Ensure date values are compatible with <input type="date"> (expects YYYY-MM-DD)
 const toDateInputValue = (value: any): string => {
@@ -39,6 +41,11 @@ const toDateInputValue = (value: any): string => {
   }
 };
 
+const RAW_API_BASE =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || window.location.origin;
+const NORMALIZED_API_BASE = RAW_API_BASE.replace(/\/+$/, '');
+const API_BASE_URL = NORMALIZED_API_BASE.endsWith('/api') ? NORMALIZED_API_BASE : `${NORMALIZED_API_BASE}/api`;
+
 const generateReceiptNo = async (token?: string) => {
   try {
     // Get the current year
@@ -48,7 +55,7 @@ const generateReceiptNo = async (token?: string) => {
     if (!token) {
       throw new Error('Missing auth token');
     }
-    const response = await axios.get<any>('https://templeapi.agniplay.com/api/pooja/latest-receipt', {
+    const response = await axios.get<any>(`${API_BASE_URL}/pooja/latest-receipt`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     let nextNumber = 1;
@@ -89,7 +96,9 @@ export default function PoojaEntryPage() {
   const [lastSavedId, setLastSavedId] = useState<number | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [showCalendar, setShowCalendar] = useState(true); // Default to showing calendar
-  const [accounts, setAccounts] = useState<Array<{ id?: number; value: string; label: string }>>([]);
+  const [accounts, setAccounts] = useState<AccountItem[]>([]);
+  const [paymentMode, setPaymentMode] = useState<'cash' | 'bank' | 'upi'>('cash');
+  const [accountId, setAccountId] = useState<number | null>(null);
   const [poojaItems, setPoojaItems] = useState<Array<{ id: number; name: string; name_ta?: string; amount?: number }>>([]);
   // Guards to avoid duplicate effects in Strict Mode
   const newInitRef = useRef(false);
@@ -125,16 +134,19 @@ export default function PoojaEntryPage() {
   };
 
   // Keep calendar in sync when user types or picks a date in the input
-  const watchedFromDate = watch('fromDate');
+  const watchedBookingDate = watch('bookingDate');
   useEffect(() => {
-    if (!watchedFromDate) return;
-    const v = toDateInputValue(watchedFromDate);
+    if (!watchedBookingDate) return;
+    const v = toDateInputValue(watchedBookingDate);
     if (v && v !== selectedDate) {
       setSelectedDate(v);
     }
-    // Keep toDate aligned for API compatibility
-    if (v) setValue('toDate' as any, v);
-  }, [watchedFromDate, selectedDate, setValue]);
+    // Keep internal fromDate/toDate aligned for API compatibility
+    if (v) {
+      setValue('fromDate', v);
+      setValue('toDate', v);
+    }
+  }, [watchedBookingDate, selectedDate, setValue]);
 
   // Open PDF helper
   const openReceiptPdf = async (poojaId: number) => {
@@ -144,27 +156,31 @@ export default function PoojaEntryPage() {
         return;
       }
       
-      const response = await fetch(`https://templeapi.agniplay.com/api/pooja/${poojaId}/receipt.pdf`, {
+      const response = await axios.get<Blob>(`${API_BASE_URL}/pooja/${poojaId}/receipt.pdf`, {
         headers: {
           'Authorization': `Bearer ${token}`
-        }
+        },
+        responseType: 'blob'
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch receipt');
-      }
-
-      const blob = await response.blob();
+      const blob = response.data instanceof Blob ? response.data : new Blob([response.data as unknown as BlobPart], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      // Try to get receipt number from form if available, else use id
-      const receiptNo = watch('receiptNumber') || String(poojaId);
-      link.download = `receipt-${receiptNo}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      
+      // Open in a new tab (matches the modal's description "Open in a new tab")
+      const newTab = window.open(url, '_blank');
+      if (!newTab) {
+        // Fallback to download if popup is blocked
+        const link = document.createElement('a');
+        link.href = url;
+        const receiptNo = watch('receiptNumber') || String(poojaId);
+        link.download = `receipt-${receiptNo}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+      
+      // Cleanup the URL after a short delay to allow the new tab to load it
+      setTimeout(() => window.URL.revokeObjectURL(url), 5000);
     } catch (e) {
       console.error('Print receipt failed:', e);
       toast({ title: t('Error', 'பிழை'), description: t('Failed to download receipt PDF', 'ரசீது PDF-ஐ பதிவிறக்க முடியவில்லை'), variant: 'destructive' });
@@ -183,9 +199,10 @@ export default function PoojaEntryPage() {
 
   const handleDateSelect = (date: string) => {
     setSelectedDate(date);
+    setValue('bookingDate', date);
+    // Auto-sync internal fromDate/toDate internally for API compatibility
     setValue('fromDate', date);
-    // Auto-sync toDate internally for API compatibility
-    setValue('toDate' as any, date);
+    setValue('toDate', date);
     // Keep calendar open - don't set setShowCalendar(false)
   };
 
@@ -197,9 +214,11 @@ export default function PoojaEntryPage() {
       setValue('receiptNumber', receiptNo);
       // Default transfer account for new entries
       setValue('transferTo', 'INCOME A/C');
-      // Set default date to today for new entries
+      // Set default dates to today for new entries
+      setValue('entryDate', today);
+      setValue('bookingDate', today);
       setValue('fromDate', today);
-      setValue('toDate' as any, today);
+      setValue('toDate', today);
       setSelectedDate(today);
     };
 
@@ -216,19 +235,28 @@ export default function PoojaEntryPage() {
 
           if (result.success) {
             const data = result.data;
+            const fullRemarks = data.remarks || '';
+            const [poojaName, ...remarksPart] = fullRemarks.split(' - ');
+            
             const formData: PoojaFormData = {
               receiptNumber: data.receipt_number,
-              name: data.remarks || '',
-              userName: data.name,
+              name: data.name || '',
+              poojaName: poojaName || '',
               mobileNumber: data.mobile_number,
               time: data.time,
+              entryDate: toDateInputValue(data.entry_date || data.created_at),
+              bookingDate: toDateInputValue(data.booking_date || data.from_date),
               fromDate: toDateInputValue(data.from_date),
               toDate: toDateInputValue(data.to_date || data.from_date),
-              remarks: data.remarks || '',
+              remarks: remarksPart.join(' - ') || '',
               transferTo: data.transfer_to_account || '',
               amount: data.amount != null ? String(data.amount) : ''
             };
             reset(formData);
+            const pm = (data as any).payment_mode ? String((data as any).payment_mode).toLowerCase() : 'cash';
+            if (pm === 'bank' || pm === 'upi' || pm === 'cash') setPaymentMode(pm);
+            const accId = (data as any).account_id;
+            setAccountId(accId != null && accId !== '' ? Number(accId) : null);
             setSelectedDate(toDateInputValue(data.from_date));
           } else {
             throw new Error(result.error || 'Failed to load data');
@@ -252,19 +280,12 @@ export default function PoojaEntryPage() {
   }, [id, reset, setValue, token]);
 
   useEffect(() => {
-    // Load ledger accounts for Transfer To select
+    // Load payment accounts (Bank / UPI)
     const load = async () => {
       try {
         if (!token) return;
-        const resp = await axios.get<any>('/api/ledger/accounts', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = (resp?.data && Array.isArray(resp.data.data)) ? resp.data.data : (Array.isArray(resp?.data) ? resp.data : []);
-        const mapped = (data || []).map((item: any, index: number) => {
-          if (typeof item === 'string') return { id: index + 1, value: item, label: item };
-          return { id: item.id ?? index + 1, value: item.value || item.label, label: item.label || item.value };
-        });
-        setAccounts(mapped);
+        const list = await accountService.list(token);
+        setAccounts(list);
       } catch (e) {
         console.error('Failed to load accounts', e);
       }
@@ -273,22 +294,23 @@ export default function PoojaEntryPage() {
   }, [token]);
 
   // Load pooja items from master data
-  useEffect(() => {
-    const loadPoojaItems = async () => {
-      try {
-        if (!token) return;
-        const resp = await axios.get<any>('https://templeapi.agniplay.com/api/pooja-master/items', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (resp.data?.success && Array.isArray(resp.data.data)) {
-          setPoojaItems(resp.data.data);
-        }
-      } catch (e) {
-        console.error('Failed to load pooja items', e);
+  const loadPoojaItems = useCallback(async () => {
+    try {
+      if (!token) return;
+      const resp = await axios.get<any>(`${API_BASE_URL}/pooja-master/items`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (resp.data?.success && Array.isArray(resp.data.data)) {
+        setPoojaItems(resp.data.data);
       }
-    };
-    loadPoojaItems();
+    } catch (e) {
+      console.error('Failed to load pooja items', e);
+    }
   }, [token]);
+
+  useEffect(() => {
+    loadPoojaItems();
+  }, [loadPoojaItems]);
 
   if (isLoading) {
     return (
@@ -320,6 +342,16 @@ export default function PoojaEntryPage() {
     try {
       setIsSubmitting(true);
 
+      if ((paymentMode === 'bank' || paymentMode === 'upi') && !accountId) {
+        toast({
+          title: t('Missing account', 'கணக்கு இல்லை'),
+          description: t('Please select a Bank / UPI account.', 'வங்கி / UPI கணக்கை தேர்ந்தெடுக்கவும்.'),
+          variant: 'destructive'
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       // Check for double-booking (single date)
       const hasConflict = await checkDoubleBooking(data.fromDate, data.fromDate, data.time, id ? parseInt(id) : undefined);
       if (hasConflict) {
@@ -333,15 +365,20 @@ export default function PoojaEntryPage() {
 
       const payload: PoojaFormData & { fromAccount?: string } = {
         receiptNumber: data.receiptNumber,
-        name: data.userName,
+        name: data.name,
+        poojaName: data.poojaName,
         mobileNumber: data.mobileNumber,
         time: data.time,
-        fromDate: data.fromDate,
-        toDate: data.toDate || data.fromDate,
-        remarks: data.name,
+        entryDate: data.entryDate,
+        bookingDate: data.bookingDate,
+        fromDate: data.bookingDate || data.fromDate,
+        toDate: data.bookingDate || data.toDate || data.fromDate,
+        remarks: data.remarks ? `${data.poojaName} - ${data.remarks}` : data.poojaName,
         transferTo: data.transferTo || 'INCOME A/C',
         amount: data.amount || '',
-        fromAccount: 'POOJA A/C'
+        fromAccount: 'POOJA A/C',
+        paymentMode,
+        accountId: paymentMode === 'cash' ? null : accountId,
       };
 
       const result = id
@@ -390,11 +427,12 @@ export default function PoojaEntryPage() {
       } else {
         navigate('/dashboard/pooja');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting form:', error);
+      const errorMessage = error.response?.data?.error || error.message || t('Failed to submit pooja form', 'பூஜை படிவத்தை சமர்ப்பிக்க முடியவில்லை');
       toast({
-        title: 'Error',
-        description: t('Failed to submit pooja form', 'பூஜை படிவத்தை சமர்ப்பிக்க முடியவில்லை'),
+        title: t('Error', 'பிழை'),
+        description: errorMessage,
         variant: 'destructive'
       });
     } finally {
@@ -447,114 +485,221 @@ export default function PoojaEntryPage() {
                 >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Receipt Number */}
-                    <div className="relative">
-                      <Hash className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
-                      <Input
-                        id="receiptNumber"
-                        className={`${fieldStyles} bg-gray-50`}
-                        {...register('receiptNumber', { required: true })}
-                        readOnly
-                        placeholder={t('Receipt Number', 'ரசீது எண்') + ' *'}
-                      />
+                    <div className="md:col-span-1">
+                      <Label className={formFieldStyles.label}>
+                        {t('Receipt Number', 'ரசீது எண்')}
+                      </Label>
+                      <div className="relative mt-1">
+                        <Hash className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
+                        <Input
+                          id="receiptNumber"
+                          className={`${fieldStyles} bg-gray-50`}
+                          {...register('receiptNumber', { required: true })}
+                          readOnly
+                          placeholder={t('Receipt Number', 'ரசீது எண்') + ' *'}
+                        />
+                      </div>
                     </div>
 
-                    {/* User Name */}
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
-                      <Input
-                        id="userName"
-                        className={fieldStyles}
-                        {...register('userName', { required: true })}
-                        placeholder={t('User Name', 'பெயர்') + ' *'}
-                      />
+                    {/* Entry Date */}
+                    <div className="md:col-span-1">
+                      <Label className={formFieldStyles.label}>
+                        {t('Entry Date', 'பதிவு தேதி')}
+                      </Label>
+                      <div className="relative flex items-center mt-1">
+                        <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
+                        <Input
+                          id="entryDate"
+                          type="date"
+                          className={cn(fieldStyles, "[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer")}
+                          {...register('entryDate', { required: true })}
+                          onClick={(e) => (e.target as any).showPicker?.()}
+                        />
+                      </div>
                     </div>
 
-                    {/* Mobile Number */}
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
-                      <Input
-                        id="mobileNumber"
-                        type="tel"
-                        inputMode="numeric"
-                        maxLength={10}
-                        onInput={(e) => {
-                          const target = e.target as HTMLInputElement;
-                          const digits = (target.value || '').replace(/\D+/g, '').slice(0, 10);
-                          if (target.value !== digits) target.value = digits;
-                          setValue('mobileNumber', digits, { shouldValidate: true, shouldDirty: true });
-                        }}
-                        className={fieldStyles}
-                        placeholder={t('Mobile Number', 'கைபேசி எண்') + ' *'}
-                      />
-                      <input type="hidden" {...register('mobileNumber', { required: true })} />
+                    {/* Booking Date */}
+                    <div className="md:col-span-1">
+                      <Label className={formFieldStyles.label}>
+                        {t('Booking Date', 'பூஜை தேதி')}
+                      </Label>
+                      <div className="relative flex items-center mt-1">
+                        <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
+                        <Input
+                          id="bookingDate"
+                          type="date"
+                          className={cn(fieldStyles, "pr-12", "[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer")}
+                          {...register('bookingDate', { required: true })}
+                          onClick={(e) => (e.target as any).showPicker?.()}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowCalendar(!showCalendar)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1.5 hover:bg-gray-100 rounded-lg transition-colors z-20"
+                          title={showCalendar ? t('Hide Calendar', 'நாட்காட்டியை மறை') : t('Show Calendar', 'நாட்காட்டியை காட்டு')}
+                        >
+                          {showCalendar ? <EyeOff className="h-4 w-4 text-gray-400" /> : <Calendar className="h-4 w-4 text-gray-400" />}
+                        </button>
+                      </div>
                     </div>
 
                     {/* Time */}
-                    <div className="relative">
-                      <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
-                      <input
-                        id="time"
-                        type="time"
-                        className={fieldStyles}
-                        {...register('time', { required: true })}
-                        onClick={(e) => (e.target as any).showPicker?.()}
-                        placeholder={t('Time', 'நேரம்') + ' *'}
-                      />
+                    <div className="md:col-span-1">
+                      <Label className={formFieldStyles.label}>
+                        {t('Time', 'நேரம்')}
+                      </Label>
+                      <div className="relative mt-1">
+                        <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
+                        <input
+                          id="time"
+                          type="time"
+                          className={cn(fieldStyles, "[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer")}
+                          {...register('time', { required: true })}
+                          onClick={(e) => (e.target as any).showPicker?.()}
+                          placeholder={t('Time', 'நேரம்') + ' *'}
+                        />
+                      </div>
                     </div>
 
-                    {/* From Date */}
-                    <div className="relative flex items-center">
-                      <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
-                      <Input
-                        id="fromDate"
-                        type="date"
-                        className={cn(fieldStyles, "pr-12")}
-                        {...register('fromDate', { required: true })}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowCalendar(!showCalendar)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1.5 hover:bg-gray-100 rounded-lg transition-colors z-20"
-                        title={showCalendar ? t('Hide Calendar', 'நாட்காட்டியை மறை') : t('Show Calendar', 'நாட்காட்டியை காட்டு')}
-                      >
-                        {showCalendar ? <EyeOff className="h-4 w-4 text-gray-400" /> : <Calendar className="h-4 w-4 text-gray-400" />}
-                      </button>
+                    {/* User Name */}
+                    <div className="md:col-span-1">
+                      <Label className={formFieldStyles.label}>
+                        {t('Name', 'பெயர்')}
+                      </Label>
+                      <div className="relative mt-1">
+                        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
+                        <Input
+                          id="name"
+                          className={fieldStyles}
+                          {...register('name', { required: true })}
+                          placeholder={t('Name', 'பெயர்') + ' *'}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Mobile Number */}
+                    <div className="md:col-span-1">
+                      <Label className={formFieldStyles.label}>
+                        {t('Mobile Number', 'கைபேசி எண்')}
+                      </Label>
+                      <div className="relative mt-1">
+                        <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
+                        <Input
+                          id="mobileNumber"
+                          type="tel"
+                          inputMode="numeric"
+                          maxLength={10}
+                          onInput={(e) => {
+                            const target = e.target as HTMLInputElement;
+                            const digits = (target.value || '').replace(/\D+/g, '').slice(0, 10);
+                            if (target.value !== digits) target.value = digits;
+                            setValue('mobileNumber', digits, { shouldValidate: true, shouldDirty: true });
+                          }}
+                          className={fieldStyles}
+                          placeholder={t('Mobile Number', 'கைபேசி எண்') + ' *'}
+                        />
+                        <input type="hidden" {...register('mobileNumber', { required: true })} />
+                      </div>
                     </div>
 
                     {/* Amount */}
-                    <div className="relative">
-                      <IndianRupee className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
-                      <Input
-                        id="amount"
-                        type="number"
-                        step="0.01"
-                        className={fieldStyles}
-                        placeholder={t('Amount', 'தொகை')}
-                        {...register('amount')}
-                      />
+                    <div className="md:col-span-1">
+                      <Label className={formFieldStyles.label}>
+                        {t('Amount', 'தொகை')}
+                      </Label>
+                      <div className="relative mt-1">
+                        <IndianRupee className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
+                        <Input
+                          id="amount"
+                          type="number"
+                          step="0.01"
+                          className={fieldStyles}
+                          placeholder={t('Amount', 'தொகை')}
+                          {...register('amount')}
+                        />
+                      </div>
                     </div>
 
-                    {/* Pooja Name Dropdown */}
-                    <div className="relative">
-                      <Sparkles className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
-                      <Select
-                        onValueChange={(value) => {
-                          setValue('name', value, { shouldValidate: true });
-                        }}
-                      >
-                        <SelectTrigger className={fieldStyles}>
-                          <SelectValue placeholder={t('Select Pooja', 'பூஜையைத் தேர்வு செய்க') + ' *'} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {poojaItems.map((item) => (
-                            <SelectItem key={item.id} value={item.name}>
-                              {language === 'tamil' && item.name_ta ? item.name_ta : item.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <input type="hidden" {...register('name', { required: true })} />
+                    {/* Payment Mode */}
+                    <div className="md:col-span-1">
+                      <Label className={formFieldStyles.label}>
+                        {t('Payment Mode', 'பணம் செலுத்தும் முறை')}
+                      </Label>
+                      <div className="flex gap-2 mt-1">
+                        <Button
+                          type="button"
+                          variant={paymentMode === 'cash' ? 'default' : 'outline'}
+                          onClick={() => {
+                            setPaymentMode('cash');
+                            setAccountId(null);
+                          }}
+                        >
+                          {t('Cash', 'பணம்')}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={paymentMode === 'bank' ? 'default' : 'outline'}
+                          onClick={() => setPaymentMode('bank')}
+                        >
+                          {t('Bank', 'வங்கி')}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={paymentMode === 'upi' ? 'default' : 'outline'}
+                          onClick={() => setPaymentMode('upi')}
+                        >
+                          {t('UPI', 'UPI')}
+                        </Button>
+                      </div>
                     </div>
+
+                    {/* Bank / UPI Account */}
+                    {(paymentMode === 'bank' || paymentMode === 'upi') && (
+                      <div className="md:col-span-1">
+                        <Label className={formFieldStyles.label}>
+                          {t('Bank / UPI Account', 'வங்கி / UPI கணக்கு')}
+                        </Label>
+                        <select
+                          className={cn(fieldStyles, 'mt-1')}
+                          value={accountId ?? ''}
+                          onChange={(e) => setAccountId(e.target.value ? Number(e.target.value) : null)}
+                        >
+                          <option value="">{t('Select account', 'கணக்கைத் தேர்ந்தெடுக்கவும்')}</option>
+                          {accounts
+                            .filter(a => a.accountType === paymentMode)
+                            .map(a => (
+                              <option key={a.id} value={a.id}>
+                                {a.accountName}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Pooja Name Dropdown */}
+                    <div className="md:col-span-1">
+                      <Label className={formFieldStyles.label}>
+                        {t('Pooja Name', 'பூஜை பெயர்')}
+                      </Label>
+                      <div className="relative mt-1">
+                        <Sparkles className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
+                        <SearchableSelect
+                          value={watch('poojaName')}
+                          onChange={(value) => {
+                            setValue('poojaName', value, { shouldValidate: true });
+                          }}
+                          options={poojaItems.map(p => p.name)}
+                          placeholder={t('Select Pooja', 'பூஜையைத் தேர்வு செய்க') + ' *'}
+                          className={cn(fieldStyles, "pl-10")}
+                          token={token || undefined}
+                          createEndpoint={`${API_BASE_URL}/pooja-master/items`}
+                          onCreated={loadPoojaItems}
+                        />
+                        <input type="hidden" {...register('poojaName', { required: true })} />
+                      </div>
+                    </div>
+
+              
                   </div>
 
                   {/* Action Buttons */}
@@ -580,17 +725,6 @@ export default function PoojaEntryPage() {
                       </Button>
                     )}
 
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={cn(theme.input.base, "px-5 py-2.5 text-base hover:bg-gray-50 rounded-md")}
-                      onClick={() => {
-                        const d = watch('fromDate') || selectedDate || new Date().toISOString().slice(0, 10);
-                        navigate(`/dashboard/reports/daily?date=${d}`);
-                      }}
-                    >
-                      {t('Go to Daily Report', 'தினசரி அறிக்கைக்கு செல்ல')}
-                    </Button>
 
                     <Button
                       type="submit"
@@ -600,8 +734,8 @@ export default function PoojaEntryPage() {
                       {isSubmitting
                         ? t('Saving...', 'சேமிக்கிறது...')
                         : id
-                          ? t('Update Pooja', 'பூஜையை புதுப்பிக்க')
-                          : t('Save Pooja', 'பூஜையை சேமிக்க')
+                          ? t('Update ', 'புதுப்பிக்க')
+                          : t('Save ', 'சேமிக்க')
                       }
                     </Button>
                   </div>

@@ -95,11 +95,17 @@ export default function RegistrationListView() {
     setIsModalOpen(true);
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return '-';
     try {
-      return format(new Date(dateString), 'dd/MM/yyyy');
-    } catch {
-      return 'N/A';
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
+      const d = date.getDate().toString().padStart(2, '0');
+      const m = (date.getMonth() + 1).toString().padStart(2, '0');
+      const y = date.getFullYear();
+      return `${d}/${m}/${y}`;
+    } catch (e) {
+      return dateString;
     }
   };
 
@@ -258,6 +264,7 @@ export default function RegistrationListView() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[50px]">S.No</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Receipt #</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
@@ -271,12 +278,13 @@ export default function RegistrationListView() {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredRegistrations.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
                     {familyFilter === 'family' ? 'No family chain members found. Create tax registrations with family links.' : 'No registrations found.'}
                   </td>
                 </tr>
-              ) : filteredRegistrations.map((reg) => (
+              ) : filteredRegistrations.map((reg, index) => (
                 <tr key={reg.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{(page - 1) * pageSize + index + 1}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{reg.receipt_number || reg.reference_number || '-'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(reg.date)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{reg.name}</td>
@@ -293,7 +301,7 @@ export default function RegistrationListView() {
                       return <span className="text-gray-400">-</span>;
                     })()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₹{reg.amount?.toLocaleString() || '0'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{reg.amount?.toLocaleString() || '0'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button
                       onClick={() => handleViewDetails(reg)}
@@ -402,11 +410,11 @@ export default function RegistrationListView() {
                   <h3 className="font-semibold text-gray-700">Receipt Information</h3>
                   <p className="mt-2"><span className="font-medium">Receipt #:</span> {selectedRegistration.receipt_number}</p>
                   <p><span className="font-medium">Date:</span> {formatDate(selectedRegistration.date)}</p>
-                  <p><span className="font-medium">Amount:</span> ₹{selectedRegistration.amount?.toLocaleString() || '0'}</p>
-                  <p><span className="font-medium">Amount Paid:</span> ₹{selectedRegistration.amount_paid?.toLocaleString() || '0'}</p>
-                  <p><span className="font-medium">Donation:</span> ₹{selectedRegistration.donation?.toLocaleString() || '0'}</p>
-                  <p><span className="font-medium">Total:</span> ₹{selectedRegistration.total_amount?.toLocaleString() || '0'}</p>
-                  <p><span className="font-medium">Outstanding:</span> ₹{selectedRegistration.outstanding_amount?.toLocaleString() || '0'}</p>
+                  <p><span className="font-medium">Amount:</span> {selectedRegistration.amount?.toLocaleString() || '0'}</p>
+                  <p><span className="font-medium">Amount Paid:</span> {selectedRegistration.amount_paid?.toLocaleString() || '0'}</p>
+                  <p><span className="font-medium">Donation:</span> {selectedRegistration.donation?.toLocaleString() || '0'}</p>
+                  <p><span className="font-medium">Total:</span> {selectedRegistration.total_amount?.toLocaleString() || '0'}</p>
+                  <p><span className="font-medium">Outstanding:</span> {selectedRegistration.outstanding_amount?.toLocaleString() || '0'}</p>
                 </div>
                 
                 <div>

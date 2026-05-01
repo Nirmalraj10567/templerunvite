@@ -444,8 +444,10 @@ router.get('/categories-used', authenticateToken, async (req, res) => {
 // Get distinct ledger names for autocompletion (donor/receiver, etc.)
 router.get('/names', authenticateToken, async (req, res) => {
   try {
+    const templeId = req.user?.templeId || req.query.templeId || 1;
     const rows = await db('ledger_entries')
       .distinct('name')
+      .where('temple_id', templeId)
       .whereNotNull('name')
       .andWhere('name', '!=', '')
       .orderBy('name', 'asc');

@@ -19,6 +19,8 @@ interface HallBooking {
   id: number;
   register_no: string | null;
   date: string | null;
+  entry_date: string | null;
+  booking_date: string | null;
   time: string | null;
   event: string | null;
   subdivision: string | null;
@@ -60,6 +62,20 @@ export default function HallListPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [q, setQ] = useState('');
+  
+  const formatDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return '-';
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return dateStr;
+      const d = date.getDate().toString().padStart(2, '0');
+      const m = (date.getMonth() + 1).toString().padStart(2, '0');
+      const y = date.getFullYear();
+      return `${d}/${m}/${y}`;
+    } catch (e) {
+      return dateStr;
+    }
+  };
   const [from, setFrom] = useState<string>('');
   const [to, setTo] = useState<string>('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -77,6 +93,13 @@ export default function HallListPage() {
   const [pageSize, setPageSize] = useState(10);
   const [totalRecords, setTotalRecords] = useState(0);
 
+  const toNum = (v: any) => {
+    if (v === null || v === undefined || v === '') return 0;
+    if (typeof v === 'number') return v;
+    const n = parseInt(String(v).replace(/[^0-9-]/g, ''), 10);
+    return isNaN(n) ? 0 : n;
+  };
+
   // Modal toggle states
   const [showPayCheckInOut, setShowPayCheckInOut] = useState(false);
   const [showPayAdditional, setShowPayAdditional] = useState(false);
@@ -93,16 +116,16 @@ export default function HallListPage() {
 
     // Base total = old total - old charges
     const oldCharges = toNum(selectedBooking.cleaning) + toNum(selectedBooking.chair) + toNum(selectedBooking.eb) + toNum(selectedBooking.gas) + toNum(selectedBooking.ac);
-    const baseTotal = Math.max(0, toNum(selectedBooking.total_amount) - oldCharges);
+    const baseTotal = getVal('pay_baseTotal') || Math.max(0, toNum(selectedBooking.total_amount) - oldCharges);
     const newTotal = baseTotal + cleaning + chair + eb + gas + ac;
 
     const totalEl = document.getElementById('modal_new_total');
-    if (totalEl) totalEl.innerText = `₹${newTotal.toLocaleString()}`;
+    if (totalEl) totalEl.innerText = `${newTotal.toLocaleString()}`;
 
     const balEl = document.getElementById('modal_new_balance');
     if (balEl) {
       const adv = toNum(selectedBooking.advance_amount) + Number(payAmount || 0);
-      balEl.innerText = `₹${Math.max(0, newTotal - adv).toLocaleString()}`;
+      balEl.innerText = `${Math.max(0, newTotal - adv).toLocaleString()}`;
     }
   };
 
@@ -321,6 +344,8 @@ export default function HallListPage() {
   type ColKey =
     | 'register_no'
     | 'date'
+    | 'entry_date'
+    | 'booking_date'
     | 'time'
     | 'event'
     | 'subdivision'
@@ -335,7 +360,9 @@ export default function HallListPage() {
 
   const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' }> = [
     { key: 'register_no', label: t('Receipt No', 'ரசீது எண்') },
-    { key: 'date', label: t('Date', 'தேதி') },
+    { key: 'entry_date', label: t('Entry Date', 'பதிவு தேதி') },
+    { key: 'booking_date', label: t('Booking Date', 'பூஜை தேதி') },
+    { key: 'date', label: t('Legacy Date', 'தேதி') },
     { key: 'time', label: t('Time', 'நேரம்') },
     { key: 'event', label: t('Function', 'நிகழ்வு') },
     { key: 'subdivision', label: t('Subdivision', 'துணை பிரிவு') },
@@ -352,7 +379,9 @@ export default function HallListPage() {
   const STORAGE_KEY = 'hall_list_visible_columns_v1';
   const defaultVisible: Record<ColKey, boolean> = {
     register_no: true,
-    date: true,
+    entry_date: true,
+    booking_date: true,
+    date: false,
     time: true,
     event: true,
     subdivision: false,
@@ -381,11 +410,7 @@ export default function HallListPage() {
   }, [visibleCols]);
 
   // Totals
-  const toNum = (v: string | null | undefined) => {
-    if (!v) return 0;
-    const n = parseInt(String(v).replace(/[^0-9-]/g, ''), 10);
-    return isNaN(n) ? 0 : n;
-  };
+
   const totals = useMemo(() => {
     return rows.reduce(
       (acc, r) => {
@@ -667,7 +692,8 @@ export default function HallListPage() {
                       <TableRow className={tableClasses.row}>
                         <TableHead className={tableClasses.headerCellSno}>{t("S.No", "எண்")}</TableHead>
                         <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Receipt No", "ரசீது எண்")}</TableHead>
-                        <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Date", "தேதி")}</TableHead>
+                        <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Entry Date", "பதிவு தேதி")}</TableHead>
+                        <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Booking Date", "பூஜை தேதி")}</TableHead>
                         <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Time", "நேரம்")}</TableHead>
                         <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Function", "நிகழ்வு")}</TableHead>
                         <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Name", "பெயர்")}</TableHead>
@@ -684,13 +710,16 @@ export default function HallListPage() {
                         rows.map((r, index) => (
                           <TableRow key={r.id} className={tableClasses.row}>
                             <TableCell className={tableClasses.cellSno}>
-                              {index + 1}
+                              {(currentPage - 1) * pageSize + index + 1}
                             </TableCell>
                             <TableCell className={tableClasses.cell}>
                               {r.register_no || '-'}
                             </TableCell>
                             <TableCell className={tableClasses.cell}>
-                              {r.date || '-'}
+                              {formatDate(r.entry_date)}
+                            </TableCell>
+                            <TableCell className={tableClasses.cell}>
+                              {formatDate(r.booking_date)}
                             </TableCell>
                             <TableCell className={tableClasses.cell}>
                               {r.time || '-'}
@@ -708,13 +737,13 @@ export default function HallListPage() {
                               {r.mobile || '-'}
                             </TableCell>
                             <TableCell className={cn(tableClasses.cell, 'text-right')}>
-                              ₹{toNum(r.advance_amount).toLocaleString()}
+                              {toNum(r.advance_amount).toLocaleString()}
                             </TableCell>
                             <TableCell className={cn(tableClasses.cell, 'text-right')}>
-                              ₹{toNum(r.total_amount).toLocaleString()}
+                              {toNum(r.total_amount).toLocaleString()}
                             </TableCell>
                             <TableCell className={cn(tableClasses.cell, 'text-right')}>
-                              ₹{toNum(r.balance_amount).toLocaleString()}
+                              {toNum(r.balance_amount).toLocaleString()}
                             </TableCell>
                             <TableCell className={cn(tableClasses.cell, tableClasses.actionCell)}>
                               <div className="flex items-center justify-end gap-1">
@@ -841,9 +870,9 @@ export default function HallListPage() {
         {/* Financial Totals */}
         <div className="mt-2 flex justify-end text-xs text-gray-600">
           <div className="flex gap-3">
-            <span>{t('Advance', 'முன்பணம்')}: ₹{totals.advance.toLocaleString()}</span>
-            <span>{t('Total', 'மொத்தம்')}: ₹{totals.total.toLocaleString()}</span>
-            <span>{t('Balance', 'இருப்பு')}: ₹{totals.balance.toLocaleString()}</span>
+            <span>{t('Advance', 'முன்பணம்')}: {totals.advance.toLocaleString()}</span>
+            <span>{t('Total', 'மொத்தம்')}: {totals.total.toLocaleString()}</span>
+            <span>{t('Balance', 'இருப்பு')}: {totals.balance.toLocaleString()}</span>
           </div>
         </div>
 
@@ -903,10 +932,10 @@ export default function HallListPage() {
           </Modal>
         )}
 
-        {/* Pay Now Modal */}
+        {/* Edit & Pay Modal */}
         {showPayModal && selectedBooking && (
           <Modal
-            title={t('Add Payment & Details', 'கட்டணம் மற்றும் விவரங்களைச் சேமி')}
+            title={t('Edit & Pay Booking', 'பதிவைத் திருத்தவும் மற்றும் கட்டணம் செலுத்தவும்')}
             onClose={() => {
               setShowPayModal(false);
               setSelectedBooking(null);
@@ -917,11 +946,52 @@ export default function HallListPage() {
               <div className="p-3 bg-blue-50 rounded-lg border border-blue-100 flex justify-between items-center sticky top-0 z-10">
                 <div>
                   <p className="text-xs text-blue-600 uppercase font-semibold">{t('Balance Due', 'நிலுவைத் தொகை')}</p>
-                  <p className="text-xl font-bold text-blue-700">₹{toNum(selectedBooking.balance_amount).toLocaleString()}</p>
+                  <p className="text-xl font-bold text-blue-700">{toNum(selectedBooking.balance_amount).toLocaleString()}</p>
                 </div>
                 <div className="text-right text-xs text-gray-500">
-                  <p>{selectedBooking.name}</p>
                   <p className="font-mono">{selectedBooking.register_no}</p>
+                </div>
+              </div>
+
+              {/* Basic Info Section */}
+              <div className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-gray-500 uppercase">{t('Receipt No', 'ரசீது எண்')}</label>
+                  <Input className="h-8 text-sm" defaultValue={selectedBooking.register_no || ''} id="pay_registerNo" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-gray-500 uppercase">{t('Name', 'பெயர்')}</label>
+                  <Input className="h-8 text-sm" defaultValue={selectedBooking.name || ''} id="pay_name" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-gray-500 uppercase">{t('Mobile', 'கைபேசி')}</label>
+                  <Input className="h-8 text-sm" defaultValue={selectedBooking.mobile || ''} id="pay_mobile" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-gray-500 uppercase">{t('Event', 'நிகழ்வு')}</label>
+                  <Input className="h-8 text-sm" defaultValue={selectedBooking.event || ''} id="pay_event" />
+                </div>
+              </div>
+
+              {/* Date Section */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-gray-500 uppercase">{t('Entry Date', 'பதிவு தேதி')}</label>
+                  <Input 
+                    type="date" 
+                    className={cn("h-8 text-sm", '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')} 
+                    defaultValue={selectedBooking.entry_date || selectedBooking.date || ''} 
+                    id="pay_entryDate" 
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-gray-500 uppercase">{t('Booking Date', 'பூஜை தேதி')}</label>
+                  <Input 
+                    type="date" 
+                    className={cn("h-8 text-sm", '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')} 
+                    defaultValue={selectedBooking.booking_date || selectedBooking.date || ''} 
+                    id="pay_bookingDate" 
+                  />
                 </div>
               </div>
 
@@ -957,42 +1027,56 @@ export default function HallListPage() {
                 )}
               </div>
 
-              {/* Additional Charges Section */}
+              {/* Charges & Total Section */}
               <div className="border rounded-lg overflow-hidden">
                 <button
                   type="button"
                   className="w-full p-2 bg-gray-50 flex items-center justify-between text-sm font-medium hover:bg-gray-100"
                   onClick={() => setShowPayAdditional(!showPayAdditional)}
                 >
-                  <span>{t('Additional Charges', 'கூடுதல் கட்டணங்கள்')}</span>
+                  <span>{t('Charges & Total', 'கட்டணங்கள் மற்றும் மொத்தம்')}</span>
                   <span>{showPayAdditional ? '▲' : '▼'}</span>
                 </button>
                 {showPayAdditional && (
-                  <div className="p-3 grid grid-cols-2 md:grid-cols-3 gap-3 bg-white">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-gray-500 uppercase">{t('Cleaning', 'சுத்தம் செய்தல்')}</label>
-                      <Input type="number" className="h-8 text-sm" defaultValue={selectedBooking.cleaning || ''} id="pay_cleaning" placeholder="0.00"
-                        onChange={calculateModalTotals} />
+                  <div className="p-3 space-y-3 bg-white">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-semibold text-gray-500 uppercase">{t('Cleaning', 'சுத்தம் செய்தல்')}</label>
+                        <Input type="number" className="h-8 text-sm" defaultValue={selectedBooking.cleaning || ''} id="pay_cleaning" placeholder="0.00"
+                          onChange={calculateModalTotals} />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-semibold text-gray-500 uppercase">{t('Chair', 'நாற்காலி')}</label>
+                        <Input type="number" className="h-8 text-sm" defaultValue={selectedBooking.chair || ''} id="pay_chair" placeholder="0.00"
+                          onChange={calculateModalTotals} />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-semibold text-gray-500 uppercase">EB</label>
+                        <Input type="number" className="h-8 text-sm" defaultValue={selectedBooking.eb || ''} id="pay_eb" placeholder="0.00"
+                          onChange={calculateModalTotals} />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-semibold text-gray-500 uppercase">{t('Gas', 'கேஸ்')}</label>
+                        <Input type="number" className="h-8 text-sm" defaultValue={selectedBooking.gas || ''} id="pay_gas" placeholder="0.00"
+                          onChange={calculateModalTotals} />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-semibold text-gray-500 uppercase">AC</label>
+                        <Input type="number" className="h-8 text-sm" defaultValue={selectedBooking.ac || ''} id="pay_ac" placeholder="0.00"
+                          onChange={calculateModalTotals} />
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-gray-500 uppercase">{t('Chair', 'நாற்காலி')}</label>
-                      <Input type="number" className="h-8 text-sm" defaultValue={selectedBooking.chair || ''} id="pay_chair" placeholder="0.00"
-                        onChange={calculateModalTotals} />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-gray-500 uppercase">EB</label>
-                      <Input type="number" className="h-8 text-sm" defaultValue={selectedBooking.eb || ''} id="pay_eb" placeholder="0.00"
-                        onChange={calculateModalTotals} />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-gray-500 uppercase">{t('Gas', 'கேஸ்')}</label>
-                      <Input type="number" className="h-8 text-sm" defaultValue={selectedBooking.gas || ''} id="pay_gas" placeholder="0.00"
-                        onChange={calculateModalTotals} />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-gray-500 uppercase">AC</label>
-                      <Input type="number" className="h-8 text-sm" defaultValue={selectedBooking.ac || ''} id="pay_ac" placeholder="0.00"
-                        onChange={calculateModalTotals} />
+                    <div className="pt-2 border-t">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-semibold text-gray-500 uppercase">{t('Base Total Amount', 'அடிப்படை மொத்தத் தொகை')}</label>
+                        <Input 
+                          type="number" 
+                          className="h-8 text-sm font-bold" 
+                          defaultValue={Math.max(0, toNum(selectedBooking.total_amount) - (toNum(selectedBooking.cleaning) + toNum(selectedBooking.chair) + toNum(selectedBooking.eb) + toNum(selectedBooking.gas) + toNum(selectedBooking.ac)))} 
+                          id="pay_baseTotal" 
+                          onChange={calculateModalTotals}
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1001,11 +1085,11 @@ export default function HallListPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
                   <div className="text-[10px] text-gray-500 uppercase font-semibold">{t('Projected Total', 'உத்தேச மொத்தம்')}</div>
-                  <div className="font-bold text-gray-900" id="modal_new_total">₹{toNum(selectedBooking.total_amount).toLocaleString()}</div>
+                  <div className="font-bold text-gray-900" id="modal_new_total">{toNum(selectedBooking.total_amount).toLocaleString()}</div>
                 </div>
                 <div className="p-3 bg-orange-50 rounded-lg border border-orange-100">
                   <div className="text-[10px] text-orange-600 uppercase font-semibold">{t('Remaining Balance', 'மீதமுள்ள நிலுவை')}</div>
-                  <div className="font-bold text-orange-700" id="modal_new_balance">₹{toNum(selectedBooking.balance_amount).toLocaleString()}</div>
+                  <div className="font-bold text-orange-700" id="modal_new_balance">{toNum(selectedBooking.balance_amount).toLocaleString()}</div>
                 </div>
               </div>
 
@@ -1014,11 +1098,10 @@ export default function HallListPage() {
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">{t('Payment Amount', 'கட்டணத் தொகை')}</label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">₹</span>
                       <Input
                         type="number"
                         placeholder="0.00"
-                        className="pl-8"
+                        className="w-full"
                         value={payAmount}
                         onChange={(e) => setPayAmount(e.target.value)}
                       />
@@ -1082,10 +1165,17 @@ export default function HallListPage() {
                         amount: Number(payAmount || 0),
                         transferTo: getVal('pay_mode'),
                         remarks: getVal('pay_remarks'),
+                        registerNo: getVal('pay_registerNo'),
+                        name: getVal('pay_name'),
+                        mobile: getVal('pay_mobile'),
+                        event: getVal('pay_event'),
+                        entryDate: getVal('pay_entryDate'),
+                        bookingDate: getVal('pay_bookingDate'),
                         checkInDate: getVal('pay_checkInDate'),
                         checkInTime: getVal('pay_checkInTime'),
                         checkOutDate: getVal('pay_checkOutDate'),
                         checkOutTime: getVal('pay_checkOutTime'),
+                        totalAmount: document.getElementById('modal_new_total')?.innerText.replace(/,/g, ''),
                         cleaning: getVal('pay_cleaning'),
                         chair: getVal('pay_chair'),
                         eb: getVal('pay_eb'),
@@ -1297,19 +1387,19 @@ export default function HallListPage() {
                                                 {advanceAmount && (
                                                   <div className="flex justify-between">
                                                     <span className="font-medium">{t('Advance', 'முன்பணம்')}:</span>
-                                                    <span>₹{advanceAmount}</span>
+                                                    <span>{advanceAmount}</span>
                                                   </div>
                                                 )}
                                                 {totalAmount && (
                                                   <div className="flex justify-between">
                                                     <span className="font-medium">{t('Total', 'மொத்தம்')}:</span>
-                                                    <span>₹{totalAmount}</span>
+                                                    <span>{totalAmount}</span>
                                                   </div>
                                                 )}
                                                 {balanceAmount && (
                                                   <div className="flex justify-between">
                                                     <span className="font-medium">{t('Balance', 'இருப்பு')}:</span>
-                                                    <span>₹{balanceAmount}</span>
+                                                    <span>{balanceAmount}</span>
                                                   </div>
                                                 )}
                                               </div>
@@ -1522,19 +1612,19 @@ export default function HallListPage() {
                                             {advanceAmount && (
                                               <div className="flex justify-between">
                                                 <span className="font-medium">{t('Advance', 'முன்பணம்')}:</span>
-                                                <span>₹{advanceAmount}</span>
+                                                <span>{advanceAmount}</span>
                                               </div>
                                             )}
                                             {totalAmount && (
                                               <div className="flex justify-between">
                                                 <span className="font-medium">{t('Total', 'மொத்தம்')}:</span>
-                                                <span>₹{totalAmount}</span>
+                                                <span>{totalAmount}</span>
                                               </div>
                                             )}
                                             {balanceAmount && (
                                               <div className="flex justify-between">
                                                 <span className="font-medium">{t('Balance', 'இருப்பு')}:</span>
-                                                <span>₹{balanceAmount}</span>
+                                                <span>{balanceAmount}</span>
                                               </div>
                                             )}
                                           </div>

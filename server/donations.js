@@ -58,6 +58,7 @@ module.exports = function(deps = {}) {
         table.string('donor_name');
         table.string('donor_contact');
         table.date('donation_date');
+        table.date('entry_date').nullable();
         table.enum('status', ['available', 'reserved', 'distributed']).defaultTo('available');
         table.text('notes');
         table.timestamp('created_at').defaultTo(db.fn.now());
@@ -69,6 +70,13 @@ module.exports = function(deps = {}) {
       if (!hasRegister) {
         await db.schema.table('donations', (table) => {
           table.string('register_no');
+        });
+      }
+      // Ensure entry_date column exists
+      const hasEntryDate = await db.schema.hasColumn('donations', 'entry_date');
+      if (!hasEntryDate) {
+        await db.schema.table('donations', (table) => {
+          table.date('entry_date').nullable().after('register_no');
         });
       }
     }
@@ -258,7 +266,8 @@ module.exports = function(deps = {}) {
         category: req.body.category || 'General',
         donor_name: req.body.donorName || req.body.name || 'Anonymous',
         donor_contact: req.body.donorContact || req.body.phone || '',
-        donation_date: req.body.donationDate || req.body.date || currentDate,
+        entry_date: req.body.entryDate || req.body.date || currentDate,
+        donation_date: req.body.bookingDate || req.body.donationDate || req.body.date || currentDate,
         status: req.body.status || 'available',
         notes: req.body.notes || '',
         transfer_to_account: req.body.transfer_to_account || req.body.transferTo || null
@@ -340,7 +349,8 @@ module.exports = function(deps = {}) {
         category: req.body.category,
         donor_name: req.body.donorName,
         donor_contact: req.body.donorContact,
-        donation_date: req.body.donationDate,
+        entry_date: req.body.entryDate,
+        donation_date: req.body.bookingDate || req.body.donationDate,
         status: req.body.status,
         notes: req.body.notes,
         transfer_to_account: req.body.transfer_to_account ?? req.body.transferTo,

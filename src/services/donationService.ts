@@ -18,7 +18,9 @@ export interface DonationItem {
 
 export interface DonationFormData {
   registerNo: string;
-  date: string;
+  entryDate: string;
+  bookingDate: string;
+  date: string; // legacy support
   name: string;
   fatherName: string;
   address: string;

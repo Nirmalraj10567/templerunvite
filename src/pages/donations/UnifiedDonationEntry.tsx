@@ -6,8 +6,7 @@ import { moneyDonationService, MoneyDonationFormData } from '@/services/moneyDon
 import { donationService, DonationFormData } from '@/services/donationService';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Modal } from '@/components/ui/modal';
-import { ledgerService } from '@/services/ledgerService';
-import { journalService } from '@/services/journalService';
+import { accountService, AccountItem } from '@/services/accountService';
 import { DonationProductManager, DonationProduct } from '@/components/product/DonationProductManager';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,18 +16,9 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   X,
   Calendar,
-  User,
-  Phone,
-  FileText,
-  IndianRupee,
-  Package,
-  MapPin,
-  Home,
-  Hash,
   Search,
   Loader2,
-  Save,
-  ChevronDown
+  Save
 } from 'lucide-react';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
 import { theme } from '@/styles/theme';
@@ -38,6 +28,8 @@ import { getAuthToken } from '@/lib/auth';
 // Money Donation Types
 const createMoneyDonationState = (): MoneyDonationFormData => ({
   registerNo: '',
+  entryDate: new Date().toISOString().slice(0, 10),
+  bookingDate: new Date().toISOString().slice(0, 10),
   date: new Date().toISOString().slice(0, 10),
   name: '',
   fatherName: '',
@@ -46,13 +38,17 @@ const createMoneyDonationState = (): MoneyDonationFormData => ({
   phone: '',
   amount: '',
   reason: '',
-  transferTo: 'INCOME A/C'
+  transferTo: 'INCOME A/C',
+  paymentMode: 'cash',
+  accountId: null,
 });
 
 // Product Donation Types
 const today = new Date().toISOString().slice(0, 10);
 const createProductDonationState = (): DonationFormData => ({
   registerNo: '',
+  entryDate: today,
+  bookingDate: today,
   date: today,
   name: '',
   fatherName: '',
@@ -70,6 +66,7 @@ interface ValidationErrors {
   product?: string;
   unit?: string;
   amount?: string;
+  accountId?: string;
 }
 
 export default function UnifiedDonationEntry() {
@@ -86,7 +83,7 @@ export default function UnifiedDonationEntry() {
 
   // Money donation state
   const [moneyForm, setMoneyForm] = useState<MoneyDonationFormData>(createMoneyDonationState());
-  const [accounts, setAccounts] = useState<Array<{ id?: number; value: string; label: string }>>([]);
+  const [accounts, setAccounts] = useState<AccountItem[]>([]);
 
   // Product donation state
   const [productForm, setProductForm] = useState<DonationFormData>(createProductDonationState());
@@ -164,7 +161,7 @@ export default function UnifiedDonationEntry() {
     };
   }, []);
 
-  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);;
+  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
   // Helper function to show success messages in modal
   const showSuccessAlert = (message: string) => {
@@ -240,6 +237,9 @@ export default function UnifiedDonationEntry() {
       }
       if (!moneyForm.amount || isNaN(Number(moneyForm.amount)) || Number(moneyForm.amount) <= 0) {
         newErrors.amount = t('Enter a valid amount greater than 0', '0-ஐ விட அதிகமான செல்லுபடியான தொகையை உள்ளிடவும்');
+      }
+      if ((moneyForm.paymentMode === 'bank' || moneyForm.paymentMode === 'upi') && !moneyForm.accountId) {
+        newErrors.accountId = t('Select account for Bank/UPI', 'வங்கி/UPI க்கு கணக்கை தேர்ந்தெடுக்கவும்');
       }
     } else {
       if (!productForm.name.trim()) {
@@ -326,21 +326,15 @@ export default function UnifiedDonationEntry() {
   useEffect(() => {
     const loadAccounts = async () => {
       try {
-        let names: string[] = [];
-        try {
-          names = await journalService.getAccounts();
-        } catch {
-          names = await ledgerService.getNames();
-        }
-        const mapped = (names || []).map((n: string, idx: number) => ({ id: idx + 1, value: n, label: n }));
-        setAccounts(mapped);
+        const list = await accountService.list(token);
+        setAccounts(list || []);
       } catch (e) {
-        console.error('Failed to load ledger names', e);
+        console.error('Failed to load accounts', e);
         setAccounts([]);
       }
     };
     loadAccounts();
-  }, []);
+  }, [token]);
 
   // Extract unique units from products
   const extractUnits = (products: DonationProduct[]) => {
@@ -407,7 +401,7 @@ export default function UnifiedDonationEntry() {
   // Compute next register number for money donations
   const computeNextRegisterNo = useCallback(async (): Promise<string | null> => {
     try {
-      const dStr = moneyForm.date && moneyForm.date.length >= 4 ? moneyForm.date : new Date().toISOString().slice(0, 10);
+      const dStr = moneyForm.bookingDate && moneyForm.bookingDate.length >= 4 ? moneyForm.bookingDate : new Date().toISOString().slice(0, 10);
       const yyyy = Number(dStr.slice(0, 4));
       const mm = Number(dStr.slice(5, 7));
       if (!yyyy || isNaN(yyyy) || !mm || isNaN(mm)) return null;
@@ -438,7 +432,7 @@ export default function UnifiedDonationEntry() {
       console.warn('Failed to compute register number', e);
       return null;
     }
-  }, [moneyForm.date, token]);
+  }, [moneyForm.bookingDate, token]);
 
   const generateNextRegisterNo = () => {
     const currentYear = new Date().getFullYear();
@@ -471,9 +465,9 @@ export default function UnifiedDonationEntry() {
     setMessage(undefined);
 
     try {
-      if (!moneyForm.date) {
+      if (!moneyForm.bookingDate) {
         setIsError(true);
-        setMessage(t('Please select a date', 'தேதியைத் தேர்ந்தெடுக்கவும்'));
+        setMessage(t('Please select a booking date', 'பதிவு தேதியைத் தேர்ந்தெடுக்கவும்'));
         return;
       }
       if (!moneyForm.amount || isNaN(Number(moneyForm.amount)) || Number(moneyForm.amount) <= 0) {
@@ -481,9 +475,21 @@ export default function UnifiedDonationEntry() {
         setMessage(t('Enter a valid amount greater than 0', '0-ஐ விட அதிகமான செல்லுபடியான தொகையை உள்ளிடவும்'));
         return;
       }
+      if ((moneyForm.paymentMode === 'bank' || moneyForm.paymentMode === 'upi') && !moneyForm.accountId) {
+        setIsError(true);
+        setMessage(t('Select account for Bank/UPI', 'வங்கி/UPI க்கு கணக்கை தேர்ந்தெடுக்கவும்'));
+        return;
+      }
 
       if (isEdit && editId) {
-        const updatePayload: any = { ...moneyForm, transfer_to_account: moneyForm.transferTo };
+        const updatePayload: any = { 
+          ...moneyForm, 
+          transfer_to_account: moneyForm.transferTo,
+          paymentMode: moneyForm.paymentMode || 'cash',
+          accountId: moneyForm.accountId,
+          date: moneyForm.bookingDate, // Map to backend field
+          entry_date: moneyForm.entryDate 
+        };
         await moneyDonationService.update(token, editId, updatePayload);
         setIsError(false);
         showSuccessAlert(t('Updated successfully', 'வெற்றிகரமாக புதுப்பிக்கப்பட்டது'));
@@ -494,7 +500,16 @@ export default function UnifiedDonationEntry() {
         }, 300);
       } else {
         const freshRN = await computeNextRegisterNo();
-        const payload = { ...moneyForm, registerNo: freshRN || moneyForm.registerNo, fromAccount: 'DONATION A/C', transferTo: moneyForm.transferTo || 'INCOME A/C' } as any;
+        const payload = { 
+          ...moneyForm, 
+          registerNo: freshRN || moneyForm.registerNo, 
+          fromAccount: 'DONATION A/C', 
+          transferTo: moneyForm.transferTo || 'INCOME A/C',
+          paymentMode: moneyForm.paymentMode || 'cash',
+          accountId: moneyForm.accountId,
+          date: moneyForm.bookingDate, // Map to backend field
+          entry_date: moneyForm.entryDate
+        } as any;
 
         const resp = await moneyDonationService.create(token, payload);
         const newId = resp?.data?.id;
@@ -538,7 +553,13 @@ export default function UnifiedDonationEntry() {
     setIsError(false);
 
     try {
-      await donationService.createDonation(token, productForm);
+      const payload = {
+        ...productForm,
+        donationDate: productForm.bookingDate, // Map to backend field for product donations
+        entry_date: productForm.entryDate,
+        date: productForm.bookingDate // legacy/fallback
+      };
+      await donationService.createDonation(token, payload);
       const nextNo = await fetchNextRegisterNo();
       setNextRegisterNo(nextNo);
       setProductForm({ ...createProductDonationState(), registerNo: nextNo });
@@ -631,7 +652,6 @@ export default function UnifiedDonationEntry() {
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                     }`}
                 >
-                  <IndianRupee className="w-4 h-4 inline-block mr-2" />
                   {t('Money Donation', 'பண நன்கொடை')}
                 </button>
                 <button
@@ -642,7 +662,6 @@ export default function UnifiedDonationEntry() {
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                     }`}
                 >
-                  <Package className="w-4 h-4 inline-block mr-2" />
                   {t('Product Donation', 'பொருள் நன்கொடை')}
                 </button>
               </div>
@@ -668,128 +687,242 @@ export default function UnifiedDonationEntry() {
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {/* Register No */}
-                  <div className="relative">
-                    <Hash className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      className={`${fieldStyles} bg-gray-50 pl-12 border-orange-200`}
-                      name="registerNo"
-                      value={moneyForm.registerNo}
-                      readOnly
-                      placeholder={t('Register No', 'பதிவு எண்')}
-                    />
+                  <div className="space-y-2 group">
+                    <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
+                      {t('Register No', 'பதிவு எண்')}
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        className={`${fieldStyles} bg-gray-50 border-orange-200`}
+                        name="registerNo"
+                        value={moneyForm.registerNo}
+                        readOnly
+                        placeholder={t('Register No', 'பதிவு எண்')}
+                      />
+                    </div>
                   </div>
 
-                  {/* Date */}
-                  <div className="relative" onClick={(e) => {
-                    const input = e.currentTarget.querySelector('input');
-                    if (input) (input as any).showPicker?.();
-                  }}>
-                    <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      type="date"
-                      className={cn(fieldStyles, "pl-12", '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')}
-                      name="date"
-                      value={moneyForm.date}
-                      onChange={onMoneyChange}
-                      placeholder={t('Date', 'தேதி')}
-                    />
+                   {/* Entry Date */}
+                  <div className="space-y-2 group">
+                    <Label className="text-sm font-semibold text-gray-700 group-focus-within:text-orange-600 transition-colors">
+                      {t('Entry Date', 'நுழைவு தேதி')}
+                    </Label>
+                    <div className="relative" onClick={(e) => {
+                      const input = e.currentTarget.querySelector('input');
+                      if (input) (input as any).showPicker?.();
+                    }}>
+                      <Input
+                        type="date"
+                        className={cn(fieldStyles, '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')}
+                        name="entryDate"
+                        value={moneyForm.entryDate}
+                        onChange={onMoneyChange}
+                        placeholder={t('Entry Date', 'நுழைவு தேதி')}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Booking Date */}
+                  <div className="space-y-2 group">
+                    <Label className="text-sm font-semibold text-gray-700 group-focus-within:text-orange-600 transition-colors">
+                      {t('Booking Date', 'பதிவு தேதி')}
+                    </Label>
+                    <div className="relative" onClick={(e) => {
+                      const input = e.currentTarget.querySelector('input');
+                      if (input) (input as any).showPicker?.();
+                    }}>
+                      <Input
+                        type="date"
+                        className={cn(fieldStyles, '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')}
+                        name="bookingDate"
+                        value={moneyForm.bookingDate}
+                        onChange={onMoneyChange}
+                        placeholder={t('Booking Date', 'பதிவு தேதி')}
+                      />
+                    </div>
                   </div>
 
                   {/* Name */}
-                  <div className="relative">
-                    <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      className={`${fieldStyles} pl-12`}
-                      name="name"
-                      value={moneyForm.name}
-                      onChange={onMoneyChange}
-                      placeholder={t('Enter name', 'பெயரை உள்ளிடவும்')}
-                      autoFocus
-                    />
+                  <div className="space-y-2 group">
+                    <Label className="text-sm font-semibold text-gray-700 group-focus-within:text-orange-600 transition-colors">
+                      {t('Name', 'பெயர்')}
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        className={`${fieldStyles}`}
+                        name="name"
+                        value={moneyForm.name}
+                        onChange={onMoneyChange}
+                        placeholder={t('Enter name', 'பெயரை உள்ளிடவும்')}
+                        autoFocus
+                      />
+                    </div>
                   </div>
 
                   {/* Phone */}
-                  <div className="relative">
-                    <Phone className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      className={`${fieldStyles} pl-12`}
-                      name="phone"
-                      value={moneyForm.phone}
-                      onChange={onMoneyChange}
-                      placeholder={t('Enter phone', 'கைபேசி எண்ணை உள்ளிடவும்')}
-                      inputMode="numeric"
-                      maxLength={10}
-                      onInput={(e) => {
-                        const el = e.currentTarget as HTMLInputElement;
-                        const cleaned = el.value.replace(/\D/g, '').slice(0, 10);
-                        if (el.value !== cleaned) {
-                          el.value = cleaned;
-                        }
-                        setMoneyForm(prev => ({ ...prev, phone: cleaned }));
-                      }}
-                    />
+                  <div className="space-y-2 group">
+                    <Label className="text-sm font-semibold text-gray-700 group-focus-within:text-orange-600 transition-colors">
+                      {t('Phone', 'கைபேசி')}
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        className={`${fieldStyles}`}
+                        name="phone"
+                        value={moneyForm.phone}
+                        onChange={onMoneyChange}
+                        placeholder={t('Enter phone', 'கைபேசி எண்ணை உள்ளிடவும்')}
+                        inputMode="numeric"
+                        maxLength={10}
+                        onInput={(e) => {
+                          const el = e.currentTarget as HTMLInputElement;
+                          const cleaned = el.value.replace(/\D/g, '').slice(0, 10);
+                          if (el.value !== cleaned) {
+                            el.value = cleaned;
+                          }
+                          setMoneyForm(prev => ({ ...prev, phone: cleaned }));
+                        }}
+                      />
+                    </div>
                   </div>
 
                   {/* Father Name */}
-                  <div className="relative">
-                    <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      className={`${fieldStyles} pl-12`}
-                      name="fatherName"
-                      value={moneyForm.fatherName}
-                      onChange={onMoneyChange}
-                      placeholder={t('Enter father name', 'தந்தை பெயரை உள்ளிடவும்')}
-                    />
+                  <div className="space-y-2 group">
+                    <Label className="text-sm font-semibold text-gray-700 group-focus-within:text-orange-600 transition-colors">
+                      {t('Father Name', 'தந்தை பெயர்')}
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        className={`${fieldStyles}`}
+                        name="fatherName"
+                        value={moneyForm.fatherName}
+                        onChange={onMoneyChange}
+                        placeholder={t('Enter father name', 'தந்தை பெயரை உள்ளிடவும்')}
+                      />
+                    </div>
                   </div>
 
                   {/* Village */}
-                  <div className="relative">
-                    <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      className={`${fieldStyles} pl-12`}
-                      name="village"
-                      value={moneyForm.village}
-                      onChange={onMoneyChange}
-                      placeholder={t('Enter village', 'ஊரை உள்ளிடவும்')}
-                    />
+                  <div className="space-y-2 group">
+                    <Label className="text-sm font-semibold text-gray-700 group-focus-within:text-orange-600 transition-colors">
+                      {t('Village', 'ஊர்')}
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        className={`${fieldStyles}`}
+                        name="village"
+                        value={moneyForm.village}
+                        onChange={onMoneyChange}
+                        placeholder={t('Enter village', 'ஊரை உள்ளிடவும்')}
+                      />
+                    </div>
                   </div>
 
                   {/* Address */}
-                  <div className="relative">
-                    <Home className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      className={`${fieldStyles} pl-12`}
-                      name="address"
-                      value={moneyForm.address}
-                      onChange={onMoneyChange}
-                      placeholder={t('Enter address', 'முகவரியை உள்ளிடவும்')}
-                    />
+                  <div className="space-y-2 group">
+                    <Label className="text-sm font-semibold text-gray-700 group-focus-within:text-orange-600 transition-colors">
+                      {t('Address', 'முகவரி')}
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        className={`${fieldStyles}`}
+                        name="address"
+                        value={moneyForm.address}
+                        onChange={onMoneyChange}
+                        placeholder={t('Enter address', 'முகவரியை உள்ளிடவும்')}
+                      />
+                    </div>
                   </div>
 
                   {/* Amount */}
-                  <div className="relative">
-                    <IndianRupee className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      className={`${fieldStyles} pl-12`}
-                      name="amount"
-                      value={moneyForm.amount}
-                      onChange={onMoneyChange}
-                      placeholder={t('Enter amount', 'தொகையை உள்ளிடவும்')}
-                      type="number"
-                      min="1"
-                    />
+                  <div className="space-y-2 group">
+                    <Label className="text-sm font-semibold text-gray-700 group-focus-within:text-orange-600 transition-colors">
+                      {t('Amount', 'தொகை')}
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        className={`${fieldStyles}`}
+                        name="amount"
+                        value={moneyForm.amount}
+                        onChange={onMoneyChange}
+                        placeholder={t('Enter amount', 'தொகையை உள்ளிடவும்')}
+                        type="number"
+                        min="1"
+                      />
+                    </div>
                   </div>
 
+                  {/* Payment Mode */}
+                  <div className="space-y-2 group">
+                    <Label className="text-sm font-semibold text-gray-700">
+                      {t('Payment Mode', 'கட்டணம் வகை')}
+                    </Label>
+                    <div className="flex gap-2">
+                      {(['cash', 'bank', 'upi'] as const).map((mode) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() =>
+                            setMoneyForm((prev) => ({
+                              ...prev,
+                              paymentMode: mode,
+                              accountId: mode === 'cash' ? null : prev.accountId,
+                            }))
+                          }
+                          className={`px-3 py-2 rounded border text-sm ${moneyForm.paymentMode === mode
+                            ? 'bg-orange-100 border-orange-400 text-orange-700'
+                            : 'bg-white border-gray-300 text-gray-700'
+                            }`}
+                        >
+                          {mode.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {(moneyForm.paymentMode === 'bank' || moneyForm.paymentMode === 'upi') && (
+                    <>
+                      <div className="space-y-2 group">
+                        <Label className="text-sm font-semibold text-gray-700">
+                          {t('Account', 'கணக்கு')}
+                        </Label>
+                        <select
+                          value={moneyForm.accountId ?? ''}
+                          onChange={(e) =>
+                            setMoneyForm((prev) => ({
+                              ...prev,
+                              accountId: e.target.value ? Number(e.target.value) : null,
+                            }))
+                          }
+                          className={cn(fieldStyles, errors.accountId ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
+                        >
+                          <option value="">{t('Select account', 'கணக்கை தேர்வு செய்யவும்')}</option>
+                          {accounts
+                            .filter((a) => a.accountType === moneyForm.paymentMode)
+                            .map((a) => (
+                              <option key={a.id} value={a.id}>
+                                {a.accountName}
+                              </option>
+                            ))}
+                        </select>
+                        <ErrorMessage error={errors.accountId} />
+                      </div>
+                    </>
+                  )}
+
                   {/* Reason */}
-                  <div className="relative">
-                    <FileText className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      className={`${fieldStyles} pl-12`}
-                      name="reason"
-                      value={moneyForm.reason}
-                      onChange={onMoneyChange}
-                      placeholder={t('Enter reason', 'காரணத்தை உள்ளிடவும்')}
-                    />
+                  <div className="space-y-2 group">
+                    <Label className="text-sm font-semibold text-gray-700 group-focus-within:text-orange-600 transition-colors">
+                      {t('Reason', 'காரணம்')}
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        className={`${fieldStyles}`}
+                        name="reason"
+                        value={moneyForm.reason}
+                        onChange={onMoneyChange}
+                        placeholder={t('Enter reason', 'காரணத்தை உள்ளிடவும்')}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -825,14 +958,18 @@ export default function UnifiedDonationEntry() {
               <div>
                 {/* Register Number and Product Manager */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                  <div className="relative">
-                    <Hash className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      className={`${fieldStyles} bg-gray-50 pl-12 border-orange-200`}
-                      value={productForm.registerNo}
-                      readOnly
-                      placeholder={t('Register No', 'பதிவு எண்')}
-                    />
+                  <div className="space-y-2 group">
+                    <Label className="text-sm font-semibold text-gray-700 group-focus-within:text-orange-600 transition-colors">
+                      {t('Register No', 'பதிவு எண்')}
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        className={`${fieldStyles} bg-gray-50 border-orange-200`}
+                        value={productForm.registerNo}
+                        readOnly
+                        placeholder={t('Register No', 'பதிவு எண்')}
+                      />
+                    </div>
                   </div>
                   <div className="md:col-start-3 flex justify-end">
                     {user?.templeId ? (
@@ -856,32 +993,58 @@ export default function UnifiedDonationEntry() {
 
                 <form onSubmit={onProductSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {/* Date */}
-                    <div className="relative" onClick={(e) => {
-                      const input = e.currentTarget.querySelector('input');
-                      if (input) (input as any).showPicker?.();
-                    }}>
-                      <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <Input
-                        id="date"
-                        type="date"
-                        name="date"
-                        value={productForm.date}
-                        onChange={onProductChange}
-                        className={cn(fieldStyles, "pl-12", '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')}
-                      />
+                    {/* Entry Date */}
+                    <div className="space-y-2 group">
+                      <Label className="text-sm font-semibold text-gray-700 group-focus-within:text-orange-600 transition-colors">
+                        {t('Entry Date', 'நுழைவு தேதி')}
+                      </Label>
+                      <div className="relative" onClick={(e) => {
+                        const input = e.currentTarget.querySelector('input');
+                        if (input) (input as any).showPicker?.();
+                      }}>
+                        <Input
+                          id="entryDate"
+                          type="date"
+                          name="entryDate"
+                          value={productForm.entryDate}
+                          onChange={onProductChange}
+                          className={cn(fieldStyles, '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Booking Date */}
+                    <div className="space-y-2 group">
+                      <Label className="text-sm font-semibold text-gray-700 group-focus-within:text-orange-600 transition-colors">
+                        {t('Booking Date', 'பதிவு தேதி')}
+                      </Label>
+                      <div className="relative" onClick={(e) => {
+                        const input = e.currentTarget.querySelector('input');
+                        if (input) (input as any).showPicker?.();
+                      }}>
+                        <Input
+                          id="bookingDate"
+                          type="date"
+                          name="bookingDate"
+                          value={productForm.bookingDate}
+                          onChange={onProductChange}
+                          className={cn(fieldStyles, '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')}
+                        />
+                      </div>
                     </div>
 
                     {/* Name */}
-                    <div className="relative">
-                      <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <div className="space-y-2 group">
+                      <Label className="text-sm font-semibold text-gray-700 group-focus-within:text-orange-600 transition-colors">
+                        {t('Name', 'பெயர்')}
+                      </Label>
                       <Input
                         id="name"
                         name="name"
                         value={productForm.name}
                         onChange={onProductChange}
                         onBlur={onProductBlur}
-                        className={cn(fieldStyles, 'pl-12', errors.name ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
+                        className={cn(fieldStyles, errors.name ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
                         placeholder={t('Enter name', 'பெயரை உள்ளிடவும்')}
                         autoFocus
                       />
@@ -889,8 +1052,10 @@ export default function UnifiedDonationEntry() {
                     </div>
 
                     {/* Phone */}
-                    <div className="relative">
-                      <Phone className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <div className="space-y-2 group">
+                      <Label className="text-sm font-semibold text-gray-700 group-focus-within:text-orange-600 transition-colors">
+                        {t('Phone', 'கைபேசி')}
+                      </Label>
                       <Input
                         id="phone"
                         type="tel"
@@ -908,137 +1073,159 @@ export default function UnifiedDonationEntry() {
                             setProductForm(prev => ({ ...prev, phone: cleaned }));
                           }
                         }}
-                        className={cn(fieldStyles, 'pl-12', errors.phone ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
+                        className={cn(fieldStyles, errors.phone ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
                         placeholder={t('10 digits', '10 இலக்கம்')}
                       />
                       <ErrorMessage error={errors.phone} />
                     </div>
 
                     {/* Father Name */}
-                    <div className="relative">
-                      <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <div className="space-y-2 group">
+                      <Label className="text-sm font-semibold text-gray-700 group-focus-within:text-orange-600 transition-colors">
+                        {t('Father Name', 'தந்தை பெயர்')}
+                      </Label>
                       <Input
                         id="fatherName"
                         name="fatherName"
                         value={productForm.fatherName}
                         onChange={onProductChange}
-                        className={`${fieldStyles} pl-12`}
+                        className={`${fieldStyles}`}
                         placeholder={t('Enter father name', 'தந்தை பெயரை உள்ளிடவும்')}
                       />
                     </div>
 
                     {/* Village */}
-                    <div className="relative">
-                      <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <Input
-                        id="village"
-                        name="village"
-                        value={productForm.village}
-                        onChange={onProductChange}
-                        className={`${fieldStyles} pl-12`}
-                        placeholder={t('Enter village', 'ஊரை உள்ளிடவும்')}
-                      />
+                    <div className="space-y-2 group">
+                      <Label className="text-sm font-semibold text-gray-700 group-focus-within:text-orange-600 transition-colors">
+                        {t('Village', 'ஊர்')}
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="village"
+                          name="village"
+                          value={productForm.village}
+                          onChange={onProductChange}
+                          className={`${fieldStyles}`}
+                          placeholder={t('Enter village', 'ஊரை உள்ளிடவும்')}
+                        />
+                      </div>
                     </div>
 
                     {/* Address */}
-                    <div className="relative">
-                      <Home className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <Input
-                        id="address"
-                        name="address"
-                        value={productForm.address}
-                        onChange={onProductChange}
-                        className={`${fieldStyles} pl-12`}
-                        placeholder={t('Enter address', 'முகவரியை உள்ளிடவும்')}
-                      />
+                    <div className="space-y-2 group">
+                      <Label className="text-sm font-semibold text-gray-700 group-focus-within:text-orange-600 transition-colors">
+                        {t('Address', 'முகவரி')}
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="address"
+                          name="address"
+                          value={productForm.address}
+                          onChange={onProductChange}
+                          className={`${fieldStyles}`}
+                          placeholder={t('Enter address', 'முகவரியை உள்ளிடவும்')}
+                        />
+                      </div>
                     </div>
 
                     {/* Product */}
-                    <div className="relative">
-                      <Package className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
-                      <div className={formFieldStyles.selectDropdown.container}>
-                        <select
-                          id="product"
-                          name="product"
-                          value={productForm.product}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            const sel = products.find(p => p && (p.value === val || p.label === val));
-                            setProductForm(prev => ({ ...prev, product: val, unit: sel?.unit || '' }));
-                            if (touched.product) {
-                              validateField('product', val);
-                            }
-                          }}
-                          onBlur={onProductBlur}
-                          className={cn(theme.select.base, theme.select.size.md, "appearance-none pl-12 pr-10 bg-white", errors.product ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
-                        >
-                          <option value="">{t('Select Product', 'பொருள் தேர்வு')}</option>
-                          {products.filter(p => p && p.id && p.label).map(p =>
-                            <option key={p.id} value={p.value || p.label}>{p.label}</option>
-                          )}
-                        </select>
-                        <div className={formFieldStyles.selectDropdown.dropdown}>
-                          <svg className={formFieldStyles.selectDropdown.icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
+                    <div className="space-y-2 group">
+                      <Label className="text-sm font-semibold text-gray-700 group-focus-within:text-orange-600 transition-colors">
+                        {t('Product', 'பொருள்')}
+                      </Label>
+                      <div className="relative">
+                        <div className={formFieldStyles.selectDropdown.container}>
+                          <select
+                            id="product"
+                            name="product"
+                            value={productForm.product}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const sel = products.find(p => p && (p.value === val || p.label === val));
+                              setProductForm(prev => ({ ...prev, product: val, unit: sel?.unit || '' }));
+                              if (touched.product) {
+                                validateField('product', val);
+                              }
+                            }}
+                            onBlur={onProductBlur}
+                            className={cn(theme.select.base, theme.select.size.md, "appearance-none pr-10 bg-white", errors.product ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
+                          >
+                            <option value="">{t('Select Product', 'பொருள் தேர்வு')}</option>
+                            {products.filter(p => p && p.id && p.label).map(p =>
+                              <option key={p.id} value={p.value || p.label}>{p.label}</option>
+                            )}
+                          </select>
+                          <div className={formFieldStyles.selectDropdown.dropdown}>
+                            <svg className={formFieldStyles.selectDropdown.icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
                         </div>
                       </div>
                       <ErrorMessage error={errors.product} />
                     </div>
 
                     {/* Unit */}
-                    <div className="relative">
-                      <Hash className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <div className="space-y-2 group">
+                      <Label className="text-sm font-semibold text-gray-700 group-focus-within:text-orange-600 transition-colors">
+                        {t('Unit', 'அளவு')}
+                      </Label>
                       <div className="relative">
-                        <Input
-                          ref={unitInputRef}
-                          id="unit"
-                          name="unit"
-                          value={productForm.unit}
-                          onChange={onProductChange}
-                          onBlur={(e) => {
-                            onProductBlur(e);
-                            // Delay hiding dropdown to allow clicking on options
-                            setTimeout(() => setShowUnitDropdown(false), 150);
-                          }}
-                          onFocus={() => setShowUnitDropdown(true)}
-                          className={cn(fieldStyles, 'pl-12', errors.unit ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
-                          placeholder={t('Enter or select unit', 'அளவை உள்ளிடவும் அல்லது தேர்ந்தெடுக்கவும்')}
-                          list="unit-options"
-                        />
+                        <div className="relative">
+                          <Input
+                            ref={unitInputRef}
+                            id="unit"
+                            name="unit"
+                            value={productForm.unit}
+                            onChange={onProductChange}
+                            onBlur={(e) => {
+                              onProductBlur(e);
+                              // Delay hiding dropdown to allow clicking on options
+                              setTimeout(() => setShowUnitDropdown(false), 150);
+                            }}
+                            onFocus={() => setShowUnitDropdown(true)}
+                            className={cn(fieldStyles, errors.unit ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
+                            placeholder={t('Enter or select unit', 'அளவை உள்ளிடவும் அல்லது தேர்ந்தெடுக்கவும்')}
+                            list="unit-options"
+                          />
 
-                        {/* Unit Dropdown */}
-                        {showUnitDropdown && availableUnits.length > 0 && (
-                          <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-auto">
-                            {availableUnits.map((unit, index) => (
-                              <div
-                                key={index}
-                                className="px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
-                                onClick={() => {
-                                  setProductForm(prev => ({ ...prev, unit }));
-                                  setShowUnitDropdown(false);
-                                }}
-                              >
-                                {unit}
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                          {/* Unit Dropdown */}
+                          {showUnitDropdown && availableUnits.length > 0 && (
+                            <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-auto">
+                              {availableUnits.map((unit, index) => (
+                                <div
+                                  key={index}
+                                  className="px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
+                                  onClick={() => {
+                                    setProductForm(prev => ({ ...prev, unit }));
+                                    setShowUnitDropdown(false);
+                                  }}
+                                >
+                                  {unit}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <ErrorMessage error={errors.unit} />
                     </div>
 
                     {/* Reason */}
-                    <div className="relative">
-                      <FileText className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <Input
-                        id="reason"
-                        name="reason"
-                        value={productForm.reason}
-                        onChange={onProductChange}
-                        className={`${fieldStyles} pl-12`}
-                        placeholder={t('Enter reason', 'காரணத்தை உள்ளிடவும்')}
-                      />
+                    <div className="space-y-2 group">
+                      <Label className="text-sm font-semibold text-gray-700 group-focus-within:text-orange-600 transition-colors">
+                        {t('Reason', 'காரணம்')}
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="reason"
+                          name="reason"
+                          value={productForm.reason}
+                          onChange={onProductChange}
+                          className={`${fieldStyles}`}
+                          placeholder={t('Enter reason', 'காரணத்தை உள்ளிடவும்')}
+                        />
+                      </div>
                     </div>
                   </div>
 

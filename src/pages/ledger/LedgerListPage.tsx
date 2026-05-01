@@ -90,7 +90,7 @@ export default function LedgerListPage() {
   const [userNames, setUserNames] = useState<Record<number, string>>({});
   const [userDetails, setUserDetails] = useState<Record<number, { name: string, username?: string, mobile?: string }>>({});
 
-  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);;
+  const t = (en: string, ta: string) => (language === 'english' ? ta : en);
   const itemsPerPage = 10;
 
   // Fetch user names/details for given ids (per-id endpoint, resilient)
@@ -212,8 +212,7 @@ export default function LedgerListPage() {
   // Format amount
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
+      style: 'decimal',
       minimumFractionDigits: 2,
     }).format(amount);
   };
@@ -529,7 +528,7 @@ export default function LedgerListPage() {
                           return (
                             <TableRow key={entry.id} className={tableClasses.row}>
                               <TableCell className={tableClasses.cellSno}>
-                                {index + 1}
+                                {(currentPage - 1) * itemsPerPage + index + 1}
                               </TableCell>
                               <TableCell className={tableClasses.cell}>
                                 {format(new Date(entry.date), 'dd/MM/yy')}
@@ -541,13 +540,13 @@ export default function LedgerListPage() {
                                 {entry.under || '-'}
                               </TableCell>
                               <TableCell className={cn(tableClasses.cell, "text-green-600", "text-right")}>
-                                {entry.type === 'credit' ? `₹${entry.amount.toFixed(2)}` : '-'}
+                                {entry.type === 'credit' ? `${entry.amount.toFixed(2)}` : '-'}
                               </TableCell>
                               <TableCell className={cn(tableClasses.cell, "text-red-600", "text-right")}>
-                                {entry.type === 'debit' ? `₹${entry.amount.toFixed(2)}` : '-'}
+                                {entry.type === 'debit' ? `${entry.amount.toFixed(2)}` : '-'}
                               </TableCell>
                               <TableCell className={cn(tableClasses.cell, "font-medium", "text-right")}>
-                                ₹{runningBalance.toFixed(2)}
+                                {runningBalance.toFixed(2)}
                               </TableCell>
                               <TableCell className={cn(tableClasses.cell, tableClasses.actionCell)}>
                                 <div className="flex items-center justify-end gap-1">
@@ -847,7 +846,7 @@ export default function LedgerListPage() {
                                                 {amount && (
                                                   <div className="flex justify-between">
                                                     <span className="font-medium">{t('Amount', 'தொகை')}:</span>
-                                                    <span>₹{amount}</span>
+                                                    <span>{amount}</span>
                                                   </div>
                                                 )}
                                                 {under && (
@@ -1035,7 +1034,7 @@ export default function LedgerListPage() {
                                             {amount && (
                                               <div className="flex justify-between">
                                                 <span className="font-medium">{t('Amount', 'தொகை')}:</span>
-                                                <span>₹{amount}</span>
+                                                <span>{amount}</span>
                                               </div>
                                             )}
                                             {under && (

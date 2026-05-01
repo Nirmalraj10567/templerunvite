@@ -19,7 +19,9 @@ class EventService {
       // Append event details
       formData.append('title', eventData.title);
       formData.append('description', eventData.description);
-      formData.append('date', eventData.date);
+      formData.append('date', eventData.fromDate || eventData.date);
+      formData.append('from_date', eventData.fromDate || eventData.date);
+      formData.append('to_date', eventData.toDate || eventData.fromDate || eventData.date);
       formData.append('time', eventData.time);
       formData.append('location', eventData.location);
 
@@ -120,6 +122,8 @@ class EventService {
           title: evt.title,
           description: evt.description,
           date: evt.date,
+          fromDate: evt.from_date || evt.date,
+          toDate: evt.to_date || evt.from_date || evt.date,
           time: evt.time,
           location: evt.location,
           images,
@@ -167,6 +171,8 @@ class EventService {
 
       return {
         ...event,
+        fromDate: event.from_date || event.date,
+        toDate: event.to_date || event.from_date || event.date,
         images
       };
     } catch (error) {
@@ -186,7 +192,9 @@ class EventService {
       // Append event details
       formData.append('title', eventData.title);
       formData.append('description', eventData.description);
-      formData.append('date', eventData.date);
+      formData.append('date', eventData.fromDate || eventData.date);
+      formData.append('from_date', eventData.fromDate || eventData.date);
+      formData.append('to_date', eventData.toDate || eventData.fromDate || eventData.date);
       formData.append('time', eventData.time);
       formData.append('location', eventData.location);
 

@@ -35,6 +35,7 @@ import {
   ChevronDown,
   IndianRupee
 } from 'lucide-react';
+import apiClient from "@/lib/apiClient";
 
 // Custom hook for Enter key - focus save button
 const useEnterKeyNavigation = () => {
@@ -68,6 +69,7 @@ interface AnnadhanamFormData {
   time: string;
   fromDate: string;
   toDate: string;
+  entryDate: string;
   remarks?: string;
 }
 
@@ -96,7 +98,8 @@ export default function AnnadhanamEntryPage() {
       time: (() => {
         const now = new Date();
         return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-      })()
+      })(),
+      entryDate: new Date().toISOString().slice(0, 10)
     }
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -210,6 +213,7 @@ export default function AnnadhanamEntryPage() {
 
     setValue('fromDate', today);
     setValue('toDate', today);
+    setValue('entryDate', today);
     setValue('time', time);
   }, [id, setValue]);
 
@@ -280,6 +284,7 @@ export default function AnnadhanamEntryPage() {
               time: normalizeTimeString(data.time),
               fromDate: normalizeDateString(data.from_date),
               toDate: normalizeDateString(data.to_date),
+              entryDate: normalizeDateString(data.entry_date || data.from_date),
               remarks: data.remarks || ''
             };
 
@@ -408,6 +413,7 @@ export default function AnnadhanamEntryPage() {
         time: data.time,
         from_date: singleDate,
         to_date: singleDate,
+        entry_date: data.entryDate,
         remarks: data.remarks || ''
       };
 
@@ -463,6 +469,7 @@ export default function AnnadhanamEntryPage() {
               time: time,
               fromDate: today,
               toDate: today,
+              entryDate: today,
               food: '',
               peoples: '',
               productName: '',
@@ -633,9 +640,8 @@ export default function AnnadhanamEntryPage() {
           <CardHeader className={theme.header.container}>
             <div className={theme.header.contentSpacing}>
               <CardTitle className={theme.header.main}>
-                {t('Annadhanam Details', 'அன்னதான விவரங்கள்')}
+                {t('Annadhanam Entry', 'அன்னதான பதிவு')}
               </CardTitle>
-
             </div>
           </CardHeader>
 
@@ -650,57 +656,107 @@ export default function AnnadhanamEntryPage() {
             })} onKeyDown={handleKeyDown}>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
-                {/* Receipt Number */}
-                <div className="relative">
-                  <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input
-                    id="receiptNumber"
-                    className={cn(theme.input.base, theme.input.size.md, "pl-10 bg-gray-50")}
-                    readOnly
-                    {...register('receiptNumber')}
-                    placeholder={t('Receipt No.', 'ரசீது எண்.')}
-                  />
+                {/* 1. Receipt Number */}
+                <div className="space-y-2 relative group">
+                  <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    {t('Receipt Number', 'ரசீது எண்')}
+                  </Label>
+                  <div className="relative">
+                    <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      id="receiptNumber"
+                      className={cn(theme.input.base, theme.input.size.md, "pl-10 bg-gray-50 border-gray-200")}
+                      readOnly
+                      {...register('receiptNumber')}
+                      placeholder={t('Receipt No.', 'ரசீது எண்.')}
+                    />
+                  </div>
                 </div>
 
-                {/* Time */}
-                <div>
+                {/* 2. Entry Date */}
+                <div className="space-y-2 group">
+                  <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
+                    {t('Entry Date', 'பதிவு தேதி')}
+                  </Label>
                   <div className="relative">
-                    <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
+                    <Input
+                      id="entryDate"
+                      type="date"
+                      className={cn(theme.input.base, theme.input.size.md, `pl-10 bg-white border-gray-200 ${errors.entryDate ? 'border-red-500' : ''}`, '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')}
+                      {...register('entryDate', { required: t('Entry date is required', 'பதிவு தேதி கட்டாயம்') })}
+                      placeholder={t('Entry Date', 'பதிவு தேதி')}
+                    />
+                  </div>
+                  {errors.entryDate && <p className="text-red-500 text-xs mt-1">{errors.entryDate.message}</p>}
+                </div>
+
+                {/* 3. Booking Date */}
+                <div className="space-y-2 group">
+                  <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
+                    {t('Booking Date', 'முன்பதிவு தேதி')}
+                  </Label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
+                    <Input
+                      id="fromDate"
+                      type="date"
+                      className={cn(theme.input.base, theme.input.size.md, `pl-10 bg-white border-gray-200 ${errors.fromDate ? 'border-red-500' : ''}`, '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')}
+                      {...register('fromDate', { required: t('Booking date is required', 'முன்பதிவு தேதி கட்டாயம்') })}
+                      placeholder={t('Booking Date', 'முன்பதிவு தேதி')}
+                    />
+                  </div>
+                  {errors.fromDate && <p className="text-red-500 text-xs mt-1">{errors.fromDate.message}</p>}
+                </div>
+
+                {/* 4. Time */}
+                <div className="space-y-2 group">
+                  <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
+                    {t('Time', 'நேரம்')}
+                  </Label>
+                  <div className="relative">
+                    <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
                     <Input
                       id="time"
                       type="time"
-                      className={cn(theme.input.base, theme.input.size.md, `pl-10 ${errors.time ? 'border-red-500' : ''}`, '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')}
+                      className={cn(theme.input.base, theme.input.size.md, `pl-10 bg-white border-gray-200 ${errors.time ? 'border-red-500' : ''}`, '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')}
                       {...register('time', { required: t('Time is required', 'நேரம் கட்டாயம்') })}
                       onClick={(e) => (e.target as any).showPicker?.()}
-                      placeholder={t('Time *', 'நேரம் *')}
+                      placeholder={t('Time', 'நேரம்')}
                     />
                   </div>
                   {errors.time && <p className="text-red-500 text-xs mt-1">{errors.time.message}</p>}
                 </div>
 
-                {/* Name */}
-                <div>
+                {/* 5. Name */}
+                <div className="space-y-2 group">
+                  <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
+                    {t('Name', 'பெயர்')}
+                  </Label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
                     <Input
                       id="name"
                       autoFocus
-                      className={cn(theme.input.base, theme.input.size.md, `pl-10 ${errors.name ? 'border-red-500' : ''}`)}
+                      className={cn(theme.input.base, theme.input.size.md, `pl-10 bg-white border-gray-200 ${errors.name ? 'border-red-500' : ''}`)}
                       {...register('name', { required: t('Name is required', 'பெயர் கட்டாயம்') })}
                       onChange={(e) => {
                         const val = e.target.value;
                         setValue('name', val ? val.replace(/\b\w/g, (char) => char.toUpperCase()) : val, { shouldValidate: true });
                       }}
-                      placeholder={t('Name *', 'பெயர் *')}
+                      placeholder={t('Name', 'பெயர்')}
                     />
                   </div>
                   {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
                 </div>
 
-                {/* Mobile Number */}
-                <div>
+                {/* 6. Mobile Number */}
+                <div className="space-y-2 group">
+                  <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
+                    {t('Mobile Number', 'கைபேசி எண்')}
+                  </Label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
                     <Input
                       id="mobileNumber"
                       type="tel"
@@ -714,7 +770,7 @@ export default function AnnadhanamEntryPage() {
                         }
                         setValue('mobileNumber', cleaned, { shouldValidate: true, shouldDirty: true });
                       }}
-                      className={cn(theme.input.base, theme.input.size.md, `pl-10 ${errors.mobileNumber ? 'border-red-500' : ''}`)}
+                      className={cn(theme.input.base, theme.input.size.md, `pl-10 bg-white border-gray-200 ${errors.mobileNumber ? 'border-red-500' : ''}`)}
                       {...register('mobileNumber', {
                         required: t('Mobile number is required', 'கைபேசி எண் கட்டாயம்'),
                         pattern: {
@@ -722,33 +778,21 @@ export default function AnnadhanamEntryPage() {
                           message: t('Please enter a valid 10-digit mobile number', 'தயவுசெய்து சரியான 10 இலக்க கைபேசி எண்ணை உள்ளிடவும்')
                         }
                       })}
-                      placeholder={t('Mobile *', 'கைபேசி *')}
+                      placeholder={t('Mobile', 'கைபேசி')}
                     />
                   </div>
                   {errors.mobileNumber && <p className="text-red-500 text-xs mt-1">{errors.mobileNumber.message}</p>}
                 </div>
 
-                {/* Date */}
-                <div>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      id="fromDate"
-                      type="date"
-                      className={cn(theme.input.base, theme.input.size.md, `pl-10 ${errors.fromDate ? 'border-red-500' : ''}`, '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')}
-                      {...register('fromDate', { required: t('Date is required', 'தேதி கட்டாயம்') })}
-                      placeholder={t('Date *', 'தேதி *')}
-                    />
-                  </div>
-                  {errors.fromDate && <p className="text-red-500 text-xs mt-1">{errors.fromDate.message}</p>}
-                </div>
-
-                {/* Donation Type */}
-                <div>
+                {/* 7. Donation Type */}
+                <div className="space-y-2 group">
+                  <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
+                    {t('Donation Type', 'நன்கொடை வகை')}
+                  </Label>
                   <div className="relative">
                     <select
                       id="donationType"
-                      className={cn(theme.select.base, theme.select.size.md, `w-full ${errors.donationType ? 'border-red-500' : ''}`)}
+                      className={cn(theme.select.base, theme.select.size.md, `w-full bg-white border-gray-200 ${errors.donationType ? 'border-red-500' : ''}`)}
                       {...register('donationType', { required: t('Donation type is required', 'நன்கொடை வகை கட்டாயம்') })}
                       defaultValue="food"
                     >
@@ -763,7 +807,6 @@ export default function AnnadhanamEntryPage() {
                     </div>
                     {donationType === 'food' && <Coffee className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-orange-500" />}
                     {donationType === 'product' && <Package className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-blue-500" />}
-                    {donationType === 'money' && <IndianRupee className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-green-500" />}
                   </div>
                   {errors.donationType && <p className="text-red-500 text-xs mt-1">{errors.donationType.message}</p>}
                 </div>
@@ -771,16 +814,19 @@ export default function AnnadhanamEntryPage() {
                 {/* Dynamic Fields Based on Donation Type */}
                 {watch('donationType') === 'food' && (
                   <>
-                    <div className="relative" ref={foodDropdownRef}>
+                    <div className="space-y-2 group" ref={foodDropdownRef}>
+                      <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
+                        {t('Food Items', 'உணவுப் பொருட்கள்')}
+                      </Label>
                       <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
                         <input
                           ref={foodInputRef}
                           type="text"
                           className={cn(
                             theme.input.base,
                             theme.input.size.md,
-                            "pl-10 pr-10 w-full",
+                            "pl-10 pr-10 w-full bg-white border-gray-200",
                             errors.food ? 'border-red-500' : ''
                           )}
                           value={foodSearchQuery}
@@ -800,66 +846,66 @@ export default function AnnadhanamEntryPage() {
                               setShowFoodDropdown(true);
                             }
                           }}
-                          placeholder={t('Food Items *', 'உணவுப் பொருட்கள் *')}
+                          placeholder={t('Search or add food item', 'உணவுப் பொருளைத் தேடவும் அல்லது சேர்க்கவும்')}
                         />
                         <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                      </div>
 
-                      {/* Food Items Dropdown */}
-                      {showFoodDropdown && (
-                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
-                          {foodItems.length > 0 ? (
-                            <>
-                              {foodItems.map((item) => (
-                                <div
-                                  key={item.id}
-                                  className="px-4 py-2 hover:bg-orange-50 cursor-pointer text-sm text-gray-700"
-                                  onClick={() => {
-                                    setValue('food', item.name, { shouldValidate: true });
-                                    setFoodSearchQuery(item.name);
-                                    setShowFoodDropdown(false);
-                                  }}
-                                >
-                                  {item.name}
-                                </div>
-                              ))}
-                              {foodSearchQuery && !foodItems.some(i => i.name?.toLowerCase() === foodSearchQuery.toLowerCase()) && (
-                                <div
-                                  className={`px-4 py-2 cursor-pointer text-sm border-t border-gray-100 flex items-center gap-2 ${addingFoodName === foodSearchQuery
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'hover:bg-green-50 text-green-700'
-                                    }`}
-                                  onClick={() => !addingFoodName && addNewFoodItem(foodSearchQuery)}
-                                >
-                                  {addingFoodName === foodSearchQuery ? (
-                                    <>
-                                      <Loader2 className="w-4 h-4 animate-spin" />
-                                      {t(`Adding "${foodSearchQuery}"...`, `"${foodSearchQuery}" சேர்க்கப்படுகிறது...`)}
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Plus className="w-4 h-4" />
-                                      {t(`Add "${foodSearchQuery}" to master`, `"${foodSearchQuery}" ஐ முதன்மை தரவில் சேர்க்க`)}
-                                    </>
-                                  )}
-                                </div>
-                              )}
-                            </>
-                          ) : foodSearchQuery ? (
-                            <div
-                              className="px-4 py-2 hover:bg-green-50 cursor-pointer text-sm text-green-700 flex items-center gap-2"
-                              onClick={() => addNewFoodItem(foodSearchQuery)}
-                            >
-                              <Plus className="w-4 h-4" />
-                              {t(`Add "${foodSearchQuery}" to master`, `"${foodSearchQuery}" ஐ முதன்மை தரவில் சேர்க்க`)}
-                            </div>
-                          ) : (
-                            <div className="px-4 py-2 text-sm text-gray-500">
-                              {t('Type to search or add new food item', 'தேட அல்லது புதிய உணவுப் பொருளைச் சேர்க்க தட்டச்சு செய்யவும்')}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                        {/* Food Items Dropdown */}
+                        {showFoodDropdown && (
+                          <div className="absolute z-50 w-full left-0 top-full mt-1 bg-white border border-gray-200 rounded-md shadow-xl max-h-60 overflow-auto py-1">
+                            {foodItems.length > 0 ? (
+                              <>
+                                {foodItems.map((item) => (
+                                  <div
+                                    key={item.id}
+                                    className="px-4 py-2 hover:bg-orange-50 cursor-pointer text-sm text-gray-700 transition-colors"
+                                    onClick={() => {
+                                      setValue('food', item.name, { shouldValidate: true });
+                                      setFoodSearchQuery(item.name);
+                                      setShowFoodDropdown(false);
+                                    }}
+                                  >
+                                    {item.name}
+                                  </div>
+                                ))}
+                                {foodSearchQuery && !foodItems.some(i => i.name?.toLowerCase() === foodSearchQuery.toLowerCase()) && (
+                                  <div
+                                    className={`px-4 py-2 cursor-pointer text-sm border-t border-gray-100 flex items-center gap-2 ${addingFoodName === foodSearchQuery
+                                      ? 'bg-green-100 text-green-800'
+                                      : 'hover:bg-green-50 text-green-700'
+                                      }`}
+                                    onClick={() => !addingFoodName && addNewFoodItem(foodSearchQuery)}
+                                  >
+                                    {addingFoodName === foodSearchQuery ? (
+                                      <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        {t(`Adding "${foodSearchQuery}"...`, `"${foodSearchQuery}" சேர்க்கப்படுகிறது...`)}
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Plus className="w-4 h-4" />
+                                        {t(`Add "${foodSearchQuery}" to master`, `"${foodSearchQuery}" ஐ முதன்மை தரவில் சேர்க்க`)}
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+                              </>
+                            ) : foodSearchQuery ? (
+                              <div
+                                className="px-4 py-2 hover:bg-green-50 cursor-pointer text-sm text-green-700 flex items-center gap-2"
+                                onClick={() => addNewFoodItem(foodSearchQuery)}
+                              >
+                                <Plus className="w-4 h-4" />
+                                {t(`Add "${foodSearchQuery}" to master`, `"${foodSearchQuery}" ஐ முதன்மை தரவில் சேர்க்க`)}
+                              </div>
+                            ) : (
+                              <div className="px-4 py-2 text-sm text-gray-500 italic">
+                                {t('Type to search...', 'தேட தட்டச்சு செய்யவும்...')}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
 
                       {/* Hidden input for form validation */}
                       <input
@@ -868,44 +914,59 @@ export default function AnnadhanamEntryPage() {
                       />
                       {errors.food && <p className="text-red-500 text-xs mt-1">{errors.food.message}</p>}
                     </div>
-                    <div>
+                    <div className="space-y-2 group">
+                      <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
+                        {t('People Count', 'மக்கள் எண்ணிக்கை')}
+                      </Label>
                       <Input
                         id="peoples"
                         type="number"
-                        className={cn(theme.input.base, theme.input.size.md, `border ${errors.peoples ? 'border-red-500' : ''}`)}
+                        className={cn(theme.input.base, theme.input.size.md, `bg-white border-gray-200 ${errors.peoples ? 'border-red-500' : ''}`)}
                         {...register('peoples', {
                           required: t('People count is required', 'மக்கள் எண்ணிக்கை கட்டாயம்'),
                           min: { value: 1, message: t('Number must be at least 1', 'எண் குறைந்தது 1 ஆக இருக்க வேண்டும்') }
                         })}
-                        placeholder={t('People Count *', 'மக்கள் எண்ணிக்கை *')}
+                        placeholder={t('Enter count', 'எண்ணிக்கையை உள்ளிடவும்')}
                         min="1"
                       />
                       {errors.peoples && <p className="text-red-500 text-xs mt-1">{errors.peoples.message}</p>}
                     </div>
-                    <div className="relative">
-                      <FileText className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <Input
-                        id="remarks"
-                        className={cn(theme.input.base, theme.input.size.md, "pl-10")}
-                        {...register('remarks')} onChange={(e) => { const val = e.target.value; setValue('remarks', val ? val.replace(/\b\w/g, (char) => char.toUpperCase()) : val, { shouldValidate: true }); }}
-                        placeholder={t('Remarks', 'குறிப்புகள்')}
-                      />
+                    <div className="space-y-2 group">
+                      <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
+                        {t('Remarks', 'குறிப்புகள்')}
+                      </Label>
+                      <div className="relative">
+                        <FileText className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
+                        <Input
+                          id="remarks"
+                          className={cn(theme.input.base, theme.input.size.md, "pl-10 bg-white border-gray-200")}
+                          {...register('remarks')}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setValue('remarks', val ? val.replace(/\b\w/g, (char) => char.toUpperCase()) : val, { shouldValidate: true });
+                          }}
+                          placeholder={t('Any additional notes', 'கூடுதல் குறிப்புகள்')}
+                        />
+                      </div>
                     </div>
                   </>
                 )}
 
                 {watch('donationType') === 'product' && (
                   <>
-                    <div className="relative" ref={productDropdownRef}>
+                    <div className="space-y-2 group" ref={productDropdownRef}>
+                      <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
+                        {t('Product Name', 'பொருள் பெயர்')}
+                      </Label>
                       <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
                         <input
                           ref={productInputRef}
                           type="text"
                           className={cn(
                             theme.input.base,
                             theme.input.size.md,
-                            "pl-10 pr-10 w-full",
+                            "pl-10 pr-10 w-full bg-white border-gray-200",
                             errors.productName ? 'border-red-500' : ''
                           )}
                           value={productSearchQuery}
@@ -925,66 +986,66 @@ export default function AnnadhanamEntryPage() {
                               setShowProductDropdown(true);
                             }
                           }}
-                          placeholder={t('Product Name *', 'பொருள் பெயர் *')}
+                          placeholder={t('Search or add product', 'பொருளைத் தேடவும் அல்லது சேர்க்கவும்')}
                         />
                         <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                      </div>
 
-                      {/* Product Names Dropdown */}
-                      {showProductDropdown && (
-                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
-                          {productNames.length > 0 ? (
-                            <>
-                              {productNames.map((item) => (
-                                <div
-                                  key={item.id}
-                                  className="px-4 py-2 hover:bg-orange-50 cursor-pointer text-sm text-gray-700"
-                                  onClick={() => {
-                                    setValue('productName', item.name, { shouldValidate: true });
-                                    setProductSearchQuery(item.name);
-                                    setShowProductDropdown(false);
-                                  }}
-                                >
-                                  {item.name}
-                                </div>
-                              ))}
-                              {productSearchQuery && !productNames.some(i => i.name?.toLowerCase() === productSearchQuery.toLowerCase()) && (
-                                <div
-                                  className={`px-4 py-2 cursor-pointer text-sm border-t border-gray-100 flex items-center gap-2 ${addingProductName === productSearchQuery
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'hover:bg-green-50 text-green-700'
-                                    }`}
-                                  onClick={() => !addingProductName && addNewProductName(productSearchQuery)}
-                                >
-                                  {addingProductName === productSearchQuery ? (
-                                    <>
-                                      <Loader2 className="w-4 h-4 animate-spin" />
-                                      {t(`Adding "${productSearchQuery}"...`, `"${productSearchQuery}" சேர்க்கப்படுகிறது...`)}
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Plus className="w-4 h-4" />
-                                      {t(`Add "${productSearchQuery}" to master`, `"${productSearchQuery}" ஐ முதன்மை தரவில் சேர்க்க`)}
-                                    </>
-                                  )}
-                                </div>
-                              )}
-                            </>
-                          ) : productSearchQuery ? (
-                            <div
-                              className="px-4 py-2 hover:bg-green-50 cursor-pointer text-sm text-green-700 flex items-center gap-2"
-                              onClick={() => addNewProductName(productSearchQuery)}
-                            >
-                              <Plus className="w-4 h-4" />
-                              {t(`Add "${productSearchQuery}" to master`, `"${productSearchQuery}" ஐ முதன்மை தரவில் சேர்க்க`)}
-                            </div>
-                          ) : (
-                            <div className="px-4 py-2 text-sm text-gray-500">
-                              {t('Type to search or add new product', 'தேட அல்லது புதிய பொருளைச் சேர்க்க தட்டச்சு செய்யவும்')}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                        {/* Product Names Dropdown */}
+                        {showProductDropdown && (
+                          <div className="absolute z-50 w-full left-0 top-full mt-1 bg-white border border-gray-200 rounded-md shadow-xl max-h-60 overflow-auto py-1">
+                            {productNames.length > 0 ? (
+                              <>
+                                {productNames.map((item) => (
+                                  <div
+                                    key={item.id}
+                                    className="px-4 py-2 hover:bg-orange-50 cursor-pointer text-sm text-gray-700 transition-colors"
+                                    onClick={() => {
+                                      setValue('productName', item.name, { shouldValidate: true });
+                                      setProductSearchQuery(item.name);
+                                      setShowProductDropdown(false);
+                                    }}
+                                  >
+                                    {item.name}
+                                  </div>
+                                ))}
+                                {productSearchQuery && !productNames.some(i => i.name?.toLowerCase() === productSearchQuery.toLowerCase()) && (
+                                  <div
+                                    className={`px-4 py-2 cursor-pointer text-sm border-t border-gray-100 flex items-center gap-2 ${addingProductName === productSearchQuery
+                                      ? 'bg-green-100 text-green-800'
+                                      : 'hover:bg-green-50 text-green-700'
+                                      }`}
+                                    onClick={() => !addingProductName && addNewProductName(productSearchQuery)}
+                                  >
+                                    {addingProductName === productSearchQuery ? (
+                                      <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        {t(`Adding "${productSearchQuery}"...`, `"${productSearchQuery}" சேர்க்கப்படுகிறது...`)}
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Plus className="w-4 h-4" />
+                                        {t(`Add "${productSearchQuery}" to master`, `"${productSearchQuery}" ஐ முதன்மை தரவில் சேர்க்க`)}
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+                              </>
+                            ) : productSearchQuery ? (
+                              <div
+                                className="px-4 py-2 hover:bg-green-50 cursor-pointer text-sm text-green-700 flex items-center gap-2"
+                                onClick={() => addNewProductName(productSearchQuery)}
+                              >
+                                <Plus className="w-4 h-4" />
+                                {t(`Add "${productSearchQuery}" to master`, `"${productSearchQuery}" ஐ முதன்மை தரவில் சேர்க்க`)}
+                              </div>
+                            ) : (
+                              <div className="px-4 py-2 text-sm text-gray-500 italic">
+                                {t('Type to search...', 'தேட தட்டச்சு செய்யவும்...')}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
 
                       {/* Hidden input for form validation */}
                       <input
@@ -993,51 +1054,83 @@ export default function AnnadhanamEntryPage() {
                       />
                       {errors.productName && <p className="text-red-500 text-xs mt-1">{errors.productName.message}</p>}
                     </div>
-                    <div>
+                    <div className="space-y-2 group">
+                      <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
+                        {t('Quantity', 'அளவு')}
+                      </Label>
                       <Input
                         id="quantity"
                         type="number"
-                        className={cn(theme.input.base, theme.input.size.md, `${errors.quantity ? 'border-red-500' : ''}`)}
-                        {...register('quantity', { required: t('Quantity is required', 'அளவு கட்டாயம்'), min: { value: 0.001, message: t('Quantity must be greater than 0', 'அளவு 0 ஐ விட அதிகமாக இருக்க வேண்டும்') } })}
-                        placeholder={t('Quantity *', 'அளவு *')}
+                        className={cn(theme.input.base, theme.input.size.md, `bg-white border-gray-200 ${errors.quantity ? 'border-red-500' : ''}`)}
+                        {...register('quantity', {
+                          required: t('Quantity is required', 'அளவு கட்டாயம்'),
+                          min: { value: 0.001, message: t('Quantity must be greater than 0', 'அளவு 0 ஐ விட அதிகமாக இருக்க வேண்டும்') }
+                        })}
+                        placeholder={t('Enter quantity', 'அளவை உள்ளிடவும்')}
                         min="0"
                         step="any"
                       />
                       {errors.quantity && <p className="text-red-500 text-xs mt-1">{errors.quantity.message}</p>}
                     </div>
-                    <div className="relative">
-                      <FileText className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <Input
-                        id="remarks"
-                        className={cn(theme.input.base, theme.input.size.md, "pl-10")}
-                        {...register('remarks')} onChange={(e) => { const val = e.target.value; setValue('remarks', val ? val.replace(/\b\w/g, (char) => char.toUpperCase()) : val, { shouldValidate: true }); }}
-                        placeholder={t('Remarks', 'குறிப்புகள்')}
-                      />
+                    <div className="space-y-2 group">
+                      <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
+                        {t('Remarks', 'குறிப்புகள்')}
+                      </Label>
+                      <div className="relative">
+                        <FileText className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
+                        <Input
+                          id="remarks"
+                          className={cn(theme.input.base, theme.input.size.md, "pl-10 bg-white border-gray-200")}
+                          {...register('remarks')}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setValue('remarks', val ? val.replace(/\b\w/g, (char) => char.toUpperCase()) : val, { shouldValidate: true });
+                          }}
+                          placeholder={t('Any additional notes', 'கூடுதல் குறிப்புகள்')}
+                        />
+                      </div>
                     </div>
                   </>
                 )}
 
                 {watch('donationType') === 'money' && (
                   <>
-                    <div>
-                      <Input
-                        id="amount"
-                        type="number"
-                        className={cn(theme.input.base, theme.input.size.md, `${errors.amount ? 'border-red-500' : ''}`)}
-                        {...register('amount', { required: t('Amount is required', 'தொகை கட்டாயம்'), min: { value: 1, message: t('Amount must be at least Rs1', 'தொகை குறைந்தது ₹1 ஆக இருக்க வேண்டும்') } })}
-                        placeholder={t('Amount (Rs) *', 'தொகை (₹) *')}
-                        min="1"
-                      />
+                    <div className="space-y-2 group">
+                      <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
+                        {t('Amount', 'தொகை')}
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="amount"
+                          type="number"
+                          className={cn(theme.input.base, theme.input.size.md, `px-4 bg-white border-gray-200 ${errors.amount ? 'border-red-500' : ''}`)}
+                          {...register('amount', {
+                            required: t('Amount is required', 'தொகை கட்டாயம்'),
+                            min: { value: 1, message: t('Amount must be at least 1', 'தொகை குறைந்தது 1 ஆக இருக்க வேண்டும்') }
+                          })}
+                          placeholder={t('Enter amount', 'தொகையை உள்ளிடவும்')}
+                          min="1"
+                        />
+                      </div>
                       {errors.amount && <p className="text-red-500 text-xs mt-1">{errors.amount.message}</p>}
                     </div>
-                    <div className="relative">
-                      <FileText className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <Input
-                        id="remarks"
-                        className={cn(theme.input.base, theme.input.size.md, "pl-10")}
-                        {...register('remarks')} onChange={(e) => { const val = e.target.value; setValue('remarks', val ? val.replace(/\b\w/g, (char) => char.toUpperCase()) : val, { shouldValidate: true }); }}
-                        placeholder={t('Remarks', 'குறிப்புகள்')}
-                      />
+                    <div className="space-y-2 group">
+                      <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
+                        {t('Remarks', 'குறிப்புகள்')}
+                      </Label>
+                      <div className="relative">
+                        <FileText className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
+                        <Input
+                          id="remarks"
+                          className={cn(theme.input.base, theme.input.size.md, "pl-10 bg-white border-gray-200")}
+                          {...register('remarks')}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setValue('remarks', val ? val.replace(/\b\w/g, (char) => char.toUpperCase()) : val, { shouldValidate: true });
+                          }}
+                          placeholder={t('Any additional notes', 'கூடுதல் குறிப்புகள்')}
+                        />
+                      </div>
                     </div>
                   </>
                 )}
@@ -1168,25 +1261,33 @@ export default function AnnadhanamEntryPage() {
         {(() => {
           const handleDownloadReceipt = async (annadhanamId: number) => {
             try {
-              const response = await fetch(`https://templeapi.agniplay.com/api/annadhanam/${annadhanamId}/receipt.pdf`, {
+              const activeToken = token || localStorage.getItem('authToken');
+              if (!activeToken) {
+                alert(t("Please login again.", "தயவுசெய்து மீண்டும் உள்நுழையவும்."));
+                return;
+              }
+
+              const url = `/api/annadhanam/${annadhanamId}/receipt.pdf?token=${encodeURIComponent(activeToken)}`;
+
+              const response = await fetch(url, {
                 headers: {
-                  'Authorization': `Bearer ${token}`
+                  'Authorization': `Bearer ${activeToken}`
                 }
               });
 
               if (!response.ok) {
-                throw new Error('Failed to fetch receipt');
+                throw new Error(`Failed to fetch receipt: ${response.status}`);
               }
 
               const blob = await response.blob();
-              const url = window.URL.createObjectURL(blob);
+              const downloadUrl = window.URL.createObjectURL(blob);
               const link = document.createElement('a');
-              link.href = url;
+              link.href = downloadUrl;
               link.download = `receipt-${annadhanamId}.pdf`;
               document.body.appendChild(link);
               link.click();
               document.body.removeChild(link);
-              window.URL.revokeObjectURL(url);
+              window.URL.revokeObjectURL(downloadUrl);
             } catch (error) {
               console.error("Error downloading receipt:", error);
               alert(t("Failed to download receipt. Please try again.", "ரசீதைப் பதிவிறக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்."));

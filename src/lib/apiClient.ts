@@ -30,7 +30,12 @@ export function setGlobalLogoutCallback(callback: () => void) {
 }
 
 // Create axios instance with automatic token handling
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://templeapi.agniplay.com';
+const RAW_API_BASE =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || window.location.origin;
+const NORMALIZED_API_BASE = RAW_API_BASE.replace(/\/+$/, '');
+const API_BASE_URL = NORMALIZED_API_BASE.endsWith('/api')
+  ? NORMALIZED_API_BASE
+  : `${NORMALIZED_API_BASE}/api`;
 
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
@@ -89,5 +94,37 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Profile update API
+export interface ProfileUpdateData {
+  email?: string;
+  fullName?: string;
+  websiteLink?: string;
+  profileImage?: string;
+  trustInformation?: string;
+  templeData?: {
+    name?: string;
+    website_link?: string;
+    is_trust?: boolean;
+    trust_type?: string;
+    trust_registration_number?: string;
+    date_of_registration?: string;
+    pan_number?: string;
+    tan_number?: string;
+    gst_number?: string;
+    reg_12a?: string;
+    reg_80g?: string;
+  };
+}
+
+export async function updateProfile(data: ProfileUpdateData): Promise<any> {
+  try {
+    const response = await apiClient.put('/users/profile', data);
+    return response.data;
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.error || error.message || 'Failed to update profile';
+    throw new Error(errorMessage);
+  }
+}
 
 export default apiClient;

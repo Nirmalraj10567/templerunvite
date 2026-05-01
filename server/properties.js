@@ -115,7 +115,7 @@ async function createIncomeEntry({ asset, userId, templeId }) {
  */
 router.post('/', authenticateToken, authorizePermission('asset_management', 'full'), async (req, res) => {
   try {
-    const { name, details, value, asset_source, source_details, donor_name, donor_contact } = req.body;
+    const { name, details, value, quantity, asset_source, source_details, donor_name, donor_contact } = req.body;
 
     // Validate Required Fields
     if (!name || value === undefined || value === null) {
@@ -126,6 +126,7 @@ router.post('/', authenticateToken, authorizePermission('asset_management', 'ful
     }
 
     const numericValue = parseFloat(value);
+    const numericQty = parseFloat(quantity) || 1;
     if (isNaN(numericValue) || numericValue < 0) {
       return res.status(400).json({
         error: 'Invalid value',
@@ -138,6 +139,7 @@ router.post('/', authenticateToken, authorizePermission('asset_management', 'ful
       name: name.trim(),
       details: details ? details.trim() : null,
       value: numericValue,
+      quantity: numericQty,
       // Source Tracking fields
       asset_source: asset_source || 'other', // 'purchase', 'donation', 'other'
       source_details: source_details ? source_details.trim() : null,
@@ -163,6 +165,7 @@ router.post('/', authenticateToken, authorizePermission('asset_management', 'ful
           name: assetData.name,
           details: assetData.details,
           value: assetData.value,
+          quantity: assetData.quantity,
           asset_source: assetData.asset_source,
           source_details: assetData.source_details,
           donor_name: assetData.donor_name,
@@ -245,7 +248,16 @@ router.get('/stats', authenticateToken, authorizePermission('asset_management', 
     const total = assets.length;
     const active = assets.filter(a => a.status === 'active').length;
     const converted = assets.filter(a => a.status === 'converted').length;
-    const totalValue = assets.reduce((sum, a) => sum + (parseFloat(a.value) || 0), 0);
+    
+    // Calculate total value of ACTIVE assets (Inventory Value)
+    // Total Value = Sum of (quantity * unit_price)
+    const totalValue = assets
+      .filter(a => a.status === 'active')
+      .reduce((sum, a) => {
+        const val = parseFloat(a.value) || 0;
+        const qty = parseFloat(a.quantity) || 0;
+        return sum + (val * qty);
+      }, 0);
     
     res.json({
       success: true,
@@ -294,7 +306,7 @@ router.get('/:id', authenticateToken, authorizePermission('asset_management', 'v
 router.put('/:id', authenticateToken, authorizePermission('asset_management', 'full'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, details, value, asset_source, source_details, donor_name, donor_contact } = req.body;
+    const { name, details, value, quantity, asset_source, source_details, donor_name, donor_contact } = req.body;
 
     // Load Property Data → Verify Ownership
     const asset = await verifyAssetOwnership(id, req.user.templeId);
@@ -323,6 +335,7 @@ router.put('/:id', authenticateToken, authorizePermission('asset_management', 'f
     }
 
     const numericValue = parseFloat(value);
+    const numericQty = parseFloat(quantity) || 1;
     if (isNaN(numericValue) || numericValue < 0) {
       return res.status(400).json({
         error: 'Invalid value',
@@ -335,6 +348,7 @@ router.put('/:id', authenticateToken, authorizePermission('asset_management', 'f
       name: name.trim(),
       details: details ? details.trim() : null,
       value: numericValue,
+      quantity: numericQty,
       asset_source: asset_source || asset.asset_source,
       source_details: source_details ? source_details.trim() : asset.source_details,
       donor_name: donor_name ? donor_name.trim() : asset.donor_name,
@@ -356,6 +370,7 @@ router.put('/:id', authenticateToken, authorizePermission('asset_management', 'f
           name: asset.name,
           details: asset.details,
           value: asset.value,
+          quantity: asset.quantity,
           asset_source: asset.asset_source,
           source_details: asset.source_details,
           donor_name: asset.donor_name,
@@ -366,6 +381,7 @@ router.put('/:id', authenticateToken, authorizePermission('asset_management', 'f
           name: updateData.name,
           details: updateData.details,
           value: updateData.value,
+          quantity: updateData.quantity,
           asset_source: updateData.asset_source,
           source_details: updateData.source_details,
           donor_name: updateData.donor_name,

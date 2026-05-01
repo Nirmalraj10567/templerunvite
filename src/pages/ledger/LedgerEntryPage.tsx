@@ -224,23 +224,32 @@ export default function LedgerEntryPage() {
     )
   };
 
+  // Auto-map category based on transaction type:
+  // Credit -> INCOME A/C, Debit -> EXPENSE A/C
+  useEffect(() => {
+    const nextCategory = watchType === 'debit' ? 'EXPENSE A/C' : 'INCOME A/C';
+    setValue('under', nextCategory, { shouldDirty: true });
+  }, [watchType, setValue]);
+
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
     setValue('date', today);
 
-    const fetchBalance = async () => {
-      try {
-        const balance = await ledgerService.getCurrentBalance();
-        setCurrentBalance(balance);
-      } catch (error) {
-        console.error('Error fetching balance:', error);
-        toast({
-          title: t('error'),
-          description: t('failedToLoadCurrentBalance'),
-          variant: 'destructive',
-        });
-      }
-    };
+      const fetchBalance = async () => {
+        try {
+          const balance = await ledgerService.getCurrentBalance();
+          const parsedBalance = Number(balance);
+          setCurrentBalance(isNaN(parsedBalance) ? 0 : parsedBalance);
+        } catch (error) {
+          console.error('Error fetching balance:', error);
+          setCurrentBalance(0);
+          toast({
+            title: t('error'),
+            description: t('failedToLoadCurrentBalance'),
+            variant: 'destructive',
+          });
+        }
+      };
 
     const fetchCategories = async () => {
       // Wait until templeId is available, effect will re-run when it changes
@@ -314,7 +323,8 @@ export default function LedgerEntryPage() {
       if (!data.name) {
         throw new Error(t('nameIsRequired'));
       }
-      if (Number.isNaN(Number(data.amount)) || Number(data.amount) < 0) {
+      const normalizedAmount = Number(data.amount ?? 0);
+      if (Number.isNaN(normalizedAmount) || normalizedAmount < 0) {
         throw new Error(t('amountCannotBeNegative'));
       }
 
@@ -324,7 +334,7 @@ export default function LedgerEntryPage() {
         name: data.name,
         under: data.under || null,
         type: data.type,
-        amount: Number(data.amount),
+        amount: normalizedAmount,
         address: data.address || null,
         city: data.city || null,
         phone: data.phone || null,
@@ -511,7 +521,7 @@ export default function LedgerEntryPage() {
       mobile: '',
       email: '',
       note: '',
-      amount: 0
+      amount: undefined as unknown as number
     });
     setSelectedCategory(null);
     setIsCategoryOpen(false);
@@ -558,7 +568,7 @@ export default function LedgerEntryPage() {
               <div className={formFieldStyles.ledgerForm.balanceText}>
                 {t('balance')}: <span className={formFieldStyles.ledgerForm.balanceAmount}>₹{formatINR(currentBalance)}</span>
               </div>
-              <CategoryManager categories={categories} setCategories={setCategories} />
+           
             </div>
 
             <form
@@ -653,7 +663,10 @@ export default function LedgerEntryPage() {
                     <Button
                       type="button"
                       variant={watch('type') === 'credit' ? 'default' : 'outline'}
-                      onClick={() => setValue('type', 'credit')}
+                      onClick={() => {
+                        setValue('type', 'credit', { shouldDirty: true });
+                        setValue('under', 'INCOME A/C', { shouldDirty: true });
+                      }}
                       className={cn(
                         watch('type') === 'credit' ? buttonVariants.primary : buttonVariants.outline,
                         "w-full"
@@ -664,7 +677,10 @@ export default function LedgerEntryPage() {
                     <Button
                       type="button"
                       variant={watch('type') === 'debit' ? 'default' : 'outline'}
-                      onClick={() => setValue('type', 'debit')}
+                      onClick={() => {
+                        setValue('type', 'debit', { shouldDirty: true });
+                        setValue('under', 'EXPENSE A/C', { shouldDirty: true });
+                      }}
                       className={cn(
                         watch('type') === 'debit' ? buttonVariants.primary : buttonVariants.outline,
                         "w-full"
@@ -689,8 +705,7 @@ export default function LedgerEntryPage() {
                         min: {
                           value: 0,
                           message: t('amountCannotBeNegative')
-                        },
-                        required: t('amountIsRequired')
+                        }
                       })}
                       placeholder="0.00"
                       min={0}

@@ -3,6 +3,8 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
+const devApiTarget = process.env.VITE_DEV_API_TARGET || "http://localhost:4000";
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   // Use absolute base so assets resolve from domain root on deep links
@@ -12,12 +14,12 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
     proxy: {
       '/api': {
-        target: 'https://templeapi.agniplay.com',
+        target: devApiTarget,
         changeOrigin: true,
         secure: false,
       },
       '/master': {
-        target: 'https://templeapi.agniplay.com/api',
+        target: `${devApiTarget}/api`,
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/master/, '')

@@ -70,19 +70,26 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50">
       <Header />
       <div className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="w-full max-w-md space-y-8">
-          <Card className="p-8 space-y-6 shadow-lg rounded-xl">
+          <Card className="p-8 space-y-6 shadow-2xl rounded-2xl border-0 bg-white/95 backdrop-blur-sm">
             <div className="text-center">
-              <h1 className="text-3xl font-extrabold text-gray-900">{t[lang].title}</h1>
-              <p className="mt-2 text-sm text-gray-600">{t[lang].subtitle}</p>
+              <h1 className="text-4xl font-extrabold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
+                {t[lang].title}
+              </h1>
+              <p className="mt-3 text-lg text-gray-600 font-medium">{t[lang].subtitle}</p>
             </div>
 
             {error && (
-              <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md">
-                <p>{error}</p>
+              <div className="bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 text-red-700 p-4 rounded-xl shadow-sm">
+                <div className="flex items-center">
+                  <svg className="w-5 h-5 mr-2 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  <p className="font-medium">{error}</p>
+                </div>
               </div>
             )}
 
@@ -98,7 +105,7 @@ export function LoginPage() {
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   required
-                  className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-orange-500 focus:border-orange-500 focus:z-10 sm:text-sm"
+                  className="appearance-none rounded-xl relative block w-full px-4 py-3 border border-gray-200 placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent focus:z-10 sm:text-sm transition-all duration-200 bg-gray-50 focus:bg-white"
                 />
               </div>
               <div className="relative">
@@ -112,17 +119,17 @@ export function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="appearance-none rounded-md relative block w-full px-3 py-2 pr-10 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-orange-500 focus:border-orange-500 focus:z-10 sm:text-sm"
+                  className="appearance-none rounded-xl relative block w-full px-4 py-3 pr-12 border border-gray-200 placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent focus:z-10 sm:text-sm transition-all duration-200 bg-gray-50 focus:bg-white"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5 z-20"
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-sm leading-5 z-20 p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
                 >
                   {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-500" />
+                    <EyeOff className="h-5 w-5 text-gray-600 hover:text-orange-600 transition-colors" />
                   ) : (
-                    <Eye className="h-5 w-5 text-gray-500" />
+                    <Eye className="h-5 w-5 text-gray-600 hover:text-orange-600 transition-colors" />
                   )}
                 </button>
               </div>
@@ -130,16 +137,19 @@ export function LoginPage() {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50"
+                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-xl text-white bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed transform transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl"
               >
                 {isLoading ? t[lang].signingIn : t[lang].signIn}
               </Button>
             </form>
 
-            <div className="text-sm text-center">
-              <a href="/register" className="font-medium text-orange-600 hover:text-orange-700">
-                {t[lang].noAccountRegister}
-              </a>
+            <div className="text-center pt-4 border-t border-gray-100">
+              <p className="text-sm text-gray-600">
+                {t[lang].noAccountRegister.split('?')[0]}?
+                <a href="/register" className="ml-1 font-semibold text-transparent bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text hover:from-orange-700 hover:to-amber-700 transition-all duration-200">
+                  {t[lang].noAccountRegister.split('?')[1] || t[lang].noAccountRegister}
+                </a>
+              </p>
             </div>
           </Card>
         </div>
@@ -147,4 +157,3 @@ export function LoginPage() {
     </div>
   );
 }
-

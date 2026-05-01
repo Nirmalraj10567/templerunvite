@@ -287,7 +287,9 @@ export default function AssetManagementPage() {
             <TableRow>
               <TableHead>{t('Name', 'பெயர்')}</TableHead>
               <TableHead>{t('Details', 'விவரங்கள்')}</TableHead>
-              <TableHead>{t('Total', 'மொத்தம்')}</TableHead>
+              <TableHead>{t('Qty', 'அளவு')}</TableHead>
+              <TableHead>{t('Price', 'விலை')}</TableHead>
+              <TableHead>{t('Total Value', 'மொத்த மதிப்பு')}</TableHead>
               <TableHead>{t('Used', 'பயன்படுத்திய')}</TableHead>
               <TableHead>{t('For Sell', 'விற்க')}</TableHead>
               <TableHead>{t('Available', 'கிடைக்கிறது')}</TableHead>
@@ -298,13 +300,13 @@ export default function AssetManagementPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
+                <TableCell colSpan={10} className="text-center py-8">
                   {t('Loading...', 'ஏற்றுகிறது...')}
                 </TableCell>
               </TableRow>
             ) : assets.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
+                <TableCell colSpan={10} className="text-center py-8">
                   {t('No assets found', 'சொத்துகள் இல்லை')}
                 </TableCell>
               </TableRow>
@@ -326,6 +328,14 @@ export default function AssetManagementPage() {
                   </TableCell>
                   <TableCell>
                     <div className="font-bold">{asset.quantity || 0}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm">{formatCurrency(asset.value || 0)}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-bold text-purple-700">
+                      {formatCurrency((asset.quantity || 0) * (asset.value || 0))}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="text-red-600">{asset.used_qty || 0}</div>

@@ -15,8 +15,26 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Trash2, Loader2 } from 'lucide-react';
 import { cn, pageContainerStyles, formFieldStyles } from '@/styles/formStyles';
-import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { theme } from '@/styles/theme';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { toast } from "@/components/ui/use-toast";
+import { MoneyDonationFormData } from '@/services/moneyDonationService';
+
+const toNum = (v: any) => {
+  if (v === null || v === undefined) return 0;
+  if (typeof v === 'number') return v;
+  return parseFloat(String(v).replace(/[^0-9.-]+/g, "")) || 0;
+};
 
 export default function MoneyDonationList() {
   const { token } = useAuth();
@@ -28,7 +46,7 @@ export default function MoneyDonationList() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
 
-  const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
+  const t = (en: string, ta: string) => (language === 'tamil' ? ta : en);
 
   // Fetch user names/details for given ids (per-id endpoint, resilient)
   const fetchUserNames = async (userIds: number[]) => {
@@ -76,9 +94,10 @@ export default function MoneyDonationList() {
   type ColKey = '#' | 'receipt' | 'date' | 'name' | 'phone' | 'amount' | 'reason' | 'actions';
 
   const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' | 'center' }> = [
-    { key: '#', label: '#' },
+    { key: '#', label: t('S.No', 'வ.எண்') },
     { key: 'receipt', label: t('Receipt No', 'ரசீது எண்') },
-    { key: 'date', label: t('Date', 'தேதி') },
+    { key: 'entryDate', label: t('Entry Date', 'நுழைவு தேதி') },
+    { key: 'date', label: t('Booking Date', 'பதிவு தேதி') },
     { key: 'name', label: t('Name', 'பெயர்') },
     { key: 'phone', label: t('Phone', 'கைபேசி') },
     { key: 'amount', label: t('Amount', 'தொகை'), align: 'right' },
@@ -90,6 +109,7 @@ export default function MoneyDonationList() {
   const defaultVisible: Record<ColKey, boolean> = {
     '#': true,
     receipt: true,
+    entryDate: true,
     date: true,
     name: true,
     phone: true,
@@ -316,9 +336,59 @@ export default function MoneyDonationList() {
     }
   };
 
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<MoneyDonationItem | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const formatDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return '-';
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return dateStr;
+      const d = date.getDate().toString().padStart(2, '0');
+      const m = (date.getMonth() + 1).toString().padStart(2, '0');
+      const y = date.getFullYear();
+      return `${d}/${m}/${y}`;
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
   const onEdit = (row: MoneyDonationItem) => {
-    // Navigate to entry page with query param; entry page may be enhanced to support editing later
-    navigate(`/dashboard/donations/money-entry?editId=${row.id}`);
+    setEditingItem(row);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingItem) return;
+    setSavingEdit(true);
+    try {
+      const getVal = (id: string) => (document.getElementById(id) as HTMLInputElement)?.value;
+      const payload: Partial<MoneyDonationFormData> = {
+        registerNo: getVal('edit_registerNo'),
+        name: getVal('edit_name'),
+        phone: getVal('edit_phone'),
+        entryDate: getVal('edit_entryDate'),
+        bookingDate: getVal('edit_bookingDate'),
+        amount: getVal('edit_amount'),
+        reason: getVal('edit_reason'),
+        transferTo: (document.getElementById('edit_transferTo') as HTMLSelectElement)?.value,
+      };
+
+      const res = await moneyDonationService.update(token, editingItem.id, payload);
+      if (res.success) {
+        toast({ title: t('Success', 'வெற்றி'), description: t('Donation updated successfully', 'நன்கொடை வெற்றிகரமாக புதுப்பிக்கப்பட்டது') });
+        setIsEditModalOpen(false);
+        setEditingItem(null);
+        fetchItems();
+        refreshJournal();
+      }
+    } catch (err) {
+      console.error('Update failed:', err);
+      toast({ title: t('Error', 'பிழை'), description: t('Failed to update donation', 'நன்கொடையைப் புதுப்பிக்க முடியவில்லை'), variant: 'destructive' });
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   // Function to refresh journal after money donation operations
@@ -546,11 +616,12 @@ export default function MoneyDonationList() {
                       {visibleCols['receipt'] && (
                         <td className={formFieldStyles.moneyDonationList.table.td}>{(r as any).register_no || '-'}</td>
                       )}
-                      {visibleCols['date'] && <td className={formFieldStyles.moneyDonationList.table.td}>{r.date || '-'}</td>}
+                      {visibleCols['entryDate'] && <td className={formFieldStyles.moneyDonationList.table.td}>{formatDate((r as any).entry_date)}</td>}
+                      {visibleCols['date'] && <td className={formFieldStyles.moneyDonationList.table.td}>{formatDate(r.date)}</td>}
                       {visibleCols['name'] && <td className={formFieldStyles.moneyDonationList.table.td}>{r.name || '-'}</td>}
                       {visibleCols['phone'] && <td className={formFieldStyles.moneyDonationList.table.td}>{r.phone || '-'}</td>}
                       {visibleCols['amount'] && (
-                        <td className={cn(formFieldStyles.moneyDonationList.table.td, formFieldStyles.moneyDonationList.table.tdRight)}>₹{toNum(r.amount).toLocaleString()}</td>
+                        <td className={cn(formFieldStyles.moneyDonationList.table.td, formFieldStyles.moneyDonationList.table.tdRight)}>{toNum(r.amount).toLocaleString()}</td>
                       )}
                       {visibleCols['reason'] && <td className={formFieldStyles.moneyDonationList.table.td}>{r.reason || '-'}</td>}
                       {visibleCols['actions'] && (
@@ -614,7 +685,7 @@ export default function MoneyDonationList() {
             </div>
             <div className={formFieldStyles.moneyDonationList.summary.total}>
               <span>
-                {t('Total Amount', 'மொத்த தொகை')}: <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>₹{totals.toLocaleString()}</span>
+                {t('Total Amount', 'மொத்த தொகை')}: <span className={formFieldStyles.moneyDonationList.summary.fontMedium}>{totals.toLocaleString()}</span>
               </span>
             </div>
           </div>
@@ -680,6 +751,78 @@ export default function MoneyDonationList() {
               >
                 {t('Close', 'மூடு')}
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Quick Edit Modal */}
+        {isEditModalOpen && editingItem && (
+          <div className={formFieldStyles.moneyDonationList.modal.overlay}>
+            <div className={formFieldStyles.moneyDonationList.modal.backdrop} onClick={() => setIsEditModalOpen(false)} />
+            <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-lg mx-4 flex flex-col">
+              <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 px-6 rounded-t-lg flex items-center justify-between">
+                <h2 className="text-lg font-bold">{t('Quick Edit Donation', 'விரைவு திருத்தம்')}</h2>
+                <button onClick={() => setIsEditModalOpen(false)} className="text-white hover:text-gray-200">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-gray-500 uppercase">{t('Receipt No', 'ரசீது எண்')}</label>
+                    <Input id="edit_registerNo" defaultValue={editingItem.register_no || ''} className="h-9" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-gray-500 uppercase">{t('Name', 'பெயர்')}</label>
+                    <Input id="edit_name" defaultValue={editingItem.name || ''} className="h-9" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-gray-500 uppercase">{t('Phone', 'கைபேசி')}</label>
+                    <Input id="edit_phone" defaultValue={editingItem.phone || ''} className="h-9" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-gray-500 uppercase">{t('Amount', 'தொகை')}</label>
+                    <Input id="edit_amount" type="number" defaultValue={editingItem.amount || ''} className="h-9 font-bold" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-gray-500 uppercase">{t('Entry Date', 'பதிவு தேதி')}</label>
+                    <Input id="edit_entryDate" type="date" defaultValue={(editingItem as any).entry_date || editingItem.date || ''} className="h-9" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-gray-500 uppercase">{t('Booking Date', 'பூஜை தேதி')}</label>
+                    <Input id="edit_bookingDate" type="date" defaultValue={editingItem.date || ''} className="h-9" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-gray-500 uppercase">{t('Transfer To', 'மாற்ற வேண்டிய கணக்கு')}</label>
+                  <select 
+                    id="edit_transferTo" 
+                    defaultValue={(editingItem as any).transfer_to_account || 'INCOME A/C'} 
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors"
+                  >
+                    <option value="INCOME A/C">INCOME A/C</option>
+                    <option value="CASH A/C">CASH A/C</option>
+                    <option value="BANK A/C">BANK A/C</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-gray-500 uppercase">{t('Reason', 'காரணம்')}</label>
+                  <textarea 
+                    id="edit_reason" 
+                    defaultValue={editingItem.reason || ''} 
+                    className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
+                  />
+                </div>
+              </div>
+              <div className="p-4 border-t flex justify-end gap-2 bg-gray-50 rounded-b-lg">
+                <Button variant="outline" size="sm" onClick={() => setIsEditModalOpen(false)} disabled={savingEdit}>
+                  {t('Cancel', 'ரத்து செய்')}
+                </Button>
+                <Button size="sm" onClick={handleSaveEdit} disabled={savingEdit}>
+                  {savingEdit ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                  {t('Save Changes', 'மாற்றங்களைச் சேமி')}
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -843,7 +986,7 @@ export default function MoneyDonationList() {
                                                 {amount && (
                                                   <div className="flex justify-between">
                                                     <span className="font-medium">{t('Amount', 'தொகை')}:</span>
-                                                    <span>₹{amount}</span>
+                                                    <span>{amount}</span>
                                                   </div>
                                                 )}
                                                 {phone && (
@@ -1037,7 +1180,7 @@ export default function MoneyDonationList() {
                                             {amount && (
                                               <div className="flex justify-between">
                                                 <span className="font-medium">{t('Amount', 'தொகை')}:</span>
-                                                <span>₹{amount}</span>
+                                                <span>{amount}</span>
                                               </div>
                                             )}
                                             {phone && (

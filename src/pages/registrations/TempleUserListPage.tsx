@@ -21,7 +21,7 @@ type Registration = {
   status?: 'active' | 'blocked' | 'inactive';
 };
 
-type ColKey = 'name' | 'mobile_number' | 'aadhaar_number' | 'reference_number' | 'village' | 'created_at' | 'actions';
+type ColKey = 'sno' | 'name' | 'mobile_number' | 'aadhaar_number' | 'reference_number' | 'village' | 'created_at' | 'actions';
 
 const t = {
   tamil: {
@@ -95,6 +95,7 @@ export default function TempleUserListPage() {
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / pageSize)), [total, pageSize]);
 
   const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' | 'center' }> = [
+    { key: 'sno', label: language === 'tamil' ? 'S.No' : 'வ.எண்' },
     { key: 'name', label: t[language].name },
     { key: 'mobile_number', label: t[language].mobile },
     { key: 'aadhaar_number', label: t[language].aadhaar },
@@ -106,6 +107,7 @@ export default function TempleUserListPage() {
 
   const STORAGE_KEY = 'temple_user_list_visible_columns_v1';
   const defaultVisible: Record<ColKey, boolean> = {
+    sno: true,
     name: true,
     mobile_number: true,
     aadhaar_number: true,
@@ -375,8 +377,13 @@ export default function TempleUserListPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  rows.map((r) => (
+                  rows.map((r, index) => (
                     <TableRow key={r.id} className={tableClasses.row}>
+                      {visibleCols.sno && (
+                        <TableCell className={tableClasses.cellSno}>
+                          {(page - 1) * pageSize + index + 1}
+                        </TableCell>
+                      )}
                       {visibleCols.name && (
                         <TableCell className={tableClasses.cell}>
                           {r.name}
@@ -404,9 +411,14 @@ export default function TempleUserListPage() {
                       )}
                       {visibleCols.created_at && (
                         <TableCell className={tableClasses.cell}>
-                          {r.created_at
-                            ? new Date(r.created_at).toLocaleDateString(language === 'tamil' ? 'ta-IN' : 'en-IN')
-                            : '-'}
+                          {r.created_at ? (() => {
+                            const date = new Date(r.created_at);
+                            if (isNaN(date.getTime())) return r.created_at;
+                            const d = date.getDate().toString().padStart(2, '0');
+                            const m = (date.getMonth() + 1).toString().padStart(2, '0');
+                            const y = date.getFullYear();
+                            return `${d}/${m}/${y}`;
+                          })() : '-'}
                         </TableCell>
                       )}
                       {visibleCols.actions && (

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 
 /* ─────────────────────────────────────────────
    DESIGN TOKENS  (inline so no extra files needed)
@@ -495,6 +496,23 @@ export default function TempleUserEntryPage() {
     }
   }, [user, token]);
 
+  // Refetch master data after creating a new entry
+  const refetchMasterData = useCallback(async () => {
+    if (!user?.templeId || !token) return;
+    try {
+      const [clansRes, groupsRes, occupationsRes, educationsRes] = await Promise.all([
+        fetch(`https://templeapi.agniplay.com/api/master/clans/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`https://templeapi.agniplay.com/api/master/groups/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`https://templeapi.agniplay.com/api/master/occupations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`https://templeapi.agniplay.com/api/master/educations/${user.templeId}`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      if (clansRes.ok) setMasterClans((await clansRes.json()).map((x: any) => x.name));
+      if (groupsRes.ok) setMasterGroups((await groupsRes.json()).map((x: any) => x.name));
+      if (occupationsRes.ok) setMasterOccupations((await occupationsRes.json()).map((x: any) => x.name));
+      if (educationsRes.ok) setMasterEducations((await educationsRes.json()).map((x: any) => x.name));
+    } catch {}
+  }, [user?.templeId, token]);
+
 
 
   /* ── edit mode load ── */
@@ -923,25 +941,29 @@ export default function TempleUserEntryPage() {
                   </div>
 
                   <Field label={t.educationLabel} required error={errors.education}>
-                    <StyledSelect
-                      hasError={!!errors.education}
+                    <SearchableSelect
+                      className=""
                       value={newUser.education}
-                      onChange={e => { set('education', e.target.value); clearErr('education'); }}
-                    >
-                      <option value="">{t.selectEducation}</option>
-                      {masterEducations.map(edu => <option key={edu} value={edu}>{edu}</option>)}
-                    </StyledSelect>
+                      onChange={v => { set('education', v); clearErr('education'); }}
+                      options={masterEducations}
+                      placeholder={t.selectEducation}
+                      createEndpoint="https://templeapi.agniplay.com/api/master/educations"
+                      token={token}
+                      onCreated={refetchMasterData}
+                    />
                   </Field>
 
                   <Field label={t.occupationLabel} required error={errors.occupation}>
-                    <StyledSelect
-                      hasError={!!errors.occupation}
+                    <SearchableSelect
+                      className=""
                       value={newUser.occupation}
-                      onChange={e => { set('occupation', e.target.value); clearErr('occupation'); }}
-                    >
-                      <option value="">{t.selectOccupation}</option>
-                      {masterOccupations.map(occ => <option key={occ} value={occ}>{occ}</option>)}
-                    </StyledSelect>
+                      onChange={v => { set('occupation', v); clearErr('occupation'); }}
+                      options={masterOccupations}
+                      placeholder={t.selectOccupation}
+                      createEndpoint="https://templeapi.agniplay.com/api/master/occupations"
+                      token={token}
+                      onCreated={refetchMasterData}
+                    />
                   </Field>
 
                 </div>
@@ -993,16 +1015,28 @@ export default function TempleUserEntryPage() {
                     />
                   </Field>
                   <Field label={t.clan}>
-                    <StyledSelect value={newUser.clan} onChange={e => set('clan', e.target.value)}>
-                      <option value="">{t.selectClan}</option>
-                      {masterClans.map(c => <option key={c} value={c}>{c}</option>)}
-                    </StyledSelect>
+                    <SearchableSelect
+                      className=""
+                      value={newUser.clan}
+                      onChange={v => set('clan', v)}
+                      options={masterClans}
+                      placeholder={t.selectClan}
+                      createEndpoint="https://templeapi.agniplay.com/api/master/clans"
+                      token={token}
+                      onCreated={refetchMasterData}
+                    />
                   </Field>
                   <Field label={t.group}>
-                    <StyledSelect value={newUser.group} onChange={e => set('group', e.target.value)}>
-                      <option value="">{t.selectGroup}</option>
-                      {masterGroups.map(g => <option key={g} value={g}>{g}</option>)}
-                    </StyledSelect>
+                    <SearchableSelect
+                      className=""
+                      value={newUser.group}
+                      onChange={v => set('group', v)}
+                      options={masterGroups}
+                      placeholder={t.selectGroup}
+                      createEndpoint="https://templeapi.agniplay.com/api/master/groups"
+                      token={token}
+                      onCreated={refetchMasterData}
+                    />
                   </Field>
                   <Field label={t.maleHeirs}>
                     <StyledInput

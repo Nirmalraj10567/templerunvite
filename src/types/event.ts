@@ -11,6 +11,8 @@ export interface Event {
   title: string;
   description: string;
   date: string;
+  fromDate?: string;
+  toDate?: string;
   time: string;
   location: string;
   images: EventImage[];

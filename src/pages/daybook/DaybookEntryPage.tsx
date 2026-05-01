@@ -273,7 +273,7 @@ export default function DaybookEntryPage() {
                 <div>
                   <Label className={labelStyles}>
                     <Calendar className="h-4 w-4 inline mr-2" />
-                    {t('Entry Date *', 'உள்ளீடு தேதி *')}
+                    {t('Entry Date', 'உள்ளீடு தேதி')}
                   </Label>
                   <Input
                     type="date"

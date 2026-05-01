@@ -277,14 +277,27 @@ module.exports = function(deps = {}) {
       const period_net = parseFloat(stats.total_income || 0) - parseFloat(stats.total_expense || 0);
       const closing_balance = opening_balance + period_net;
 
+      // Actual current balance (all time)
+      const allTimeStats = await db('daybook_entries')
+        .where('temple_id', req.user.templeId)
+        .select(
+          db.raw('SUM(CASE WHEN entry_type = "income" THEN amount ELSE 0 END) as all_time_income'),
+          db.raw('SUM(CASE WHEN entry_type = "expense" THEN amount ELSE 0 END) as all_time_expense')
+        )
+        .first();
+
+      const actual_current_balance = parseFloat(allTimeStats.all_time_income || 0) - parseFloat(allTimeStats.all_time_expense || 0);
+
       res.json({
         success: true,
         data: {
           ...stats,
           opening_balance,
           period_net,
-          current_balance: closing_balance, // For backward compatibility
           closing_balance,
+          all_time_income: parseFloat(allTimeStats.all_time_income || 0),
+          all_time_expense: parseFloat(allTimeStats.all_time_expense || 0),
+          current_balance: actual_current_balance,
           period: { from, to }
         }
       });

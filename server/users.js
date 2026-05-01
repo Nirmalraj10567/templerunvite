@@ -4,6 +4,27 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const sendOtp = require('./sendOtp'); // Import the SMS OTP service
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// Set up multer for profile image uploads
+const profileUploadDir = path.join(__dirname, '../public/uploads/profiles');
+if (!fs.existsSync(profileUploadDir)) {
+  fs.mkdirSync(profileUploadDir, { recursive: true });
+}
+
+const profileStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, profileUploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'profile-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const uploadProfileImage = multer({ storage: profileStorage });
 
 module.exports = function (deps = {}) {
   const { db, JWT_SECRET, authenticateToken } = deps;
@@ -334,7 +355,7 @@ module.exports = function (deps = {}) {
   // Register endpoint
   // Public self-registration: creates a new temple automatically when unauthenticated and no templeId provided
   // Authenticated admin/superadmin: can create users under their own temple
-  router.post('/register', async (req, res) => {
+  router.post('/register', uploadProfileImage.single('image'), async (req, res) => {
     const {
       mobile,
       username,
@@ -357,6 +378,9 @@ module.exports = function (deps = {}) {
       reg80G,
     } = req.body || {};
 
+    // Temple name from registration form (read separately to avoid hoisting issues)
+    const templeName = req.body?.templeName;
+
     if (!mobile || !username || !password) {
       return res.status(400).json({ error: 'Mobile, username, and password are required.' });
     }
@@ -378,12 +402,21 @@ module.exports = function (deps = {}) {
       } else {
         // Public self-registration path
         if (!resolvedTempleId) {
-          // Auto-create a temple with minimal required fields compatible with MySQL schema
-          const templeName = (fullName && String(fullName).trim()) || `Temple ${String(mobile).trim()}`;
-          // Insert only existing columns in temples schema
+          // Auto-create a temple with registration form data
+          const finalTempleName = (templeName && String(templeName).trim()) || (fullName && String(fullName).trim()) || `Temple ${String(mobile).trim()}`;
           const [newTempleId] = await db('temples').insert({
-            name: templeName,
+            name: finalTempleName,
             address: 'N/A',
+            website_link: websiteLink || null,
+            is_trust: isTrust ? 1 : 0,
+            trust_type: trustType || null,
+            trust_registration_number: trustRegistrationNumber || null,
+            date_of_registration: dateOfRegistration || null,
+            pan_number: panNumber || null,
+            tan_number: tanNumber || null,
+            gst_number: gstNumber || null,
+            reg_12a: reg12A || null,
+            reg_80g: reg80G || null,
           });
           resolvedTempleId = newTempleId;
 
@@ -453,6 +486,22 @@ module.exports = function (deps = {}) {
       });
 
       const createdUser = await db('users').where({ id: insertId }).first();
+
+      // Save optional profile image from register page
+      if (req.file) {
+        try {
+          const hasProfileImageOnUsers = await db.schema.hasColumn('users', 'profile_image');
+          if (hasProfileImageOnUsers) {
+            const profileImagePath = `/uploads/profiles/${req.file.filename}`;
+            await db('users')
+              .where({ id: insertId })
+              .update({ profile_image: profileImagePath, updated_at: db.fn.now() });
+            createdUser.profile_image = profileImagePath;
+          }
+        } catch (e) {
+          console.warn('Failed to save profile image during register:', e.message);
+        }
+      }
 
       // Grant ALL permissions (full) to newly registered user
       const ALL_PERMISSION_IDS = [
@@ -627,6 +676,21 @@ module.exports = function (deps = {}) {
       console.error('Error stack:', err.stack);
       if (err.sql) console.error('SQL:', err.sql);
       if (err.sqlMessage) console.error('SQL Message:', err.sqlMessage);
+
+      // Handle duplicate entry errors
+      if (err.code === 'ER_DUP_ENTRY') {
+        if (err.message.includes('users_email_unique') || err.sqlMessage?.includes('users_email_unique')) {
+          return res.status(409).json({ error: 'Email already registered' });
+        }
+        if (err.message.includes('users_username_unique') || err.sqlMessage?.includes('users_username_unique')) {
+          return res.status(409).json({ error: 'Username already taken' });
+        }
+        if (err.message.includes('users_mobile_unique') || err.sqlMessage?.includes('users_mobile_unique')) {
+          return res.status(409).json({ error: 'Mobile number already registered' });
+        }
+        return res.status(409).json({ error: 'Duplicate entry found' });
+      }
+
       return res.status(500).json({ 
         error: 'Database error during registration.',
         details: err.message 
@@ -653,10 +717,32 @@ module.exports = function (deps = {}) {
   // Get current user profile
   router.get('/profile', async (req, res) => {
     try {
+      const templeColumnsToSelect = [
+        { column: 'name', alias: 'templeName' },
+        { column: 'website_link', alias: 'templeWebsite' },
+        { column: 'is_trust', alias: 'is_trust' },
+        { column: 'trust_type', alias: 'trust_type' },
+        { column: 'trust_registration_number', alias: 'trust_registration_number' },
+        { column: 'date_of_registration', alias: 'date_of_registration' },
+        { column: 'pan_number', alias: 'pan_number' },
+        { column: 'tan_number', alias: 'tan_number' },
+        { column: 'gst_number', alias: 'gst_number' },
+        { column: 'reg_12a', alias: 'reg_12a' },
+        { column: 'reg_80g', alias: 'reg_80g' },
+      ];
+
+      const selectFields = ['users.*'];
+      for (const item of templeColumnsToSelect) {
+        try {
+          const exists = await db.schema.hasColumn('temples', item.column);
+          if (exists) selectFields.push(`temples.${item.column} as ${item.alias}`);
+        } catch {}
+      }
+
       const user = await db('users')
         .join('temples', 'users.temple_id', 'temples.id')
         .where('users.id', req.user.id)
-        .select('users.*', 'temples.name as templeName')
+        .select(selectFields)
         .first();
 
       if (!user) {
@@ -671,27 +757,107 @@ module.exports = function (deps = {}) {
     }
   });
 
-  // Update current user profile
-  router.put('/profile', async (req, res) => {
-    const { email, fullName, websiteLink, profileImage, trustInformation } = req.body;
+  // Update current user profile (with optional image upload)
+  router.put('/profile', uploadProfileImage.single('profileImage'), async (req, res) => {
+    const { email, fullName, websiteLink, trustInformation, templeData } = req.body;
+    const profileImagePath = req.file ? `/uploads/profiles/${req.file.filename}` : undefined;
+    let parsedTempleData = templeData;
+
+    // multipart/form-data sends nested objects as strings; parse safely if needed
+    if (typeof parsedTempleData === 'string') {
+      try {
+        parsedTempleData = JSON.parse(parsedTempleData);
+      } catch {
+        parsedTempleData = null;
+      }
+    }
 
     try {
-      const updatedUser = await db('users')
-        .where('id', req.user.id)
-        .update({
-          email: email || null,
-          full_name: fullName || null,
-          website_link: websiteLink || null,
-          profile_image: profileImage || null,
-          trust_information: trustInformation || null,
-          updated_at: db.fn.now()
-        })
-        .returning('*');
+      // Update user fields
+      const userUpdateData = {};
+      if (email !== undefined) userUpdateData.email = email;
+      if (fullName !== undefined) userUpdateData.full_name = fullName;
+      try {
+        const hasProfileImageOnUsers = await db.schema.hasColumn('users', 'profile_image');
+        if (hasProfileImageOnUsers && profileImagePath !== undefined) {
+          userUpdateData.profile_image = profileImagePath;
+        }
+      } catch {}
+      // These columns are optional across deployments; only set when they exist.
+      try {
+        const hasWebsiteLinkOnUsers = await db.schema.hasColumn('users', 'website_link');
+        if (hasWebsiteLinkOnUsers && websiteLink !== undefined) userUpdateData.website_link = websiteLink;
+      } catch {}
+      try {
+        const hasTrustInfoOnUsers = await db.schema.hasColumn('users', 'trust_information');
+        if (hasTrustInfoOnUsers && trustInformation !== undefined) userUpdateData.trust_information = trustInformation;
+      } catch {}
+      try {
+        const hasUsersUpdatedAt = await db.schema.hasColumn('users', 'updated_at');
+        if (hasUsersUpdatedAt) userUpdateData.updated_at = db.fn.now();
+      } catch {}
 
-      res.json({ success: true, user: updatedUser[0] });
+      if (Object.keys(userUpdateData).length > 1) { // More than just updated_at
+        await db('users').where('id', req.user.id).update(userUpdateData);
+      }
+
+      // Update temple fields if provided
+      if (parsedTempleData && req.user.templeId) {
+        const templeUpdateData = {};
+        const templeFields = [
+          'name',
+          'website_link', 'is_trust', 'trust_type', 'trust_registration_number',
+          'date_of_registration', 'pan_number', 'tan_number', 'gst_number', 'reg_12a', 'reg_80g'
+        ];
+        
+        for (const field of templeFields) {
+          try {
+            const exists = await db.schema.hasColumn('temples', field);
+            if (exists && parsedTempleData[field] !== undefined) {
+              templeUpdateData[field] = parsedTempleData[field];
+            }
+          } catch {}
+        }
+
+        if (Object.keys(templeUpdateData).length > 0) {
+          try {
+            const hasTempleUpdatedAt = await db.schema.hasColumn('temples', 'updated_at');
+            if (hasTempleUpdatedAt) templeUpdateData.updated_at = db.fn.now();
+          } catch {}
+          await db('temples').where('id', req.user.templeId).update(templeUpdateData);
+        }
+      }
+
+      // Fetch updated user with temple info
+      const updatedSelectFields = ['users.*'];
+      try {
+        const hasTempleName = await db.schema.hasColumn('temples', 'name');
+        if (hasTempleName) updatedSelectFields.push('temples.name as templeName');
+      } catch {}
+      try {
+        const hasTempleWebsite = await db.schema.hasColumn('temples', 'website_link');
+        if (hasTempleWebsite) updatedSelectFields.push('temples.website_link as templeWebsite');
+      } catch {}
+
+      const updatedUser = await db('users')
+        .join('temples', 'users.temple_id', 'temples.id')
+        .where('users.id', req.user.id)
+        .select(updatedSelectFields)
+        .first();
+
+      delete updatedUser.password;
+      res.json({ success: true, user: updatedUser });
     } catch (err) {
       console.error('Error updating profile:', err);
-      res.status(500).json({ error: 'Database error while updating profile.' });
+      
+      // Handle duplicate entry errors
+      if (err.code === 'ER_DUP_ENTRY') {
+        if (err.message.includes('users_email_unique')) {
+          return res.status(409).json({ error: 'Email already registered' });
+        }
+      }
+      
+      res.status(500).json({ error: 'Database error while updating profile.', details: err.message });
     }
   });
 

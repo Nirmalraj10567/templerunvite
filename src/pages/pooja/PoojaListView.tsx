@@ -92,6 +92,8 @@ export default function PoojaListView() {
       amount: 'தொகை',
       notes: 'குறிப்புகள்',
       remarks: 'கருத்துகள்',
+      bookingDate: 'பூஜை தேதி',
+      entryDate: 'பதிவு தேதி',
       fromDate: 'தொடக்க தேதி',
       toDate: 'முடிவு தேதி',
       status: 'நிலை',
@@ -152,6 +154,8 @@ export default function PoojaListView() {
       amount: 'Amount',
       notes: 'Notes',
       remarks: 'Remarks',
+      bookingDate: 'Booking Date',
+      entryDate: 'Entry Date',
       fromDate: 'From Date',
       toDate: 'To Date',
       status: 'Status',
@@ -316,9 +320,9 @@ export default function PoojaListView() {
   };
 
   const formatAmount = (amount: any) => {
-    if (!amount) return '₹0';
+    if (!amount) return '0';
     const num = parseFloat(amount);
-    return isNaN(num) ? '₹0' : `₹${num.toFixed(2)}`;
+    return isNaN(num) ? '0' : `${num.toFixed(2)}`;
   };
 
   const formatLogDetails = (action: string, details: any, createdBy: number | null) => {
@@ -477,13 +481,15 @@ export default function PoojaListView() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   
   // Column Keys
-  type ColKey = 'receipt' | 'name' | 'mobile' | 'dateRange' | 'time' | 'actions';
+  type ColKey = 'sno' | 'receipt' | 'name' | 'mobile' | 'bookingDate' | 'entryDate' | 'time' | 'amount' | 'actions';
 
   const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' | 'center' }> = [
+    { key: 'sno', label: translate('sno') || (language === 'tamil' ? 'வ.எண்' : 'S.No') },
     { key: 'receipt', label: translate('receiptNo') },
     { key: 'name', label: translate('name') },
     { key: 'mobile', label: translate('mobile') },
-    { key: 'dateRange', label: translate('dateRange') },
+    { key: 'bookingDate', label: translate('bookingDate') },
+    { key: 'entryDate', label: translate('entryDate') },
     { key: 'time', label: translate('time') },
     { key: 'amount', label: translate('amount'), align: 'right' },
     { key: 'actions', label: translate('actions'), align: 'center' },
@@ -491,10 +497,12 @@ export default function PoojaListView() {
 
   const STORAGE_KEY = 'pooja_list_visible_columns_v1';
   const defaultVisible: Record<ColKey, boolean> = {
+    sno: true,
     receipt: true,
     name: true,
     mobile: true,
-    dateRange: true,
+    bookingDate: true,
+    entryDate: true,
     time: true,
     amount: true,
     actions: true,
@@ -670,10 +678,11 @@ export default function PoojaListView() {
     }));
   };
 
+
   const handleEditClick = (pooja: Pooja) => {
-    // Navigate to PoojaEntryPage for editing
     navigate(`/dashboard/pooja/edit/${pooja.id}`);
   };
+
 
 
   const handleDeleteClick = (id: number) => {
@@ -719,12 +728,18 @@ export default function PoojaListView() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: '2-digit',
-      year: '2-digit'
-    });
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return '-';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
+      const d = date.getDate().toString().padStart(2, '0');
+      const m = (date.getMonth() + 1).toString().padStart(2, '0');
+      const y = date.getFullYear();
+      return `${d}/${m}/${y}`;
+    } catch (e) {
+      return dateString;
+    }
   };
 
   const formatTime = (timeString: string) => {
@@ -738,8 +753,9 @@ export default function PoojaListView() {
         translate("receiptNo"),
         translate("name"),
         translate("mobile"),
-        translate("poojaDate"),
-        translate("poojaTime"),
+        translate("bookingDate"),
+        translate("entryDate"),
+        translate("time"),
         translate("amount"),
       ];
 
@@ -747,8 +763,9 @@ export default function PoojaListView() {
         r.receipt_number || "",
         r.name || "",
         r.mobile_number || "",
-        formatDate(r.pooja_date),
-        formatTime(r.pooja_time),
+        formatDate(r.booking_date || r.from_date),
+        formatDate(r.entry_date || r.created_at),
+        formatTime(r.time),
         r.amount || "0",
       ]);
 
@@ -908,6 +925,11 @@ export default function PoojaListView() {
                     
                     return (
                       <tr key={pooja.id} className={formFieldStyles.moneyDonationList.table.tr}>
+                        {visibleCols.sno && (
+                          <td className={cn(formFieldStyles.moneyDonationList.table.td, "font-medium w-[50px]")}>
+                            {pagination.pageIndex * pagination.pageSize + data.indexOf(pooja) + 1}
+                          </td>
+                        )}
                         {visibleCols.receipt && (
                           <td className={formFieldStyles.moneyDonationList.table.td}>
                             {pooja.receipt_number}
@@ -925,18 +947,19 @@ export default function PoojaListView() {
                             {pooja.mobile_number}
                           </td>
                         )}
-                        {visibleCols.dateRange && (
+                        {visibleCols.bookingDate && (
                           <td className={formFieldStyles.moneyDonationList.table.td}>
                             <div className="flex items-center">
                               <Calendar className="h-3 w-3 mr-1 text-gray-400" />
-                              <div>
-                                <div>{formatDate(pooja.from_date)}</div>
-                                {pooja.from_date !== pooja.to_date && (
-                                  <div className="text-gray-400">
-                                    - {formatDate(pooja.to_date)}
-                                  </div>
-                                )}
-                              </div>
+                              {formatDate(pooja.booking_date || pooja.from_date)}
+                            </div>
+                          </td>
+                        )}
+                        {visibleCols.entryDate && (
+                          <td className={formFieldStyles.moneyDonationList.table.td}>
+                            <div className="flex items-center">
+                              <Calendar className="h-3 w-3 mr-1 text-gray-400" />
+                              {formatDate(pooja.entry_date || pooja.created_at)}
                             </div>
                           </td>
                         )}
@@ -1003,7 +1026,7 @@ export default function PoojaListView() {
                                   <p><span className="font-medium">{translate("poojaName")}:</span> {pooja.pooja_name}</p>
                                   <p><span className="font-medium">{translate("poojaDate")}:</span> {formatDate(pooja.from_date)} {pooja.from_date !== pooja.to_date ? `- ${formatDate(pooja.to_date)}` : ''}</p>
                                   <p><span className="font-medium">{translate("poojaTime")}:</span> {formatTime(pooja.time)}</p>
-                                  <p><span className="font-medium">{translate("amount")}:</span> ₹{pooja.amount || '0'}</p>
+                                  <p><span className="font-medium">{translate("amount")}:</span> {pooja.amount || '0'}</p>
                                 </div>
                                 <div>
                                   <h4 className="font-semibold mb-2">{translate("devoteeInfo")}</h4>
@@ -1207,15 +1230,15 @@ export default function PoojaListView() {
               </div>
             </div>
             <div className="grid grid-cols-3 items-center gap-2">
-              <Label className="text-xs">{translate("fromDate")}</Label>
+              <Label className="text-xs">{translate("bookingDate")}</Label>
               <div className="col-span-2 text-xs h-7 flex items-center">
-                {viewPooja?.from_date}
+                {viewPooja?.booking_date || viewPooja?.from_date}
               </div>
             </div>
             <div className="grid grid-cols-3 items-center gap-2">
-              <Label className="text-xs">{translate("toDate")}</Label>
+              <Label className="text-xs">{translate("entryDate")}</Label>
               <div className="col-span-2 text-xs h-7 flex items-center">
-                {viewPooja?.to_date}
+                {viewPooja?.entry_date || (viewPooja?.created_at ? formatDate(viewPooja.created_at) : 'N/A')}
               </div>
             </div>
             <div className="grid grid-cols-3 items-center gap-2">
@@ -1258,6 +1281,7 @@ export default function PoojaListView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
 
       {/* Delete Confirmation */}
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
@@ -1371,7 +1395,7 @@ export default function PoojaListView() {
                                 {log.details?.mobile_number || log.details?.mobile || '-'}
                               </td>
                               <td className={formFieldStyles.moneyDonationList.logsTable.td}>
-                                {log.details?.amount ? `₹${log.details.amount}` : '-'}
+                                {log.details?.amount ? `${log.details.amount}` : '-'}
                               </td>
                               <td className={formFieldStyles.moneyDonationList.logsTable.td}>
                                 {(() => {

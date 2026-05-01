@@ -5,6 +5,43 @@ const PDFDocument = require('pdfkit');
 module.exports = function (deps = {}) {
   const { db, generateDaybookReceiptNumber, calculateDaybookRunningBalance } = deps;
 
+  async function ensurePaymentColumns() {
+    try {
+      const hasTable = await db.schema.hasTable('marriage_hall_bookings');
+      if (!hasTable) return;
+      const hasPaymentMode = await db.schema.hasColumn('marriage_hall_bookings', 'payment_mode');
+      if (!hasPaymentMode) {
+        await db.schema.alterTable('marriage_hall_bookings', (t) => t.string('payment_mode', 20).nullable());
+      }
+      const hasAccountId = await db.schema.hasColumn('marriage_hall_bookings', 'account_id');
+      if (!hasAccountId) {
+        await db.schema.alterTable('marriage_hall_bookings', (t) => t.integer('account_id').nullable().index());
+      }
+    } catch (e) {
+      console.warn('ensurePaymentColumns skipped due to error:', e.message);
+    }
+  }
+
+  async function resolveAccountLedgerName(templeId, paymentModeInput, accountIdInput) {
+    const paymentMode = String(paymentModeInput || 'cash').toLowerCase();
+    if (paymentMode === 'cash') return { paymentMode: 'cash', accountId: null, ledgerName: 'CASH A/C' };
+    if (!accountIdInput) throw new Error('Account is required for Bank / UPI');
+    const acc = await db('accounts as a')
+      .leftJoin('account_ledgers as l', 'a.ledger_id', 'l.id')
+      .where('a.id', Number(accountIdInput))
+      .andWhere('a.temple_id', Number(templeId))
+      .select('a.id', 'a.account_name', 'a.name', 'l.name as ledger_name')
+      .first();
+    if (!acc) throw new Error('Selected account not found');
+    return {
+      paymentMode,
+      accountId: Number(acc.id),
+      ledgerName: acc.ledger_name || acc.account_name || acc.name,
+    };
+  }
+
+  ensurePaymentColumns().catch(() => {});
+
   // Helper to write hall booking logs
   async function logHallBookingAction({ hallBookingId, templeId, userId, action, details }) {
     try {
@@ -283,13 +320,14 @@ module.exports = function (deps = {}) {
 
       // Table header
       const cols = [
-        { label: 'Date', width: 70 },
-        { label: 'Time', width: 50 },
-        { label: 'Receipt', width: 70 },
-        { label: 'Event', width: 90 },
-        { label: 'Name', width: 120 },
+        { label: 'Entry Date', width: 70 },
+        { label: 'Booking Date', width: 70 },
+        { label: 'Time', width: 40 },
+        { label: 'Receipt', width: 60 },
+        { label: 'Event', width: 80 },
+        { label: 'Name', width: 110 },
         { label: 'Mobile', width: 80 },
-        { label: 'Total', width: 60 },
+        { label: 'Total', width: 50 },
       ];
       const startX = 36;
       let y = doc.y;
@@ -307,14 +345,15 @@ module.exports = function (deps = {}) {
       for (const r of rows) {
         if (y > 780) { doc.addPage(); y = 36; }
         x = startX;
-        doc.text(r.date || '', x, y, { width: cols[0].width }); x += cols[0].width;
-        doc.text(r.time || '', x, y, { width: cols[1].width }); x += cols[1].width;
-        doc.text(r.register_no || '', x, y, { width: cols[2].width }); x += cols[2].width;
-        doc.text(r.event || '', x, y, { width: cols[3].width }); x += cols[3].width;
-        doc.text(r.name || '', x, y, { width: cols[4].width }); x += cols[4].width;
-        doc.text(r.mobile || '', x, y, { width: cols[5].width }); x += cols[5].width;
+        doc.text(r.entry_date || '', x, y, { width: cols[0].width }); x += cols[0].width;
+        doc.text(r.booking_date || '', x, y, { width: cols[1].width }); x += cols[1].width;
+        doc.text(r.time || '', x, y, { width: cols[2].width }); x += cols[2].width;
+        doc.text(r.register_no || '', x, y, { width: cols[3].width }); x += cols[3].width;
+        doc.text(r.event || '', x, y, { width: cols[4].width }); x += cols[4].width;
+        doc.text(r.name || '', x, y, { width: cols[5].width }); x += cols[5].width;
+        doc.text(r.mobile || '', x, y, { width: cols[6].width }); x += cols[6].width;
         const tot = toNum(r.total_amount);
-        doc.text(tot.toLocaleString(), x, y, { width: cols[6].width, align: 'right' });
+        doc.text(tot.toLocaleString(), x, y, { width: cols[7].width, align: 'right' });
         totalSum += tot;
         advanceSum += toNum(r.advance_amount);
         balanceSum += toNum(r.balance_amount);
@@ -355,7 +394,8 @@ module.exports = function (deps = {}) {
 
       doc.fontSize(12).text('Booking Details');
       hr();
-      row('Date', r.date || '');
+      row('Entry Date', r.entry_date || '');
+      row('Booking Date', r.booking_date || '');
       row('Time', r.time || '');
       row('Event', r.event || '');
       row('Subdivision', r.subdivision || '');
@@ -389,6 +429,12 @@ module.exports = function (deps = {}) {
     try {
       await ensureHallExtrasColumns();
       const p = req.body || {};
+      let accountSel = null;
+      try {
+        accountSel = await resolveAccountLedgerName(req.user.templeId, p.paymentMode, p.accountId);
+      } catch (e) {
+        return res.status(400).json({ error: e.message || 'Invalid account selection' });
+      }
       const record = {
         temple_id: req.user.templeId,
         register_no: p.registerNo || null,
@@ -406,7 +452,9 @@ module.exports = function (deps = {}) {
         total_amount: p.totalAmount || null,
         balance_amount: p.balanceAmount || null,
         remarks: p.remarks || null,
-        transfer_to_account: p.transfer_to_account || p.transferTo || null,
+        transfer_to_account: 'HALL INCOME A/C',
+        payment_mode: accountSel?.paymentMode || 'cash',
+        account_id: accountSel?.accountId || null,
         // Optional extras
         cleaning: p.cleaning || null,
         chair: p.chair || null,
@@ -414,6 +462,8 @@ module.exports = function (deps = {}) {
         gas: p.gas || null,
         ac: p.ac || null,
         // Check-in/out
+        entry_date: p.entryDate || p.date || null,
+        booking_date: p.bookingDate || p.date || null,
         check_in_date: p.checkInDate || null,
         check_in_time: p.checkInTime || null,
         check_out_date: p.checkOutDate || null,
@@ -464,11 +514,11 @@ module.exports = function (deps = {}) {
             date: row.date || new Date().toISOString().slice(0, 10),
             reference_number: row.register_no || `HALL-${row.id}-${Date.now()}`,
             description: 'Hall Booking - ' + (row.name || 'Unknown'),
-            from_account: 'HALL A/C',
-            to_account: 'INCOME A/C',
+            from_account: 'HALL INCOME A/C',
+            to_account: accountSel?.ledgerName || 'CASH A/C',
             amount: amountNum,
             total_amount: amountNum,
-            entry_type: 'transfer',
+            entry_type: 'hall_booking',
             remarks: row.remarks || p.remarks || `Hall booking payment - ${row.name || 'Unknown'}`,
             reference_type: 'hall_booking',
             reference_id: row.id,
@@ -524,6 +574,12 @@ module.exports = function (deps = {}) {
 
       const p = req.body || {};
       await ensureHallExtrasColumns();
+      let accountSel = null;
+      try {
+        accountSel = await resolveAccountLedgerName(req.user.templeId, p.paymentMode, p.accountId);
+      } catch (e) {
+        return res.status(400).json({ error: e.message || 'Invalid account selection' });
+      }
 
       const updateData = {
         register_no: p.registerNo || null,
@@ -541,7 +597,9 @@ module.exports = function (deps = {}) {
         total_amount: p.totalAmount || null,
         balance_amount: p.balanceAmount || null,
         remarks: p.remarks || null,
-        transfer_to_account: p.transfer_to_account ?? p.transferTo,
+        transfer_to_account: 'HALL INCOME A/C',
+        payment_mode: accountSel?.paymentMode || 'cash',
+        account_id: accountSel?.accountId || null,
         // Optional extras
         cleaning: p.cleaning || null,
         chair: p.chair || null,
@@ -549,6 +607,8 @@ module.exports = function (deps = {}) {
         gas: p.gas || null,
         ac: p.ac || null,
         // Check-in/out
+        entry_date: p.entryDate || p.date || null,
+        booking_date: p.bookingDate || p.date || null,
         check_in_date: p.checkInDate || null,
         check_in_time: p.checkInTime || null,
         check_out_date: p.checkOutDate || null,
@@ -581,11 +641,11 @@ module.exports = function (deps = {}) {
             date: booking.date || new Date().toISOString().slice(0, 10),
             reference_number: booking.register_no || `HALL-${idNum}-${Date.now()}`,
             description: `Hall Booking - ${booking.name || 'Updated Booking'}`,
-            from_account: 'HALL A/C',
-            to_account: 'INCOME A/C',
+            from_account: 'HALL INCOME A/C',
+            to_account: accountSel?.ledgerName || 'CASH A/C',
             amount: amountNum,
             total_amount: amountNum,
-            entry_type: 'transfer',
+            entry_type: 'hall_booking',
             remarks: booking.remarks || p.remarks || `Updated hall booking payment - ${booking.name || 'Unknown'}`,
             reference_type: 'hall_booking',
             reference_id: idNum,
@@ -764,6 +824,8 @@ module.exports = function (deps = {}) {
         remarks: row.remarks,
         transferTo: row.transfer_to_account,
         bookingStatus: row.status,
+        entryDate: row.entry_date,
+        bookingDate: row.booking_date,
         // Extras
         cleaning: row.cleaning,
         chair: row.chair,
@@ -848,11 +910,13 @@ module.exports = function (deps = {}) {
       const { id } = req.params;
       const { 
         amount, transferTo, remarks, date,
+        registerNo, name, mobile, event, totalAmount,
+        entryDate, bookingDate,
         checkInDate, checkInTime, checkOutDate, checkOutTime,
         cleaning, chair, eb, gas, ac
       } = req.body;
       const payAmount = Number(amount || 0);
-      const entryDate = date || new Date().toISOString().slice(0, 10);
+      const effectiveEntryDate = entryDate || date || new Date().toISOString().slice(0, 10);
       console.log('🔍 Querying for booking id:', id, 'templeId:', req.user.templeId);
 
       const booking = await db('marriage_hall_bookings')
@@ -866,9 +930,18 @@ module.exports = function (deps = {}) {
       }
 
       // Prepare updates for main booking record
-      const updates = {
-        updated_at: db.fn.now()
-      };
+      // Handle optional date updates
+      if (entryDate !== undefined) updates.entry_date = entryDate;
+      if (bookingDate !== undefined) updates.booking_date = bookingDate;
+      if (date !== undefined) updates.date = date; // fallback/legacy support
+
+      // Handle basic info updates
+      if (registerNo !== undefined) updates.register_no = registerNo;
+      if (name !== undefined) updates.name = name;
+      if (mobile !== undefined) updates.mobile = mobile;
+      if (event !== undefined) updates.event = event;
+      
+      updates.updated_at = db.fn.now()
 
       // Handle optional check-in/out updates
       if (checkInDate !== undefined) updates.check_in_date = checkInDate;
@@ -883,14 +956,14 @@ module.exports = function (deps = {}) {
       if (gas !== undefined) updates.gas = gas;
       if (ac !== undefined) updates.ac = ac;
 
-      // Calculate total if charges changed
-      let newTotal = Number(booking.total_amount || 0);
+      // Calculate total if charges changed or totalAmount provided
+      let newTotal = totalAmount !== undefined ? Number(totalAmount || 0) : Number(booking.total_amount || 0);
       const chargesChanged = [cleaning, chair, eb, gas, ac].some(v => v !== undefined);
       
-      if (chargesChanged) {
+      if (totalAmount === undefined && chargesChanged) {
         // Base total = old total - old charges
         const oldCharges = (Number(booking.cleaning) || 0) + (Number(booking.chair) || 0) + (Number(booking.eb) || 0) + (Number(booking.gas) || 0) + (Number(booking.ac) || 0);
-        const baseTotal = Math.max(0, newTotal - oldCharges);
+        const baseTotal = Math.max(0, Number(booking.total_amount || 0) - oldCharges);
         
         // New charges = updated values or existing values
         const nCleaning = cleaning !== undefined ? Number(cleaning || 0) : Number(booking.cleaning || 0);
@@ -900,8 +973,9 @@ module.exports = function (deps = {}) {
         const nAc = ac !== undefined ? Number(ac || 0) : Number(booking.ac || 0);
         
         newTotal = baseTotal + nCleaning + nChair + nEb + nGas + nAc;
-        updates.total_amount = newTotal;
       }
+      
+      updates.total_amount = newTotal;
 
       // Handle payment and balance
       const currentAdvance = Number(booking.advance_amount || 0);
@@ -921,13 +995,14 @@ module.exports = function (deps = {}) {
       if (payAmount > 0) {
         // Mirror to ledger
         const under = transferTo || 'CASH A/C';
+        const effectiveName = name || booking.name || 'Unknown';
         await db('ledger_entries').insert({
-          date: entryDate,
-          name: `Hall Payment - ${booking.name || 'Unknown'}`,
+          date: effectiveEntryDate,
+          name: `Hall Payment - ${effectiveName}`,
           type: 'credit',
           under,
           amount: payAmount,
-          note: remarks || `Partial payment for booking ${booking.register_no}`,
+          note: remarks || `Partial payment for booking ${registerNo || booking.register_no}`,
           temple_id: req.user.templeId,
           created_at: db.fn.now(),
           updated_at: db.fn.now(),
@@ -938,19 +1013,19 @@ module.exports = function (deps = {}) {
           const hasDaybook = await db.schema.hasTable('daybook_entries');
           if (hasDaybook) {
             const recNum = await generateDaybookReceiptNumber(req.user.templeId);
-            const runningBalance = await calculateDaybookRunningBalance(req.user.templeId, entryDate);
+            const runningBalance = await calculateDaybookRunningBalance(req.user.templeId, effectiveEntryDate);
             await db('daybook_entries').insert({
               temple_id: req.user.templeId,
-              entry_date: entryDate,
+              entry_date: effectiveEntryDate,
               entry_type: 'income',
-              description: `Hall Booking Payment - ${booking.name || 'Unknown'} (Reg: ${booking.register_no})`,
+              description: `Hall Booking Payment - ${effectiveName} (Reg: ${registerNo || booking.register_no})`,
               reference_type: 'hall_booking',
               reference_id: Number(id),
               receipt_number: recNum,
               amount: payAmount,
               payment_mode: under,
-              party_name: booking.name || null,
-              party_mobile: booking.mobile || null,
+              party_name: effectiveName,
+              party_mobile: mobile || booking.mobile || null,
               notes: remarks || null,
               running_balance: runningBalance + payAmount,
               created_by: req.user.id || 1,
@@ -963,18 +1038,24 @@ module.exports = function (deps = {}) {
 
         // Mirror to journal (non-blocking to prevent API failure)
         try {
+          let accountSel = null;
+          try {
+            accountSel = await resolveAccountLedgerName(req.user.templeId, req.body?.paymentMode, req.body?.accountId);
+          } catch {
+            accountSel = { ledgerName: under || 'CASH A/C' };
+          }
           await db('journal_entries').insert({
-            date: entryDate,
-            description: `Hall Payment - ${booking.name || 'Unknown'}`,
-            from_account: 'HALL A/C',
-            to_account: 'INCOME A/C',
+            date: effectiveEntryDate,
+            description: `Hall Payment - ${effectiveName}`,
+            from_account: 'HALL INCOME A/C',
+            to_account: accountSel?.ledgerName || under || 'CASH A/C',
             amount: payAmount,
             total_amount: payAmount,
-            entry_type: 'transfer',
+            entry_type: 'hall_booking',
             reference_type: 'hall_booking',
             reference_id: id,
-            reference_number: booking.register_no || `HALL-PAY-${id}-${Date.now()}`,
-            remarks: remarks || `Hall Payment collected for ${booking.name || 'Unknown'} (Reg: ${booking.register_no})`,
+            reference_number: registerNo || booking.register_no || `HALL-PAY-${id}-${Date.now()}`,
+            remarks: remarks || `Hall Payment collected for ${effectiveName} (Reg: ${registerNo || booking.register_no})`,
             temple_id: req.user.templeId,
             created_by: req.user.id || 1,
             created_at: db.fn.now()

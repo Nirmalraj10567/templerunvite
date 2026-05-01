@@ -6,6 +6,8 @@ interface PoojaBooking {
   name: string;
   from_date: string;
   to_date: string;
+  booking_date: string;
+  entry_date: string;
   time: string;
 }
 
@@ -17,6 +19,8 @@ interface Pooja {
   time: string;
   from_date: string;
   to_date: string;
+  booking_date: string;
+  entry_date: string;
   remarks?: string;
   transfer_to_account?: string;
   amount?: number;
@@ -27,15 +31,19 @@ interface Pooja {
 
 interface PoojaFormData {
   receiptNumber: string;
-  name: string;
-  userName: string;
+  name: string;      // Person's Name
+  poojaName: string; // Pooja Type Name
   mobileNumber: string;
   time: string;
   fromDate: string;
   toDate: string;
+  bookingDate: string;
+  entryDate: string;
   remarks?: string;
   transferTo?: string;
   amount?: string;
+  paymentMode?: 'cash' | 'bank' | 'upi';
+  accountId?: number | null;
 }
 
 interface PaginationInfo {
@@ -58,7 +66,12 @@ interface ApiResponse<T> {
 }
 
 class PoojaService {
-  private baseUrl = `${import.meta.env.VITE_API_BASE_URL || 'https://templeapi.agniplay.com'}/api/pooja`;
+  private baseUrl = (() => {
+    const raw = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || window.location.origin;
+    const normalized = raw.replace(/\/+$/, '');
+    const apiBase = normalized.endsWith('/api') ? normalized : `${normalized}/api`;
+    return `${apiBase}/pooja`;
+  })();
   private token: string | null = null;
 
   constructor() {
@@ -119,15 +132,19 @@ class PoojaService {
   async createPooja(data: PoojaFormData): Promise<ApiResponse<Pooja>> {
     const payload = {
       receiptNumber: data.receiptNumber,
-      name: data.userName,
+      name: data.name,
       mobileNumber: data.mobileNumber,
       time: data.time,
       fromDate: data.fromDate,
       toDate: data.toDate,
-      remarks: data.name,
+      bookingDate: data.bookingDate,
+      entryDate: data.entryDate,
+      remarks: data.poojaName,
       transferTo: data.transferTo || '',
       amount: data.amount || '',
-      fromAccount: (data as any).fromAccount || 'POOJA A/C'
+      fromAccount: (data as any).fromAccount || 'POOJA A/C',
+      paymentMode: data.paymentMode || 'cash',
+      accountId: data.accountId ?? null,
     };
 
     const response = await fetch(this.baseUrl, {
@@ -142,15 +159,19 @@ class PoojaService {
   async updatePooja(id: number, data: PoojaFormData): Promise<ApiResponse<Pooja>> {
     const payload = {
       receiptNumber: data.receiptNumber,
-      name: data.userName,
+      name: data.name,
       mobileNumber: data.mobileNumber,
       time: data.time,
       fromDate: data.fromDate,
       toDate: data.toDate,
-      remarks: data.name,
+      bookingDate: data.bookingDate,
+      entryDate: data.entryDate,
+      remarks: data.poojaName,
       transferTo: data.transferTo || '',
       amount: data.amount || '',
-      fromAccount: (data as any).fromAccount || 'POOJA A/C'
+      fromAccount: (data as any).fromAccount || 'POOJA A/C',
+      paymentMode: data.paymentMode || 'cash',
+      accountId: data.accountId ?? null,
     };
 
     const response = await fetch(`${this.baseUrl}/${id}`, {
