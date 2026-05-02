@@ -404,91 +404,210 @@ export default function AnnadhanamListView() {
     }
   };
 
-  const exportToPDF = () => {
-    try {
-      const title = t("Annadhanam List", "அன்னதானம் பட்டியல்");
-      const headCells = [
-        t("Receipt No", "ரசீது எண்"),
-        t("Name", "பெயர்"),
-        t("Mobile", "மொபைல்"),
-        t("Food Items", "உணவு பொருட்கள்"),
-        t("People", "மக்கள்"),
-        t("From Date", "தொடக்க தேதி"),
-        t("To Date", "முடிவு தேதி"),
-        t("Time", "நேரம்"),
-      ];
+ const exportToPDF = () => {
+  try {
+    const title = t("Annadhanam List", "அன்னதானம் பட்டியல்");
 
-      const rows = data.map((r) => [
-        r.receipt_number || "",
-        r.name || "",
-        r.mobile_number || "",
-        r.food || "",
-        r.peoples ?? "",
-        formatDate(r.from_date) || "",
-        formatDate(r.to_date) || "",
-        formatTime(r.time) || "",
-      ]);
+    const headCells = [
+      t("S.No", "எண்"),
+      t("Receipt No", "ரசீது எண்"),
+      t("Name", "பெயர்"),
+      t("Mobile", "மொபைல்"),
+      t("Food Items", "உணவு பொருட்கள்"),
+      t("People", "மக்கள்"),
+      t("From Date", "தொடக்க தேதி"),
+      t("To Date", "முடிவு தேதி"),
+      t("Time", "நேரம்"),
+    ];
 
-      const doc = new jsPDF('landscape');
-      
-      // Add Title and Styling
-      doc.setFontSize(20);
-      doc.setTextColor(40);
-      doc.text(title, 14, 22);
-      
-      // Add metadata info
-      doc.setFontSize(10);
-      doc.setTextColor(100);
-      const now = new Date();
-      const meta = `${t("Generated", "உருவாக்கப்பட்டது")}: ${now.toLocaleString()} | ${t("Items", "உருப்படிகள்")}: ${data.length}`;
-      doc.text(meta, 14, 30);
-      
-      // Horizontal line
-      doc.setDrawColor(200, 200, 200);
-      doc.line(14, 33, 283, 33);
+    const rows = data.map((r, index) => [
+      index + 1,
+      r.receipt_number || "",
+      r.name || "",
+      r.mobile_number || "",
+      r.food || "",
+      r.peoples ?? "",
+      formatDate(r.from_date) || "",
+      formatDate(r.to_date) || "",
+      formatTime(r.time) || "",
+    ]);
 
-      autoTable(doc, {
-        head: [headCells],
-        body: rows,
-        startY: 40,
-        styles: { 
-          fontSize: 9, 
-          cellPadding: 4,
-          valign: 'middle'
-        },
-        headStyles: { 
-          fillColor: [79, 70, 229], // Indigo 600
-          textColor: [255, 255, 255], 
-          fontStyle: 'bold',
-          fontSize: 10
-        },
-        alternateRowStyles: {
-          fillColor: [249, 250, 251] // Gray 50
-        },
-        columnStyles: { 3: { cellWidth: 40 } },
-        margin: { top: 40 },
-        didDrawPage: (data) => {
-          // Footer: Page Number
-          const str = `Page ${(doc as any).getNumberOfPages()}`;
-          doc.setFontSize(8);
-          doc.setTextColor(150);
-          const pageSize = doc.internal.pageSize;
-          const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
-          doc.text(str, 14, pageHeight - 10);
-        }
-      });
+    const doc = new jsPDF("landscape");
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const now = new Date();
+    const templeName = (user as any)?.templeName || "Temple";
 
-      const stamp = now.toISOString().slice(0, 19).replace(/[:T]/g, "-");
-      doc.save(`annadhanam-export-${stamp}.pdf`);
-    } catch (err) {
-      console.error("PDF export failed", err);
-      toast({
-        title: t("Error", "பிழை"),
-        description: t("Failed to export PDF.", "PDF ஏற்றுமதி தோல்வியடைந்தது."),
-        variant: "destructive",
-      });
-    }
-  };
+    /* =========================================================
+       🎨 MODERN HEADER
+    ========================================================= */
+
+    // Top Accent Line
+    doc.setDrawColor(204, 85, 0);
+    doc.setLineWidth(2);
+    doc.line(10, 12, pageWidth - 10, 12);
+
+    // Temple Name (Left)
+    doc.setFontSize(24);
+    doc.setTextColor(204, 85, 0);
+    doc.setFont(undefined, "bold");
+    doc.text(templeName, 14, 25);
+
+    // Subtitle
+    doc.setFontSize(10);
+    doc.setTextColor(120, 120, 120);
+    doc.setFont(undefined, "normal");
+    doc.text("Annadhanam Management System", 14, 31);
+
+    // Title (Right)
+    doc.setFontSize(16);
+    doc.setTextColor(40, 40, 40);
+    doc.setFont(undefined, "bold");
+    doc.text(title, pageWidth - 14, 25, { align: "right" });
+
+    // Meta Info
+    doc.setFontSize(9);
+    doc.setTextColor(130, 130, 130);
+    doc.setFont(undefined, "normal");
+
+    doc.text(
+      `${t("Generated", "உருவாக்கப்பட்டது")}: ${now.toLocaleDateString()}`,
+      pageWidth - 14,
+      32,
+      { align: "right" }
+    );
+
+    doc.text(
+      `${t("Records", "பதிவுகள்")}: ${data.length}`,
+      pageWidth - 14,
+      38,
+      { align: "right" }
+    );
+
+    // Divider
+    doc.setDrawColor(200);
+    doc.setLineWidth(0.5);
+    doc.line(10, 42, pageWidth - 10, 42);
+
+    /* =========================================================
+       📊 SUMMARY
+    ========================================================= */
+
+    const totalPeople = data.reduce(
+      (sum, r) => sum + (Number(r.peoples) || 0),
+      0
+    );
+
+    doc.setFillColor(248, 248, 248);
+    doc.roundedRect(10, 46, pageWidth - 20, 12, 3, 3, "F");
+
+    doc.setFontSize(10);
+    doc.setTextColor(50, 50, 50);
+    doc.setFont(undefined, "bold");
+
+    doc.text(
+      `${t("Total People", "மொத்த மக்கள்")}: ${totalPeople}`,
+      14,
+      54
+    );
+
+    doc.text(
+      `${t("Total Records", "மொத்த பதிவுகள்")}: ${data.length}`,
+      pageWidth - 14,
+      54,
+      { align: "right" }
+    );
+
+    /* =========================================================
+       📋 TABLE
+    ========================================================= */
+
+    autoTable(doc, {
+      head: [headCells],
+      body: rows,
+      startY: 62,
+
+      styles: {
+        fontSize: 8.5,
+        cellPadding: 4,
+        valign: "middle",
+        lineColor: [220, 220, 220],
+        lineWidth: 0.2,
+      },
+
+      headStyles: {
+        fillColor: [204, 85, 0],
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        halign: "center",
+      },
+
+      alternateRowStyles: {
+        fillColor: [252, 252, 252],
+      },
+
+      columnStyles: {
+        0: { cellWidth: 15, halign: "center", fontStyle: "bold" },
+        1: { cellWidth: 30, halign: "center" },
+        2: { cellWidth: 45 },
+        3: { cellWidth: 35, halign: "center" },
+        4: { cellWidth: 45 },
+        5: { cellWidth: 25, halign: "center" },
+        6: { cellWidth: 30, halign: "center" },
+        7: { cellWidth: 30, halign: "center" },
+        8: { cellWidth: 25, halign: "center" },
+      },
+
+      margin: { top: 62, left: 10, right: 10, bottom: 25 },
+
+      didDrawPage: (dataArg) => {
+        const pageHeight = doc.internal.pageSize.getHeight();
+
+        // Footer Line
+        doc.setDrawColor(200);
+        doc.line(10, pageHeight - 18, pageWidth - 10, pageHeight - 18);
+
+        // Footer Left
+        doc.setFontSize(8);
+        doc.setTextColor(80);
+        doc.setFont(undefined, "bold");
+        doc.text(templeName, 10, pageHeight - 10);
+
+        // Footer Right
+        doc.setFont(undefined, "normal");
+        doc.text(
+          now.toLocaleDateString(),
+          pageWidth - 10,
+          pageHeight - 10,
+          { align: "right" }
+        );
+
+        // Page Number
+        doc.setFont(undefined, "bold");
+        doc.text(
+          `Page ${dataArg.pageNumber} / ${doc.getNumberOfPages()}`,
+          pageWidth / 2,
+          pageHeight - 5,
+          { align: "center" }
+        );
+      },
+    });
+
+    /* =========================================================
+       💾 SAVE
+    ========================================================= */
+
+    const stamp = now.toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    doc.save(`annadhanam-${stamp}.pdf`);
+
+  } catch (err) {
+    console.error("PDF export failed", err);
+    toast({
+      title: t("Error", "பிழை"),
+      description: t("Failed to export PDF.", "PDF ஏற்றுமதி தோல்வியடைந்தது."),
+      variant: "destructive",
+    });
+  }
+};
 
   useEffect(() => {
     fetchAnnadhanam();

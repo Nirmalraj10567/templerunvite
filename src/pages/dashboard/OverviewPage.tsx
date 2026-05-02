@@ -269,8 +269,8 @@ export default function OverviewPage() {
       {/* Top heading + language */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl md:text-3xl font-bold text-slate-900">
-            {t[lang].greeting} {user?.name ? user.name.split(' ')[0] : 'User'}
+          <h2 className="text-lg md:text-xl font-medium text-slate-900">
+            {t[lang].greeting} {(user as any)?.fullName || user?.name || 'User'}
           </h2>
           <p className="text-sm text-slate-500 mt-1">{t[lang].subtitle}</p>
         </div>

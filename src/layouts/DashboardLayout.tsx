@@ -714,13 +714,13 @@ export default function DashboardLayout() {
             <div className="relative">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-400 to-red-600 
                             flex items-center justify-center font-bold text-lg shadow-lg">
-                {user?.name?.[0]?.toUpperCase() || 'U'}
+                {(user as any)?.fullName?.[0]?.toUpperCase() || user?.name?.[0]?.toUpperCase() || 'U'}
               </div>
               <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-orange-700"></div>
             </div>
             {!isSidebarCollapsed && (
               <div className="ml-4 flex-1">
-                <p className="font-semibold text-white text-lg">{user?.name}</p>
+                <p className="font-semibold text-white text-lg">{(user as any)?.fullName || user?.name}</p>
                 <p className="text-sm text-orange-200 capitalize bg-orange-700/40 px-2 py-1 rounded-md inline-block">
                   {user?.role}
                 </p>
@@ -820,8 +820,8 @@ export default function DashboardLayout() {
             }}>
             {/* Left side: temple name and optional view-only badge */}
             <div className="flex items-center gap-3">
-              <h2 className="text-lg font-semibold text-gray-700">
-                {(user as any)?.temple?.name || 'Temple Management System'}
+              <h2 className="text-3xl font-black bg-gradient-to-r from-orange-600 via-red-600 to-orange-700 bg-clip-text text-transparent">
+                {(user as any)?.templeName || 'Temple Management System'}
               </h2>
               {isViewOnlyForRoute && (
                 <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
