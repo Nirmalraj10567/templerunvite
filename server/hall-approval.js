@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { sendNotification } = require('./config/firebase-notification');
 
 module.exports = function({ db, authenticateToken, authorizePermission }) {
   // All routes here require JWT
@@ -131,6 +132,26 @@ module.exports = function({ db, authenticateToken, authorizePermission }) {
         old_status: 'pending',
         new_status: 'approved'
       });
+
+      // Send FCM notification to the submitter
+      try {
+        const submitter = await db('user_registrations')
+          .where({ mobile: existing.mobile })
+          .whereNotNull('fcm_token')
+          .first();
+
+        if (submitter && submitter.fcm_token) {
+          await sendNotification(
+            submitter.fcm_token,
+            'Hall Booking Approved',
+            `Your booking for ${existing.event || 'event'} on ${existing.date} at ${existing.time} has been approved.`,
+            { bookingId: id.toString(), type: 'hall_approval' }
+          );
+          console.log(`✓ Sent approval notification to ${existing.mobile}`);
+        }
+      } catch (notifyErr) {
+        console.warn('Failed to send approval notification:', notifyErr.message);
+      }
 
       res.json({ success: true, message: 'Approved successfully' });
     } catch (err) {

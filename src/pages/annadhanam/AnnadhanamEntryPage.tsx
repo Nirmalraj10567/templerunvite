@@ -71,6 +71,7 @@ interface AnnadhanamFormData {
   peoples?: string;
   productName?: string;
   quantity?: string;
+  unit?: string;
   amount?: string;
   paymentMode?: 'cash' | 'bank' | 'upi';
   accountId?: number | null;
@@ -261,6 +262,7 @@ export default function AnnadhanamEntryPage() {
             let peoples = data.peoples?.toString?.() ?? '1';
             let productName = '';
             let quantity = '';
+            let unit = '';
             let amount = '';
 
             const storedFood = (data.food || '').toString();
@@ -272,6 +274,10 @@ export default function AnnadhanamEntryPage() {
               const qtyPart = parts.slice(1).find((p: string) => /qty/i.test(p) || /^\d+$/.test(p));
               if (qtyPart) {
                 quantity = qtyPart.replace(/qty\s*[:]?/i, '').trim();
+              }
+              const unitPart = parts.slice(1).find((p: string) => /unit/i.test(p));
+              if (unitPart) {
+                unit = unitPart.replace(/unit\s*[:]?/i, '').trim();
               }
             } else if (storedFood.startsWith('Money:')) {
               donationType = 'money';
@@ -290,6 +296,7 @@ export default function AnnadhanamEntryPage() {
               peoples,
               productName,
               quantity,
+              unit,
               amount,
               paymentMode: data.payment_mode || 'cash',
               accountId: data.account_id || null,
@@ -440,7 +447,8 @@ export default function AnnadhanamEntryPage() {
       } else if (data.donationType === 'product') {
         const pn = data.productName?.trim() || '';
         const qty = data.quantity?.trim() || '';
-        mappedFood = `Product: ${pn}${qty ? ` | Qty: ${qty}` : ''}`;
+        const unit = data.unit?.trim() || '';
+        mappedFood = `Product: ${pn}${qty ? ` | Qty: ${qty}` : ''}${unit ? ` | Unit: ${unit}` : ''}`;
         mappedPeoples = 1;
       } else if (data.donationType === 'money') {
         const amt = data.amount?.toString().trim() || '';
@@ -1128,6 +1136,17 @@ export default function AnnadhanamEntryPage() {
                         step="any"
                       />
                       {errors.quantity && <p className="text-red-500 text-xs mt-1">{errors.quantity.message}</p>}
+                    </div>
+                    <div className="space-y-2 group">
+                      <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
+                        {t('Unit', 'அலகு')}
+                      </Label>
+                      <Input
+                        id="unit"
+                        className={cn(theme.input.base, theme.input.size.md, "bg-white border-gray-200")}
+                        {...register('unit')}
+                        placeholder={t('e.g., kg, liters, pieces', 'உதா: கி.லி, பொருட்கள்')}
+                      />
                     </div>
                     <div className="space-y-2 group">
                       <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">

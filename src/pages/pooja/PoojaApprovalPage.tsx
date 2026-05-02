@@ -540,14 +540,14 @@ export default function PoojaApprovalPage() {
 
 
         {/* Compact Statistics */}
-        {stats && (
+        {stats?.status_counts && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
             <Card>
               <CardContent className="p-2">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs text-gray-500">{t('Pending', 'நிலுவை')}</p>
-                    <p className="text-lg font-bold text-yellow-600">{stats.status_counts.pending}</p>
+                    <p className="text-lg font-bold text-yellow-600">{stats.status_counts.pending ?? 0}</p>
                   </div>
                   <Clock className="h-4 w-4 text-yellow-600" />
                 </div>
@@ -558,7 +558,7 @@ export default function PoojaApprovalPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs text-gray-500">{t('Approved', 'அனுமதி')}</p>
-                    <p className="text-lg font-bold text-green-600">{stats.status_counts.approved}</p>
+                    <p className="text-lg font-bold text-green-600">{stats.status_counts.approved ?? 0}</p>
                   </div>
                   <CheckCircle className="h-4 w-4 text-green-600" />
                 </div>
@@ -569,7 +569,7 @@ export default function PoojaApprovalPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs text-gray-500">{t('Rejected', 'நிராகரிப்பு')}</p>
-                    <p className="text-lg font-bold text-red-600">{stats.status_counts.rejected}</p>
+                    <p className="text-lg font-bold text-red-600">{stats.status_counts.rejected ?? 0}</p>
                   </div>
                   <XCircle className="h-4 w-4 text-red-600" />
                 </div>
@@ -580,7 +580,7 @@ export default function PoojaApprovalPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs text-gray-500">{t('Total', 'மொத்தம்')}</p>
-                    <p className="text-lg font-bold text-blue-600">{stats.total_requests}</p>
+                    <p className="text-lg font-bold text-blue-600">{stats.total_requests ?? 0}</p>
                   </div>
                   <FileText className="h-4 w-4 text-blue-600" />
                 </div>

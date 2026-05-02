@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { Loader2, Trash2, Search, FileDown } from 'lucide-react';
+import { Loader2, Trash2, Search, FileDown, Edit } from 'lucide-react';
 import { cn, pageContainerStyles, formFieldStyles } from '@/styles/formStyles';
 import { theme, tableClasses, buttonClasses } from '@/styles/theme';
 import jsPDF from 'jspdf';
@@ -333,33 +333,38 @@ export default function DonationUnifiedList() {
     }
   };
 
-  // Print per type
-  const onPrint = (row: UnifiedDonationRow) => {
-    if (row.type === 'money') {
-      handleDownloadReceipt(row.id, row.registerNo);
-    } else {
-      // Simple print window with basic details
-      const p = row.raw as ProductDonationItem;
-      const html = `
-        <div style="text-align:center;margin-bottom:12px">
-          <h2 style="margin:0">${t('Donation Receipt', 'நன்கொடை ரசீது')}</h2>
-        </div>
-        <div style="padding:8px 16px">
-          <table style="width:100%;border-collapse:collapse">
-            <tr><td style="padding:6px;border-bottom:1px solid #ddd;font-weight:600">${t('Donor', 'நன்கொடையாளர்')}:</td><td style="padding:6px;border-bottom:1px solid #ddd">${p.donor_name || '-'}</td></tr>
-            <tr><td style="padding:6px;border-bottom:1px solid #ddd;font-weight:600">${t('Date', 'தேதி')}:</td><td style="padding:6px;border-bottom:1px solid #ddd">${(p.donation_date || '').slice(0, 10)}</td></tr>
-            <tr><td style="padding:6px;border-bottom:1px solid #ddd;font-weight:600">${t('Product', 'பொருள்')}:</td><td style="padding:6px;border-bottom:1px solid #ddd">${p.product_name || '-'}</td></tr>
-            <tr><td style="padding:6px;border-bottom:1px solid #ddd;font-weight:600">${t('Quantity', 'அளவு')}:</td><td style="padding:6px;border-bottom:1px solid #ddd">${p.quantity ?? '-'}</td></tr>
-          </table>
-        </div>
-      `;
-      const win = window.open('', '', 'width=700,height=600');
-      if (win) {
-        win.document.write(html);
-        win.document.close();
-        win.focus();
-        win.print();
+  // Print per type - fetch PDF from server
+  const onPrint = async (row: UnifiedDonationRow) => {
+    try {
+      let endpoint = '';
+      if (row.type === 'money') {
+        endpoint = `https://templeapi.agniplay.com/api/money-donations/${row.id}/receipt.pdf`;
+      } else {
+        endpoint = `https://templeapi.agniplay.com/api/donations/${row.id}/receipt.pdf`;
       }
+
+      const response = await fetch(endpoint, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch receipt');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `receipt-${row.registerNo || row.id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error downloading receipt:", error);
+      alert(t("Failed to download receipt. Please try again.", "ரசீதைப் பதிவிறக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்."));
     }
   };
 
@@ -631,41 +636,41 @@ export default function DonationUnifiedList() {
                           )}
                           {visibleCols['reason'] && <TableCell className={tableClasses.cell}>{r.reason || '-'}</TableCell>}
                           {visibleCols['actions'] && (
-                            <TableCell className={cn(tableClasses.cell, tableClasses.actionCell, "text-center")}>
-                              <div className="flex items-center justify-center gap-1">
-                                <button
-                                  type="button"
+                            <TableCell className={cn(tableClasses.cell, tableClasses.actionCell)}>
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
                                   onClick={() => onPrint(r)}
-                                  className={cn(tableClasses.actionButton, "bg-red-600 text-white hover:bg-red-700")}
+                                  className="h-5 w-5 p-0 text-red-600 hover:text-red-700"
                                   title={t('Print Receipt', 'ரசீது அச்சிடுக')}
                                 >
-                                  {t('Print', 'அச்சிடு')}
-                                </button>
+                                  <FileDown className="h-3 w-3" />
+                                </Button>
 
-                                <button
-                                  type="button"
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
                                   onClick={() => onEdit(r)}
-                                  className={tableClasses.actionButtonSecondary}
+                                  className={cn(tableClasses.actionButtonSecondary, "h-5 w-5 p-0")}
                                   title={t('Edit', 'திருத்து')}
                                 >
-                                  {t('Edit', 'திருத்து')}
-                                </button>
+                                  <Edit className="h-3 w-3" />
+                                </Button>
                                 {(() => {
                                   const deletable = canDelete(r);
                                   const title = deletable ? t('Delete', 'நீக்கு') : t('Only the latest receipt can be deleted', 'கடைசி ரசீதை மட்டுமே நீக்க முடியும்');
                                   return (
-                                    <button
-                                      type="button"
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
                                       onClick={() => deletable ? askDelete(r) : undefined}
-                                      className={cn(
-                                        tableClasses.actionButton,
-                                        deletable ? tableClasses.actionButtonDanger : "bg-gray-100 text-gray-400 cursor-not-allowed opacity-50"
-                                      )}
-                                      title={title}
                                       disabled={!deletable}
+                                      title={title}
+                                      className={cn(!deletable ? "opacity-50 cursor-not-allowed h-5 w-5 p-0" : tableClasses.actionButtonDanger, "h-5 w-5 p-0")}
                                     >
-                                      <Trash2 className="h-4 w-4" />
-                                    </button>
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
                                   );
                                 })()}
                               </div>

@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle, XCircle, Eye, Clock, FileText, FileDown, Printer, Edit, RefreshCcw, Search, Loader2 } from 'lucide-react';
+import { CheckCircle, XCircle, Eye, FileText, FileDown, Printer, RefreshCcw, Search, Loader2 } from 'lucide-react';
 import { cn, formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
 import { theme } from '@/styles/theme';
 // Translation object
@@ -140,11 +140,7 @@ export default function AnnadhanamApprovalPage() {
   const [selectedRequests, setSelectedRequests] = useState<number[]>([]);
   const [isBulkActionDialogOpen, setIsBulkActionDialogOpen] = useState(false);
   const [bulkAction, setBulkAction] = useState<'approve' | 'reject'>('approve');
-  const [isEditingStats, setIsEditingStats] = useState(false);
   const [hasEditPermission, setHasEditPermission] = useState(false);
-  const [pendingCount, setPendingCount] = useState(stats?.status_counts.pending || 0);
-  const [approvedCount, setApprovedCount] = useState(stats?.status_counts.approved || 0);
-  const [rejectedCount, setRejectedCount] = useState(stats?.status_counts.rejected || 0);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AnnadhanamRequest | null>(null);
   // Inline Edit
@@ -470,14 +466,6 @@ export default function AnnadhanamApprovalPage() {
     fetchStats();
   }, [searchTerm, token]);
 
-  useEffect(() => {
-    if (stats) {
-      setPendingCount(stats.status_counts.pending);
-      setApprovedCount(stats.status_counts.approved);
-      setRejectedCount(stats.status_counts.rejected);
-    }
-  }, [stats]);
-
   // Actions
   const handleApprove = async (requestId: number) => {
     try {
@@ -620,43 +608,6 @@ export default function AnnadhanamApprovalPage() {
     }
   };
 
-  const handleSaveStats = async () => {
-    try {
-      const response = await fetch('https://templeapi.agniplay.com/api/annadhanam-approval/update-stats', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          pending: pendingCount,
-          approved: approvedCount,
-          rejected: rejectedCount,
-          log_action: 'stats_update',
-          log_notes: `Updated stats to: Pending=${pendingCount}, Approved=${approvedCount}, Rejected=${rejectedCount}`
-        })
-      });
-
-      if (!response.ok) throw new Error('Failed to update stats');
-
-      const result = await response.json();
-      if (result.success) {
-        toast({
-          title: t('Success', 'வெற்றி'),
-          description: t('Stats updated successfully', 'புள்ளிவிவரங்கள் வெற்றிகரமாக புதுப்பிக்கப்பட்டது'),
-        });
-        fetchStats();
-        setIsEditingStats(false);
-      }
-    } catch (error) {
-      console.error('Error updating stats:', error);
-      toast({
-        title: t('Error', 'பிழை'),
-        description: t('Failed to update stats', 'புள்ளிவிவரங்களை புதுப்பிக்க முடியவில்லை'),
-        variant: 'destructive',
-      });
-    }
-  };
 
   // Format helpers
   const formatDate = (dateString: string | null | undefined) => {
@@ -775,75 +726,6 @@ export default function AnnadhanamApprovalPage() {
           </div>
         </CardHeader>
 
-        {/* Stats Cards */}
-        {stats && (
-          <div className="mb-2">
-            <div className="flex items-center gap-1 text-xs">
-              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-yellow-50 rounded">
-                <Clock className="h-2.5 w-2.5 text-yellow-600" />
-                <span className="font-medium text-yellow-600">{stats.status_counts.pending}</span>
-              </div>
-              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-green-50 rounded">
-                <CheckCircle className="h-2.5 w-2.5 text-green-600" />
-                <span className="font-medium text-green-600">{stats.status_counts.approved}</span>
-              </div>
-              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-red-50 rounded">
-                <XCircle className="h-2.5 w-2.5 text-red-600" />
-                <span className="font-medium text-red-600">{stats.status_counts.rejected}</span>
-              </div>
-              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 rounded">
-                <FileText className="h-2.5 w-2.5 text-blue-600" />
-                <span className="font-medium text-blue-600">{stats.total_requests}</span>
-              </div>
-              {hasEditPermission && (
-                <Button variant="ghost" size="sm" className="h-6 w-6 p-1" onClick={() => setIsEditingStats(!isEditingStats)}>
-                  <Edit className="h-2.5 w-2.5" />
-                </Button>
-              )}
-            </div>
-            {isEditingStats && (
-              <div className="mt-1 p-2 bg-gray-50 rounded text-xs">
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <Label className="text-xs">Pending Count</Label>
-                    <Input
-                      type="number"
-                      value={pendingCount}
-                      onChange={(e) => setPendingCount(Number(e.target.value))}
-                      className={cn(theme.input.base, theme.input.size.sm)}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Approved Count</Label>
-                    <Input
-                      type="number"
-                      value={approvedCount}
-                      onChange={(e) => setApprovedCount(Number(e.target.value))}
-                      className={cn(theme.input.base, theme.input.size.sm)}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Rejected Count</Label>
-                    <Input
-                      type="number"
-                      value={rejectedCount}
-                      onChange={(e) => setRejectedCount(Number(e.target.value))}
-                      className={cn(theme.input.base, theme.input.size.sm)}
-                    />
-                  </div>
-                </div>
-                <div className="flex items-end gap-2 mt-2">
-                  <Button size="sm" className="text-xs h-8" onClick={handleSaveStats}>
-                    Save
-                  </Button>
-                  <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => setIsEditingStats(false)}>
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Search + Export Toolbar */}
         <div className={formFieldStyles.moneyDonationList.filters.container}>

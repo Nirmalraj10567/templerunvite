@@ -212,6 +212,7 @@ export default function UnifiedDonationEntry() {
               village: '',
               phone: d.donor_contact || '',
               product: d.product_name || '',
+              quantity: d.quantity != null ? String(d.quantity) : '',
               unit: d.unit || '',
               reason: d.description || '',
             });
@@ -628,6 +629,7 @@ export default function UnifiedDonationEntry() {
           donationDate: productForm.bookingDate,
           entryDate: productForm.entryDate,
           registerNo: productForm.registerNo,
+          quantity: productForm.quantity ? parseInt(productForm.quantity, 10) : 1,
           unit: productForm.unit,
         });
         setIsError(false);
@@ -1248,6 +1250,22 @@ export default function UnifiedDonationEntry() {
                         </div>
                       </div>
                       <ErrorMessage error={errors.product} />
+                    </div>
+
+                    {/* Quantity */}
+                    <div className="space-y-2 group">
+                      <Label className="text-sm font-semibold text-gray-700 group-focus-within:text-orange-600 transition-colors">
+                        {t('Quantity', 'அளவு')}
+                      </Label>
+                      <Input
+                        id="quantity"
+                        type="number"
+                        value={productForm.quantity}
+                        onChange={(e) => setProductForm(prev => ({ ...prev, quantity: e.target.value }))}
+                        className={cn(fieldStyles, errors.quantity ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
+                        placeholder={t('Enter quantity', 'அளவை உள்ளிடவும்')}
+                        min="1"
+                      />
                     </div>
 
                     {/* Unit */}

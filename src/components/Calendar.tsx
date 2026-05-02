@@ -112,16 +112,7 @@ export default function Calendar({ selectedDate, onDateSelect, showDatePicker = 
   };
 
   const getEventColor = (type: string) => {
-    switch (type) {
-      case 'event':
-        return 'bg-blue-50 border-blue-200 text-blue-800';
-      case 'pooja':
-        return 'bg-green-50 border-green-200 text-green-800';
-      case 'hall_booking':
-        return 'bg-purple-50 border-purple-200 text-purple-800';
-      default:
-        return 'bg-gray-50 border-gray-200 text-gray-800';
-    }
+    return 'bg-purple-50 border-purple-200 text-purple-800';
   };
 
   const formatTime = (time: string) => {
@@ -174,48 +165,47 @@ export default function Calendar({ selectedDate, onDateSelect, showDatePicker = 
             <div className="text-slate-500">{t[lang].noEvents}</div>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {allEvents.map((event, index) => (
               <div
                 key={`${event.type}-${event.id}-${index}`}
-                className={`p-3 rounded-lg border ${getEventColor(event.type)}`}
+                className={`relative p-5 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 ${getEventColor(event.type)}`}
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start space-x-3 flex-1">
-                    <div className="flex-shrink-0 mt-0.5">
-                      {getEventIcon(event.type)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm">
-                        {event.title || event.name || event.event}
+                <div className="flex flex-col h-full justify-between">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="flex-shrink-0 text-2xl">
+                        {getEventIcon(event.type)}
                       </div>
-                      {event.description && (
-                        <div className="text-xs mt-1 opacity-75">
-                          {event.description}
-                        </div>
-                      )}
-                      <div className="flex items-center space-x-4 mt-2 text-xs">
-                        {event.time && (
-                          <div className="flex items-center space-x-1">
-                            <ClockIcon className="h-3 w-3" />
-                            <span>{formatTime(event.time)}</span>
-                          </div>
-                        )}
-                        {event.location && (
-                          <div className="flex items-center space-x-1">
-                            <MapPinIcon className="h-3 w-3" />
-                            <span>{event.location}</span>
-                          </div>
-                        )}
-                      </div>
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide
+                        ${event.type === 'event' ? 'bg-blue-100 text-blue-800 border border-blue-200' : 
+                          event.type === 'pooja' ? 'bg-green-100 text-green-800 border border-green-200' : 
+                          'bg-purple-100 text-purple-800 border border-purple-200'}`}>
+                        {event.type === 'event' ? t[lang].events : 
+                         event.type === 'pooja' ? t[lang].pooja : 
+                         t[lang].hallBookings}
+                      </span>
                     </div>
                   </div>
-                  <div className="flex-shrink-0">
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium">
-                      {event.type === 'event' ? t[lang].events : 
-                       event.type === 'pooja' ? t[lang].pooja : 
-                       t[lang].hallBookings}
-                    </span>
+                  
+                  <div className="flex-1 mb-4">
+                    <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-1">
+                      {event.title || event.name || event.event}
+                    </h3>
+                    {event.description && (
+                      <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                        {event.description}
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center space-x-5 text-sm text-gray-500 dark:text-gray-400 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    {event.time && (
+                      <div className="flex items-center space-x-1">
+                        <ClockIcon className="h-3 w-3" />
+                        <span>{formatTime(event.time)}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

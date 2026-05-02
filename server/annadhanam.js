@@ -386,7 +386,7 @@ module.exports = function(deps = {}) {
         if (!p.productName || !p.quantity) {
           return res.status(400).json({ error: 'productName and quantity are required for product donation' });
         }
-        storedFood = `Product: ${String(p.productName).trim()} | Qty: ${String(p.quantity).trim()}`;
+        `Product: ${String(p.productName).trim()} | Qty: ${String(p.quantity).trim()}${p.unit ? ` | Unit: ${String(p.unit).trim()}` : ''}`
         storedPeoples = 1;
       } else if (p.donationType === 'money') {
         if (!p.amount) {
@@ -537,7 +537,7 @@ module.exports = function(deps = {}) {
         console.error('Failed to sync annadhanam to assets:', assetError);
       }
 
-      // Send FCM notification to ALL temple users (admin submit)
+      // Send FCM notification to ALL temple users
       try {
         const templeUsers = await db('user_registrations')
           .where('temple_id', req.user.templeId)
@@ -625,7 +625,7 @@ module.exports = function(deps = {}) {
         if (!p.productName || !p.quantity) {
           return res.status(400).json({ error: 'productName and quantity are required for product donation' });
         }
-        storedFood = `Product: ${String(p.productName).trim()} | Qty: ${String(p.quantity).trim()}`;
+        storedFood = `Product: ${String(p.productName).trim()} | Qty: ${String(p.quantity).trim()}${p.unit ? ` | Unit: ${String(p.unit).trim()}` : ''}`
         storedPeoples = 1;
       } else if (p.donationType === 'money') {
         if (!p.amount) {

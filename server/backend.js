@@ -2347,6 +2347,14 @@ try {
   console.error('Failed to mount money donation receipt router:', e);
 }
 
+// Mount external route for product donation receipt
+try {
+  const productDonationReceiptRouter = require('./routes/product-donation-receipt')({ db, verifyQueryToken });
+  app.use(productDonationReceiptRouter);
+} catch (e) {
+  console.error('Failed to mount product donation receipt router:', e);
+}
+
 // Mount PDF settings API
 try {
   const pdfSettingsRouter = require('./routes/pdf-settings')({ db, authenticateToken, authorizePermission });

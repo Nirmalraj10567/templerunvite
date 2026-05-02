@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { compressImage } = require('../middlewares/imageCompression');
+const { sendNotification } = require('../config/firebase-notification');
 
 // Ensure upload directory exists
 const uploadDir = path.join(__dirname, '../../public/uploads/events');
@@ -340,7 +341,29 @@ router.post('/', upload.fields([
         await req.db('event_images').insert(fallback);
       }
     }
-    
+
+    // Send FCM notification to all temple users
+    try {
+      const templeUsers = await req.db('user_registrations')
+        .where('temple_id', req.user.templeId)
+        .whereNotNull('fcm_token')
+        .select('fcm_token');
+
+      const tokens = templeUsers.map(u => u.fcm_token).filter(Boolean);
+
+      if (tokens.length > 0) {
+        await sendNotification(
+          tokens,
+          `New Event: ${title}`,
+          `${description ? description.substring(0, 100) : ''} | ${from_date || date} at ${time} | ${location}`,
+          { eventId: id.toString(), type: 'event' }
+        );
+        console.log(`✓ Sent event notification to ${tokens.length} users in temple ${req.user.templeId}`);
+      }
+    } catch (notifyErr) {
+      console.warn('Failed to send event notification:', notifyErr.message);
+    }
+
     res.status(201).json({ id, message: 'Event created successfully' });
   } catch (error) {
     console.error('Error creating event:', error);

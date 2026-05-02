@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { sendNotification } = require('./config/firebase-notification');
 
 module.exports = function(deps = {}) {
   const { db } = deps;
@@ -175,6 +176,29 @@ module.exports = function(deps = {}) {
         old_status: 'pending',
         new_status: 'approved'
       });
+
+      // Send FCM notification to the submitter
+      try {
+        const mobileNumber = request.submitted_by_mobile || request.mobile_number;
+        if (mobileNumber) {
+          const submitter = await db('user_registrations')
+            .where({ mobile: mobileNumber })
+            .whereNotNull('fcm_token')
+            .first();
+
+          if (submitter && submitter.fcm_token) {
+            await sendNotification(
+              submitter.fcm_token,
+              'Pooja Request Approved',
+              `Your pooja request for ${request.name || 'pooja'} (${request.from_date} to ${request.to_date}) has been approved.`,
+              { poojaId: id.toString(), type: 'pooja_approval' }
+            );
+            console.log(`✓ Sent pooja approval notification to ${mobileNumber}`);
+          }
+        }
+      } catch (notifyErr) {
+        console.warn('Failed to send pooja approval notification:', notifyErr.message);
+      }
 
       res.json({ 
         success: true, 

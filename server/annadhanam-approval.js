@@ -181,7 +181,7 @@ module.exports = function(deps = {}) {
         console.warn('Failed to send FCM notification:', notifyErr.message);
       }
 
-      // Send FCM notification to ALL temple users
+// Send FCM notification to ALL temple users
       try {
         const templeUsers = await db('user_registrations')
           .where('temple_id', templeId)
@@ -191,10 +191,19 @@ module.exports = function(deps = {}) {
         const tokens = templeUsers.map(u => u.fcm_token).filter(Boolean);
         
         if (tokens.length > 0) {
+          let message = `An Annadhanam request (${request.receipt_number || 'N/A'}) has been approved.`;
+          if (request.donation_type === 'food') {
+            message = `${request.name} gave Annadhanam food (${request.food}) for ${request.peoples || 1} people`;
+          } else if (request.donation_type === 'product') {
+            message = `${request.name} donated ${request.quantity || ''} ${request.unit || ''} ${request.product_name || 'product'} for Annadhanam`;
+          } else if (request.donation_type === 'money') {
+            message = `${request.name} donated ₹${request.amount} for Annadhanam`;
+          }
+          
           await sendNotification(
             tokens,
-            'Annadhanam Approved',
-            `An Annadhanam request (${request.receipt_number || 'N/A'}) has been approved.`,
+            'Annadhanam Approved!',
+            message,
             {
               type: 'annadhanam_approved_all',
               annadhanamId: String(id),
@@ -302,34 +311,7 @@ module.exports = function(deps = {}) {
         console.warn('Failed to send FCM notification:', notifyErr.message);
       }
 
-      // Send FCM notification to ALL temple users (rejection)
-      try {
-        const templeUsers = await db('user_registrations')
-          .where('temple_id', templeId)
-          .whereNotNull('fcm_token')
-          .select('fcm_token');
-        
-        const tokens = templeUsers.map(u => u.fcm_token).filter(Boolean);
-        
-        if (tokens.length > 0) {
-          await sendNotification(
-            tokens,
-            'Annadhanam Rejected',
-            `An Annadhanam request (${request.receipt_number || 'N/A'}) was rejected.`,
-            {
-              type: 'annadhanam_rejected_all',
-              annadhanamId: String(id),
-              status: 'rejected',
-              templeId: String(templeId)
-            }
-          );
-          console.log(`✓ Sent rejection notification to ${tokens.length} users in temple ${templeId}`);
-        }
-      } catch (notifyErr) {
-        console.warn('Failed to send rejection notification to all:', notifyErr.message);
-      }
-
-      // Log the rejection
+// Log the rejection
       await db('annadhanam_approval_logs').insert({
         annadhanam_id: id,
         action: 'rejected',

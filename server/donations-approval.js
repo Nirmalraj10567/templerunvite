@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { sendNotification } = require('./config/firebase-notification');
 
 module.exports = function(deps = {}) {
   const { db } = deps;
@@ -119,7 +120,7 @@ module.exports = function(deps = {}) {
           updated_at: new Date()
         });
 
-      await db('donations_approval_logs').insert({
+await db('donations_approval_logs').insert({
         donation_id: id,
         action: 'approved',
         performed_by: approvedBy,
@@ -129,6 +130,43 @@ module.exports = function(deps = {}) {
         new_status: 'approved'
       });
 
+// Send FCM notification to ALL temple users (approval)
+      try {
+        const templeUsers = await db('user_registrations')
+          .where('temple_id', request.temple_id)
+          .whereNotNull('fcm_token')
+          .select('fcm_token');
+        
+        const tokens = templeUsers.map(u => u.fcm_token).filter(Boolean);
+        
+        if (tokens.length > 0) {
+          const date = request.donation_date || request.entry_date || 'N/A';
+          let message = '';
+          if (request.donation_type === 'product') {
+            message = `${request.donor_name} gave ${request.quantity || ''} ${request.unit || ''} ${request.product_name || 'product'} for Donation on ${date}`;
+          } else if (request.donation_type === 'money') {
+            message = `${request.donor_name} donated ₹${request.price || request.amount} for Donation on ${date}`;
+          } else {
+            message = `${request.donor_name} gave donation on ${date}`;
+          }
+          
+          await sendNotification(
+            tokens,
+            'Donation Approved!',
+            message,
+            {
+              type: 'donation_approved',
+              donationId: String(id),
+              status: 'approved',
+              templeId: String(request.temple_id)
+            }
+          );
+          console.log(`✓ Sent approval notification to ${tokens.length} users in temple ${request.temple_id}`);
+        }
+      } catch (notifyErr) {
+        console.warn('Failed to send approval notification:', notifyErr.message);
+      }
+      
       res.json({ success: true, message: 'Request approved successfully' });
     } catch (err) {
       console.error('PUT /api/donations-approval/approve/:id error:', err);
@@ -167,7 +205,7 @@ module.exports = function(deps = {}) {
           updated_at: new Date()
         });
 
-      await db('donations_approval_logs').insert({
+await db('donations_approval_logs').insert({
         donation_id: id,
         action: 'rejected',
         performed_by: rejectedBy,
@@ -177,6 +215,35 @@ module.exports = function(deps = {}) {
         new_status: 'rejected'
       });
 
+      // Send FCM notification to the submitter (rejection)
+      try {
+        const mobileNumber = request.submitted_by_mobile || request.donor_contact;
+        if (mobileNumber) {
+          const userRecord = await db('user_registrations')
+            .where('mobile_number', mobileNumber)
+            .whereNotNull('fcm_token')
+            .first();
+          
+          if (userRecord && userRecord.fcm_token) {
+            await sendNotification(
+              userRecord.fcm_token,
+              'Donation Rejected',
+              `Your donation request (${request.receipt_number || 'N/A'}) was rejected. Reason: ${rejection_reason}`,
+              {
+                type: 'donation_rejected',
+                donationId: String(id),
+                status: 'rejected',
+                reason: rejection_reason,
+                templeId: String(request.temple_id)
+              }
+            );
+            console.log(`✓ Sent rejection notification to ${mobileNumber}`);
+          }
+        }
+      } catch (notifyErr) {
+        console.warn('Failed to send FCM notification:', notifyErr.message);
+      }
+      
       res.json({ success: true, message: 'Request rejected successfully' });
     } catch (err) {
       console.error('PUT /api/donations-approval/reject/:id error:', err);

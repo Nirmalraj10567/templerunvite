@@ -888,14 +888,7 @@ export default function AnnadhanamListView() {
                               </TableCell>
                               <TableCell className={cn(tableClasses.cell, tableClasses.actionCell)}>
                                 <div className="flex items-center justify-end gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleViewClick(annadhanam)}
-                                    className={cn(tableClasses.actionButtonPrimary, "h-5 w-5 p-0")}
-                                  >
-                                    <Eye className="h-3 w-3" />
-                                  </Button>
+                                
 
                                   <Button
                                      variant="ghost"

@@ -29,6 +29,7 @@ export interface DonationFormData {
   phone: string;
   amount?: string;
   product: string;
+  quantity: string;
   unit: string;
   reason: string;
   transferTo?: string;
