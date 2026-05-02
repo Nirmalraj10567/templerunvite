@@ -40,6 +40,36 @@ async function generateReceiptNumber(templeId) {
 // ==================== HELPER FUNCTIONS ====================
 
 /**
+ * Get total quantity from asset details
+ * Parses donation details like "Qty: 5 x 1" to get total
+ */
+function getAssetTotalQty(asset) {
+  if (!asset) return 0;
+  // Parse from details string first to get the actual quantity
+  let parsedQty = null;
+  if (asset.details) {
+    const qtyMatch = asset.details.match(/\bQty:\s*([0-9]+(?:\.[0-9]+)?)\s*(?:x\s*([0-9]+(?:\.[0-9]+)?))?/i);
+    if (qtyMatch) {
+      const a = Number(qtyMatch[1]);
+      const b = qtyMatch[2] != null ? Number(qtyMatch[2]) : 1;
+      if (Number.isFinite(a) && Number.isFinite(b)) {
+        parsedQty = a * b;
+      }
+    }
+  }
+  // If backend quantity is set and valid, use the larger of backend or parsed
+  if (asset.quantity && Number(asset.quantity) > 0) {
+    const backendQty = Number(asset.quantity);
+    if (parsedQty != null && parsedQty > backendQty) return parsedQty;
+    return backendQty;
+  }
+  // Use parsed quantity if available
+  if (parsedQty != null) return parsedQty;
+  // Fallback to value as quantity (legacy)
+  return Number(asset.value) || 0;
+}
+
+/**
  * Log asset action to asset_logs table
  */
 async function logAssetAction({ assetId, action, details, userId }) {
@@ -776,6 +806,123 @@ router.get('/logs/all', authenticateToken, authorizePermission('asset_management
   } catch (err) {
     console.error('Error fetching all asset logs:', err);
     res.status(500).json({ error: 'Failed to fetch asset logs' });
+  }
+});
+
+/**
+ * PUT /api/properties/logs/:id
+ * Update an asset log entry
+ */
+router.put('/logs/:id', authenticateToken, authorizePermission('asset_management', 'full'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { action, details } = req.body;
+    console.log('[DEBUG] PUT /logs/:id called', { id, action, details });
+
+    // Check if log exists
+    const log = await db('asset_logs').where('id', id).first();
+    if (!log) {
+      return res.status(404).json({ error: 'Asset log not found' });
+    }
+
+    // Build update object
+    const updateData = {};
+    if (action !== undefined) updateData.action = action;
+    if (details !== undefined) updateData.details = typeof details === 'string' ? details : JSON.stringify(details);
+
+    await db('asset_logs').where('id', id).update(updateData);
+
+    // Recalculate asset quantities from all logs
+    const allLogs = await db('asset_logs').where('asset_id', log.asset_id);
+    let totalUsed = 0;
+    let totalSold = 0;
+
+    for (const l of allLogs) {
+      const detailsObj = typeof l.details === 'string' ? JSON.parse(l.details || '{}') : (l.details || {});
+      if (detailsObj.used_qty != null) totalUsed = Math.max(totalUsed, Number(detailsObj.used_qty));
+      if (detailsObj.for_sell_qty != null) totalSold = Math.max(totalSold, Number(detailsObj.for_sell_qty));
+    }
+
+    // Get asset total quantity
+    const asset = await db('assets').where('id', log.asset_id).first();
+    const assetTotalQty = getAssetTotalQty(asset);
+    const availableQty = assetTotalQty - totalSold;
+
+    console.log('[DEBUG] Status calc:', { assetId: log.asset_id, assetTotalQty, totalSold, availableQty, used: totalUsed });
+
+    // Determine status based on whether fully sold (available = 0)
+    const newStatus = (availableQty <= 0 && assetTotalQty > 0) ? 'converted' : 'active';
+
+    console.log('[DEBUG] New status:', newStatus);
+
+    // Update asset with recalculated quantities and status
+    await db('assets').where('id', log.asset_id).update({
+      used_qty: totalUsed,
+      for_sell_qty: totalSold,
+      status: newStatus
+    });
+
+    res.json({
+      success: true,
+      message: 'Asset log updated successfully'
+    });
+  } catch (err) {
+    console.error('Error updating asset log:', err);
+    res.status(500).json({ error: 'Failed to update asset log' });
+  }
+});
+
+/**
+ * DELETE /api/properties/logs/:id
+ * Delete an asset log entry
+ */
+router.delete('/logs/:id', authenticateToken, authorizePermission('asset_management', 'full'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if log exists
+    const log = await db('asset_logs').where('id', id).first();
+    if (!log) {
+      return res.status(404).json({ error: 'Asset log not found' });
+    }
+
+    const assetId = log.asset_id;
+
+    await db('asset_logs').where('id', id).del();
+
+    // Recalculate asset quantities from remaining logs
+    const allLogs = await db('asset_logs').where('asset_id', assetId);
+    let totalUsed = 0;
+    let totalSold = 0;
+
+    for (const l of allLogs) {
+      const detailsObj = typeof l.details === 'string' ? JSON.parse(l.details || '{}') : (l.details || {});
+      if (detailsObj.used_qty != null) totalUsed = Math.max(totalUsed, Number(detailsObj.used_qty));
+      if (detailsObj.for_sell_qty != null) totalSold = Math.max(totalSold, Number(detailsObj.for_sell_qty));
+    }
+
+    // Get asset total quantity
+    const asset = await db('assets').where('id', assetId).first();
+    const assetTotalQty = getAssetTotalQty(asset);
+    const availableQty = assetTotalQty - totalSold;
+
+    // Determine status based on whether fully sold (available = 0)
+    const newStatus = (availableQty <= 0 && assetTotalQty > 0) ? 'converted' : 'active';
+
+    // Update asset with recalculated quantities and status
+    await db('assets').where('id', assetId).update({
+      used_qty: totalUsed,
+      for_sell_qty: totalSold,
+      status: newStatus
+    });
+
+    res.json({
+      success: true,
+      message: 'Asset log deleted successfully'
+    });
+  } catch (err) {
+    console.error('Error deleting asset log:', err);
+    res.status(500).json({ error: 'Failed to delete asset log' });
   }
 });
 

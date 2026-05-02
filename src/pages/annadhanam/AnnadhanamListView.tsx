@@ -829,7 +829,7 @@ export default function AnnadhanamListView() {
                 <div className={tableClasses.scrollContainer}>
                   {loading ? (
                     <div className={tableClasses.emptyState}>
-                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                      <Loader2 className="w-12 h-12 text-orange-600 animate-spin mx-auto mb-4" />
                     </div>
                   ) : (
                     <Table className={tableClasses.container}>

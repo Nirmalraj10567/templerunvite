@@ -4,6 +4,7 @@ import { useLanguage } from '@/lib/language';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { theme } from '@/styles/theme';
 import { cn } from '@/lib/utils';
+import { Loader2 } from 'lucide-react';
 
 export default function PdfSettingsPage() {
   const { language } = useLanguage();
@@ -83,7 +84,12 @@ export default function PdfSettingsPage() {
   const logoSrc = form.logo_url ? (form.logo_url.startsWith('http') ? form.logo_url : form.logo_url) : '';
 
   if (loading) {
-    return <div className="p-4">{t('Loading...', 'ஏற்றுகிறது...')}</div>;
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="w-12 h-12 text-orange-600 animate-spin mx-auto mb-4" />
+        <p className="text-gray-600 text-lg">{t('Loading...', 'ஏற்றுகிறது...')}</p>
+      </div>
+    );
   }
 
   return (

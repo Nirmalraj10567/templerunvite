@@ -79,6 +79,13 @@ module.exports = function(deps = {}) {
           table.date('entry_date').nullable().after('register_no');
         });
       }
+      // Ensure unit column exists
+      const hasUnit = await db.schema.hasColumn('donations', 'unit');
+      if (!hasUnit) {
+        await db.schema.table('donations', (table) => {
+          table.string('unit').nullable().after('quantity');
+        });
+      }
     }
   };
 
@@ -263,6 +270,7 @@ module.exports = function(deps = {}) {
         description: req.body.description || req.body.reason || '',
         price: price,
         quantity: quantity,
+        unit: req.body.unit || null,
         category: req.body.category || 'General',
         donor_name: req.body.donorName || req.body.name || 'Anonymous',
         donor_contact: req.body.donorContact || req.body.phone || '',
@@ -346,6 +354,7 @@ module.exports = function(deps = {}) {
         description: req.body.description,
         price: req.body.price,
         quantity: quantity,
+        unit: req.body.unit || null,
         category: req.body.category,
         donor_name: req.body.donorName,
         donor_contact: req.body.donorContact,

@@ -556,7 +556,7 @@ export default function DashboardLayout() {
         <div className="flex items-center justify-between h-20 px-6 border-b border-red-600/30 bg-gradient-to-r from-orange-700/50 to-red-700/50">
           {!isSidebarCollapsed && (
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-300 to-red-500 flex items-center justify-center shadow-lg">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center shadow-lg">
                 <span className="text-xl font-bold text-white">T</span>
               </div>
               <span className="text-2xl font-bold bg-gradient-to-r from-orange-300 to-red-400 bg-clip-text text-transparent">
@@ -609,7 +609,7 @@ export default function DashboardLayout() {
                         <span className="font-medium text-orange-50 group-hover:text-white transition-colors">
                           {item.label}
                         </span>
-                        <div className={`transform transition-transform duration-500 text-orange-400 ${isExpanded ? 'rotate-90' : ''}`}>
+                        <div className={`transform transition-transform duration-500 text-red-300 ${isExpanded ? 'rotate-90' : ''}`}>
                           <ChevronRightIcon className="w-4 h-4" />
                         </div>
                       </div>
@@ -626,13 +626,13 @@ export default function DashboardLayout() {
                           className={({ isActive }) =>
                             `group flex items-center p-3 rounded-lg transition-all duration-500 relative
                             ${isActive
-                              ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-lg shadow-red-900/30'
+                              ? 'bg-gradient-to-r from-orange-400 to-orange-500 text-white shadow-lg shadow-orange-300/50'
                               : 'text-orange-200 hover:bg-orange-800/30 hover:text-white'
                             }`
                           }
                           onClick={() => isMobile && setMobileMenuOpen(false)}
                         >
-                          <div className="w-2 h-2 rounded-full bg-orange-300 mr-3 opacity-60 group-hover:opacity-100 transition-opacity duration-500"></div>
+                          <div className="w-2 h-2 rounded-full bg-orange-400 mr-3 opacity-60 group-hover:opacity-100 transition-opacity duration-500"></div>
                           <span className="font-medium">{child.label}</span>
                           <span className="sr-only">{t[lang].close}</span>
                         </NavLink>
@@ -652,7 +652,7 @@ export default function DashboardLayout() {
                   `group flex items-center p-3 rounded-xl transition-all duration-200 backdrop-blur-sm
                   ${isSidebarCollapsed ? 'justify-center' : ''} 
                   ${isActive
-                    ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-lg shadow-red-900/30'
+                    ? 'bg-gradient-to-r from-orange-400 to-orange-500 text-white shadow-lg shadow-orange-300/50'
                     : 'text-orange-200 hover:bg-gradient-to-r hover:from-orange-800/40 hover:to-red-800/40 hover:text-white hover:shadow-lg hover:shadow-red-900/20'
                   }`
                 }
@@ -712,7 +712,7 @@ export default function DashboardLayout() {
           <div className={`flex items-center p-3 rounded-xl bg-gradient-to-r from-orange-800/30 to-red-800/30 
                           backdrop-blur-sm border border-red-500/20 ${isSidebarCollapsed ? 'justify-center' : ''}`}>
             <div className="relative">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-400 to-red-600 
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-400 to-orange-500 
                             flex items-center justify-center font-bold text-lg shadow-lg">
                 {(user as any)?.fullName?.[0]?.toUpperCase() || user?.name?.[0]?.toUpperCase() || 'U'}
               </div>
@@ -720,7 +720,7 @@ export default function DashboardLayout() {
             </div>
             {!isSidebarCollapsed && (
               <div className="ml-4 flex-1">
-                <p className="font-semibold text-white text-lg">{(user as any)?.fullName || user?.name}</p>
+<p className="font-semibold text-white text-lg">{(user as any)?.fullName || user?.name}</p>
                 <p className="text-sm text-orange-200 capitalize bg-orange-700/40 px-2 py-1 rounded-md inline-block">
                   {user?.role}
                 </p>

@@ -118,6 +118,16 @@ const propertyService = {
     return response.data.data || [];
   },
 
+  async updateAssetLog(logId: string, data: Partial<Pick<AssetLog, 'action' | 'details'>>): Promise<{ success: boolean }> {
+    const response = await api.put<{ success: boolean }>(`/assets/logs/${logId}`, data);
+    return response.data;
+  },
+
+  async deleteAssetLog(logId: string): Promise<{ success: boolean }> {
+    const response = await api.delete<{ success: boolean }>(`/assets/logs/${logId}`);
+    return response.data;
+  },
+
   async getStats(): Promise<{ total: number; active: number; converted: number; totalValue: number }> {
     const response = await api.get<{ success: boolean; data: { total: number; active: number; converted: number; totalValue: number } }>('/assets/stats');
     return response.data.data;

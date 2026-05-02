@@ -913,7 +913,7 @@ export default function PoojaListView() {
                 {loading ? (
                   <tr>
                     <td colSpan={visibleColCount} className={formFieldStyles.moneyDonationList.table.loadingCell}>
-                      <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
+                      <Loader2 className="w-12 h-12 text-orange-600 animate-spin mx-auto mb-4" />
                       {translate("loading")}
                     </td>
                   </tr>

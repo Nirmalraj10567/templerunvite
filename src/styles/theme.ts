@@ -71,7 +71,7 @@ export const theme = {
 
   // Select Styles - EXACT from AnnadhanamEntryPage.tsx
   select: {
-    base: 'w-full pl-10 pr-10 py-2 border border-orange-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:outline-none appearance-none bg-white shadow-sm focus:shadow-md transition-all duration-200',
+    base: 'w-full pl-10 pr-10 py-2 border border-orange-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:outline-none appearance-none bg-white text-gray-900 shadow-sm focus:shadow-md transition-all duration-200',
     error: 'border-red-500',
     // Dropdown sizes (height and text size only)
     size: {

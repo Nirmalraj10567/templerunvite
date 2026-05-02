@@ -30,6 +30,31 @@ async function generateReceiptNumber(db, templeId) {
 module.exports = function(deps = {}) {
   const { db, generateDaybookReceiptNumber, calculateDaybookRunningBalance } = deps;
 
+  // Ensure annadhanam columns exist for payment mode support
+  async function ensureAnnadhanamColumns() {
+    try {
+      const hasPaymentMode = await db.schema.hasColumn('annadhanam', 'payment_mode');
+      if (!hasPaymentMode) {
+        await db.schema.alterTable('annadhanam', (table) => {
+          table.string('payment_mode', 20).notNullable().defaultTo('cash');
+        });
+        console.log('Added payment_mode column to annadhanam table');
+      }
+      const hasAccountId = await db.schema.hasColumn('annadhanam', 'account_id');
+      if (!hasAccountId) {
+        await db.schema.alterTable('annadhanam', (table) => {
+          table.integer('account_id').nullable().index();
+        });
+        console.log('Added account_id column to annadhanam table');
+      }
+    } catch (e) {
+      console.error('Failed ensuring annadhanam columns:', e.message);
+    }
+  }
+
+  // Run column migration on startup
+  ensureAnnadhanamColumns().catch((e) => console.error('Annadhanam column migration error:', e));
+
   // Helper to sync annadhanam product donations to asset management
   async function syncAnnadhanamProductToAsset({ annadhanamId, templeId, userId, row }) {
     try {
@@ -105,7 +130,8 @@ module.exports = function(deps = {}) {
 
       if (donationType === 'money') {
         entryAmount = Math.abs(amount);
-        paymentMode = 'cash';
+        // Use actual payment_mode from row (cash/bank/upi), default to 'cash' if not set
+        paymentMode = row.payment_mode || 'cash';
       } else if (donationType === 'food') {
         entryAmount = 0;
         paymentMode = 'in_kind';
@@ -332,6 +358,9 @@ module.exports = function(deps = {}) {
         quantity: body.quantity,
         amount: body.amount,
         entryDate: body.entryDate ?? body.entry_date,
+        // Payment mode fields
+        paymentMode: body.paymentMode ?? body.payment_mode,
+        accountId: body.accountId ?? body.account_id,
       };
 
       // Basic validations
@@ -365,6 +394,11 @@ module.exports = function(deps = {}) {
         }
         storedFood = `Money: ${String(p.amount).trim()}`;
         storedPeoples = 1;
+        // Validate account selection for bank/upi payments
+        const paymentMode = String(p.paymentMode || 'cash').toLowerCase();
+        if ((paymentMode === 'bank' || paymentMode === 'upi') && !p.accountId) {
+          return res.status(400).json({ error: 'Account is required for bank or UPI payments' });
+        }
       } else {
         // Food (default/legacy) or check for prefixes in food string
         if (!storedFood) {
@@ -406,6 +440,8 @@ module.exports = function(deps = {}) {
         remarks: p.remarks || null,
         amount: p.amount ? Number(p.amount) : null,
         donation_type: p.donationType || 'food',
+        payment_mode: p.paymentMode ? String(p.paymentMode).toLowerCase() : 'cash',
+        account_id: p.accountId ? Number(p.accountId) : null,
         created_by: req.user.id,
         created_at: db.fn.now(),
         updated_at: db.fn.now(),
@@ -562,6 +598,8 @@ module.exports = function(deps = {}) {
         quantity: body.quantity,
         amount: body.amount,
         entryDate: body.entryDate ?? body.entry_date,
+        paymentMode: body.paymentMode ?? body.payment_mode,
+        accountId: body.accountId ?? body.account_id,
       };
 
       // Basic validations
@@ -595,12 +633,17 @@ module.exports = function(deps = {}) {
         }
         storedFood = `Money: ${String(p.amount).trim()}`;
         storedPeoples = 1;
+        // Validate account selection for bank/upi payments
+        const paymentMode = String(p.paymentMode || 'cash').toLowerCase();
+        if ((paymentMode === 'bank' || paymentMode === 'upi') && !p.accountId) {
+          return res.status(400).json({ error: 'Account is required for bank or UPI payments' });
+        }
       } else {
         // Food (default/legacy) or check for prefixes
         if (!storedFood) {
           return res.status(400).json({ error: 'food is required' });
         }
-        
+
         // Auto-detect donation type from food string if not provided
         if (!p.donationType) {
           if (storedFood.startsWith('Money:')) {
@@ -637,6 +680,14 @@ module.exports = function(deps = {}) {
         donation_type: p.donationType || 'food',
         updated_at: db.fn.now(),
       };
+
+      // Add payment mode fields if provided
+      if (p.paymentMode !== undefined) {
+        updateData.payment_mode = String(p.paymentMode).toLowerCase();
+      }
+      if (p.accountId !== undefined) {
+        updateData.account_id = p.accountId ? Number(p.accountId) : null;
+      }
 
       const result = await db('annadhanam')
         .where({ id })

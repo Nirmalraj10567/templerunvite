@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle, XCircle, Eye, Clock, FileText, FileDown, Printer, Edit, RefreshCcw, Search } from 'lucide-react';
+import { CheckCircle, XCircle, Eye, Clock, FileText, FileDown, Printer, Edit, RefreshCcw, Search, Loader2 } from 'lucide-react';
 import { cn, formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
 import { theme } from '@/styles/theme';
 // Translation object
@@ -904,8 +904,9 @@ export default function AnnadhanamApprovalPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {loading ? (
                   <tr>
-                    <td colSpan={visibleColCount} className="px-3 py-2 text-center text-sm text-gray-500">
-                      {t('Loading...', 'ஏற்றுகிறது...')}
+                    <td colSpan={visibleColCount} className="px-3 py-8 text-center">
+                      <Loader2 className="w-12 h-12 text-orange-600 animate-spin mx-auto mb-4" />
+                      <p className="text-gray-600 text-lg">{t('Loading...', 'ஏற்றுகிறது...')}</p>
                     </td>
                   </tr>
                 ) : requests.length === 0 ? (

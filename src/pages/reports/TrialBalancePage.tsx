@@ -706,7 +706,7 @@ function TrialBalanceContent() {
                 {isLoading ? (
                   <div className="py-8">
                     <div className="flex flex-col items-center justify-center gap-3">
-                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                      <Loader2 className="w-12 h-12 text-orange-600 animate-spin mx-auto mb-4" />
                       <p className="text-muted-foreground">{t[language].loadingData}</p>
                     </div>
                     <div className="mt-6">

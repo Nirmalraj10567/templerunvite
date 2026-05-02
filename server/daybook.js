@@ -110,29 +110,38 @@ module.exports = function(deps = {}) {
       const ps = Math.min(Math.max(parseInt(pageSize, 10) || 50, 1), 200);
       const offset = (pg - 1) * ps;
 
-      const query = db('daybook_entries')
-        .where('temple_id', req.user.templeId)
+      const query = db('daybook_entries as d')
+        .where('d.temple_id', req.user.templeId)
+        .leftJoin('journal_entries as j', function() {
+          this.on('d.reference_id', '=', 'j.id')
+              .andOn('d.reference_type', '=', db.raw('?', ['donation']));
+        })
+        .select(
+          'd.*',
+          'j.from_account as journal_from_account',
+          'j.to_account as journal_to_account'
+        )
         .modify((qb) => {
           if (q) {
             qb.andWhere((b) => {
-              b.where('description', 'like', `%${q}%`)
-                .orWhere('receipt_number', 'like', `%${q}%`)
-                .orWhere('party_name', 'like', `%${q}%`)
-                .orWhere('party_mobile', 'like', `%${q}%`);
+              b.where('d.description', 'like', `%${q}%`)
+                .orWhere('d.receipt_number', 'like', `%${q}%`)
+                .orWhere('d.party_name', 'like', `%${q}%`)
+                .orWhere('d.party_mobile', 'like', `%${q}%`);
             });
           }
-          if (from) qb.andWhere('entry_date', '>=', from);
-          if (to) qb.andWhere('entry_date', '<=', to);
+          if (from) qb.andWhere('d.entry_date', '>=', from);
+          if (to) qb.andWhere('d.entry_date', '<=', to);
           if (type) {
             if (type === 'annadhanam') {
-              qb.andWhere('reference_type', 'annadhanam');
+              qb.andWhere('d.reference_type', 'annadhanam');
             } else {
-              qb.andWhere('entry_type', type);
+              qb.andWhere('d.entry_type', type);
             }
           }
         })
-        .orderBy('created_at', 'desc')
-        .orderBy('id', 'desc')
+        .orderBy('d.created_at', 'desc')
+        .orderBy('d.id', 'desc')
         .limit(ps)
         .offset(offset);
 

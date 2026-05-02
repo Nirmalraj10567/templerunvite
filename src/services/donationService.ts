@@ -2,6 +2,7 @@ export interface DonationItem {
   id: number;
   temple_id: number;
   register_no?: string | null;
+  entry_date?: string | null;
   product_name: string;
   description: string;
   price: number | null;
@@ -52,6 +53,16 @@ class DonationService {
     return headers;
   }
 
+  async getDonationById(token: string | null, id: number): Promise<ApiResponse<DonationItem>> {
+    const response = await fetch(`${this.baseUrl}/${id}`, {
+      headers: this.getHeaders(token),
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  }
+
   async getDonations(token: string | null, params?: { q?: string; from?: string; to?: string; }): Promise<ApiResponse<DonationItem[]>> {
     const url = new URL(this.baseUrl);
     if (params) {
@@ -99,10 +110,13 @@ class DonationService {
       description: string;
       price: number;
       quantity: number;
+      unit: string;
       category: string;
       donorName: string;
       donorContact: string;
       donationDate: string;
+      entryDate: string;
+      registerNo: string;
       status: string;
       notes: string;
       transferTo: string;

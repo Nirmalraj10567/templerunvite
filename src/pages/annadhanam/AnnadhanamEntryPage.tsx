@@ -56,6 +56,12 @@ const useEnterKeyNavigation = () => {
   return { formRef, handleKeyDown };
 };
 
+interface AccountItem {
+  id: number;
+  accountName: string;
+  accountType: 'cash' | 'bank' | 'upi';
+}
+
 interface AnnadhanamFormData {
   receiptNumber: string;
   name: string;
@@ -66,6 +72,8 @@ interface AnnadhanamFormData {
   productName?: string;
   quantity?: string;
   amount?: string;
+  paymentMode?: 'cash' | 'bank' | 'upi';
+  accountId?: number | null;
   time: string;
   fromDate: string;
   toDate: string;
@@ -112,6 +120,8 @@ export default function AnnadhanamEntryPage() {
   // Master data states
   const [foodItems, setFoodItems] = useState<Array<{ id: number; name: string }>>([]);
   const [productNames, setProductNames] = useState<Array<{ id: number; name: string }>>([]);
+  const [accounts, setAccounts] = useState<AccountItem[]>([]);
+  const editAccountIdRef = useRef<number | null>(null);
   const [foodSearchQuery, setFoodSearchQuery] = useState('');
   const [productSearchQuery, setProductSearchQuery] = useState('');
   const [showFoodDropdown, setShowFoodDropdown] = useState(false);
@@ -281,6 +291,8 @@ export default function AnnadhanamEntryPage() {
               productName,
               quantity,
               amount,
+              paymentMode: data.payment_mode || 'cash',
+              accountId: data.account_id || null,
               time: normalizeTimeString(data.time),
               fromDate: normalizeDateString(data.from_date),
               toDate: normalizeDateString(data.to_date),
@@ -289,6 +301,8 @@ export default function AnnadhanamEntryPage() {
             };
 
             reset(formData as AnnadhanamFormData);
+            // Store accountId for later when accounts load (fixes race condition)
+            editAccountIdRef.current = data.account_id || null;
             setFoodSearchQuery(food);
             setProductSearchQuery(productName);
             setLastCreatedId(Number(id));
@@ -348,13 +362,43 @@ export default function AnnadhanamEntryPage() {
           const productData = await productResponse.json();
           setProductNames(Array.isArray(productData) ? productData : []);
         }
+
+        // Load accounts for payment mode
+        const accountsResponse = await fetch(
+          `https://templeapi.agniplay.com/api/accounts?templeId=${user.templeId}`,
+          { headers: { 'Authorization': `Bearer ${token}` } }
+        );
+        if (accountsResponse.ok) {
+          const accountsData = await accountsResponse.json();
+          const loadedAccounts = Array.isArray(accountsData) ? accountsData : (accountsData.data || []);
+          setAccounts(loadedAccounts);
+
+          // Re-apply accountId in edit mode after accounts are loaded
+          // This fixes the race condition where form reset happens before accounts load
+          if (id && loadedAccounts.length > 0 && editAccountIdRef.current) {
+            setValue('accountId', Number(editAccountIdRef.current), { shouldValidate: true });
+          }
+        }
       } catch (error) {
         console.error('Error loading master data:', error);
       }
     };
 
     loadMasterData();
-  }, [user?.templeId, token]);
+  }, [user?.templeId, token, id, watch, setValue]);
+
+  // Dedicated effect to set accountId in edit mode when both data and accounts are loaded
+  useEffect(() => {
+    console.log('[Account Debug] Effect triggered:', { id, accountIdRef: editAccountIdRef.current, accountsCount: accounts.length, accounts });
+    if (id && editAccountIdRef.current && accounts.length > 0) {
+      const account = accounts.find(a => a.id === editAccountIdRef.current);
+      console.log('[Account Debug] Found account:', account);
+      if (account) {
+        setValue('accountId', Number(editAccountIdRef.current), { shouldValidate: true });
+        console.log('[Account Debug] Set accountId to:', Number(editAccountIdRef.current));
+      }
+    }
+  }, [id, accounts, setValue]);
 
   // Handle clicks outside dropdowns
   useEffect(() => {
@@ -404,7 +448,7 @@ export default function AnnadhanamEntryPage() {
         mappedPeoples = 1;
       }
 
-      const payload = {
+      const payload: any = {
         receipt_number: data.receiptNumber,
         name: data.name,
         mobile_number: data.mobileNumber,
@@ -416,6 +460,17 @@ export default function AnnadhanamEntryPage() {
         entry_date: data.entryDate,
         remarks: data.remarks || ''
       };
+
+      // Add payment mode fields for money donations
+      if (data.donationType === 'money') {
+        payload.paymentMode = data.paymentMode || 'cash';
+        if (data.paymentMode === 'bank' || data.paymentMode === 'upi') {
+          if (!data.accountId) {
+            throw new Error(t('Account is required for bank or UPI payments', 'வங்கி/UPI கட்டணத்திற்கு கணக்கு தேவை'));
+          }
+          payload.accountId = data.accountId;
+        }
+      }
 
       const url = id ? `https://templeapi.agniplay.com/api/annadhanam/${id}` : 'https://templeapi.agniplay.com/api/annadhanam';
       const method = id ? 'PUT' : 'POST';
@@ -475,6 +530,8 @@ export default function AnnadhanamEntryPage() {
               productName: '',
               quantity: '',
               amount: '',
+              paymentMode: 'cash',
+              accountId: null,
               remarks: ''
             });
             fetchNextReceipt();
@@ -1114,6 +1171,64 @@ export default function AnnadhanamEntryPage() {
                       </div>
                       {errors.amount && <p className="text-red-500 text-xs mt-1">{errors.amount.message}</p>}
                     </div>
+
+                    {/* Payment Mode */}
+                    <div className="space-y-2 group">
+                      <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                        {t('Payment Mode', 'கட்டணம் வகை')}
+                      </Label>
+                      <div className="flex gap-2">
+                        {(['cash', 'bank', 'upi'] as const).map((mode) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            onClick={() => {
+                              setValue('paymentMode', mode, { shouldValidate: true });
+                              if (mode === 'cash') {
+                                setValue('accountId', null, { shouldValidate: true });
+                              }
+                            }}
+                            className={`px-3 py-2 rounded border text-sm ${watch('paymentMode') === mode
+                              ? 'bg-orange-100 border-orange-400 text-orange-700'
+                              : 'bg-white border-gray-300 text-gray-700'
+                              }`}
+                          >
+                            {mode.toUpperCase()}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Account Selection for Bank/UPI */}
+                    {(watch('paymentMode') === 'bank' || watch('paymentMode') === 'upi') && (
+                      <div className="space-y-2 group">
+                        <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                          {t('Account', 'கணக்கு')}
+                        </Label>
+                        <select
+                          {...register('accountId', {
+                            required: (watch('paymentMode') === 'bank' || watch('paymentMode') === 'upi')
+                              ? t('Select account for Bank/UPI', 'வங்கி/UPI க்கு கணக்கை தேர்ந்தெடுக்கவும்')
+                              : false
+                          })}
+                          className={cn(
+                            theme.select?.base || 'w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-orange-500 focus:ring-1 focus:ring-orange-500',
+                            errors.accountId ? 'border-red-500' : ''
+                          )}
+                        >
+                          <option value="">{t('Select account', 'கணக்கை தேர்வு செய்யவும்')}</option>
+                          {accounts
+                            .filter((a) => a.accountType === watch('paymentMode'))
+                            .map((a) => (
+                              <option key={a.id} value={a.id}>
+                                {a.accountName}
+                              </option>
+                            ))}
+                        </select>
+                        {errors.accountId && <p className="text-red-500 text-xs mt-1">{errors.accountId.message}</p>}
+                      </div>
+                    )}
+
                     <div className="space-y-2 group">
                       <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
                         {t('Remarks', 'குறிப்புகள்')}
@@ -1173,6 +1288,8 @@ export default function AnnadhanamEntryPage() {
                         productName: '',
                         quantity: '',
                         amount: '',
+                        paymentMode: 'cash',
+                        accountId: null,
                         remarks: ''
                       });
                       setFoodSearchQuery('');

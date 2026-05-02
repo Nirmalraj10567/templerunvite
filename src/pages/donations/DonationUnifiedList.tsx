@@ -7,6 +7,7 @@ import { donationService, DonationItem as ProductDonationItem } from '@/services
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Loader2, Trash2, Search, FileDown } from 'lucide-react';
@@ -297,13 +298,12 @@ export default function DonationUnifiedList() {
     if (e.key === 'Enter') { e.preventDefault(); load(); }
   };
 
-  // Edit navigation per type
+  // Edit - navigate to full entry page
   const onEdit = (row: UnifiedDonationRow) => {
-    if (row.type === 'money') {
-      navigate(`/dashboard/donations/money-entry?editId=${row.id}`);
-    } else {
-      navigate(`/dashboard/donation-product/entry?editId=${row.id}`);
-    }
+    const editUrl = row.type === 'money' 
+      ? `/dashboard/donations/entry?editId=${row.id}&type=money`
+      : `/dashboard/donations/entry?editId=${row.id}&type=product`;
+    navigate(editUrl);
   };
 
   const handleDownloadReceipt = async (donationId: number, registerNo: string | null) => {
@@ -582,7 +582,7 @@ export default function DonationUnifiedList() {
             <div className={tableClasses.scrollContainer}>
               {loading ? (
                 <div className={tableClasses.emptyState}>
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  <Loader2 className="w-12 h-12 text-orange-600 animate-spin mx-auto mb-4" />
                 </div>
               ) : (
                 <Table className={tableClasses.container}>
@@ -859,6 +859,7 @@ export default function DonationUnifiedList() {
           </div>
         </div>
       )}
-    </div>
+
+      </div>
   );
 }

@@ -679,16 +679,17 @@ module.exports = function (deps = {}) {
 
       // Handle duplicate entry errors
       if (err.code === 'ER_DUP_ENTRY') {
-        if (err.message.includes('users_email_unique') || err.sqlMessage?.includes('users_email_unique')) {
-          return res.status(409).json({ error: 'Email already registered' });
+        const errorMsg = (err.message || err.sqlMessage || '').toLowerCase();
+        if (errorMsg.includes('users_email_unique') || errorMsg.includes('email')) {
+          return res.status(409).json({ error: 'Email already registered', field: 'email' });
         }
-        if (err.message.includes('users_username_unique') || err.sqlMessage?.includes('users_username_unique')) {
-          return res.status(409).json({ error: 'Username already taken' });
+        if (errorMsg.includes('users_username_unique') || errorMsg.includes('username')) {
+          return res.status(409).json({ error: 'Username already taken', field: 'username' });
         }
-        if (err.message.includes('users_mobile_unique') || err.sqlMessage?.includes('users_mobile_unique')) {
-          return res.status(409).json({ error: 'Mobile number already registered' });
+        if (errorMsg.includes('users_mobile_unique') || errorMsg.includes('mobile')) {
+          return res.status(409).json({ error: 'Mobile number already registered', field: 'mobile' });
         }
-        return res.status(409).json({ error: 'Duplicate entry found' });
+        return res.status(409).json({ error: 'Duplicate entry found', field: 'unknown' });
       }
 
       return res.status(500).json({ 

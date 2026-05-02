@@ -116,7 +116,7 @@ export default function DaybookListPage() {
     { key: 'people', label: t('People', 'நபர்கள்') },
     { key: 'payment', label: t('Payment', 'கட்டணம்') },
     { key: 'amount', label: t('Amount', 'தொகை') },
-   
+    { key: 'balance', label: t('Balance', 'இருப்பு') },
     { key: 'actions', label: t('Actions', 'செயல்கள்') },
   ];
 
@@ -352,24 +352,7 @@ export default function DaybookListPage() {
       </div>
 
       {/* Improved Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-3 mb-6">
-        {/* Opening Balance */}
-        <Card className="border-none shadow-sm bg-white overflow-hidden relative group hover:shadow-md transition-all duration-300">
-          <div className="absolute top-0 left-0 w-1 h-full bg-blue-500" />
-          <CardHeader className="pb-2 pt-3 px-3 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-              {t('Opening Balance', 'தொடக்க இருப்பு')}
-            </CardTitle>
-            <Clock className="h-3 w-3 text-blue-500 opacity-70" />
-          </CardHeader>
-          <CardContent className="px-3 pb-3">
-            <div className={`text-base font-bold tracking-tight ${stats.opening_balance >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
-              {formatAmount(stats.opening_balance)}
-            </div>
-            <p className="text-[9px] text-gray-400 mt-0.5">{t('At start of period', 'கால தொடக்கத்தில்')}</p>
-          </CardContent>
-        </Card>
-
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
         {/* Period Income */}
         <Card className="border-none shadow-sm bg-white overflow-hidden relative group hover:shadow-md transition-all duration-300">
           <div className="absolute top-0 left-0 w-1 h-full bg-green-500" />
@@ -412,89 +395,27 @@ export default function DaybookListPage() {
           </CardContent>
         </Card>
 
-        {/* Period Net */}
+        {/* Total Balance */}
         <Card className="border-none shadow-sm bg-white overflow-hidden relative group hover:shadow-md transition-all duration-300">
-          <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500" />
+          <div className="absolute top-0 left-0 w-1 h-full bg-blue-500" />
           <CardHeader className="pb-2 pt-3 px-3 flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-              {t('Net Balance', 'நிகர இருப்பு')}
+              {t('Current Balance', 'தற்போதைய இருப்பு')}
             </CardTitle>
-            <TrendingUp className={`h-3 w-3 opacity-70 ${stats.period_net >= 0 ? 'text-green-500' : 'text-red-500'}`} />
+            <Wallet className="h-3 w-3 text-blue-500 opacity-70" />
           </CardHeader>
           <CardContent className="px-3 pb-3">
-            <div className={`text-base font-bold tracking-tight ${stats.period_net >= 0 ? 'text-indigo-600' : 'text-red-600'}`}>
-              {formatAmount(stats.period_net)}
-            </div>
-            <p className="text-[9px] text-gray-400 mt-0.5">{t('Income - Expense', 'வரவு - செலவு')}</p>
-          </CardContent>
-        </Card>
-
-        {/* Closing Balance */}
-        <Card className="border-none shadow-sm bg-white overflow-hidden relative group hover:shadow-md transition-all duration-300">
-          <div className="absolute top-0 left-0 w-1 h-full bg-orange-500" />
-          <CardHeader className="pb-2 pt-3 px-3 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-              {t('Closing Balance', 'முடிவு இருப்பு')}
-            </CardTitle>
-            <BookOpen className="h-3 w-3 text-orange-500 opacity-70" />
-          </CardHeader>
-          <CardContent className="px-3 pb-3">
-            <div className={`text-base font-bold tracking-tight ${stats.closing_balance >= 0 ? 'text-orange-600' : 'text-red-600'}`}>
-              {formatAmount(stats.closing_balance)}
-            </div>
-            <p className="text-[9px] text-gray-400 mt-0.5">{t('At end of period', 'கால இறுதியில்')}</p>
-          </CardContent>
-        </Card>
-
-        {/* Overall Income */}
-        <Card className="border-none shadow-sm bg-white overflow-hidden relative group hover:shadow-md transition-all duration-300">
-          <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
-          <CardHeader className="pb-2 pt-3 px-3 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-              {t('Overall Income', 'மொத்த வரவு')}
-            </CardTitle>
-            <Banknote className="h-3 w-3 text-emerald-500 opacity-70" />
-          </CardHeader>
-          <CardContent className="px-3 pb-3">
-            <div className="text-base font-bold text-emerald-600 tracking-tight">
-              {formatAmount((stats as any).all_time_income || 0)}
-            </div>
-            <p className="text-[9px] text-gray-400 mt-0.5">{t('All time total', 'அனைத்து நேரமும்')}</p>
-          </CardContent>
-        </Card>
-
-        {/* Overall Expense */}
-        <Card className="border-none shadow-sm bg-white overflow-hidden relative group hover:shadow-md transition-all duration-300">
-          <div className="absolute top-0 left-0 w-1 h-full bg-rose-500" />
-          <CardHeader className="pb-2 pt-3 px-3 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-              {t('Overall Expense', 'மொத்த செலவு')}
-            </CardTitle>
-            <ArrowDownRight className="h-3 w-3 text-rose-500 opacity-70" />
-          </CardHeader>
-          <CardContent className="px-3 pb-3">
-            <div className="text-base font-bold text-rose-600 tracking-tight">
-              {formatAmount((stats as any).all_time_expense || 0)}
-            </div>
-            <p className="text-[9px] text-gray-400 mt-0.5">{t('All time total', 'அனைத்து நேரமும்')}</p>
-          </CardContent>
-        </Card>
-
-        {/* Current Balance */}
-        <Card className="border-none shadow-md bg-gradient-to-br from-orange-500 to-red-600 overflow-hidden relative group hover:shadow-lg transition-all duration-300">
-          <CardHeader className="pb-2 pt-3 px-3 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-[10px] font-bold text-white uppercase tracking-wider">
-              {t('Total Cash in Hand', 'மொத்த கையிருப்பு')}
-            </CardTitle>
-            <Wallet className="h-3 w-3 text-white opacity-80" />
-          </CardHeader>
-          <CardContent className="px-3 pb-3">
-            <div className="text-lg font-black text-white tracking-tight drop-shadow-sm">
+            <div className="text-base font-bold text-blue-600 tracking-tight">
               {formatAmount(stats.current_balance)}
             </div>
-            <p className="text-[9px] text-orange-100 font-medium uppercase tracking-tight">{t('Live Balance', 'தற்போதைய இருப்பு')}</p>
+            <div className="flex items-center gap-1 mt-0.5">
+              <Badge variant="outline" className="text-[8px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-100">
+                {t('Net', 'மீதி')} {stats.period_net >= 0 ? '+' : ''}{formatAmount(stats.period_net)}
+              </Badge>
+            </div>
           </CardContent>
         </Card>
+
       </div>
       {/* Filters and Actions Bar */}
       <div className="flex items-center gap-3 bg-white p-4 rounded-xl border border-gray-100 shadow-sm mb-6">
@@ -570,7 +491,7 @@ export default function DaybookListPage() {
         <CardContent className="p-0">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+              <Loader2 className="w-12 h-12 text-orange-600 animate-spin mx-auto mb-4" />
             </div>
           ) : (
             <>
@@ -651,7 +572,9 @@ export default function DaybookListPage() {
                         )}
                         {visibleColumns.payment && (
                           <TableCell className="capitalize">
-                            {entry.payment_mode === 'in_kind' ? (
+                            {entry.journal_to_account ? (
+                              <span className="font-medium text-blue-600">{entry.journal_to_account}</span>
+                            ) : entry.payment_mode === 'in_kind' ? (
                               <span className="text-green-600">{t('In Kind', 'உணவு')}</span>
                             ) : (
                               <span>
@@ -799,7 +722,7 @@ export default function DaybookListPage() {
           </DialogHeader>
           {logsLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+              <Loader2 className="w-12 h-12 text-orange-600 animate-spin mx-auto mb-4" />
             </div>
           ) : logs.length === 0 ? (
             <div className="text-center py-8 text-gray-500">

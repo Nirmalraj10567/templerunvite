@@ -526,7 +526,10 @@ export default function ReceiptEntryPage() {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {/* Receipt Number */}
-                  <div>
+                  <div className="space-y-1">
+                    <Label htmlFor="receiptNumber" className="text-sm font-medium text-gray-700">
+                      {t('receiptNumber')}
+                    </Label>
                     <Input
                       id="receiptNumber"
                       readOnly
@@ -537,7 +540,10 @@ export default function ReceiptEntryPage() {
                   </div>
 
                   {/* Date */}
-                  <div>
+                  <div className="space-y-1">
+                    <Label htmlFor="date" className="text-sm font-medium text-gray-700">
+                      {t('date')}
+                    </Label>
                     <Input
                       id="date"
                       type="date"
@@ -549,7 +555,10 @@ export default function ReceiptEntryPage() {
                   </div>
 
                   {/* Type */}
-                  <div>
+                  <div className="space-y-1">
+                    <Label htmlFor="type" className="text-sm font-medium text-gray-700">
+                      {t('type')}
+                    </Label>
                     <div className="relative">
                       <select
                         id="type"
@@ -572,7 +581,10 @@ export default function ReceiptEntryPage() {
                   </div>
 
                   {/* Amount */}
-                  <div>
+                  <div className="space-y-1">
+                    <Label htmlFor="amount" className="text-sm font-medium text-gray-700">
+                      {t('amount')}
+                    </Label>
                     <Input
                       id="amount"
                       type="number"
@@ -588,7 +600,10 @@ export default function ReceiptEntryPage() {
                   </div>
 
                   {/* Donor */}
-                  <div>
+                  <div className="space-y-1">
+                    <Label htmlFor="donor" className="text-sm font-medium text-gray-700">
+                      {t('donor')}
+                    </Label>
                     <div className="relative">
                       <select
                         id="donor"
@@ -617,7 +632,10 @@ export default function ReceiptEntryPage() {
                   </div>
 
                   {/* Receiver */}
-                  <div>
+                  <div className="space-y-1">
+                    <Label htmlFor="receiver" className="text-sm font-medium text-gray-700">
+                      {t('receiver')}
+                    </Label>
                     <div className="relative">
                       <select
                         id="receiver"
@@ -640,7 +658,10 @@ export default function ReceiptEntryPage() {
                   </div>
 
                   {/* Remarks - Full width */}
-                  <div className="md:col-span-2 lg:col-span-3">
+                  <div className="md:col-span-2 lg:col-span-3 space-y-1">
+                    <Label htmlFor="remarks" className="text-sm font-medium text-gray-700">
+                      {t('remarksLabel')}
+                    </Label>
                     <Textarea
                       id="remarks"
                       rows={3}

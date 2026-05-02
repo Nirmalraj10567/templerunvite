@@ -15,6 +15,7 @@ import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
 import { theme } from '@/styles/theme';
 import { CardHeader, CardTitle } from '@/components/ui/card';
 import SearchableSelect from '@/components/ui/SearchableSelect';
+import { Loader2 } from 'lucide-react';
 
 const RAW_API_BASE =
   (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || window.location.origin;
@@ -1339,7 +1340,7 @@ export default function TaxUserEntryPage() {
     <div className="trp-root" style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh' }}>
       <style>{styles}</style>
       <div style={{ textAlign:'center' }}>
-        <div className="trp-spinner" />
+        <Loader2 className="w-12 h-12 text-orange-600 animate-spin mx-auto mb-4" />
         <p style={{ color:'var(--ink-60)', fontSize:14 }}>{L('Loading master data…','முதன்மை தரவு ஏற்றுகிறது…')}</p>
       </div>
     </div>

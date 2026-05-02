@@ -77,6 +77,8 @@ export default function UnifiedDonationEntry() {
   const editIdParam = searchParams.get('editId');
   const editId = editIdParam ? Number(editIdParam) : null;
   const isEdit = typeof editId === 'number' && !isNaN(editId);
+  const editTypeParam = searchParams.get('type');
+  const editType = editTypeParam === 'product' ? 'product' : 'money';
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'money' | 'product'>('money');
@@ -160,6 +162,69 @@ export default function UnifiedDonationEntry() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // Helper to normalize date string
+  const normalizeDate = (s: string | null | undefined) => {
+    if (!s) return '';
+    return s.slice(0, 10);
+  };
+
+  // Load existing data for edit mode
+  useEffect(() => {
+    if (!isEdit || !editId || !token) return;
+
+    const loadEditData = async () => {
+      try {
+        if (editType === 'money') {
+          const response = await moneyDonationService.getById(token, editId);
+          if (response.success && response.data) {
+            const d = response.data;
+            setMoneyForm({
+              registerNo: d.register_no || '',
+              entryDate: normalizeDate(d.entry_date) || normalizeDate(d.date) || '',
+              bookingDate: normalizeDate(d.date) || '',
+              date: d.date || '',
+              name: d.name || '',
+              fatherName: d.father_name || '',
+              address: d.address || '',
+              village: d.village || '',
+              phone: d.phone || '',
+              amount: String(d.amount || ''),
+              reason: d.reason || '',
+              transferTo: d.transfer_to_account || 'INCOME A/C',
+              paymentMode: (d.payment_mode as 'cash' | 'bank' | 'upi') || 'cash',
+              accountId: d.account_id || null,
+            });
+            setActiveTab('money');
+          }
+        } else {
+          const response = await donationService.getDonationById(token, editId);
+          if (response.success && response.data) {
+            const d = response.data;
+            setProductForm({
+              registerNo: d.register_no || '',
+              entryDate: normalizeDate(d.entry_date) || '',
+              bookingDate: normalizeDate(d.donation_date) || '',
+              date: normalizeDate(d.donation_date) || '',
+              name: d.donor_name || '',
+              fatherName: '',
+              address: '',
+              village: '',
+              phone: d.donor_contact || '',
+              product: d.product_name || '',
+              unit: d.unit || '',
+              reason: d.description || '',
+            });
+            setActiveTab('product');
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load edit data:', error);
+      }
+    };
+
+    loadEditData();
+  }, [isEdit, editId, editType, token]);
 
   const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
@@ -496,7 +561,7 @@ export default function UnifiedDonationEntry() {
         setLastCreatedId(editId);
         await refreshJournal();
         setTimeout(() => {
-          navigate('/dashboard/donations/money-list');
+          navigate('/dashboard/donations/list');
         }, 300);
       } else {
         const freshRN = await computeNextRegisterNo();
@@ -553,22 +618,42 @@ export default function UnifiedDonationEntry() {
     setIsError(false);
 
     try {
-      const payload = {
-        ...productForm,
-        donationDate: productForm.bookingDate, // Map to backend field for product donations
-        entry_date: productForm.entryDate,
-        date: productForm.bookingDate // legacy/fallback
-      };
-      await donationService.createDonation(token, payload);
-      const nextNo = await fetchNextRegisterNo();
-      setNextRegisterNo(nextNo);
-      setProductForm({ ...createProductDonationState(), registerNo: nextNo });
-      setErrors({});
-      setTouched({});
-      showSuccessAlert(t('Saved successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது'));
+      if (isEdit && editId) {
+        await donationService.updateDonation(token, editId, {
+          product: productForm.product,
+          productName: productForm.product,
+          description: productForm.reason,
+          donorName: productForm.name,
+          donorContact: productForm.phone,
+          donationDate: productForm.bookingDate,
+          entryDate: productForm.entryDate,
+          registerNo: productForm.registerNo,
+          unit: productForm.unit,
+        });
+        setIsError(false);
+        showSuccessAlert(t('Updated successfully', 'வெற்றிகரமாக புதுப்பிக்கப்பட்டது'));
+        setLastCreatedId(editId);
+        setTimeout(() => {
+          navigate('/dashboard/donations/list');
+        }, 300);
+      } else {
+        const payload = {
+          ...productForm,
+          donationDate: productForm.bookingDate,
+          entry_date: productForm.entryDate,
+          date: productForm.bookingDate
+        };
+        await donationService.createDonation(token, payload);
+        const nextNo = await fetchNextRegisterNo();
+        setNextRegisterNo(nextNo);
+        setProductForm({ ...createProductDonationState(), registerNo: nextNo });
+        setErrors({});
+        setTouched({});
+        showSuccessAlert(t('Saved successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது'));
+      }
     } catch {
       setIsError(true);
-      setMessage(t('Save failed', 'சேமிப்பில் தோல்வி'));
+      setMessage(isEdit ? t('Update failed', 'புதுப்பிப்பில் தோல்வி') : t('Save failed', 'சேமிப்பில் தோல்வி'));
     } finally {
       setSaving(false);
     }
@@ -881,8 +966,8 @@ export default function UnifiedDonationEntry() {
 
                   {(moneyForm.paymentMode === 'bank' || moneyForm.paymentMode === 'upi') && (
                     <>
-                      <div className="space-y-2 group">
-                        <Label className="text-sm font-semibold text-gray-700">
+                      <div className="space-y-2 group flex flex-col">
+                        <Label className="text-sm font-semibold text-gray-700 block">
                           {t('Account', 'கணக்கு')}
                         </Label>
                         <select
@@ -893,7 +978,7 @@ export default function UnifiedDonationEntry() {
                               accountId: e.target.value ? Number(e.target.value) : null,
                             }))
                           }
-                          className={cn(fieldStyles, errors.accountId ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
+                          className={cn(fieldStyles, 'w-full block', errors.accountId ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '')}
                         >
                           <option value="">{t('Select account', 'கணக்கை தேர்வு செய்யவும்')}</option>
                           {accounts

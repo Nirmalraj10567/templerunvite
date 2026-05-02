@@ -429,7 +429,7 @@ export default function MemberListView({
                     <option value="all">{t('All Roles', 'அனைத்து பங்குகள்')}</option>
                     <option value="member">{t('Member', 'உறுப்பினர்')}</option>
                     <option value="admin">{t('Admin', 'நிர்வாகி')}</option>
-                    <option value="superadmin">{t('Super Admin', 'முதன்மை நிர்வாகி')}</option>
+                 
                   </select>
                 </div>
                 <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>

@@ -13,9 +13,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { X } from 'lucide-react';
 
 export default function MemberEntryPage() {
   const navigate = useNavigate();
@@ -73,27 +71,20 @@ export default function MemberEntryPage() {
         // Handle specific error cases
         if (response.status === 400 || response.status === 409) {
           let errorMessage = responseData.message || responseData.details || responseData.error || 'Failed to add member';
+          const field = responseData.field;
           
-          // Handle duplicate email error
-          if (errorMessage.includes('users_email_unique') || 
-              errorMessage.includes('email already exists') ||
-              errorMessage.includes('Duplicate entry') && errorMessage.includes('users_email_unique')) {
+          // Use backend field property for specific error messages
+          if (field === 'email' || errorMessage.toLowerCase().includes('email')) {
             errorMessage = language === 'tamil' 
               ? 'இந்த மின்னஞ்சல் ஏற்கனவே பயன்பாட்டில் உள்ளது' 
               : 'This email is already in use';
           } 
-          // Handle duplicate mobile error
-          else if (errorMessage.includes('users_mobile_unique') || 
-                   errorMessage.includes('mobile already exists') ||
-                   (errorMessage.includes('Duplicate entry') && errorMessage.includes('users_mobile_unique'))) {
+          else if (field === 'mobile' || errorMessage.toLowerCase().includes('mobile')) {
             errorMessage = language === 'tamil'
               ? 'இந்த மொபைல் எண் ஏற்கனவே பயன்பாட்டில் உள்ளது'
               : 'This mobile number is already in use';
           }
-          // Handle duplicate username error
-          else if (errorMessage.includes('users_username_unique') || 
-                   errorMessage.includes('username already exists') ||
-                   (errorMessage.includes('Duplicate entry') && errorMessage.includes('users_username_unique'))) {
+          else if (field === 'username' || errorMessage.toLowerCase().includes('username')) {
             errorMessage = language === 'tamil'
               ? 'இந்த பயனர் பெயர் ஏற்கனவே பயன்பாட்டில் உள்ளது'
               : 'Username already exists';
@@ -162,9 +153,12 @@ export default function MemberEntryPage() {
       } else {
         throw new Error('Failed to update member');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating member:', error);
-      toast({ title: language === 'tamil' ? 'பிழை' : 'Error', description: language === 'tamil' ? 'புதுப்பிக்க முடியவில்லை' : 'Failed to update member', variant: 'destructive' });
+      setError({
+        show: true,
+        message: error.message || (language === 'tamil' ? 'புதுப்பிக்க முடியவில்லை' : 'Failed to update member'),
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -172,22 +166,25 @@ export default function MemberEntryPage() {
 
   return (
     <div className="p-4">
-      {error.show && (
-        <Alert variant="destructive" className="mb-6">
-          <AlertTitle className="flex items-center justify-between">
-            {language === 'tamil' ? 'பிழை' : 'Error'}
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-6 w-6 p-0 hover:bg-destructive/20" 
+      {/* Error Modal */}
+      <Dialog open={error.show} onOpenChange={(open) => !open && setError({ show: false, message: '' })}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogDescription className="text-gray-700 text-base">
+              {error.message}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
               onClick={() => setError({ show: false, message: '' })}
             >
-              <X className="h-4 w-4" />
+              {language === 'tamil' ? 'சரி' : 'OK'}
             </Button>
-          </AlertTitle>
-          <AlertDescription>{error.message}</AlertDescription>
-        </Alert>
-      )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <MemberEntryView
         newMember={newMember}
         setNewMember={setNewMember}

@@ -18,6 +18,7 @@ export interface MoneyDonationFormData {
 export interface MoneyDonationItem {
   id: number;
   register_no: string | null;
+  entry_date: string | null;
   date: string;
   name: string | null;
   father_name: string | null;
@@ -26,6 +27,9 @@ export interface MoneyDonationItem {
   phone: string | null;
   amount: number;
   reason: string | null;
+  payment_mode: string | null;
+  account_id: number | null;
+  transfer_to_account: string | null;
   temple_id: number;
   created_at: string;
   updated_at: string;

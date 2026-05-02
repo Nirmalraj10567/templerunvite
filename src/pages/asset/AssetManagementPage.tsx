@@ -9,11 +9,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Search, Edit, Trash2, Eye, Package, IndianRupee, Box, User, Phone, FileText, History, X } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Eye, Package, IndianRupee, Box, User, Phone, FileText, History, X, Loader2 } from 'lucide-react';
 
 export default function AssetManagementPage() {
   const { token } = useAuth();
   const { language } = useLanguage();
+
+  const enableHistoryEdit = true;
 
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(false);
@@ -25,6 +27,14 @@ export default function AssetManagementPage() {
   const [viewAsset, setViewAsset] = useState<Asset | null>(null);
   const [logs, setLogs] = useState<AssetLog[]>([]);
   const [logsOpen, setLogsOpen] = useState(false);
+  const [editLogOpen, setEditLogOpen] = useState(false);
+  const [editingLog, setEditingLog] = useState<AssetLog | null>(null);
+  const [editLogAction, setEditLogAction] = useState('');
+  const [editLogUsedQty, setEditLogUsedQty] = useState('');
+  const [editLogSoldQty, setEditLogSoldQty] = useState('');
+  const [editLogPriceUnit, setEditLogPriceUnit] = useState('');
+  const [editLogConvertedValue, setEditLogConvertedValue] = useState('');
+  const [editLogIncomeEntryId, setEditLogIncomeEntryId] = useState('');
   const [convertOpen, setConvertOpen] = useState(false);
   const [usedQty, setUsedQty] = useState('');
   const [forSellQty, setForSellQty] = useState('');
@@ -56,6 +66,82 @@ export default function AssetManagementPage() {
       console.error('Error fetching assets:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEditLog = (log: AssetLog) => {
+    setEditingLog(log);
+    setEditLogAction(log.action || '');
+    const detailsObj = safeParseLogDetails(log.details) || {};
+
+    const usedQtyVal = detailsObj.used_qty ?? detailsObj.usedQty;
+    const soldQtyVal = detailsObj.for_sell_qty ?? detailsObj.forSellQty;
+    const priceUnitVal =
+      detailsObj.convert_price ??
+      detailsObj.convertPrice ??
+      detailsObj.price ??
+      detailsObj.price_per_unit ??
+      detailsObj.convert_price_per_unit;
+    const convertedValueVal = detailsObj.converted_value ?? detailsObj.convertedValue ?? detailsObj.convertValue;
+    setEditLogUsedQty(usedQtyVal != null ? String(usedQtyVal) : '');
+    setEditLogSoldQty(soldQtyVal != null ? String(soldQtyVal) : '');
+    setEditLogPriceUnit(priceUnitVal != null ? String(priceUnitVal) : '');
+    setEditLogConvertedValue(convertedValueVal != null ? String(convertedValueVal) : '');
+    setEditLogOpen(true);
+  };
+
+  const handleCancelEditLog = () => {
+    setEditingLog(null);
+    setEditLogAction('');
+    setEditLogUsedQty('');
+    setEditLogSoldQty('');
+    setEditLogPriceUnit('');
+    setEditLogConvertedValue('');
+    setEditLogOpen(false);
+  };
+
+  const handleSaveLog = async () => {
+    if (!editingLog || !viewAsset) return;
+    try {
+      const payloadDetails: Record<string, any> = {};
+
+      if (editLogUsedQty !== '') payloadDetails.used_qty = Number(editLogUsedQty);
+      if (editLogSoldQty !== '') payloadDetails.for_sell_qty = Number(editLogSoldQty);
+      if (editLogPriceUnit !== '') payloadDetails.convert_price = Number(editLogPriceUnit);
+      if (editLogConvertedValue !== '') payloadDetails.converted_value = Number(editLogConvertedValue);
+
+      await propertyService.updateAssetLog(editingLog.id.toString(), {
+        action: editLogAction,
+        details: JSON.stringify(payloadDetails),
+      });
+      toast.success(t('History updated', 'வரலாறு புதுப்பிக்கப்பட்டது'));
+      handleCancelEditLog();
+      setEditLogOpen(false);
+      const assetLogs = await propertyService.getAssetLogs(viewAsset.id.toString());
+      setLogs(assetLogs);
+      const updatedAsset = await propertyService.getAsset(viewAsset.id.toString());
+      setViewAsset(updatedAsset);
+      await fetchAssets();
+      await fetchStats();
+    } catch (error) {
+      toast.error(t('Failed to update history', 'வரலாறு புதுப்பிக்க முடியவில்லை'));
+    }
+  };
+
+  const handleDeleteLog = async (log: AssetLog) => {
+    if (!viewAsset) return;
+    if (!confirm(t('Delete this history entry?', 'இந்த வரலாற்றை நீக்கவா?'))) return;
+    try {
+      await propertyService.deleteAssetLog(log.id.toString());
+      toast.success(t('History deleted', 'வரலாறு நீக்கப்பட்டது'));
+      const assetLogs = await propertyService.getAssetLogs(viewAsset.id.toString());
+      setLogs(assetLogs);
+      const updatedAsset = await propertyService.getAsset(viewAsset.id.toString());
+      setViewAsset(updatedAsset);
+      await fetchAssets();
+      await fetchStats();
+    } catch (error) {
+      toast.error(t('Failed to delete history', 'வரலாறு நீக்க முடியவில்லை'));
     }
   };
 
@@ -109,9 +195,9 @@ export default function AssetManagementPage() {
 
   const handleView = async (asset: Asset) => {
     setViewAsset(asset);
-    setUsedQty(asset.used_qty?.toString() || '');
-    setForSellQty(asset.for_sell_qty?.toString() || '');
-    setConvertPrice(asset.convert_price?.toString() || '');
+    setUsedQty('');
+    setForSellQty('');
+    setConvertPrice(asset.convert_price && asset.convert_price > 0 ? asset.convert_price.toString() : '');
     try {
       const assetLogs = await propertyService.getAssetLogs(asset.id.toString());
       setLogs(assetLogs);
@@ -141,6 +227,9 @@ export default function AssetManagementPage() {
       const used = parseInt(usedQty) || 0;
       const forSell = parseInt(forSellQty) || 0;
 
+      const usedQtyToSend = (viewAsset.used_qty || 0) + used;
+      const forSellQtyToSend = (viewAsset.for_sell_qty || 0) + forSell;
+
       if (used + forSell > available) {
         toast.error(t('Insufficient quantity', 'அளவு போதாது'));
         return;
@@ -149,8 +238,8 @@ export default function AssetManagementPage() {
       await propertyService.convertToCash(
         viewAsset.id.toString(),
         totalValue,
-        used,
-        forSell,
+        usedQtyToSend,
+        forSellQtyToSend,
         parseFloat(convertPrice) || 0
       );
       toast.success(t('Sold successfully', 'விற்கப்பட்டது'));
@@ -158,8 +247,9 @@ export default function AssetManagementPage() {
       setUsedQty('');
       setForSellQty('');
       setConvertPrice('');
-      fetchAssets();
-      fetchStats();
+      const updatedAsset = await propertyService.getAsset(viewAsset.id.toString());
+      setViewAsset(updatedAsset);
+      await Promise.all([fetchAssets(), fetchStats()]);
     } catch (error) {
       toast.error(t('Failed to sell', 'விற்க முடியவில்லை'));
     }
@@ -172,6 +262,9 @@ export default function AssetManagementPage() {
     }
     const used = parseInt(usedQty) || 0;
     const forSell = parseInt(forSellQty) || 0;
+
+    const usedQtyToSend = (viewAsset.used_qty || 0) + used;
+    const forSellQtyToSend = (viewAsset.for_sell_qty || 0) + forSell;
 
     if (used === 0 && forSell === 0) {
       toast.error(t('Enter quantity', 'அளவு உள்ளிடவும்'));
@@ -188,17 +281,20 @@ export default function AssetManagementPage() {
       console.log('Saving inventory:', viewAsset.id, used, forSell);
       const result = await propertyService.updateAssetQty(
         viewAsset.id.toString(),
-        used,
-        forSell
+        usedQtyToSend,
+        forSellQtyToSend
       );
       console.log('Result:', result);
       toast.success(t('Inventory saved', 'சத்கம் சேமிக்கப்பட்டது'));
       setUsedQty('');
       setForSellQty('');
-      fetchAssets();
-      fetchStats();
-      const assetLogs = await propertyService.getAssetLogs(viewAsset.id.toString());
+      const [updatedAsset, assetLogs] = await Promise.all([
+        propertyService.getAsset(viewAsset.id.toString()),
+        propertyService.getAssetLogs(viewAsset.id.toString()),
+      ]);
+      setViewAsset(updatedAsset);
       setLogs(assetLogs);
+      await Promise.all([fetchAssets(), fetchStats()]);
     } catch (error: any) {
       console.error('Save error:', error);
       toast.error(t('Failed to save', 'சேம்ப்க முடியவில்லை') + ': ' + (error?.message || ''));
@@ -223,8 +319,60 @@ export default function AssetManagementPage() {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
   };
 
+  const parseQtyFromDetails = (details?: string): number | null => {
+    if (!details) return null;
+    const qtyMatch = details.match(/\bQty:\s*([0-9]+(?:\.[0-9]+)?)\s*(?:x\s*([0-9]+(?:\.[0-9]+)?))?/i);
+    if (!qtyMatch) return null;
+    const a = Number(qtyMatch[1]);
+    const b = qtyMatch[2] != null ? Number(qtyMatch[2]) : 1;
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+    return a * b;
+  };
+
+  const getAssetTotalQty = (asset: Asset): number => {
+    const backendQty = Number(asset.quantity);
+    const parsedQty = parseQtyFromDetails(asset.details);
+    if (Number.isFinite(backendQty) && backendQty > 0) {
+      if (parsedQty != null && parsedQty > backendQty) return parsedQty;
+      return backendQty;
+    }
+    return parsedQty ?? 0;
+  };
+
+  const formatDetailsForDisplay = (details?: string): string => {
+    if (!details) return '-';
+    const parsedQty = parseQtyFromDetails(details);
+    if (parsedQty == null) return details;
+    return details.replace(/\bQty:\s*[0-9]+(?:\.[0-9]+)?\s*(?:x\s*[0-9]+(?:\.[0-9]+)?)?/i, `Qty: ${parsedQty}`);
+  };
+
+  const formatDonationProductQtySummary = (details: string): string => {
+    const parts = details.split(' | ');
+    const product = parts.find((p) => p.startsWith('Product:'));
+    const qty = parts.find((p) => p.startsWith('Qty:'));
+    if (!product && !qty) return formatDetailsForDisplay(details);
+    const parsedQty = parseQtyFromDetails(details);
+    const qtyText = parsedQty != null ? `Qty: ${parsedQty}` : qty;
+    return [product, qtyText].filter(Boolean).join(' | ');
+  };
+
+  const safeParseLogDetails = (details: unknown): Record<string, any> | null => {
+    if (details == null) return null;
+    if (typeof details === 'object') return details as Record<string, any>;
+    if (typeof details !== 'string') return null;
+    const trimmed = details.trim();
+    if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return null;
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed === 'object') return parsed as Record<string, any>;
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
   const availableQty = (asset: Asset) => {
-    const total = asset.quantity || 0;
+    const total = getAssetTotalQty(asset);
     const used = asset.used_qty || 0;
     const forSell = asset.for_sell_qty || 0;
     return total - used - forSell;
@@ -262,6 +410,7 @@ export default function AssetManagementPage() {
         </Card>
         <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
           <CardContent className="p-4 text-center">
+            <IndianRupee className="h-8 w-8 mx-auto mb-2 text-purple-600" />
             <div className="text-2xl font-bold text-purple-600">{formatCurrency(stats.totalValue)}</div>
             <div className="text-sm text-purple-700">{t('Total Value', 'மொத்த மதிப்பு')}</div>
           </CardContent>
@@ -301,7 +450,8 @@ export default function AssetManagementPage() {
             {loading ? (
               <TableRow>
                 <TableCell colSpan={10} className="text-center py-8">
-                  {t('Loading...', 'ஏற்றுகிறது...')}
+                  <Loader2 className="w-12 h-12 text-orange-600 animate-spin mx-auto mb-4" />
+                  <p className="text-gray-600 text-lg">{t('Loading...', 'ஏற்றுகிறது...')}</p>
                 </TableCell>
               </TableRow>
             ) : assets.length === 0 ? (
@@ -321,20 +471,20 @@ export default function AssetManagementPage() {
                     <div className="text-sm max-w-[200px] truncate" title={asset.details}>
                       {asset.details ? (
                         asset.details.includes('Product:') && asset.details.includes('| Qty:')
-                          ? asset.details.split(' | ').filter(p => p.startsWith('Product:') || p.startsWith('Qty:')).join(' | ')
-                          : asset.details
+                          ? formatDonationProductQtySummary(asset.details)
+                          : formatDetailsForDisplay(asset.details)
                       ) : '-'}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="font-bold">{asset.quantity || 0}</div>
+                    <div className="font-bold">{getAssetTotalQty(asset)}</div>
                   </TableCell>
                   <TableCell>
                     <div className="text-sm">{formatCurrency(asset.value || 0)}</div>
                   </TableCell>
                   <TableCell>
                     <div className="font-bold text-purple-700">
-                      {formatCurrency((asset.quantity || 0) * (asset.value || 0))}
+                      {formatCurrency(getAssetTotalQty(asset) * (asset.value || 0))}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -498,7 +648,7 @@ export default function AssetManagementPage() {
 
               <div className="grid grid-cols-4 gap-3 mb-3">
                 <div className="bg-white p-2 rounded-lg text-center">
-                  <div className="text-2xl font-bold text-blue-600">{viewAsset?.quantity || 0}</div>
+                  <div className="text-2xl font-bold text-blue-600">{viewAsset ? getAssetTotalQty(viewAsset) : 0}</div>
                   <div className="text-xs text-gray-500">{t('Total', 'மொத்தம்')}</div>
                 </div>
                 <div className="bg-white p-2 rounded-lg text-center">
@@ -520,13 +670,13 @@ export default function AssetManagementPage() {
                 <div className="flex justify-between text-xs mb-1">
                   <span className="text-gray-500">{t('Usage', 'பயன்பாடு')}</span>
                   <span className="font-medium">
-                    {viewAsset?.quantity ? Math.round(((viewAsset.used_qty || 0) + (viewAsset.for_sell_qty || 0)) / viewAsset.quantity * 100) : 0}%
+                    {viewAsset && getAssetTotalQty(viewAsset) ? Math.round(((viewAsset.used_qty || 0) + (viewAsset.for_sell_qty || 0)) / getAssetTotalQty(viewAsset) * 100) : 0}%
                   </span>
                 </div>
                 <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-red-400 to-orange-400 rounded-full"
-                    style={{ width: `${viewAsset?.quantity ? Math.min(100, ((viewAsset.used_qty || 0) + (viewAsset.for_sell_qty || 0)) / viewAsset.quantity * 100) : 0}%` }}
+                    style={{ width: `${viewAsset && getAssetTotalQty(viewAsset) ? Math.min(100, ((viewAsset.used_qty || 0) + (viewAsset.for_sell_qty || 0)) / getAssetTotalQty(viewAsset) * 100) : 0}%` }}
                   />
                 </div>
               </div>
@@ -737,8 +887,8 @@ export default function AssetManagementPage() {
                 <div className="text-sm">
                   {viewAsset.details ? (
                     viewAsset.details.includes('Product:') && viewAsset.details.includes('| Qty:')
-                      ? viewAsset.details.split(' | ').filter(p => p.startsWith('Product:') || p.startsWith('Qty:')).join(' | ')
-                      : viewAsset.details
+                      ? formatDonationProductQtySummary(viewAsset.details)
+                      : formatDetailsForDisplay(viewAsset.details)
                   ) : '-'}
                 </div>
               </div>
@@ -754,22 +904,146 @@ export default function AssetManagementPage() {
                 <div className="text-sm text-gray-400 text-center py-2">{t('No history', 'வரலாறு இல்லை')}</div>
               ) : (
                 <div className="max-h-32 overflow-y-auto space-y-1">
-                  {logs.slice(0, 10).map((log) => (
-                    <div key={log.id} className="text-xs bg-white p-2 rounded border">
-                      <div className="font-medium capitalize">{log.action.replace(/_/g, ' ')}</div>
-                      <div className="text-gray-500">
-                        {log.details && typeof log.details === 'string' && log.details.includes('used_qty') && (
-                          <span className="text-red-600">Used: {JSON.parse(log.details).used_qty || 0}</span>
-                        )}
-                        {log.details && typeof log.details === 'string' && log.details.includes('for_sell_qty') && (
-                          <span className="text-orange-600 ml-2">For Sell: {JSON.parse(log.details).for_sell_qty || 0}</span>
-                        )}
-                        <span className="ml-auto">{new Date(log.created_at).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                  ))}
+                  {[...logs]
+                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                    .slice(0, 10)
+                    .map((log, idx, arr) => {
+                      const detailsObj = safeParseLogDetails(log.details);
+                      const older = arr[idx + 1];
+                      const olderObj = older ? safeParseLogDetails(older.details) : null;
+
+                      const isEditingThisLog = false; // modal handles editing, not inline
+
+                      const usedTotal = detailsObj && detailsObj.used_qty != null ? Number(detailsObj.used_qty) : null;
+                      const soldTotal = detailsObj && detailsObj.for_sell_qty != null ? Number(detailsObj.for_sell_qty) : null;
+                      const usedOlder = olderObj && olderObj.used_qty != null ? Number(olderObj.used_qty) : 0;
+                      const soldOlder = olderObj && olderObj.for_sell_qty != null ? Number(olderObj.for_sell_qty) : 0;
+
+                      const usedDelta = usedTotal == null || !Number.isFinite(usedTotal) ? null : usedTotal - (Number.isFinite(usedOlder) ? usedOlder : 0);
+                      const soldDelta = soldTotal == null || !Number.isFinite(soldTotal) ? null : soldTotal - (Number.isFinite(soldOlder) ? soldOlder : 0);
+
+                      const priceUnitRaw =
+                        detailsObj?.convert_price ??
+                        detailsObj?.convertPrice ??
+                        detailsObj?.price ??
+                        detailsObj?.price_per_unit ??
+                        detailsObj?.convert_price_per_unit;
+                      const priceUnit = priceUnitRaw != null && Number.isFinite(Number(priceUnitRaw)) ? Number(priceUnitRaw) : null;
+
+                      return (
+                        <div key={log.id} className="text-xs bg-white p-2 rounded border">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="font-medium capitalize">
+                              {(log.action || '').replace(/_/g, ' ')}
+                            </div>
+                            {enableHistoryEdit && (
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditLog(log)}
+                                  className="h-7 px-2 text-green-700"
+                                >
+                                  <Edit className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteLog(log)}
+                                  className="h-7 px-2 text-red-600"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-gray-500 flex flex-wrap gap-x-2 gap-y-1 items-center">
+                              {usedTotal != null && Number.isFinite(usedTotal) && (
+                                <span className="text-red-600">
+                                  Used{usedDelta != null && usedDelta !== 0 ? ' +' + usedDelta : ''} (Total: {usedTotal})
+                                </span>
+                              )}
+                              {soldTotal != null && Number.isFinite(soldTotal) && (
+                                <span className="text-orange-600">
+                                  Sold{soldDelta != null && soldDelta !== 0 ? ' +' + soldDelta : ''} (Total: {soldTotal})
+                                </span>
+                              )}
+                              {priceUnit != null && (
+                                <span className="text-emerald-700">Price/Unit: {formatCurrency(priceUnit)}</span>
+                              )}
+                              <span className="ml-auto">{new Date(log.created_at).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                      );
+                    })}
                 </div>
               )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit History Dialog */}
+      <Dialog open={editLogOpen} onOpenChange={setEditLogOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t('Edit History', 'வரலாறு திருத்து')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {!(editLogAction === 'convert_to_cash' || editLogAction === 'Convert To Cash') && (
+              <div>
+                <label className="block text-sm font-medium mb-1">{t('Action', 'செயல்')}</label>
+                <Input value={editLogAction} onChange={(e) => setEditLogAction(e.target.value)} />
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-2" key={editingLog?.id || 'edit-form'}>
+              {!(editLogAction === 'convert_to_cash' || editLogAction === 'Convert To Cash') && (
+                <div key="used-qty">
+                  <label className="block text-sm font-medium mb-1">{t('Used Qty', 'பயன்படுத்திய அளவு')}</label>
+                  <Input type="text" inputMode="numeric" value={editLogUsedQty} onChange={(e) => setEditLogUsedQty(e.target.value)} />
+                </div>
+              )}
+              {!(editLogAction === 'update_qty' || editLogAction === 'Update Qty') && (
+                <>
+                  <div key="sold-qty">
+                    <label className="block text-sm font-medium mb-1">{t('Sold Qty', 'விற்ற அளவு')}</label>
+                    <Input type="text" inputMode="numeric" value={editLogSoldQty} onChange={(e) => {
+                      const newSoldQty = e.target.value;
+                      setEditLogSoldQty(newSoldQty);
+                      const soldNum = Number(newSoldQty);
+                      const priceNum = Number(editLogPriceUnit);
+                      if (!isNaN(soldNum) && !isNaN(priceNum) && soldNum > 0 && priceNum > 0) {
+                        setEditLogConvertedValue(String(soldNum * priceNum));
+                      }
+                    }} />
+                  </div>
+                  <div key="price-unit">
+                    <label className="block text-sm font-medium mb-1">{t('Price / Unit (₹)', 'விலை / அலகு (₹)')}</label>
+                    <Input type="text" inputMode="numeric" value={editLogPriceUnit} onChange={(e) => {
+                      const newPriceUnit = e.target.value;
+                      setEditLogPriceUnit(newPriceUnit);
+                      const soldNum = Number(editLogSoldQty);
+                      const priceNum = Number(newPriceUnit);
+                      if (!isNaN(soldNum) && !isNaN(priceNum) && soldNum > 0 && priceNum > 0) {
+                        setEditLogConvertedValue(String(soldNum * priceNum));
+                      }
+                    }} />
+                  </div>
+                  <div key="converted-value">
+                    <label className="block text-sm font-medium mb-1">{t('Converted Value', 'மாற்றிய மதிப்பு')}</label>
+                    <Input type="text" inputMode="numeric" value={editLogConvertedValue} onChange={(e) => setEditLogConvertedValue(e.target.value)} />
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={handleCancelEditLog}
+              >
+                {t('Cancel', 'ரத்து')}
+              </Button>
+              <Button onClick={handleSaveLog}>{t('Save', 'சேமி')}</Button>
             </div>
           </div>
         </DialogContent>

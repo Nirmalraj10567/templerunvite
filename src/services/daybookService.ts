@@ -29,6 +29,8 @@ export interface DaybookEntry {
   created_by?: number | null;
   created_at: string;
   updated_at: string;
+  journal_from_account?: string | null;
+  journal_to_account?: string | null;
 }
 
 export interface DaybookLog {

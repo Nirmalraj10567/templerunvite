@@ -11,7 +11,7 @@ import {
   Carousel, CarouselContent, CarouselItem, 
   CarouselNext, CarouselPrevious 
 } from '@/components/ui/carousel';
-import { Calendar, MapPin, Clock, Search, Plus, ImageIcon } from 'lucide-react';
+import { Calendar, MapPin, Clock, Search, Plus, ImageIcon, Loader2 } from 'lucide-react';
 import eventService from '@/services/eventService';
 import { Event } from '@/types/event';
 import { toast } from '@/components/ui/use-toast';
@@ -119,7 +119,10 @@ export default function EventListView() {
         </CardHeader>
         <CardContent className="p-3">
           {loading ? (
-            <div className="text-center py-6">{t.loadingEvents}</div>
+            <div className="text-center py-6">
+              <Loader2 className="w-12 h-12 text-orange-600 animate-spin mx-auto mb-4" />
+              <p className="text-gray-600 text-lg">{t.loadingEvents}</p>
+            </div>
           ) : events.length === 0 ? (
             <div className="text-center py-6">{t.noEvents}</div>
           ) : (

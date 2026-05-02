@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
-import { Search } from 'lucide-react';
+import { Search, Loader2 } from 'lucide-react';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
 import { theme, tableClasses, buttonClasses } from '@/styles/theme';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -284,7 +284,10 @@ export default function HallApprovalPage() {
 
       {error && <div className="text-red-700 mb-3 text-sm">{error}</div>}
       {loading ? (
-        <div className={tableClasses.emptyState}>{t('Loading...', 'ஏற்றுகிறது...')}</div>
+        <div className={tableClasses.emptyState}>
+          <Loader2 className="w-12 h-12 text-orange-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600 text-lg">{t('Loading...', 'ஏற்றுகிறது...')}</p>
+        </div>
       ) : (
         <Card>
           <CardContent className="pt-6">

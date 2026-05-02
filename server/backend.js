@@ -2931,7 +2931,7 @@ const ledgerCategoriesCompat = (() => {
       const incomeItems = [];
       const expenseItems = [];
 
-      const controlAccounts = ['CASH A/C', 'BANK A/C', 'INCOME A/C', 'EXPENSE A/C', 'CASH', 'BANK', 'TOTAL'];
+      const controlAccounts = ['CASH A/C', 'BANK A/C', 'CASH', 'BANK'];
 
       const isIncomeCategory = (category = '') => {
         const c = String(category || '').toLowerCase().trim();
@@ -2950,13 +2950,15 @@ const ledgerCategoriesCompat = (() => {
           account: r.account,
           balance: Math.round((Math.abs(net) + Number.EPSILON) * 100) / 100,
         };
-        
+
         const category = ledgerMap[r.account] || '';
         const isControl = controlAccounts.includes(r.account.toUpperCase());
-        
-        if (isIncomeCategory(category) || (category === '' && !isControl && net < 0)) {
+        const accountName = r.account.toUpperCase();
+
+        // Explicit account name routing for income/expense control accounts
+        if (accountName === 'INCOME A/C' || isIncomeCategory(category) || (category === '' && !isControl && net < 0)) {
            incomeItems.push(item);
-        } else if (isExpenseCategory(category) || (category === '' && !isControl && net > 0)) {
+        } else if (accountName === 'EXPENSE A/C' || isExpenseCategory(category) || (category === '' && !isControl && net > 0)) {
            expenseItems.push(item);
         } else {
            if (net >= 0) assets.push(item); else liabilities.push(item);
@@ -4353,7 +4355,17 @@ app.post('/api/members',
             // Use custom permissions if provided, otherwise fallback to defaults
             let permissionsToAssign = [];
             if (customPermissions && Array.isArray(customPermissions) && customPermissions.length > 0) {
-              permissionsToAssign = customPermissions.map(p => ({
+              // Deduplicate permissions by permission_id (keep first occurrence)
+              const seen = new Map();
+              const uniquePermissions = [];
+              for (const p of customPermissions) {
+                const permId = p.id || p.permission_id;
+                if (!seen.has(permId)) {
+                  seen.set(permId, true);
+                  uniquePermissions.push(p);
+                }
+              }
+              permissionsToAssign = uniquePermissions.map(p => ({
                 user_id: createdUser.id,
                 permission_id: p.id || p.permission_id,
                 access_level: p.access || p.access_level || 'view'
@@ -4396,13 +4408,17 @@ app.post('/api/members',
 
       // Handle duplicate entry errors
       if (err.code === 'ER_DUP_ENTRY') {
-        if (err.message.includes('users_email_unique')) {
-          return res.status(409).json({ error: 'Email already exists' });
+        const errorMsg = (err.message || err.sqlMessage || '').toLowerCase();
+        if (errorMsg.includes('users_email_unique') || errorMsg.includes('email')) {
+          return res.status(409).json({ error: 'Email already exists', field: 'email' });
         }
-        if (err.message.includes('users_username_unique')) {
-          return res.status(409).json({ error: 'Username already exists' });
+        if (errorMsg.includes('users_username_unique') || errorMsg.includes('username')) {
+          return res.status(409).json({ error: 'Username already exists', field: 'username' });
         }
-        return res.status(409).json({ error: 'Duplicate entry found' });
+        if (errorMsg.includes('users_mobile_unique') || errorMsg.includes('mobile')) {
+          return res.status(409).json({ error: 'Mobile already exists', field: 'mobile' });
+        }
+        return res.status(409).json({ error: 'Duplicate entry found', field: 'unknown' });
       }
 
       res.status(500).json({ error: 'Error registering member', details: err.message });
