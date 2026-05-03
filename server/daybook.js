@@ -112,14 +112,10 @@ module.exports = function(deps = {}) {
 
       const query = db('daybook_entries as d')
         .where('d.temple_id', req.user.templeId)
-        .leftJoin('journal_entries as j', function() {
-          this.on('d.reference_id', '=', 'j.id')
-              .andOn('d.reference_type', '=', db.raw('?', ['donation']));
-        })
         .select(
           'd.*',
-          'j.from_account as journal_from_account',
-          'j.to_account as journal_to_account'
+          'd.journal_from_account',
+          'd.journal_to_account'
         )
         .modify((qb) => {
           if (q) {

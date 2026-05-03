@@ -611,6 +611,14 @@ async function syncMoneyDonationToDaybook({ donationId, templeId, userId, row })
     const receiptNumber = await generateDaybookReceiptNumber(templeId);
     const runningBalance = await calculateDaybookRunningBalance(templeId, entryDate);
 
+    const paymentModeMap = {
+      'cash': 'CASH A/C',
+      'bank': 'BANK A/C',
+      'temple': 'CASH A/C',
+      'eb': 'BANK A/C',
+    };
+    const toAccount = paymentModeMap[row.payment_mode?.toLowerCase()] || 'CASH A/C';
+    
     await db('daybook_entries').insert({
       temple_id: templeId,
       entry_date: entryDate,
@@ -620,11 +628,13 @@ async function syncMoneyDonationToDaybook({ donationId, templeId, userId, row })
       reference_id: Number(donationId),
       receipt_number: receiptNumber,
       amount: Number(row.amount || 0),
-      payment_mode: 'cash',
+      payment_mode: row.payment_mode || 'cash',
       party_name: row.name || null,
       party_mobile: row.phone || null,
       notes: row.reason || null,
       running_balance: runningBalance + Number(row.amount || 0),
+      journal_from_account: 'DONATION INCOME A/C',
+      journal_to_account: toAccount,
       created_by: userId ? Number(userId) : null,
       created_at: db.fn.now(),
     });
@@ -1111,6 +1121,14 @@ async function removePoojaFromDaybook({ poojaId, templeId }) {
       const receiptNumber = await generateDaybookReceiptNumber(templeId);
       const runningBalance = await calculateDaybookRunningBalance(templeId, entryDate);
 
+      const paymentModeMap = {
+        'cash': 'CASH A/C',
+        'bank': 'BANK A/C',
+        'temple': 'CASH A/C',
+        'eb': 'BANK A/C',
+      };
+      const toAccount = paymentModeMap[row.payment_mode?.toLowerCase()] || 'CASH A/C';
+      
       await db('daybook_entries').insert({
         temple_id: templeId,
         entry_date: entryDate,
@@ -1120,11 +1138,13 @@ async function removePoojaFromDaybook({ poojaId, templeId }) {
         reference_id: Number(donationId),
         receipt_number: receiptNumber,
         amount: Number(row.amount || 0),
-        payment_mode: 'cash',
+        payment_mode: row.payment_mode || 'cash',
         party_name: row.name || null,
         party_mobile: row.phone || null,
         notes: row.reason || null,
         running_balance: runningBalance + Number(row.amount || 0),
+        journal_from_account: 'DONATION INCOME A/C',
+        journal_to_account: toAccount,
         created_by: userId ? Number(userId) : null,
         created_at: db.fn.now(),
       });
@@ -2959,23 +2979,51 @@ const ledgerCategoriesCompat = (() => {
           balance: Math.round((Math.abs(net) + Number.EPSILON) * 100) / 100,
         };
 
-        const category = ledgerMap[r.account] || '';
+        const category = (ledgerMap[r.account] || '').toLowerCase();
         const isControl = controlAccounts.includes(r.account.toUpperCase());
         const accountName = r.account.toUpperCase();
 
-        // Explicit account name routing for income/expense control accounts
-        if (accountName === 'INCOME A/C' || isIncomeCategory(category) || (category === '' && !isControl && net < 0)) {
-           incomeItems.push(item);
-        } else if (accountName === 'EXPENSE A/C' || isExpenseCategory(category) || (category === '' && !isControl && net > 0)) {
-           expenseItems.push(item);
-        } else {
-           if (net >= 0) assets.push(item); else liabilities.push(item);
+        // Control accounts (CASH/BANK) → ASSET/LIABILITY
+        if (isControl) {
+          if (net >= 0) assets.push(item); else liabilities.push(item);
+          return;
         }
+
+        // Categorized as expense → expenseItems
+        if (category.includes('expense') || accountName === 'EXPENSE A/C') {
+          expenseItems.push(item);
+          return;
+        }
+
+        // Categorized as income → incomeItems
+        if (category.includes('income') || accountName === 'INCOME A/C') {
+          incomeItems.push(item);
+          return;
+        }
+
+        // Known income accounts (regardless of category)
+        if (['DONATION INCOME A/C', 'HALL INCOME A/C', 'POOJA INCOME A/C', 'ANNADHANAM A/C'].includes(accountName)) {
+          incomeItems.push(item);
+          return;
+        }
+
+        // Known asset accounts
+        if (['TEMPLE', 'DONATION INCOME A/C', 'HALL INCOME A/C', 'POOJA INCOME A/C', 'ANNADHANAM A/C'].includes(accountName)) {
+          if (net >= 0) assets.push(item); else liabilities.push(item);
+          return;
+        }
+
+        // Default: positive = asset, negative = liability
+        if (net >= 0) assets.push(item); else liabilities.push(item);
       });
 
       const sum = (list) => Math.round((list.reduce((s, x) => s + (x.balance || 0), 0) + Number.EPSILON) * 100) / 100;
+
+      // Calculate totals from categorized items only
       const totalIncome = sum(incomeItems);
       const totalExpense = sum(expenseItems);
+
+      // Net profit = Total Income - Total Expense (from daybook perspective)
       const netProfit = Math.round((totalIncome - totalExpense + Number.EPSILON) * 100) / 100;
 
       res.json({ 
@@ -3065,8 +3113,29 @@ app.post('/api/receipts', authenticateToken, authorizePermission('receipts', 'ed
     // Reflect into journal so balances are accurate
     try {
       const isExpense = row.type === 'payment';
-      const fromAccount = isExpense ? 'CASH A/C' : 'INCOME A/C';
-      const toAccount = isExpense ? (row.to_person || 'EXPENSE A/C') : 'CASH A/C';
+      
+      // Map payment_mode to proper ledger accounts
+      const paymentModeMap = {
+        'cash': 'CASH A/C',
+        'bank': 'BANK A/C',
+        'temple': 'CASH A/C',
+        'eb': 'BANK A/C',  // eb = bank/electricity bill account
+        'tea': 'EXPENSE A/C',
+      };
+      
+      // For income: to_account should be a valid asset account (CASH/BANK)
+      // For expense: from_account should be a valid asset account
+      let toAccount;
+      let fromAccount;
+      
+      if (isExpense) {
+        fromAccount = paymentModeMap[row.from_person?.toLowerCase()] || 'CASH A/C';
+        toAccount = 'EXPENSE A/C';
+      } else {
+        fromAccount = 'INCOME A/C';
+        toAccount = paymentModeMap[row.to_person?.toLowerCase()] || 'CASH A/C';
+      }
+      
       const hasJournal = await db.schema.hasTable('journal_entries');
       if (hasJournal) {
         const existing = await db('journal_entries')
@@ -3103,6 +3172,29 @@ app.post('/api/receipts', authenticateToken, authorizePermission('receipts', 'ed
           .del();
         const entryType = row.type === 'payment' ? 'expense' : 'income';
         const partyName = row.type === 'payment' ? (row.to_person || 'Unknown') : (row.from_person || 'Unknown');
+        
+        // Use the same account mapping as journal entries for consistency
+        const paymentModeMap = {
+          'cash': 'CASH A/C',
+          'bank': 'BANK A/C',
+          'temple': 'CASH A/C',
+          'eb': 'BANK A/C',
+          'tea': 'EXPENSE A/C',
+        };
+        
+        let journalFromAccount;
+        let journalToAccount;
+        
+        if (row.type === 'payment') {
+          // Expense: from asset account (cash/bank) to EXPENSE A/C
+          journalFromAccount = paymentModeMap[row.from_person?.toLowerCase()] || 'CASH A/C';
+          journalToAccount = 'EXPENSE A/C';
+        } else {
+          // Income: from INCOME A/C to asset account (cash/bank)
+          journalFromAccount = 'INCOME A/C';
+          journalToAccount = paymentModeMap[row.to_person?.toLowerCase()] || 'CASH A/C';
+        }
+        
         await db('daybook_entries').insert({
           temple_id: req.user.templeId,
           entry_date: row.date,
@@ -3116,6 +3208,8 @@ app.post('/api/receipts', authenticateToken, authorizePermission('receipts', 'ed
           party_name: partyName !== 'Unknown' ? partyName : null,
           party_mobile: null,
           notes: row.remarks || null,
+          journal_from_account: journalFromAccount,
+          journal_to_account: journalToAccount,
           created_by: req.user.id,
           created_at: db.fn.now(),
         });
@@ -3183,8 +3277,27 @@ app.put('/api/receipts/:id', authenticateToken, authorizePermission('receipts', 
         const amountNum = Number(row.amount || 0);
         if (amountNum > 0) {
           const isExpense = row.type === 'payment';
-          const fromAccount = isExpense ? 'CASH A/C' : 'INCOME A/C';
-          const toAccount = isExpense ? (row.to_person || 'EXPENSE A/C') : (row.to_person || 'CASH A/C');
+          
+          // Map payment_mode to proper ledger accounts
+          const paymentModeMap = {
+            'cash': 'CASH A/C',
+            'bank': 'BANK A/C',
+            'temple': 'CASH A/C',
+            'eb': 'BANK A/C',
+            'tea': 'EXPENSE A/C',
+          };
+          
+          let toAccount;
+          let fromAccount;
+          
+          if (isExpense) {
+            fromAccount = paymentModeMap[row.from_person?.toLowerCase()] || 'CASH A/C';
+            toAccount = 'EXPENSE A/C';
+          } else {
+            fromAccount = 'INCOME A/C';
+            toAccount = paymentModeMap[row.to_person?.toLowerCase()] || 'CASH A/C';
+          }
+          
           await db('journal_entries').insert({
             date: row.date,
             reference_number: 'RCP-' + row.register_no,
@@ -3213,6 +3326,27 @@ app.put('/api/receipts/:id', authenticateToken, authorizePermission('receipts', 
           .del();
         const entryType = row.type === 'payment' ? 'expense' : 'income';
         const partyName = row.type === 'payment' ? (row.to_person || 'Unknown') : (row.from_person || 'Unknown');
+        
+        // Use the same account mapping as journal entries for consistency
+        const paymentModeMap = {
+          'cash': 'CASH A/C',
+          'bank': 'BANK A/C',
+          'temple': 'CASH A/C',
+          'eb': 'BANK A/C',
+          'tea': 'EXPENSE A/C',
+        };
+        
+        let journalFromAccount;
+        let journalToAccount;
+        
+        if (row.type === 'payment') {
+          journalFromAccount = paymentModeMap[row.from_person?.toLowerCase()] || 'CASH A/C';
+          journalToAccount = 'EXPENSE A/C';
+        } else {
+          journalFromAccount = 'INCOME A/C';
+          journalToAccount = paymentModeMap[row.to_person?.toLowerCase()] || 'CASH A/C';
+        }
+        
         await db('daybook_entries').insert({
           temple_id: req.user.templeId,
           entry_date: row.date,
@@ -3226,6 +3360,8 @@ app.put('/api/receipts/:id', authenticateToken, authorizePermission('receipts', 
           party_name: partyName !== 'Unknown' ? partyName : null,
           party_mobile: null,
           notes: row.remarks || null,
+          journal_from_account: journalFromAccount,
+          journal_to_account: journalToAccount,
           created_by: req.user.id,
           created_at: db.fn.now(),
         });

@@ -7,6 +7,7 @@ export interface DonationItem {
   description: string;
   price: number | null;
   quantity: number | null;
+  unit: string | null;
   category: string;
   donor_name: string;
   donor_contact: string;

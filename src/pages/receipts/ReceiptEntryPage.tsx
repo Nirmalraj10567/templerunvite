@@ -16,6 +16,7 @@ import { journalService } from '@/services/journalService';
 import { cn } from "@/lib/utils";
 import { formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
 import { theme } from '@/styles/theme';
+import { SuccessModal } from '@/components/ui/SuccessModal';
 
 interface ReceiptFormData {
   receiptNumber: string;
@@ -143,6 +144,8 @@ export default function ReceiptEntryPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | undefined>();
   const [isError, setIsError] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [lastSavedId, setLastSavedId] = useState<number | null>(null);
   const { register, handleSubmit, reset, setValue, watch } = useForm<ReceiptFormData>();
   const [ledgerNames, setLedgerNames] = useState<string[]>([]);
   const [fromBalance, setFromBalance] = useState<number | null>(null);
@@ -392,6 +395,7 @@ export default function ReceiptEntryPage() {
       setMessage(t('saveSuccess'));
       toast({ title: t('saveSuccess') });
 
+      setShowSuccessModal(true);
       if (!id) {
         reset();
         await fetchNextReceiptNumber();
@@ -734,6 +738,10 @@ export default function ReceiptEntryPage() {
           </CardContent>
         </Card>
       </div>
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+      />
     </div>
   );
 }

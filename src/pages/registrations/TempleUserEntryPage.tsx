@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import SearchableSelect from '@/components/ui/SearchableSelect';
+import { SuccessModal } from '@/components/ui/SuccessModal';
 
 /* ─────────────────────────────────────────────
    DESIGN TOKENS  (inline so no extra files needed)
@@ -460,6 +461,8 @@ export default function TempleUserEntryPage() {
   const [lookingUp, setLookingUp] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [lastSavedId, setLastSavedId] = useState<number | null>(null);
   const [existingPhotoUrl, setExistingPhotoUrl] = useState<string | null>(null);
 
   const [masterClans, setMasterClans] = useState<string[]>([]);
@@ -745,7 +748,11 @@ export default function TempleUserEntryPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Failed');
       setMsg(isEdit ? t.success.updated : t.success.saved);
-      if (!isEdit) resetAfterSave();
+      setLastSavedId(data.data?.id || data.id || editId);
+      setShowSuccessModal(true);
+      if (!isEdit) {
+        resetAfterSave();
+      }
     } catch (e: any) {
       setErr(e?.message || t.errors.general);
     } finally {
@@ -1262,6 +1269,10 @@ export default function TempleUserEntryPage() {
           /* Sidebar goes below on mobile */
         }
       `}</style>
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+      />
     </>
   );
 }

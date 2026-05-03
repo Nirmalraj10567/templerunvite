@@ -1008,33 +1008,52 @@ module.exports = function (deps = {}) {
           updated_at: db.fn.now(),
         });
 
-        // Sync to daybook (non-blocking)
-        try {
-          const hasDaybook = await db.schema.hasTable('daybook_entries');
-          if (hasDaybook) {
-            const recNum = await generateDaybookReceiptNumber(req.user.templeId);
-            const runningBalance = await calculateDaybookRunningBalance(req.user.templeId, effectiveEntryDate);
+      // Sync to daybook (non-blocking) - ALWAYS sync hall booking as income
+      try {
+        const hasDaybook = await db.schema.hasTable('daybook_entries');
+        if (hasDaybook) {
+          // Delete old entry if exists
+          await db('daybook_entries')
+            .where({ temple_id: req.user.templeId, reference_type: 'hall_booking', reference_id: Number(id) })
+            .del();
+          
+          const recNum = await generateDaybookReceiptNumber(req.user.templeId);
+          const runningBalance = await calculateDaybookRunningBalance(req.user.templeId, effectiveEntryDate);
+          
+          // Use total_amount from booking or calculate from charges
+          const totalAmount = Number(booking.total_amount) || (payAmount > 0 ? payAmount : 1000);
+          
+          const paymentModeMap = {
+              'cash': 'CASH A/C',
+              'bank': 'BANK A/C',
+              'temple': 'CASH A/C',
+              'eb': 'BANK A/C',
+            };
+            const toAccount = paymentModeMap[under?.toLowerCase()] || 'CASH A/C';
+            
             await db('daybook_entries').insert({
               temple_id: req.user.templeId,
               entry_date: effectiveEntryDate,
               entry_type: 'income',
-              description: `Hall Booking Payment - ${effectiveName} (Reg: ${registerNo || booking.register_no})`,
+              description: `Hall Booking - ${effectiveName} (Reg: ${registerNo || booking.register_no})`,
               reference_type: 'hall_booking',
               reference_id: Number(id),
               receipt_number: recNum,
-              amount: payAmount,
+              amount: totalAmount,
               payment_mode: under,
               party_name: effectiveName,
               party_mobile: mobile || booking.mobile || null,
               notes: remarks || null,
-              running_balance: runningBalance + payAmount,
+              running_balance: runningBalance + totalAmount,
+              journal_from_account: 'HALL INCOME A/C',
+              journal_to_account: toAccount,
               created_by: req.user.id || 1,
               created_at: db.fn.now(),
             });
-          }
-        } catch (daybookErr) {
-          console.error('Non-blocking daybook sync error:', daybookErr.message);
         }
+      } catch (daybookErr) {
+        console.error('Non-blocking daybook sync error:', daybookErr.message);
+      }
 
         // Mirror to journal (non-blocking to prevent API failure)
         try {

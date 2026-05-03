@@ -21,64 +21,75 @@ type Registration = {
   status?: 'active' | 'blocked' | 'inactive';
 };
 
-type ColKey = 'sno' | 'name' | 'mobile_number' | 'aadhaar_number' | 'reference_number' | 'village' | 'created_at' | 'actions';
+  type ColKey = 'sno' | 'name' | 'mobile_number' | 'aadhaar_number' | 'reference_number' | 'village' | 'created_at' | 'actions';
 
-const t = {
-  tamil: {
-    searchPlaceholder: 'Search by name, mobile or village',
-    exportButton: 'Export CSV',
-    title:"Landowners Tax List",
-    name: 'Name',
-    mobile: 'Mobile',
-    aadhaar: 'Aadhaar',
-    refNo: 'Ref No',
-    village: 'Village',
-    created: 'Created',
-    actions: 'Actions',
-    block: 'Block',
-    unblock: 'Unblock',
-    blockSuccess: 'User blocked',
-    unblockSuccess: 'User unblocked',
-    blockError: 'Failed to block/unblock',
-    loading: 'Loading...',
-    selectAll: 'Select All',
-    deselectAll: 'Deselect All',
-    reset: 'Reset',
-    close: 'Close',
-    noRecords: 'No records found',
-    page: 'Page',
-    of: 'of',
-    records: 'records',
-    edit: 'Edit'
-  },
-  english: {
-    searchPlaceholder: 'பெயர், தொலைபேசி அல்லது கிராமம் மூலம் தேடு',
-    exportButton: 'ஏற்றுமதி CSV',
-    title:"காணியாளர்கள் வரி பட்டியல்",
-    name: 'பெயர்',
-    mobile: 'தொலைபேசி',
-    aadhaar: 'ஆதார்',
-    refNo: 'குறிப்பு எண்',
-    village: 'கிராமம்',
-    created: 'உருவாக்கப்பட்டது',
-    actions: 'செயல்கள்',
-    block: 'தடு',
-    unblock: 'தடை நீக்கு',
-    blockSuccess: 'பயனர் தடை செய்யப்பட்டார்',
-    unblockSuccess: 'பயனர் தடை நீக்கப்பட்டார்',
-    blockError: 'தடை செயல்படுத்தப்படவில்லை',
-    loading: 'ஏற்றுகிறது...',
-    selectAll: 'அனைத்தையும் தெரிவு செய்',
-    deselectAll: 'தேர்வால் நீக்கு',
-    reset: 'மீட்டமை',
-    close: 'மூடு',
-    noRecords: 'பதிவுகள் இல்லை',
-    page: 'பக்கம்',
-    of: 'அ',
-    records: 'பதிவுகள்',
-    edit: 'திருத்து'
+  interface Registration {
+    id: number;
+    name: string;
+    mobile_number?: string;
+    aadhaar_number?: string | null;
+    reference_number?: string;
+    village?: string;
+    created_at?: string;
+    status?: 'active' | 'blocked' | 'inactive';
   }
-} as const;
+
+  const t = {
+    tamil: {
+      searchPlaceholder: 'Search by name, mobile or village',
+      exportButton: 'Export CSV',
+      title:"Landowners Tax List",
+      name: 'Name',
+      mobile: 'Mobile',
+      aadhaar: 'Aadhaar',
+      refNo: 'Ref No',
+      village: 'Village',
+      created: 'Created',
+      actions: 'Actions',
+      block: 'Block',
+      unblock: 'Unblock',
+      blockSuccess: 'User blocked',
+      unblockSuccess: 'User unblocked',
+      blockError: 'Failed to block/unblock',
+      loading: 'Loading...',
+      selectAll: 'Select All',
+      deselectAll: 'Deselect All',
+      reset: 'Reset',
+      close: 'Close',
+      noRecords: 'No records found',
+      page: 'Page',
+      of: 'of',
+      records: 'records',
+      edit: 'Edit'
+    },
+    english: {
+      searchPlaceholder: 'பெயர், தொலைபேசி அல்லது கிராமம் மூலம் தேடு',
+      exportButton: 'ஏற்றுமதி CSV',
+      title:"காணியாளர்கள் வரி பட்டியல்",
+      name: 'பெயர்',
+      mobile: 'தொலைபேசி',
+      aadhaar: 'ஆதார்',
+      refNo: 'குறிப்பு எண்',
+      village: 'கிராமம்',
+      created: 'உருவாக்கப்பட்டது',
+      actions: 'செயல்கள்',
+      block: 'தடு',
+      unblock: 'தடையை நீக்கு',
+      blockSuccess: 'பயனர் தடை செய்யப்பட்டார்',
+      unblockSuccess: 'பயனர் தடை நீக்கப்பட்டார்',
+      blockError: 'தடை செயல்படுத்தப்படவில்லை',
+      loading: 'ஏற்றுகிறது...',
+      selectAll: 'அனைத்தையும் தேர்ந்தெடு',
+      deselectAll: 'தேர்வால் நீக்கு',
+      reset: 'மீட்டமை',
+      close: 'மூடு',
+      noRecords: 'பதிவுகள் இல்லை',
+      page: 'பக்கம்',
+      of: 'இல்',
+      records: 'பதிவுகள்',
+      edit: 'திருத்து'
+    }
+  } as const;
 
 export default function TempleUserListPage() {
   const { token } = useAuth();
@@ -94,14 +105,22 @@ export default function TempleUserListPage() {
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / pageSize)), [total, pageSize]);
 
+  const allColDefs: Array<{ key: ColKey; label: string; getValue: (row: Registration, idx: number) => string | number }> = [
+    { key: 'sno', label: 'S.No', getValue: (_, idx) => idx + 1 },
+    { key: 'name', label: t[language].name, getValue: (r) => r.name || '' },
+    { key: 'mobile_number', label: t[language].mobile, getValue: (r) => r.mobile_number || '' },
+    { key: 'aadhaar_number', label: t[language].aadhaar, getValue: (r) => r.aadhaar_number || '' },
+    { key: 'reference_number', label: t[language].refNo, getValue: (r) => r.reference_number || '' },
+    { key: 'village', label: t[language].village, getValue: (r) => r.village || '' },
+    { key: 'created_at', label: t[language].created, getValue: (r) => r.created_at || '' },
+  ];
+
   const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' | 'center' }> = [
-    { key: 'sno', label: language === 'tamil' ? 'S.No' : 'வ.எண்' },
-    { key: 'name', label: t[language].name },
-    { key: 'mobile_number', label: t[language].mobile },
-    { key: 'aadhaar_number', label: t[language].aadhaar },
-    { key: 'reference_number', label: t[language].refNo },
-    { key: 'village', label: t[language].village },
-    { key: 'created_at', label: t[language].created },
+    ...allColDefs.map(c => ({
+      key: c.key,
+      label: c.label,
+      align: c.key === 'sno' ? 'center' as any : 'left',
+    })),
     { key: 'actions', label: t[language].actions, align: 'center' },
   ];
 

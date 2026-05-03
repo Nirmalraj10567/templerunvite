@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import { Modal } from '@/components/ui/modal';
+import { SuccessModal } from '@/components/ui/SuccessModal';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -818,17 +819,13 @@ export default function HallEntryPage() {
         </Card>
       </div>
 
-      {showPrintPrompt && (
-        <Modal title={t('Print Receipt', 'ரசீது அச்சிடு')} onClose={() => setShowPrintPrompt(false)}>
-          <div className="p-6 text-center">
-            <p className="mb-6 text-gray-700">{t('Receipt saved successfully! Do you want to print now?', 'ரசீது சேமிக்கப்பட்டது! அச்சிட வேண்டுமா?')}</p>
-            <div className="flex justify-center gap-3">
-              <Button variant="outline" onClick={() => setShowPrintPrompt(false)}>{t('Skip', 'தவிர்')}</Button>
-              <Button onClick={() => { downloadReceipt(lastCreatedId!, null); setShowPrintPrompt(false); }}>{t('Print Now', 'இப்போது அச்சிடு')}</Button>
-            </div>
-          </div>
-        </Modal>
-      )}
+      <SuccessModal
+        isOpen={showPrintPrompt && lastCreatedId != null}
+        onClose={() => setShowPrintPrompt(false)}
+        onPrint={() => {
+          downloadReceipt(lastCreatedId!, null);
+        }}
+      />
 
       {showDeleteModal && (
         <Modal title={t('Confirm Delete', 'நீக்குவதை உறுதிப்படுத்தவும்')} onClose={() => setShowDeleteModal(false)}>

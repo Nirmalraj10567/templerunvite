@@ -6,6 +6,7 @@ import { moneyDonationService, MoneyDonationFormData } from '@/services/moneyDon
 import { donationService, DonationFormData } from '@/services/donationService';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Modal } from '@/components/ui/modal';
+import { SuccessModal } from '@/components/ui/SuccessModal';
 import { accountService, AccountItem } from '@/services/accountService';
 import { DonationProductManager, DonationProduct } from '@/components/product/DonationProductManager';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -57,6 +58,7 @@ const createProductDonationState = (): DonationFormData => ({
   phone: '',
   product: '',
   unit: '',
+  quantity: '',
   reason: '',
 });
 
@@ -65,6 +67,7 @@ interface ValidationErrors {
   phone?: string;
   product?: string;
   unit?: string;
+  quantity?: string;
   amount?: string;
   accountId?: string;
 }
@@ -1364,56 +1367,35 @@ export default function UnifiedDonationEntry() {
         </Card>
 
         {/* Print Prompt Modal */}
-        {showPrintPrompt && lastCreatedId != null && (
-          <Modal
-            title={t('Print Receipt', 'ரசீதை அச்சிடவா?')}
-            onClose={() => setShowPrintPrompt(false)}
-          >
-            <div className={formFieldStyles.modal.container}>
-              <p className={formFieldStyles.modal.content}>
-                {t('Do you want to open the PDF receipt for printing?', 'PDF ரசீதை அச்சிட திறக்க விரும்புகிறீர்களா?')}
-              </p>
-              <div className={formFieldStyles.modal.actions}>
-                <button
-                  className={formFieldStyles.modal.button.cancel}
-                  onClick={() => setShowPrintPrompt(false)}
-                >
-                  {t('No', 'இல்லை')}
-                </button>
-                <button
-                  className={formFieldStyles.modal.button.confirm}
-                  onClick={() => {
-                    const url = moneyDonationService.receiptUrl(lastCreatedId!, token);
-                    const iframe = document.createElement('iframe');
-                    iframe.style.position = 'fixed';
-                    iframe.style.right = '0';
-                    iframe.style.bottom = '0';
-                    iframe.style.width = '0';
-                    iframe.style.height = '0';
-                    iframe.style.border = '0';
-                    iframe.src = url;
-                    iframe.onload = () => {
-                      try {
-                        iframe.contentWindow?.focus();
-                        iframe.contentWindow?.print();
-                      } catch (e) {
-                        window.open(url, '_blank');
-                      } finally {
-                        setTimeout(() => {
-                          try { document.body.removeChild(iframe); } catch { }
-                        }, 1000);
-                      }
-                    };
-                    document.body.appendChild(iframe);
-                    setShowPrintPrompt(false);
-                  }}
-                >
-                  {t('Yes, Print', 'ஆம், அச்சிடு')}
-                </button>
-              </div>
-            </div>
-          </Modal>
-        )}
+        <SuccessModal
+          isOpen={showPrintPrompt && lastCreatedId != null}
+          onClose={() => setShowPrintPrompt(false)}
+          onPrint={() => {
+            const url = moneyDonationService.receiptUrl(lastCreatedId!, token);
+            const iframe = document.createElement('iframe');
+            iframe.style.position = 'fixed';
+            iframe.style.right = '0';
+            iframe.style.bottom = '0';
+            iframe.style.width = '0';
+            iframe.style.height = '0';
+            iframe.style.border = '0';
+            iframe.src = url;
+            iframe.onload = () => {
+              try {
+                iframe.contentWindow?.focus();
+                iframe.contentWindow?.print();
+              } catch (e) {
+                window.open(url, '_blank');
+              } finally {
+                setTimeout(() => {
+                  try { document.body.removeChild(iframe); } catch { }
+                }, 1000);
+              }
+            };
+            document.body.appendChild(iframe);
+            setShowPrintPrompt(false);
+          }}
+        />
 
         {/* Success Alert Modal */}
         {showSuccessModal && (

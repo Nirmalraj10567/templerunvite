@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { getAuthToken } from '@/lib/auth';
+import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, RefreshCw, IndianRupee, FileDown, Calendar, Building2, Scale, ArrowUpCircle, ArrowDownCircle, TrendingUp, AlertCircle, LayoutGrid, FileText } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -115,12 +116,13 @@ export default function BalanceSheetPage() {
       noExpenseRecords: 'No expense records',
       summary: 'Summary',
       asOfSelectedDate: 'As of selected date',
-      grandTotal: 'Grand Total',
-      exportPdf: 'Export PDF',
-      totalLiabilities: 'Total Liabilities',
-    },
-    english: {
-      balanceSheet: 'இருப்புநிலை',
+       grandTotal: 'Grand Total',
+       exportPdf: 'Export PDF',
+       totalLiabilities: 'Total Liabilities',
+       generated: 'Generated',
+     },
+     english: {
+       balanceSheet: 'இருப்புநிலை',
       title: 'சமநிலை அறிக்கை',
       from: 'இருந்து',
       to: 'வரை',
@@ -159,15 +161,17 @@ export default function BalanceSheetPage() {
       summary: 'சுருக்கம்',
       asOfSelectedDate: 'தேர்ந்தெடுக்கப்பட்ட தேதியின்படி',
       grandTotal: 'பெரு மொத்தம்',
-      exportPdf: 'PDF ஏற்றுமதி',
-      totalLiabilities: 'மொத்த பொறுப்புகள்',
-    },
-  } as const;
+       exportPdf: 'PDF ஏற்றுமதி',
+       totalLiabilities: 'மொத்த பொறுப்புகள்',
+       generated: 'உருவாக்கப்பட்டது',
+     },
+   } as const;
 
   const [params, setParams] = useSearchParams();
   const startDate = params.get('from') || new Date().toISOString().slice(0, 10);
   const endDate = params.get('to') || new Date().toISOString().slice(0, 10);
   const query = useMemo(() => ({ startDate, endDate }), [startDate, endDate]);
+  const { user, temple } = useAuth();
 
   const [assets, setAssets] = useState<Item[]>([]);
   const [liabilities, setLiabilities] = useState<Item[]>([]);
@@ -377,20 +381,50 @@ export default function BalanceSheetPage() {
   const exportPDF = () => {
     const doc = new jsPDF('p', 'mm', 'a4');
     const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 15;
-    let y = 20;
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const now = new Date();
+    const templeName = temple?.name || (user as any)?.templeName || "Temple Management";
+    const title = t[language].balanceSheet;
 
-    // Title
-    doc.setFontSize(18);
-    doc.setTextColor(249, 115, 22); // Orange color
-    doc.text(t[language].balanceSheet, pageWidth / 2, y, { align: 'center' });
-    y += 10;
+    // Top Orange Accent Line
+    doc.setDrawColor(204, 85, 0);
+    doc.setLineWidth(2);
+    doc.line(10, 12, pageWidth - 10, 12);
 
-    // Date range
+    // Temple Name (Left)
+    doc.setFontSize(24);
+    doc.setTextColor(204, 85, 0);
+    doc.setFont(undefined, "bold");
+    doc.text(templeName, 14, 25);
+
+    // Title (Right)
+    doc.setFontSize(16);
+    doc.setTextColor(40, 40, 40);
+    doc.setFont(undefined, "bold");
+    doc.text(title, pageWidth - 14, 25, { align: "right" });
+
+    // Meta Info (Right)
+    doc.setFontSize(9);
+    doc.setTextColor(130, 130, 130);
+    doc.setFont(undefined, "normal");
+    doc.text(`${t[language].from}: ${startDate} ${t[language].to}: ${endDate}`, pageWidth - 14, 32, { align: "right" });
+    doc.text(`${t("Generated", "உருவாக்கப்பட்டது")}: ${now.toLocaleDateString()}`, pageWidth - 14, 38, { align: "right" });
+
+    // Divider
+    doc.setDrawColor(200);
+    doc.setLineWidth(0.5);
+    doc.line(10, 42, pageWidth - 10, 42);
+
+    // Summary bar (totals)
+    doc.setFillColor(248, 248, 248);
+    doc.roundedRect(10, 46, pageWidth - 20, 12, 3, 3, "F");
     doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`${t[language].from}: ${startDate} ${t[language].to}: ${endDate}`, pageWidth / 2, y, { align: 'center' });
-    y += 15;
+    doc.setTextColor(50, 50, 50);
+    doc.setFont(undefined, "bold");
+    doc.text(`${t[language].totalLiabilities}: Rs. ${nf.format(totalLiabilitiesAndEquity)}`, 14, 54);
+    doc.text(`${t[language].totalAssets}: ${nf.format(totalAssetsValue)}`, pageWidth - 14, 54, { align: "right" });
+
+    let y = 62;
 
     // Calculate max rows for table
     const maxRows = Math.max(sortedLiabilities.length, sortedAssets.length);
@@ -437,7 +471,8 @@ export default function BalanceSheetPage() {
         3: { cellWidth: 30, halign: 'right' }
       },
       headStyles: { fontStyle: 'bold' },
-      tableWidth: 'wrap'
+      tableWidth: 'wrap',
+      margin: { top: 15, left: 10, right: 10, bottom: 25 }
     });
 
     // Get final Y position
@@ -446,13 +481,13 @@ export default function BalanceSheetPage() {
     // Summary section
     doc.setFontSize(12);
     doc.setTextColor(249, 115, 22);
-    doc.text(t[language].summary, margin, finalY + 15);
+    doc.text(t[language].summary, 14, finalY + 15);
 
     doc.setFontSize(10);
     doc.setTextColor(80, 80, 80);
-    doc.text(`${t[language].totalAssets}: ${nf.format(totalAssetsValue)}`, margin, finalY + 25);
-    doc.text(`${t[language].totalCredits}: ${nf.format(totalLiabilitiesAndEquity)}`, margin, finalY + 32);
-    doc.text(`${t[language].netResult}: ${nf.format(netProfit)}`, margin, finalY + 39);
+    doc.text(`${t[language].totalAssets}: Rs. ${nf.format(totalAssetsValue)}`, 14, finalY + 25);
+    doc.text(`${t[language].totalCredits}: Rs. ${nf.format(totalLiabilitiesAndEquity)}`, 14, finalY + 32);
+    doc.text(`${t[language].netResult}: Rs. ${nf.format(netProfit)}`, 14, finalY + 39);
 
 
 

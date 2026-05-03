@@ -357,7 +357,56 @@ export default function ReceiptListView() {
 
   const handleExportPDF = () => {
     try {
+      const doc = new jsPDF("landscape");
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const now = new Date();
+      const templeName = temple?.name || (user as any)?.templeName || "Temple Management";
       const title = t('title');
+
+      // Top Orange Accent Line
+      doc.setDrawColor(204, 85, 0);
+      doc.setLineWidth(2);
+      doc.line(10, 12, pageWidth - 10, 12);
+
+      // Temple Name (Left)
+      doc.setFontSize(24);
+      doc.setTextColor(204, 85, 0);
+      doc.setFont(undefined, "bold");
+      doc.text(templeName, 14, 25);
+
+      // Title (Right)
+      doc.setFontSize(16);
+      doc.setTextColor(40, 40, 40);
+      doc.setFont(undefined, "bold");
+      doc.text(title, pageWidth - 14, 25, { align: "right" });
+
+      // Meta Info (Right)
+      doc.setFontSize(9);
+      doc.setTextColor(130, 130, 130);
+      doc.setFont(undefined, "normal");
+      doc.text(`${t("Generated", "உருவாக்கப்பட்டது")}: ${now.toLocaleDateString()}`, pageWidth - 14, 32, { align: "right" });
+      doc.text(`${t("Records", "பதிவுகள்")}: ${data.length}`, pageWidth - 14, 38, { align: "right" });
+      doc.text(`${t('balance')}: Rs. ${totals.balance}`, pageWidth - 14, 44, { align: "right" });
+
+      // Divider
+      doc.setDrawColor(200);
+      doc.setLineWidth(0.5);
+      doc.line(10, 48, pageWidth - 10, 48);
+
+      // Summary bar
+      const totalIncome = data.filter(r => r.type === 'income').reduce((sum, r) => sum + (r.amount || 0), 0);
+      const totalExpense = data.filter(r => r.type === 'expense').reduce((sum, r) => sum + (r.amount || 0), 0);
+      doc.setFillColor(248, 248, 248);
+      doc.roundedRect(10, 52, pageWidth - 20, 12, 3, 3, "F");
+      doc.setFontSize(10);
+      doc.setTextColor(50, 50, 50);
+      doc.setFont(undefined, "bold");
+      doc.text(`${t("Total Income", "மொத்த வருமானம்")}: Rs. ${totalIncome.toFixed(2)}`, 14, 60);
+      doc.text(`${t("Total Expense", "மொத்த செலவு")}: Rs. ${totalExpense.toFixed(2)}`, pageWidth / 2, 60, { align: "center" });
+      doc.text(`${t('balance')}: Rs. ${totals.balance}`, pageWidth - 14, 60, { align: "right" });
+
+      // Table
       const headCells = [
         t('receiptNumber'),
         t('date'),
@@ -373,54 +422,43 @@ export default function ReceiptListView() {
         r.type === 'income' ? t('income') : t('expense'),
         r.donor || "",
         r.receiver || "",
-        r.amount || "0",
+        `Rs. ${r.amount || "0"}`,
       ]);
-
-      const doc = new jsPDF('landscape');
-      
-      // Add Title and Styling
-      doc.setFontSize(20);
-      doc.setTextColor(40);
-      doc.text(title, 14, 22);
-      
-      // Add metadata info
-      doc.setFontSize(10);
-      doc.setTextColor(100);
-      const now = new Date();
-      const meta = `${t('showing')} ${data.length} | ${t('balance')}: ${totals.balance}`;
-      doc.text(meta, 14, 30);
-      
-      // Horizontal line
-      doc.setDrawColor(200, 200, 200);
-      doc.line(14, 33, 283, 33);
 
       autoTable(doc, {
         head: [headCells],
         body: exportRows,
-        startY: 40,
-        styles: { 
-          fontSize: 9, 
-          cellPadding: 4,
+        startY: 68,
+        margin: { top: 15, left: 10, right: 10, bottom: 25 },
+        styles: {
+          fontSize: 8.5,
+          cellPadding: 3,
           valign: 'middle'
         },
-        headStyles: { 
-          fillColor: [79, 70, 229], // Indigo 600
-          textColor: [255, 255, 255], 
+        headStyles: {
+          fillColor: [204, 85, 0],
+          textColor: [255, 255, 255],
           fontStyle: 'bold',
-          fontSize: 10
+          fontSize: 9
         },
         alternateRowStyles: {
-          fillColor: [249, 250, 251] // Gray 50
+          fillColor: [252, 252, 252]
         },
-        margin: { top: 40 },
+        columnStyles: {
+          0: { cellWidth: 25 },
+          1: { cellWidth: 25, halign: 'center' },
+          2: { cellWidth: 20, halign: 'center' },
+          3: { cellWidth: 40 },
+          4: { cellWidth: 40 },
+          5: { cellWidth: 25, halign: 'right' }
+        },
         didDrawPage: (data) => {
-          // Footer: Page Number
-          const str = `Page ${(doc as any).getNumberOfPages()}`;
+          // Footer
           doc.setFontSize(8);
           doc.setTextColor(150);
-          const pageSize = doc.internal.pageSize;
-          const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
-          doc.text(str, 14, pageHeight - 10);
+          const pageStr = `Page ${doc.getCurrentPageInfo().pageNumber}`;
+          doc.text(pageStr, 14, pageHeight - 10);
+          doc.text(templeName, pageWidth / 2, pageHeight - 10, { align: "center" } as any);
         }
       });
 

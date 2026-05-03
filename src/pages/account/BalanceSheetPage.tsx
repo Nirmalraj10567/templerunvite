@@ -54,10 +54,17 @@ export default function AccountBalanceSheetPage() {
   const totals = useMemo(() => {
     const l = liabilities.reduce((s, r) => s + (Number(r.amount) || 0), 0);
     const a = assets.reduce((s, r) => s + (Number(r.amount) || 0), 0);
-    return { l, a };
+    const incomeTotal = ((window as any).__incomeItems || []).reduce((s: number, r: any) => s + (Number(r.balance) || 0), 0);
+    const expenseTotal = ((window as any).__expenseItems || []).reduce((s: number, r: any) => s + (Number(r.balance) || 0), 0);
+    return { l, a, incomeTotal, expenseTotal };
   }, [liabilities, assets]);
 
-  const recordCount = useMemo(() => Math.max(liabilities.length, assets.length), [liabilities.length, assets.length]);
+  const recordCount = useMemo(() => Math.max(
+    liabilities.length, 
+    assets.length,
+    ((window as any).__incomeItems || []).length,
+    ((window as any).__expenseItems || []).length
+  ), [liabilities.length, assets.length]);
 
   const totalsRow = useMemo(() => {
     const ta = assets.reduce((s, r) => s + (r.amount || 0), 0);
@@ -66,36 +73,48 @@ export default function AccountBalanceSheetPage() {
   }, [assets, liabilities]);
 
   const netResult = useMemo(() => (totalsRow.assets - totalsRow.liabilities) || 0, [totalsRow.assets, totalsRow.liabilities]);
-  const profit = useMemo(() => Math.max(0, -netResult), [netResult]);
-  const loss = useMemo(() => Math.max(0, netResult), [netResult]);
+  const profit = useMemo(() => Math.max(0, (totals.incomeTotal || 0) - (totals.expenseTotal || 0)), [totals.incomeTotal, totals.expenseTotal]);
+  const loss = useMemo(() => Math.max(0, (totals.expenseTotal || 0) - (totals.incomeTotal || 0)), [totals.incomeTotal, totals.expenseTotal]);
   const obCredit = useMemo(() => Math.max(0, openingDiff), [openingDiff]);
   const obDebit = useMemo(() => Math.max(0, -openingDiff), [openingDiff]);
 
-  const load = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const token = getAuthToken();
-      const qs = `from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toDate)}`;
-      const resp = await fetch(`https://templeapi.agniplay.com/api/journal/balance-sheet?${qs}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      });
-      if (!resp.ok) throw new Error('Failed to load');
-      const body = await resp.json();
-      const a: Array<{ account: string; balance: number }> = body?.data?.assets || [];
-      const l: Array<{ account: string; balance: number }> = body?.data?.liabilities || [];
-      setAssets(a.map((x, i) => ({ id: i + 1, name: x.account, amount: Number(x.balance) || 0 })));
-      setLiabilities(l.map((x, i) => ({ id: i + 1, name: x.account, amount: Number(x.balance) || 0 })));
-      const od = (body?.data?.openingDiff ?? body?.data?.opening_balance_diff ?? 0) as number;
-      setOpeningDiff(Number.isFinite(od) ? od : 0);
-    } catch (e: any) {
-      setError(e?.message || 'Failed to load');
-      setAssets([]);
-      setLiabilities([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    const load = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const token = getAuthToken();
+        const qs = `from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toDate)}`;
+        const resp = await fetch(`https://templeapi.agniplay.com/api/journal/balance-sheet?${qs}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+        if (!resp.ok) throw new Error('Failed to load');
+        const body = await resp.json();
+
+        // Assets and Liabilities
+        const a: Array<{ account: string; balance: number }> = body?.data?.assets || [];
+        const l: Array<{ account: string; balance: number }> = body?.data?.liabilities || [];
+
+        // Income and Expense items
+        const incomeItems: Array<{ account: string; balance: number }> = body?.data?.incomeItems || [];
+        const expenseItems: Array<{ account: string; balance: number }> = body?.data?.expenseItems || [];
+
+        setAssets(a.map((x, i) => ({ id: i + 1, name: x.account, amount: Number(x.balance) || 0 })));
+        setLiabilities(l.map((x, i) => ({ id: i + 1, name: x.account, amount: Number(x.balance) || 0 })));
+
+        // Store income/expense for display
+        (window as any).__incomeItems = incomeItems;
+        (window as any).__expenseItems = expenseItems;
+
+        const od = (body?.data?.openingDiff ?? body?.data?.opening_balance_diff ?? 0) as number;
+        setOpeningDiff(Number.isFinite(od) ? od : 0);
+      } catch (e: any) {
+        setError(e?.message || 'Failed to load');
+        setAssets([]);
+        setLiabilities([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
   useEffect(() => {
     load();
@@ -157,22 +176,50 @@ export default function AccountBalanceSheetPage() {
         </div>
       </div>
 
-      {/* Data Card */}
-      <div className="bg-white rounded-2xl shadow-md border border-gray-100">
-        {/* Card Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-100">
-          <div className="flex items-center gap-2">
-            <span className="text-indigo-600">📘</span>
-            <h3 className="font-semibold text-gray-800">{t[language].heading}</h3>
+        {/* Data Card */}
+        <div className="bg-white rounded-2xl shadow-md border border-gray-100">
+          {/* Card Header */}
+          <div className="flex items-center justify-between p-4 border-b border-gray-100">
+            <div className="flex items-center gap-2">
+              <span className="text-indigo-600">📘</span>
+              <h3 className="font-semibold text-gray-800">{t[language].heading}</h3>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700">{recordCount} {t[language].records}</span>
+              <button onClick={load} disabled={isLoading} className="px-2 py-1 rounded-lg bg-indigo-50 text-indigo-600">▦</button>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700">{recordCount} {t[language].records}</span>
-            <button onClick={load} disabled={isLoading} className="px-2 py-1 rounded-lg bg-indigo-50 text-indigo-600">▦</button>
-          </div>
-        </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto p-4">
+          {/* Income & Expense Section */}
+          {(window as any).__incomeItems?.length > 0 || (window as any).__expenseItems?.length > 0 ? (
+            <div className="p-4 border-b border-gray-100">
+              <div className="max-w-6xl mx-auto grid grid-cols-2 gap-4">
+                {/* Income Items */}
+                <div>
+                  <h4 className="text-sm font-semibold text-green-700 mb-2">Income</h4>
+                  {(window as any).__incomeItems?.map((item: any, idx: number) => (
+                    <div key={idx} className="flex justify-between py-1 text-sm">
+                      <span className="text-gray-700">{item.account}</span>
+                      <span className="text-green-600 font-medium">{Number(item.balance || 0).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+                {/* Expense Items */}
+                <div>
+                  <h4 className="text-sm font-semibold text-red-700 mb-2">Expense</h4>
+                  {(window as any).__expenseItems?.map((item: any, idx: number) => (
+                    <div key={idx} className="flex justify-between py-1 text-sm">
+                      <span className="text-gray-700">{item.account}</span>
+                      <span className="text-red-600 font-medium">{Number(item.balance || 0).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {/* Table */}
+          <div className="overflow-x-auto p-4">
           <div className="max-w-6xl mx-auto">
             <table className="w-full border border-gray-200">
               <thead>
@@ -215,20 +262,20 @@ export default function AccountBalanceSheetPage() {
                   <td className="px-4 py-3 text-sm font-semibold text-gray-800">{obDebit ? obDebit.toFixed(2) : ''}</td>
                 </tr>
 
-                {/* Net Loss / Profit */}
+                {/* Net Profit / Loss */}
                 <tr>
+                  <td className="px-4 py-3 text-sm font-semibold text-green-700">{t[language].netProfit}</td>
+                  <td className="px-4 py-3 text-sm font-semibold text-green-700">{profit ? profit.toFixed(2) : ''}</td>
                   <td className="px-4 py-3 text-sm font-semibold text-red-600">Net Loss</td>
                   <td className="px-4 py-3 text-sm font-semibold text-red-600">{loss ? loss.toFixed(2) : ''}</td>
-                  <td className="px-4 py-3 text-sm font-semibold text-green-600">{t[language].netProfit}</td>
-                  <td className="px-4 py-3 text-sm font-semibold text-green-600">{profit ? profit.toFixed(2) : ''}</td>
                 </tr>
 
                 {/* Totals */}
                 <tr className="bg-indigo-50">
                   <td className="px-4 py-3 text-sm font-semibold text-gray-800">{t[language].total}</td>
-                  <td className="px-4 py-3 text-sm font-semibold text-gray-800">{(totals.l + profit + obCredit).toFixed(2)}</td>
+                  <td className="px-4 py-3 text-sm font-semibold text-gray-800">{(totals.l + (totals.incomeTotal || 0) + obCredit).toFixed(2)}</td>
                   <td className="px-4 py-3 text-sm font-semibold text-gray-800">{t[language].total}</td>
-                  <td className="px-4 py-3 text-sm font-semibold text-gray-800">{(totals.a + loss + obDebit).toFixed(2)}</td>
+                  <td className="px-4 py-3 text-sm font-semibold text-gray-800">{(totals.a + (totals.expenseTotal || 0) + obDebit).toFixed(2)}</td>
                 </tr>
               </tbody>
             </table>

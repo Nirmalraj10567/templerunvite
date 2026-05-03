@@ -35,7 +35,7 @@ interface UnifiedDonationRow {
 }
 
 export default function DonationUnifiedList() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const { language } = useLanguage();
   const navigate = useNavigate();
 
@@ -54,7 +54,7 @@ export default function DonationUnifiedList() {
   const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
   // Visible columns (union of both types)
-  type ColKey = '#' | 'type' | 'receipt' | 'date' | 'name' | 'phone' | 'amount' | 'product' | 'qty' | 'reason' | 'actions';
+  type ColKey = '#' | 'type' | 'receipt' | 'entryDate' | 'date' | 'name' | 'phone' | 'amount' | 'product' | 'qty' | 'reason' | 'actions';
   const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' | 'center' }> = [
     { key: '#', label: '#' },
     { key: 'type', label: t('Type', 'வகை') },
@@ -100,7 +100,7 @@ export default function DonationUnifiedList() {
 
   const toNum = (v: any) => {
     if (v == null) return 0;
-    const n = parseFloat(String(v).replace(/[^0-9.-]/g, ''));
+    const n = parseFloat(String(v).replace(/['"]/g, '').replace(/[^0-9.-]/g, ''));
     return isNaN(n) ? 0 : n;
   };
 
@@ -300,7 +300,7 @@ export default function DonationUnifiedList() {
 
   // Edit - navigate to full entry page
   const onEdit = (row: UnifiedDonationRow) => {
-    const editUrl = row.type === 'money' 
+    const editUrl = row.type === 'money'
       ? `/dashboard/donations/entry?editId=${row.id}&type=money`
       : `/dashboard/donations/entry?editId=${row.id}&type=product`;
     navigate(editUrl);
@@ -447,85 +447,148 @@ export default function DonationUnifiedList() {
     }
   };
 
-  const exportToPDF = () => {
+  // ─────────────────────────────────────────────────────────────────────────────
+  // exportVisiblePDF  – exports only the columns currently visible in the table
+  // (excludes '#' serial number and 'actions' button column)
+  // ─────────────────────────────────────────────────────────────────────────────
+  const exportVisiblePDF = () => {
     try {
       const title = t("Donation List", "நன்கொடை பட்டியல்");
-      const headCells = [
-        t("Type", "வகை"),
-        t("Receipt No", "ரசீது எண்"),
-        t("Entry Date", "நுழைவு தேதி"),
-        t("Booking Date", "பதிவு தேதி"),
-        t("Name", "பெயர்"),
-        t("Phone", "கைபேசி"),
-        t("Amount", "தொகை"),
-        t("Product", "பொருள்"),
-        t("Qty", "அளவு"),
+
+      // Column definitions with their label and row-value extractor
+      type ColDef = { key: ColKey; label: string; getValue: (r: UnifiedDonationRow, idx: number) => string | number };
+
+      const allColDefs: ColDef[] = [
+        { key: '#',        label: t("S.No", "எண்"),           getValue: (_, idx) => idx + 1 },
+        { key: 'type',     label: t("Type", "வகை"),            getValue: (r) => r.type === 'money' ? t('Money', 'பணம்') : t('Product', 'பொருள்') },
+        { key: 'receipt',  label: t("Receipt No", "ரசீது எண்"), getValue: (r) => r.registerNo || "" },
+        { key: 'entryDate',label: t("Entry Date", "நுழைவு தேதி"), getValue: (r) => formatDate(r.entryDate) },
+        { key: 'date',     label: t("Booking Date", "பதிவு தேதி"), getValue: (r) => formatDate(r.bookingDate) },
+        { key: 'name',     label: t("Name", "பெயர்"),           getValue: (r) => r.name || "" },
+        { key: 'phone',    label: t("Phone", "கைபேசி"),         getValue: (r) => r.phone || "" },
+        { key: 'amount',   label: t("Amount", "தொகை"),          getValue: (r) => r.type === 'money' ? String(toNum(r.amount)).replace(/['"]/g, '') : "-" },
+        { key: 'product',  label: t("Product", "பொருள்"),        getValue: (r) => r.type === 'product' ? (r.product || "-") : "-" },
+        { key: 'qty',      label: t("Qty", "அளவு"),             getValue: (r) => r.type === 'product' ? String(r.qty ?? "-") : "-" },
+        { key: 'reason',   label: t("Reason", "காரணம்"),         getValue: (r) => r.reason || "-" },
       ];
 
-      const exportRows = rows.map((r) => [
-        r.type === 'money' ? t('Money', 'பணம்') : t('Product', 'பொருள்'),
-        r.registerNo || "",
-        formatDate(r.entryDate),
-        formatDate(r.bookingDate),
-        r.name || "",
-        r.phone || "",
-        r.type === 'money' ? toNum(r.amount).toLocaleString() : "-",
-        r.product || "-",
-        r.qty ?? "-",
-      ]);
+      // Filter: keep only visible cols, exclude 'actions'
+      const activeCols = allColDefs.filter(c => c.key !== 'actions' && visibleCols[c.key]);
 
-      const doc = new jsPDF('landscape');
-      
-      // Add Title and Styling
-      doc.setFontSize(20);
-      doc.setTextColor(40);
-      doc.text(title, 14, 22);
-      
-      // Add metadata info
-      doc.setFontSize(10);
-      doc.setTextColor(100);
+      if (activeCols.length === 0) {
+        toast({
+          title: t("No columns", "நெடுவரிசை இல்லை"),
+          description: t("Please make at least one column visible.", "குறைந்தது ஒரு நெடுவரிசையை காட்டுங்கள்."),
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const headCells = activeCols.map(c => c.label);
+      const exportRows = rows.map((r, idx) => activeCols.map(c => c.getValue(r, idx)));
+
+      const doc = new jsPDF("landscape");
+      const pageWidth = doc.internal.pageSize.getWidth();
       const now = new Date();
-      const meta = `${t("Generated", "உருவாக்கப்பட்டது")}: ${now.toLocaleString()} | ${t("Items", "உருப்படிகள்")}: ${rows.length}`;
-      doc.text(meta, 14, 30);
-      
-      // Horizontal line
-      doc.setDrawColor(200, 200, 200);
-      doc.line(14, 33, 283, 33);
+      const templeName = (user as any)?.templeName || "Temple";
+
+      // Header
+      doc.setDrawColor(204, 85, 0);
+      doc.setLineWidth(2);
+      doc.line(10, 12, pageWidth - 10, 12);
+
+      doc.setFontSize(24);
+      doc.setTextColor(204, 85, 0);
+      doc.setFont(undefined, "bold");
+      doc.text(templeName, 14, 25);
+
+      doc.setFontSize(10);
+      doc.setTextColor(120, 120, 120);
+      doc.setFont(undefined, "normal");
+      doc.text("Donation Management System", 14, 31);
+
+      doc.setFontSize(16);
+      doc.setTextColor(40, 40, 40);
+      doc.setFont(undefined, "bold");
+      doc.text(title, pageWidth - 14, 25, { align: "right" });
+
+      doc.setFontSize(9);
+      doc.setTextColor(130, 130, 130);
+      doc.setFont(undefined, "normal");
+      doc.text(`${t("Generated", "உருவாக்கப்பட்டது")}: ${now.toLocaleDateString()}`, pageWidth - 14, 32, { align: "right" });
+      doc.text(`${t("Records", "பதிவுகள்")}: ${rows.length}`, pageWidth - 14, 38, { align: "right" });
+
+      doc.setDrawColor(200);
+      doc.setLineWidth(0.5);
+      doc.line(10, 42, pageWidth - 10, 42);
+
+      // Summary bar
+      const totalAmount = rows.reduce((sum, r) => sum + (r.type === 'money' ? toNum(r.amount) : 0), 0);
+
+      doc.setFillColor(248, 248, 248);
+      doc.roundedRect(10, 46, pageWidth - 20, 12, 3, 3, "F");
+      doc.setFontSize(10);
+      doc.setTextColor(50, 50, 50);
+      doc.setFont(undefined, "bold");
+      doc.text(`${t("Total Amount", "மொத்த தொகை")}: Rs. ${String(Math.round(totalAmount)).replace(/['"]/g, '')}`, 14, 54);
+      doc.text(`${t("Total Records", "மொத்த பதிவுகள்")}: ${rows.length}`, pageWidth - 14, 54, { align: "right" });
+
+      // Compute equal column widths based on visible count
+      const usableWidth = pageWidth - 20; // 10px margins each side
+      const colWidth = Math.floor(usableWidth / activeCols.length);
+
+      const columnStyles: Record<number, object> = {};
+      activeCols.forEach((col, i) => {
+        const rightAlign = col.key === 'amount' || col.key === 'qty';
+        const centerAlign = col.key === '#' || col.key === 'type' || col.key === 'receipt' || col.key === 'entryDate' || col.key === 'date' || col.key === 'phone';
+        columnStyles[i] = {
+          cellWidth: colWidth,
+          halign: rightAlign ? 'right' : centerAlign ? 'center' : 'left',
+          ...(col.key === '#' ? { fontStyle: 'bold' } : {}),
+        };
+      });
 
       autoTable(doc, {
         head: [headCells],
-        body: exportRows,
-        startY: 40,
-        styles: { 
-          fontSize: 9, 
+        body: exportRows as (string | number)[][],
+        startY: 62,
+        styles: {
+          fontSize: 8.5,
           cellPadding: 4,
-          valign: 'middle'
+          valign: "middle",
+          lineColor: [220, 220, 220],
+          lineWidth: 0.2,
         },
-        headStyles: { 
-          fillColor: [79, 70, 229], // Indigo 600
-          textColor: [255, 255, 255], 
-          fontStyle: 'bold',
-          fontSize: 10
+        headStyles: {
+          fillColor: [204, 85, 0],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          halign: "center",
         },
         alternateRowStyles: {
-          fillColor: [249, 250, 251] // Gray 50
+          fillColor: [252, 252, 252],
         },
-        margin: { top: 40 },
-        didDrawPage: (data) => {
-          // Footer: Page Number
-          const str = `Page ${(doc as any).getNumberOfPages()}`;
+        columnStyles,
+        margin: { top: 15, left: 10, right: 10, bottom: 25 },
+        didDrawPage: (dataArg) => {
+          const pageHeight = doc.internal.pageSize.getHeight();
+          doc.setDrawColor(200);
+          doc.line(10, pageHeight - 18, pageWidth - 10, pageHeight - 18);
           doc.setFontSize(8);
-          doc.setTextColor(150);
-          const pageSize = doc.internal.pageSize;
-          const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
-          doc.text(str, 14, pageHeight - 10);
-        }
+          doc.setTextColor(80);
+          doc.setFont(undefined, "bold");
+          doc.text(templeName, 10, pageHeight - 10);
+          doc.setFont(undefined, "normal");
+          doc.text(now.toLocaleDateString(), pageWidth - 10, pageHeight - 10, { align: "right" });
+          doc.setFont(undefined, "bold");
+          doc.text(`Page ${dataArg.pageNumber} / ${doc.getNumberOfPages()}`, pageWidth / 2, pageHeight - 5, { align: "center" });
+        },
       });
 
       const stamp = now.toISOString().slice(0, 19).replace(/[:T]/g, "-");
-      doc.save(`donations-export-${stamp}.pdf`);
+      doc.save(`donations-visible-${stamp}.pdf`);
     } catch (err) {
-      console.error("PDF export failed", err);
+      console.error("Visible PDF export failed", err);
       toast({
         title: t("Error", "பிழை"),
         description: t("Failed to export PDF.", "PDF ஏற்றுமதி தோல்வியடைந்தது."),
@@ -574,7 +637,8 @@ export default function DonationUnifiedList() {
                   <FileDown className="h-3 w-3 mr-1" />
                   {t('Export CSV', 'CSV ஏற்றுமதி')}
                 </Button>
-                <Button size="sm" className="h-8 text-xs" variant="outline" onClick={exportToPDF} disabled={loading || rows.length === 0}>
+                {/* Export PDF — visible columns only */}
+                <Button size="sm" className="h-8 text-xs" variant="outline" onClick={exportVisiblePDF} disabled={loading || rows.length === 0}>
                   <FileDown className="h-3 w-3 mr-1" />
                   {t('Export PDF', 'PDF ஏற்றுமதி')}
                 </Button>
@@ -865,6 +929,6 @@ export default function DonationUnifiedList() {
         </div>
       )}
 
-      </div>
+    </div>
   );
 }

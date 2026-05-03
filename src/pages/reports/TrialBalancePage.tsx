@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { getAuthToken } from '@/lib/auth';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/lib/language';
 import { formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
 import { theme } from '@/styles/theme';
@@ -217,6 +218,7 @@ function TrialBalanceContent() {
   const { language } = useLanguage();
 
   const [params, setParams] = useSearchParams();
+  const { user, temple } = useAuth();
   const persisted = useMemo(() => {
     try {
       return JSON.parse(localStorage.getItem('trialBalanceRange') || '{}') as { from?: string; to?: string };
@@ -498,10 +500,127 @@ function TrialBalanceContent() {
   // PDF export handler
   const exportToPDF = useCallback(() => {
     if (sortedRows.length === 0) return;
-    const token = getAuthToken();
-    const url = `/api/journal/trial-balance.pdf?from=${query.startDate}&to=${query.endDate}&token=${encodeURIComponent(token)}`;
-    window.open(url, '_blank');
-  }, [sortedRows, query.startDate, query.endDate, getAuthToken]);
+
+    const doc = new jsPDF("landscape");
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const now = new Date();
+    const templeName = temple?.name || (user as any)?.templeName || "Temple Management";
+    const title = t[language].trialBalance;
+
+    // Top Orange Accent Line
+    doc.setDrawColor(204, 85, 0);
+    doc.setLineWidth(2);
+    doc.line(10, 12, pageWidth - 10, 12);
+
+    // Temple Name (Left)
+    doc.setFontSize(24);
+    doc.setTextColor(204, 85, 0);
+    doc.setFont(undefined, "bold");
+    doc.text(templeName, 14, 25);
+
+    // Title (Right)
+    doc.setFontSize(16);
+    doc.setTextColor(40, 40, 40);
+    doc.setFont(undefined, "bold");
+    doc.text(title, pageWidth - 14, 25, { align: "right" });
+
+    // Meta Info (Right)
+    doc.setFontSize(9);
+    doc.setTextColor(130, 130, 130);
+    doc.setFont(undefined, "normal");
+    doc.text(`${t[language].from}: ${query.startDate} ${t[language].to}: ${query.endDate}`, pageWidth - 14, 32, { align: "right" });
+    doc.text(`${t("Generated", "உருவாக்கப்பட்டது")}: ${now.toLocaleDateString()}`, pageWidth - 14, 38, { align: "right" });
+    doc.text(`${t("Records", "பதிவுகள்")}: ${sortedRows.length}`, pageWidth - 14, 44, { align: "right" });
+
+    // Divider
+    doc.setDrawColor(200);
+    doc.setLineWidth(0.5);
+    doc.line(10, 48, pageWidth - 10, 48);
+
+    // Summary bar
+    const totalDebit = sortedRows.reduce((sum, r) => sum + r.debit, 0);
+    const totalCredit = sortedRows.reduce((sum, r) => sum + r.credit, 0);
+    doc.setFillColor(248, 248, 248);
+    doc.roundedRect(10, 52, pageWidth - 20, 12, 3, 3, "F");
+    doc.setFontSize(10);
+    doc.setTextColor(50, 50, 50);
+    doc.setFont(undefined, "bold");
+    doc.text(`${t("Total Debit", "மொத்த பற்று")}: Rs. ${csvNF.format(totalDebit)}`, 14, 60);
+    doc.text(`${t("Total Credit", "மொத்த வரவு")}: Rs. ${csvNF.format(totalCredit)}`, pageWidth / 2, 60, { align: "center" });
+    doc.text(`${t("Difference", "வித்தியாசம்")}: Rs. ${csvNF.format(Math.abs(totalDebit - totalCredit))}`, pageWidth - 14, 60, { align: "right" });
+
+    // Table headers
+    const headCells = [
+      t("Account", "கணக்கு"),
+      t("Category", "வகை"),
+      t("Inflow", "உள்வரவு"),
+      t("Outflow", "வெளிச்செலவு"),
+      t("Debit", "பற்று"),
+      t("Credit", "வரவு"),
+      t("Balance", "இருப்பு")
+    ];
+
+    // Filter visible columns
+    const allCols = ['account', 'category', 'inflow', 'outflow', 'debit', 'credit', 'balance'];
+    const visibleCols = allCols.filter(col => {
+      if (col === 'account' || col === 'category') return true;
+      return visible[col as keyof typeof visible];
+    });
+
+    const filteredHeadCells = headCells.filter((_, i) => visibleCols.includes(allCols[i]));
+
+    const exportRows = sortedRows.map((r) => {
+      const row = [
+        r.account,
+        r.category || '',
+        r.inflow,
+        r.outflow,
+        r.debit,
+        r.credit,
+        r.balance
+      ];
+      // Filter row to only visible columns
+      return row
+        .filter((_, i) => visibleCols.includes(allCols[i]))
+        .map((val) => {
+          if (typeof val === 'number') return csvNF.format(val);
+          return String(val || '');
+        });
+    });
+
+    // Column styles
+    const columnStyles: Record<number, any> = {};
+    visibleCols.forEach((col, i) => {
+      const isAmount = ['inflow', 'outflow', 'debit', 'credit', 'balance'].includes(col);
+      columnStyles[i] = {
+        cellWidth: col === 'account' ? 50 : col === 'category' ? 40 : 30,
+        halign: isAmount ? 'right' : 'left',
+      };
+    });
+
+    autoTable(doc, {
+      head: [filteredHeadCells],
+      body: exportRows,
+      startY: 68,
+      margin: { top: 15, left: 10, right: 10, bottom: 25 },
+      styles: { fontSize: 8.5, cellPadding: 3, overflow: 'linebreak' },
+      headStyles: { fillColor: [204, 85, 0], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+      alternateRowStyles: { fillColor: [252, 252, 252] },
+      columnStyles,
+      didDrawPage: (data) => {
+        // Footer
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        const pageStr = `Page ${doc.getCurrentPageInfo().pageNumber}`;
+        doc.text(pageStr, 14, pageHeight - 10);
+        doc.text(templeName, pageWidth / 2, pageHeight - 10, { align: "center" });
+      }
+    });
+
+    const stamp = now.toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    doc.save(`trial-balance-${stamp}.pdf`);
+  }, [sortedRows, query.startDate, query.endDate, visible, language, user, temple]);
 
   // Initial data load
   useEffect(() => {

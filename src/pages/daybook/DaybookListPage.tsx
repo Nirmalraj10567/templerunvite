@@ -105,20 +105,28 @@ export default function DaybookListPage() {
   
   const t = (en: string, ta: string) => (language === 'english' ? ta : en);
 
-  const allColumns = [
-    { key: 'receipt', label: t('Receipt', 'ரசீது') },
-    { key: 'booking_date', label: t('Booking Date', 'பதிவு தேதி') },
-    { key: 'scheduled_date', label: t('Scheduled Date', 'நிகழ்வு தேதி') },
-    { key: 'type', label: t('Type', 'வகை') },
-    { key: 'description', label: t('Description', 'விளக்கம்') },
-    { key: 'party', label: t('Party', 'தரப்பினர்') },
-    { key: 'food', label: t('Food Items', 'உணவு பொருட்கள்') },
-    { key: 'people', label: t('People', 'நபர்கள்') },
-    { key: 'payment', label: t('Payment', 'கட்டணம்') },
-    { key: 'amount', label: t('Amount', 'தொகை') },
-    { key: 'balance', label: t('Balance', 'இருப்பு') },
-    { key: 'actions', label: t('Actions', 'செயல்கள்') },
+  type ColKey = 'receipt' | 'booking_date' | 'scheduled_date' | 'type' | 'description' | 'party' | 'food' | 'people' | 'payment' | 'amount' | 'balance' | 'actions' | 'sno';
+
+  const allColDefs: Array<{ key: ColKey; label: string; getValue: (row: DaybookEntry, idx: number) => string | number }> = [
+    { key: 'sno', label: 'S.No', getValue: (_, idx) => idx + 1 },
+    { key: 'receipt', label: t('Receipt', 'ரசீது'), getValue: (r) => r.receipt_number || '' },
+    { key: 'booking_date', label: t('Booking Date', 'பதிவு தேதி'), getValue: (r) => formatDate(r.created_at) },
+    { key: 'scheduled_date', label: t('Scheduled Date', 'நிகழ்வு தேதி'), getValue: (r) => formatDate(r.entry_date) },
+    { key: 'type', label: t('Type', 'வகை'), getValue: (r) => r.reference_type === 'annadhanam' ? t('Annadhanam', 'அன்னதானம்') : r.entry_type === 'income' ? t('Income', 'வருமானம்') : r.entry_type === 'expense' ? t('Expense', 'செலவு') : t('Journal', 'ஜர்னல்') },
+    { key: 'description', label: t('Description', 'விளக்கம்'), getValue: (r) => r.description || '' },
+    { key: 'party', label: t('Party', 'தரப்பினர்'), getValue: (r) => r.party_name || '-' },
+    { key: 'food', label: t('Food Items', 'உணவு பொருட்கள்'), getValue: (r) => r.reference_type === 'annadhanam' && r.notes ? (r.notes.startsWith('Money:') ? '-' : r.notes.split('(')[0].trim()) : '-' },
+    { key: 'people', label: t('People', 'நபர்கள்'), getValue: (r) => r.reference_type === 'annadhanam' && r.notes && !r.notes.startsWith('Product:') && !r.notes.startsWith('Money:') && r.notes.includes('(') ? (r.notes.match(/\(([^)]+)\)/)?.[1] || '-') : '-' },
+    { key: 'payment', label: t('Payment', 'கட்டணம்'), getValue: (r) => r.payment_mode === 'in_kind' ? t('In Kind', 'உணவு') : r.payment_mode || '-' },
+    { key: 'amount', label: t('Amount', 'தொகை'), getValue: (r) => r.amount },
+    { key: 'balance', label: t('Balance', 'இருப்பு'), getValue: (r) => r.running_balance },
   ];
+
+  const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' | 'center' }> = allColDefs.map(c => ({
+    key: c.key,
+    label: c.label,
+    align: c.key === 'amount' || c.key === 'balance' ? 'right' : c.key === 'sno' || c.key === 'type' || c.key === 'receipt' || c.key === 'booking_date' || c.key === 'scheduled_date' ? 'center' : 'left',
+  }));
 
   const onToggleColumn = (key: string) => {
     setVisibleColumns(prev => ({
@@ -220,67 +228,154 @@ export default function DaybookListPage() {
     }
   };
 
-  const handleExportPDF = () => {
+  const handleExportCSV = () => {
     try {
-      const doc = new jsPDF('landscape');
-      
-      // Title
-      doc.setFontSize(20);
-      doc.text(t('Daybook Report', 'டேபுக் அறிக்கை'), 14, 22);
-      
-      doc.setFontSize(11);
-      doc.text(`${t('Period:', 'காலம்:')} ${fromDate} ${t('to', 'முதல்')} ${toDate}`, 14, 30);
-      
-      const tableColumn: string[] = [];
-      const visibleKeys = allColumns.filter(c => c.key !== 'actions' && visibleColumns[c.key]).map(c => c.key);
-      
-      allColumns.forEach(c => {
-        if (c.key !== 'actions' && visibleColumns[c.key]) {
-          tableColumn.push(c.label);
-        }
+      const activeCols = allColDefs.filter(c => c.key !== 'actions' && visibleColumns[c.key]);
+      const headers = activeCols.map(c => c.label);
+      const csvRows = entries.map((r, idx) => activeCols.map(c => String(c.getValue(r, idx))));
+
+      const csvContent = [
+        headers.join(","),
+        ...csvRows.map((row) => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")),
+      ].join("\n");
+
+      const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `daybook-${stamp}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      console.error("CSV export failed", e);
+      toast.error(t('Failed to export CSV', 'CSV ஏற்றுமதி தோல்வியடைந்தது.'));
+    }
+  };
+
+  const exportVisiblePDF = () => {
+    try {
+      const title = t('Daybook Report', 'டேபுக் அறிக்கை');
+
+      // Filter: keep only visible cols, exclude 'actions'
+      const activeCols = allColDefs.filter(c => c.key !== 'actions' && visibleColumns[c.key]);
+
+      if (activeCols.length === 0) {
+        toast.error(t('No columns selected', 'நெடுவரிசைகள் தேர்ந்தெடுக்கப்படவில்லை'));
+        return;
+      }
+
+      const headCells = activeCols.map(c => c.label);
+      const exportRows = entries.map((r, idx) => activeCols.map(c => {
+        const val = c.getValue(r, idx);
+        return typeof val === 'number' ? String(val) : String(val || '');
+      }));
+
+      const doc = new jsPDF("landscape");
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const now = new Date();
+      const templeName = "Temple Management";
+
+      // Header
+      doc.setDrawColor(204, 85, 0);
+      doc.setLineWidth(2);
+      doc.line(10, 12, pageWidth - 10, 12);
+
+      doc.setFontSize(24);
+      doc.setTextColor(204, 85, 0);
+      doc.setFont(undefined, "bold");
+      doc.text(templeName, 14, 25);
+
+      doc.setFontSize(10);
+      doc.setTextColor(120, 120, 120);
+      doc.setFont(undefined, "normal");
+      doc.text("Daybook Management System", 14, 31);
+
+      doc.setFontSize(16);
+      doc.setTextColor(40, 40, 40);
+      doc.setFont(undefined, "bold");
+      doc.text(title, pageWidth - 14, 25, { align: "right" });
+
+      doc.setFontSize(9);
+      doc.setTextColor(130, 130, 130);
+      doc.setFont(undefined, "normal");
+      doc.text(`${t('Generated', 'உருவாக்கப்பட்டது')}: ${now.toLocaleDateString()}`, pageWidth - 14, 32, { align: "right" });
+      doc.text(`${t('Records', 'பதிவுகள்')}: ${entries.length}`, pageWidth - 14, 38, { align: "right" });
+
+      doc.setDrawColor(200);
+      doc.setLineWidth(0.5);
+      doc.line(10, 42, pageWidth - 10, 42);
+
+      // Summary bar
+      const totalIncome = entries.filter(e => e.entry_type === 'income').reduce((sum, e) => sum + e.amount, 0);
+      const totalExpense = entries.filter(e => e.entry_type === 'expense').reduce((sum, e) => sum + e.amount, 0);
+
+      doc.setFillColor(248, 248, 248);
+      doc.roundedRect(10, 46, pageWidth - 20, 12, 3, 3, "F");
+      doc.setFontSize(10);
+      doc.setTextColor(50, 50, 50);
+      doc.setFont(undefined, "bold");
+      doc.text(`${t('Total Income', 'மொத்த வருமானம்')}: Rs. ${String(Math.round(totalIncome)).replace(/['"]/g, '')}`, 14, 54);
+      doc.text(`${t('Total Expense', 'மொத்த செலவு')}: Rs. ${String(Math.round(totalExpense)).replace(/['"]/g, '')}`, pageWidth / 2, 54, { align: "center" });
+      doc.text(`${t('Records', 'பதிவுகள்')}: ${entries.length}`, pageWidth - 14, 54, { align: "right" });
+
+      // Compute equal column widths based on visible count
+      const usableWidth = pageWidth - 20;
+      const colWidth = Math.floor(usableWidth / activeCols.length);
+
+      const columnStyles: Record<number, object> = {};
+      activeCols.forEach((col, i) => {
+        const rightAlign = col.key === 'amount' || col.key === 'balance';
+        const centerAlign = col.key === 'sno' || col.key === 'receipt' || col.key === 'booking_date' || col.key === 'scheduled_date' || col.key === 'type';
+        columnStyles[i] = {
+          cellWidth: colWidth,
+          halign: rightAlign ? 'right' : centerAlign ? 'center' : 'left',
+          ...(col.key === 'sno' ? { fontStyle: 'bold' } : {}),
+        };
       });
-      
-      const tableRows = entries.map(entry => {
-        const row: string[] = [];
-        if (visibleColumns.receipt) row.push(entry.receipt_number);
-        if (visibleColumns.booking_date) row.push(formatDate(entry.created_at));
-        if (visibleColumns.scheduled_date) row.push(formatDate(entry.entry_date));
-        if (visibleColumns.type) {
-          row.push(
-            entry.reference_type === 'annadhanam' ? t('Annadhanam', 'அன்னதானம்') :
-            entry.entry_type === 'income' ? t('Income', 'வருமானம்') : 
-            entry.entry_type === 'expense' ? t('Expense', 'செலவு') : 
-            t('Journal', 'ஜர்னல்')
-          );
-        }
-        if (visibleColumns.description) row.push(entry.description);
-        if (visibleColumns.party) row.push(entry.party_name || '-');
-        if (visibleColumns.food) {
-          row.push(entry.reference_type === 'annadhanam' && entry.notes ? (entry.notes.startsWith('Money:') ? '-' : entry.notes.split('(')[0].trim()) : '-');
-        }
-        if (visibleColumns.people) {
-          row.push(entry.reference_type === 'annadhanam' && entry.notes && !entry.notes.startsWith('Product:') && !entry.notes.startsWith('Money:') && entry.notes.includes('(') ? (entry.notes.match(/\(([^)]+)\)/)?.[1] || '-') : '-');
-        }
-        if (visibleColumns.payment) {
-          row.push(entry.payment_mode === 'in_kind' ? t('In Kind', 'உணவு') : entry.payment_mode);
-        }
-        if (visibleColumns.amount) row.push(entry.amount.toString());
-        if (visibleColumns.balance) row.push(entry.running_balance.toString());
-        return row;
-      });
-      
+
       autoTable(doc, {
-        head: [tableColumn],
-        body: tableRows,
-        startY: 35,
-        styles: { fontSize: 8 },
-        headStyles: { fillColor: [255, 165, 0] } // Orange
+        head: [headCells],
+        body: exportRows as (string | number)[][],
+        startY: 62,
+        styles: {
+          fontSize: 8.5,
+          cellPadding: 4,
+          valign: "middle",
+          lineColor: [220, 220, 220],
+          lineWidth: 0.2,
+        },
+        headStyles: {
+          fillColor: [204, 85, 0],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          halign: "center",
+        },
+        alternateRowStyles: {
+          fillColor: [252, 252, 252],
+        },
+        columnStyles,
+        margin: { top: 15, left: 10, right: 10, bottom: 25 },
+        didDrawPage: (dataArg) => {
+          const pageHeight = doc.internal.pageSize.getHeight();
+          doc.setDrawColor(200);
+          doc.line(10, pageHeight - 18, pageWidth - 10, pageHeight - 18);
+          doc.setFontSize(8);
+          doc.setTextColor(80);
+          doc.setFont(undefined, "bold");
+          doc.text(templeName, 10, pageHeight - 10);
+          doc.setFont(undefined, "normal");
+          doc.text(now.toLocaleDateString(), pageWidth - 10, pageHeight - 10, { align: "right" });
+          doc.setFont(undefined, "bold");
+          doc.text(`Page ${dataArg.pageNumber} / ${doc.getNumberOfPages()}`, pageWidth / 2, pageHeight - 5, { align: "center" });
+        },
       });
-      
-      doc.save(`daybook_${fromDate}_${toDate}.pdf`);
-      toast.success(t('PDF exported successfully', 'PDF வெற்றிகரமாக ஏற்றுமதி செய்யப்பட்டது'));
-    } catch (error) {
-      console.error('Error exporting PDF:', error);
+
+      const stamp = now.toISOString().slice(0, 19).replace(/[:T]/g, "-");
+      doc.save(`daybook-visible-${stamp}.pdf`);
+    } catch (err) {
+      console.error("Visible PDF export failed", err);
       toast.error(t('Failed to export PDF', 'PDF ஏற்றுமதி செய்வதில் தோல்வி'));
     }
   };
@@ -467,7 +562,7 @@ export default function DaybookListPage() {
             onToggleColumn={onToggleColumn} 
           />
           <Button
-            onClick={handleExport}
+            onClick={handleExportCSV}
             variant="outline"
             className="h-10 border-gray-200 hover:bg-gray-50 text-gray-700 px-3 text-sm"
           >
@@ -476,7 +571,7 @@ export default function DaybookListPage() {
           </Button>
           
           <Button
-            onClick={handleExportPDF}
+            onClick={exportVisiblePDF}
             variant="outline"
             className="h-10 border-gray-200 hover:bg-gray-50 text-red-600 px-3 text-sm"
           >

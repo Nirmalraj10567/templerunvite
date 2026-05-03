@@ -4,7 +4,7 @@ import { useLanguage } from '@/lib/language';
 import { PrintButton } from '@/components/ui/print-button';
 import { Modal } from '@/components/ui/modal';
 import { useNavigate } from 'react-router-dom';
-import { Trash2, Search, Loader2, FileSpreadsheet, FileDown, Printer, Pencil, History, IndianRupee, Save, X } from 'lucide-react';
+import { Trash2, Search, Loader2, FileSpreadsheet, FileDown, Edit, History, IndianRupee, Save, X, Settings2 } from 'lucide-react';
 import { cn, formFieldStyles, pageContainerStyles } from '@/styles/formStyles';
 import { theme, tableClasses, buttonClasses } from '@/styles/theme';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -55,7 +55,7 @@ interface HallBookingLog {
 }
 
 export default function HallListPage() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const { language } = useLanguage();
   const navigate = useNavigate();
   const [rows, setRows] = useState<HallBooking[]>([]);
@@ -156,8 +156,7 @@ export default function HallListPage() {
 
   const onContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
-    setMenuPos({ x: e.clientX, y: e.clientY });
-    setMenuOpen(true);
+    setMenuOpen(prev => !prev);
   };
 
   useEffect(() => {
@@ -342,10 +341,11 @@ export default function HallListPage() {
   };
 
   type ColKey =
+    | '#'
     | 'register_no'
-    | 'date'
     | 'entry_date'
     | 'booking_date'
+    | 'date'
     | 'time'
     | 'event'
     | 'subdivision'
@@ -356,28 +356,45 @@ export default function HallListPage() {
     | 'advance_amount'
     | 'total_amount'
     | 'balance_amount'
-    | 'remarks';
+    | 'remarks'
+    | 'actions';
 
-  const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' }> = [
-    { key: 'register_no', label: t('Receipt No', 'ரசீது எண்') },
-    { key: 'entry_date', label: t('Entry Date', 'பதிவு தேதி') },
-    { key: 'booking_date', label: t('Booking Date', 'பூஜை தேதி') },
-    { key: 'date', label: t('Legacy Date', 'தேதி') },
-    { key: 'time', label: t('Time', 'நேரம்') },
-    { key: 'event', label: t('Function', 'நிகழ்வு') },
-    { key: 'subdivision', label: t('Subdivision', 'துணை பிரிவு') },
-    { key: 'name', label: t('Name', 'பெயர்') },
-    { key: 'address', label: t('Address', 'முகவரி') },
-    { key: 'village', label: t('Village', 'கிராமம்') },
-    { key: 'mobile', label: t('Phone', 'தொலைபேசி') },
-    { key: 'advance_amount', label: t('Advance', 'முன்பணம்'), align: 'right' },
-    { key: 'total_amount', label: t('Total', 'மொத்தம்'), align: 'right' },
-    { key: 'balance_amount', label: t('Balance', 'இருப்பு'), align: 'right' },
-    { key: 'remarks', label: t('Remarks', 'குறிப்புகள்') },
+
+  const allColDefs: Array<{
+    key: ColKey;
+    label: string;
+    getValue: (row: HallBooking, idx: number) => string | number;
+  }> = [
+    { key: '#', label: 'S.No', getValue: (_, idx) => idx + 1 },
+    { key: 'register_no', label: t('Receipt No', 'ரசீது எண்'), getValue: (r) => r.register_no || '' },
+    { key: 'entry_date', label: t('Entry Date', 'பதிவு தேதி'), getValue: (r) => formatDate(r.entry_date) },
+    { key: 'booking_date', label: t('Booking Date', 'பூஜை தேதி'), getValue: (r) => formatDate(r.booking_date) },
+    { key: 'date', label: t('Legacy Date', 'தேதி'), getValue: (r) => formatDate(r.date) },
+    { key: 'time', label: t('Time', 'நேரம்'), getValue: (r) => r.time || '' },
+    { key: 'event', label: t('Function', 'நிகழ்வு'), getValue: (r) => r.event || '' },
+    { key: 'subdivision', label: t('Subdivision', 'துணை பிரிவு'), getValue: (r) => r.subdivision || '' },
+    { key: 'name', label: t('Name', 'பெயர்'), getValue: (r) => r.name || '' },
+    { key: 'address', label: t('Address', 'முகவரி'), getValue: (r) => r.address || '' },
+    { key: 'village', label: t('Village', 'கிராமம்'), getValue: (r) => r.village || '' },
+    { key: 'mobile', label: t('Phone', 'தொலைபேசி'), getValue: (r) => r.mobile || '' },
+    { key: 'advance_amount', label: t('Advance', 'முன்பணம்'), getValue: (r) => toNum(r.advance_amount) },
+    { key: 'total_amount', label: t('Total', 'மொத்தம்'), getValue: (r) => toNum(r.total_amount) },
+    { key: 'balance_amount', label: t('Balance', 'இருப்பு'), getValue: (r) => toNum(r.balance_amount) },
+    { key: 'remarks', label: t('Remarks', 'குறிப்புகள்'), getValue: (r) => r.remarks || '' },
+  ];
+
+  const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' | 'center' }> = [
+    ...allColDefs.map(c => ({
+      key: c.key,
+      label: c.label,
+      align: c.key === 'advance_amount' || c.key === 'total_amount' || c.key === 'balance_amount' ? 'right' : c.key === '#' ? 'center' : 'left' as any,
+    })),
+    { key: 'actions', label: t('Actions', 'செயல்கள்'), align: 'center' }
   ];
 
   const STORAGE_KEY = 'hall_list_visible_columns_v1';
   const defaultVisible: Record<ColKey, boolean> = {
+    '#': true,
     register_no: true,
     entry_date: true,
     booking_date: true,
@@ -393,6 +410,7 @@ export default function HallListPage() {
     total_amount: true,
     balance_amount: true,
     remarks: false,
+    actions: true,
   };
 
   const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>(() => {
@@ -402,12 +420,11 @@ export default function HallListPage() {
     } catch { }
     return defaultVisible;
   });
-
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(visibleCols));
-    } catch { }
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(visibleCols)); } catch { }
   }, [visibleCols]);
+
+  const visibleColCount = useMemo(() => Object.values(visibleCols).filter(Boolean).length, [visibleCols]);
 
   // Totals
 
@@ -495,27 +512,9 @@ export default function HallListPage() {
 
   const handleExportCSV = () => {
     try {
-      const headers = [
-        t("Receipt No", "ரசீது எண்"),
-        t("Date", "தேதி"),
-        t("Time", "நேரம்"),
-        t("Function", "நிகழ்வு"),
-        t("Name", "பெயர்"),
-        t("Phone", "கைபேசி"),
-        t("Total", "மொத்தம்"),
-        t("Balance", "மீதி"),
-      ];
-
-      const csvRows = rows.map((r) => [
-        r.register_no || "",
-        r.date || "",
-        r.time || "",
-        r.event || "",
-        r.name || "",
-        r.mobile || "",
-        r.total_amount || "0",
-        r.balance_amount || "0",
-      ]);
+      const activeCols = allColDefs.filter(c => c.key !== 'actions' && visibleCols[c.key]);
+      const headers = activeCols.map(c => c.label);
+      const csvRows = rows.map((r, idx) => activeCols.map(c => String(c.getValue(r, idx))));
 
       const csvContent = [
         headers.join(","),
@@ -541,81 +540,134 @@ export default function HallListPage() {
     }
   };
 
-  const handleExportPDF = () => {
+  const exportVisiblePDF = () => {
     try {
-      const title = t("Hall Bookings List", "மண்டப பதிவுகள் பட்டியல்");
-      const headCells = [
-        t("Receipt No", "ரசீது எண்"),
-        t("Date", "தேதி"),
-        t("Time", "நேரம்"),
-        t("Function", "நிகழ்வு"),
-        t("Name", "பெயர்"),
-        t("Phone", "கைபேசி"),
-        t("Total", "மொத்தம்"),
-        t("Balance", "மீதி"),
-      ];
+      // 1. Filter: only visible cols, never 'actions'
+      const activeCols = allColDefs.filter(c => c.key !== 'actions' && visibleCols[c.key]);
 
-      const exportRows = rows.map((r) => [
-        r.register_no || "",
-        r.date || "",
-        r.time || "",
-        r.event || "",
-        r.name || "",
-        r.mobile || "",
-        r.total_amount || "0",
-        r.balance_amount || "0",
-      ]);
+      if (activeCols.length === 0) {
+        toast({
+          title: t("Error", "பிழை"),
+          description: t("Please make at least one column visible.", "குறைந்தது ஒரு நெடுவரிசையைக் காட்டுங்கள்."),
+          variant: "destructive",
+        });
+        return;
+      }
 
-      const doc = new jsPDF('landscape');
-      
-      // Add Title and Styling
-      doc.setFontSize(20);
-      doc.setTextColor(40);
-      doc.text(title, 14, 22);
-      
-      // Add metadata info
-      doc.setFontSize(10);
-      doc.setTextColor(100);
+      // 2. Build table data - always export full rows array
+      const headCells = activeCols.map(c => c.label);
+      const exportRows = rows.map((r, idx) => activeCols.map(c => {
+        const val = c.getValue(r, idx);
+        // CRITICAL: NEVER use ₹ inside doc.text() or table cells -> use "Rs." instead
+        return typeof val === 'string' ? val.replace(/₹/g, 'Rs.') : val;
+      }));
+
+      const doc = new jsPDF("landscape");
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
       const now = new Date();
-      const meta = `${t("Generated", "உருவாக்கப்பட்டது")}: ${now.toLocaleString()} | ${t("Items", "உருப்படிகள்")}: ${rows.length}`;
-      doc.text(meta, 14, 30);
-      
-      // Horizontal line
-      doc.setDrawColor(200, 200, 200);
-      doc.line(14, 33, 283, 33);
+      const templeName = (user as any)?.templeName || "Temple Management";
+      const title = t("Hall Bookings List", "மண்டப பதிவுகள் பட்டியல்");
 
+      /* =========================================================
+         🎨 PDF Header (page 1 only via startY)
+      ========================================================= */
+      // Orange accent line at top
+      doc.setDrawColor(204, 85, 0);
+      doc.setLineWidth(2);
+      doc.line(10, 12, pageWidth - 10, 12);
+
+      // Temple/company name large orange top-left
+      doc.setFontSize(24);
+      doc.setTextColor(204, 85, 0);
+      doc.setFont(undefined, "bold");
+      doc.text(templeName, 14, 25);
+
+      // Page title top-right
+      doc.setFontSize(16);
+      doc.setTextColor(40, 40, 40);
+      doc.setFont(undefined, "bold");
+      doc.text(title, pageWidth - 14, 25, { align: "right" });
+
+      // Generated date + record count
+      doc.setFontSize(9);
+      doc.setTextColor(130, 130, 130);
+      doc.setFont(undefined, "normal");
+      doc.text(`${t("Generated", "உருவாக்கப்பட்டது")}: ${now.toLocaleDateString()}`, pageWidth - 14, 32, { align: "right" });
+      doc.text(`${t("Records", "பதிவுகள்")}: ${rows.length}`, pageWidth - 14, 38, { align: "right" });
+
+      // Divider
+      doc.setDrawColor(200);
+      doc.setLineWidth(0.5);
+      doc.line(10, 42, pageWidth - 10, 42);
+
+      // Summary bar (totals)
+      doc.setFillColor(248, 248, 248);
+      doc.roundedRect(10, 46, pageWidth - 20, 12, 3, 3, "F");
+      doc.setFontSize(10);
+      doc.setTextColor(50, 50, 50);
+      doc.setFont(undefined, "bold");
+      doc.text(`${t("Total Amount", "மொத்த தொகை")}: Rs. ${String(Math.round(totals.total))}`, 14, 54);
+      doc.text(`${t("Total Records", "மொத்த பதிவுகள்")}: ${rows.length}`, pageWidth - 14, 54, { align: "right" });
+
+      /* =========================================================
+         📏 Auto column widths & Alignment per key
+      ========================================================= */
+      const colWidth = Math.floor((pageWidth - 20) / activeCols.length);
+      const rightAlign = ['advance_amount', 'total_amount', 'balance_amount'];
+      const centerAlign = ['#', 'register_no', 'entry_date', 'booking_date', 'date', 'time', 'mobile'];
+      
+      const columnStyles: Record<number, any> = {};
+      activeCols.forEach((col, i) => {
+        columnStyles[i] = {
+          cellWidth: colWidth,
+          halign: rightAlign.includes(col.key) ? 'right' : centerAlign.includes(col.key) ? 'center' : 'left',
+        };
+      });
+
+      /* =========================================================
+         📋 autoTable config
+         CRITICAL: startY:62 for page 1, margin.top:15 for page 2+
+      ========================================================= */
       autoTable(doc, {
         head: [headCells],
         body: exportRows,
-        startY: 40,
-        styles: { 
-          fontSize: 9, 
+        startY: 62,
+        margin: { top: 15, left: 10, right: 10, bottom: 25 },
+        styles: {
+          fontSize: 8.5,
           cellPadding: 4,
-          valign: 'middle'
+          valign: "middle",
+          lineColor: [220, 220, 220],
+          lineWidth: 0.2,
         },
-        headStyles: { 
-          fillColor: [79, 70, 229], // Indigo 600
-          textColor: [255, 255, 255], 
-          fontStyle: 'bold',
-          fontSize: 10
+        headStyles: {
+          fillColor: [204, 85, 0],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          halign: "center",
         },
-        alternateRowStyles: {
-          fillColor: [249, 250, 251] // Gray 50
-        },
-        margin: { top: 40 },
+        alternateRowStyles: { fillColor: [252, 252, 252] },
+        columnStyles,
         didDrawPage: (data) => {
-          // Footer: Page Number
-          const str = `Page ${(doc as any).getNumberOfPages()}`;
+          // Footer on every page: name left, date right, page number center
+          const pWidth = doc.internal.pageSize.getWidth();
+          const pHeight = doc.internal.pageSize.getHeight();
+          doc.setDrawColor(200);
+          doc.line(10, pHeight - 18, pWidth - 10, pHeight - 18);
           doc.setFontSize(8);
-          doc.setTextColor(150);
-          const pageSize = doc.internal.pageSize;
-          const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
-          doc.text(str, 14, pageHeight - 10);
-        }
+          doc.setTextColor(80);
+          doc.setFont(undefined, "bold");
+          doc.text(templeName, 10, pHeight - 10);
+          doc.setFont(undefined, "normal");
+          doc.text(now.toLocaleDateString(), pWidth - 10, pHeight - 10, { align: "right" });
+          doc.setFont(undefined, "bold");
+          doc.text(`Page ${data.pageNumber} / ${doc.getNumberOfPages()}`, pWidth / 2, pHeight - 5, { align: "center" });
+        },
       });
 
       const stamp = now.toISOString().slice(0, 19).replace(/[:T]/g, "-");
-      doc.save(`hall-bookings-${stamp}.pdf`);
+      doc.save(`hall-bookings-visible-${stamp}.pdf`);
     } catch (err) {
       console.error("PDF export failed", err);
       toast({
@@ -662,12 +714,19 @@ export default function HallListPage() {
                   <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => { setQ(''); setCurrentPage(1); fetchData(1); }}>
                     {t('Clear', 'அழி')}
                   </Button>
+                  <Button
+                    size="sm"
+                    className="h-8 text-xs"
+                    variant="outline"
+                    onClick={() => setMenuOpen(prev => !prev)}
+                  >
+                    <Settings2 className="h-3 w-3 mr-1" />
+                    {t('Columns', 'நெடுவரிசைகள்')}
+                  </Button>
                   <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handleExportCSV} disabled={loading || rows.length === 0}>
-                    <FileSpreadsheet className="h-3 w-3 mr-1" />
                     {t('Export CSV', 'CSV ஏற்றுமதி')}
                   </Button>
-                  <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handleExportPDF} disabled={loading || rows.length === 0}>
-                    <FileDown className="h-3 w-3 mr-1" />
+                  <Button size="sm" className="h-8 text-xs" variant="outline" onClick={exportVisiblePDF} disabled={loading || rows.length === 0}>
                     {t('Export PDF', 'PDF ஏற்றுமதி')}
                   </Button>
                 </div>
@@ -676,7 +735,7 @@ export default function HallListPage() {
 
             {/* Table */}
             <div className={tableClasses.scrollContainerWrapper}>
-              <div className={tableClasses.scrollContainer}>
+               <div className={tableClasses.scrollContainer} onContextMenu={onContextMenu}>
                 {loading ? (
                   <div className={tableClasses.emptyState}>
                     <Loader2 className="w-12 h-12 text-orange-600 animate-spin mx-auto mb-4" />
@@ -684,126 +743,100 @@ export default function HallListPage() {
                 ) : (
                   <Table className={tableClasses.container}>
                     <TableHeader className={tableClasses.header}>
-                      <TableRow className={tableClasses.row}>
-                        <TableHead className={tableClasses.headerCellSno}>{t("S.No", "எண்")}</TableHead>
-                        <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Receipt No", "ரசீது எண்")}</TableHead>
-                        <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Entry Date", "பதிவு தேதி")}</TableHead>
-                        <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Booking Date", "பூஜை தேதி")}</TableHead>
-                        <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Time", "நேரம்")}</TableHead>
-                        <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Function", "நிகழ்வு")}</TableHead>
-                        <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Name", "பெயர்")}</TableHead>
-                        <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Village", "கிராமம்")}</TableHead>
-                        <TableHead className={cn(tableClasses.headerCell, "text-left")}>{t("Phone", "தொலைபேசி")}</TableHead>
-                        <TableHead className={cn(tableClasses.headerCell, "text-right")}>{t("Advance", "முன்பணம்")}</TableHead>
-                        <TableHead className={cn(tableClasses.headerCell, "text-right")}>{t("Total", "மொத்தம்")}</TableHead>
-                        <TableHead className={cn(tableClasses.headerCell, "text-right")}>{t("Balance", "இருப்பு")}</TableHead>
-                        <TableHead className={cn(tableClasses.headerCell, "text-right")}>{t("Actions", "செயல்கள்")}</TableHead>
-                      </TableRow>
-                    </TableHeader>
+                       <TableRow className={tableClasses.row}>
+                         {allColumns.filter(c => visibleCols[c.key]).map(col => (
+                           <TableHead key={col.key} className={cn(tableClasses.headerCell, col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left')}>
+                             {col.label}
+                           </TableHead>
+                         ))}
+                       </TableRow>
+                     </TableHeader>
                     <TableBody>
-                      {rows.length > 0 ? (
-                        rows.map((r, index) => (
-                          <TableRow key={r.id} className={tableClasses.row}>
-                            <TableCell className={tableClasses.cellSno}>
-                              {(currentPage - 1) * pageSize + index + 1}
-                            </TableCell>
-                            <TableCell className={tableClasses.cell}>
-                              {r.register_no || '-'}
-                            </TableCell>
-                            <TableCell className={tableClasses.cell}>
-                              {formatDate(r.entry_date)}
-                            </TableCell>
-                            <TableCell className={tableClasses.cell}>
-                              {formatDate(r.booking_date)}
-                            </TableCell>
-                            <TableCell className={tableClasses.cell}>
-                              {r.time || '-'}
-                            </TableCell>
-                            <TableCell className={tableClasses.cell}>
-                              {r.event || '-'}
-                            </TableCell>
-                            <TableCell className={tableClasses.cell}>
-                              {r.name || '-'}
-                            </TableCell>
-                            <TableCell className={tableClasses.cell}>
-                              {r.village || '-'}
-                            </TableCell>
-                            <TableCell className={tableClasses.cell}>
-                              {r.mobile || '-'}
-                            </TableCell>
-                            <TableCell className={cn(tableClasses.cell, 'text-right')}>
-                              {toNum(r.advance_amount).toLocaleString()}
-                            </TableCell>
-                            <TableCell className={cn(tableClasses.cell, 'text-right')}>
-                              {toNum(r.total_amount).toLocaleString()}
-                            </TableCell>
-                            <TableCell className={cn(tableClasses.cell, 'text-right')}>
-                              {toNum(r.balance_amount).toLocaleString()}
-                            </TableCell>
-                            <TableCell className={cn(tableClasses.cell, tableClasses.actionCell)}>
-                              <div className="flex items-center justify-end gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedBooking(r);
-                                    setPayAmount(String(toNum(r.balance_amount)));
-                                    setShowPayModal(true);
-                                    setShowPayCheckInOut(false);
-                                    setShowPayAdditional(false);
-                                  }}
-                                  className={cn(buttonClasses.actionSuccess)}
-                                  title={t('Add Payment & Details', 'கட்டணம் மற்றும் விவரங்களைச் சேமி')}
-                                >
-                                  <IndianRupee className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    const pdfUrl = `/api/hall-bookings/${r.id}/receipt.pdf`;
-                                    window.open(pdfUrl, '_blank');
-                                  }}
-                                  className={buttonClasses.actionSecondary}
-                                  title={t('Print Receipt', 'ரசீது அச்சிடு')}
-                                >
-                                  <Printer className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleEdit(r.id)}
-                                  className={buttonClasses.actionPrimary}
-                                  title={t('Edit', 'திருத்து')}
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    if (index === 0) {
-                                      setSelectedBookingId(r.id);
-                                      setShowDeleteModal(true);
-                                    }
-                                  }}
-                                  disabled={index !== 0}
-                                  className={index === 0 ? buttonClasses.actionDanger : 'opacity-50 cursor-not-allowed'}
-                                  title={t('Delete', 'நீக்கு')}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={12} className={tableClasses.emptyState}>
-                            {t("No records found", "பதிவுகள் கிடைக்கவில்லை")}
-                          </TableCell>
-                        </TableRow>
-                      )}
+                       {rows.length === 0 ? (
+                         <TableRow>
+                           <TableCell colSpan={visibleColCount} className={tableClasses.emptyState}>
+                             {t('No records found', 'பதிவுகள் கிடைக்கவில்லை')}
+                           </TableCell>
+                         </TableRow>
+                       ) : (
+                         rows.map((r, index) => (
+                           <TableRow key={r.id} className={tableClasses.row}>
+                             {visibleCols['#'] && <TableCell className={tableClasses.cellSno}>{(currentPage - 1) * pageSize + index + 1}</TableCell>}
+                             {visibleCols['register_no'] && <TableCell className={tableClasses.cell}>{r.register_no || '-'}</TableCell>}
+                             {visibleCols['entry_date'] && <TableCell className={tableClasses.cell}>{formatDate(r.entry_date)}</TableCell>}
+                             {visibleCols['booking_date'] && <TableCell className={tableClasses.cell}>{formatDate(r.booking_date)}</TableCell>}
+                             {visibleCols['date'] && <TableCell className={tableClasses.cell}>{formatDate(r.date)}</TableCell>}
+                             {visibleCols['time'] && <TableCell className={tableClasses.cell}>{r.time || '-'}</TableCell>}
+                             {visibleCols['event'] && <TableCell className={tableClasses.cell}>{r.event || '-'}</TableCell>}
+                             {visibleCols['subdivision'] && <TableCell className={tableClasses.cell}>{r.subdivision || '-'}</TableCell>}
+                             {visibleCols['name'] && <TableCell className={tableClasses.cell}>{r.name || '-'}</TableCell>}
+                             {visibleCols['address'] && <TableCell className={tableClasses.cell}>{r.address || '-'}</TableCell>}
+                             {visibleCols['village'] && <TableCell className={tableClasses.cell}>{r.village || '-'}</TableCell>}
+                             {visibleCols['mobile'] && <TableCell className={tableClasses.cell}>{r.mobile || '-'}</TableCell>}
+                             {visibleCols['advance_amount'] && <TableCell className={cn(tableClasses.cell, 'text-right')}>{toNum(r.advance_amount).toLocaleString()}</TableCell>}
+                             {visibleCols['total_amount'] && <TableCell className={cn(tableClasses.cell, 'text-right')}>{toNum(r.total_amount).toLocaleString()}</TableCell>}
+                             {visibleCols['balance_amount'] && <TableCell className={cn(tableClasses.cell, 'text-right')}>{toNum(r.balance_amount).toLocaleString()}</TableCell>}
+                             {visibleCols['remarks'] && <TableCell className={tableClasses.cell}>{r.remarks || '-'}</TableCell>}
+                             {visibleCols['actions'] && (
+                               <TableCell className={cn(tableClasses.cell, tableClasses.actionCell)}>
+                                 <div className="flex items-center justify-end gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        setSelectedBooking(r);
+                                        setPayAmount(String(toNum(r.balance_amount)));
+                                        setShowPayModal(true);
+                                        setShowPayCheckInOut(false);
+                                        setShowPayAdditional(false);
+                                      }}
+                                      className={cn(buttonClasses.actionSuccess, "h-6 w-6 p-0")}
+                                      title={t('Add Payment & Details', 'கட்டணம் மற்றும் விவரங்களைச் சேமி')}
+                                    >
+                                      <IndianRupee className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        const pdfUrl = `/api/hall-bookings/${r.id}/receipt.pdf`;
+                                        window.open(pdfUrl, '_blank');
+                                      }}
+                                      className={cn(buttonClasses.actionSecondary, "h-6 w-6 p-0")}
+                                      title={t('Print Receipt', 'ரசீது அச்சிடு')}
+                                    >
+                                      <FileDown className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleEdit(r.id)}
+                                      className={cn(buttonClasses.actionPrimary, "h-6 w-6 p-0")}
+                                      title={t('Edit', 'திருத்து')}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        if (index === 0) {
+                                          setSelectedBookingId(r.id);
+                                          setShowDeleteModal(true);
+                                        }
+                                      }}
+                                      disabled={index !== 0}
+                                      className={index === 0 ? cn(tableClasses.actionButtonDanger, "h-6 w-6 p-0") : "opacity-50 cursor-not-allowed h-6 w-6 p-0"}
+                                      title={t('Delete', 'நீக்கு')}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                 </div>
+                               </TableCell>
+                             )}
+                           </TableRow>
+                          ))
+                        )}
                     </TableBody>
                   </Table>
                 )}
@@ -858,11 +891,34 @@ export default function HallListPage() {
                   </select>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+               </div>
+             </CardContent>
+           </Card>
 
-        {/* Financial Totals */}
+           {/* Column Toggle Context Menu */}
+           {menuOpen && (
+             <div
+               ref={menuRef}
+               style={{ position: 'fixed', top: menuPos.y, left: menuPos.x, zIndex: 9999 }}
+               className="bg-white border rounded shadow-lg py-1 min-w-[180px] max-h-[60vh] overflow-y-auto"
+               onClick={(e) => e.stopPropagation()}
+             >
+               <div className="px-3 py-1 text-xs font-semibold text-gray-500 border-b">{t('Toggle Columns', 'பத்திகளை மாற்று')}</div>
+               {allColumns.map(col => (
+                 <label key={col.key} className="flex items-center gap-2 px-3 py-1 text-sm hover:bg-gray-100 cursor-pointer">
+                   <input
+                     type="checkbox"
+                     checked={visibleCols[col.key]}
+                     onChange={() => setVisibleCols(prev => ({ ...prev, [col.key]: !prev[col.key] }))}
+                     className="rounded"
+                   />
+                   {col.label}
+                 </label>
+               ))}
+             </div>
+           )}
+
+         {/* Financial Totals */}
         <div className="mt-2 flex justify-end text-xs text-gray-600">
           <div className="flex gap-3">
             <span>{t('Advance', 'முன்பணம்')}: {totals.advance.toLocaleString()}</span>
@@ -1645,8 +1701,8 @@ export default function HallListPage() {
         {menuOpen && (
           <div
             ref={menuRef}
-            className="fixed z-50 bg-white rounded shadow border border-gray-200 w-48 text-xs"
-            style={{ left: menuPos.x, top: menuPos.y }}
+            className="fixed z-50 bg-white rounded shadow-lg border border-gray-200 w-48 text-xs"
+            style={{ top: '200px', right: '20px' }}
           >
             <div className="px-3 py-2 border-b border-gray-200">
               <h3 className="text-xs font-medium text-gray-900">{t('Columns', 'நெடுவரிசைகள்')}</h3>
@@ -1666,7 +1722,7 @@ export default function HallListPage() {
                     onChange={() =>
                       setVisibleCols((prev) => ({ ...prev, [col.key]: !prev[col.key] }))
                     }
-                    className={cn(theme.input.base, "h-3 w-3 text-blue-600 rounded")}
+                    className={cn(theme.input.base, "h-4 w-4 text-blue-600 rounded cursor-pointer")}
                   />
                   <span className="ml-2 text-xs text-gray-700">{col.label}</span>
                 </label>

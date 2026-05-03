@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Modal } from '@/components/ui/modal';
+import { SuccessModal } from '@/components/ui/SuccessModal';
 import { useLanguage } from '@/lib/language';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
 import { theme } from '@/styles/theme';
@@ -1435,39 +1436,13 @@ export default function AnnadhanamEntryPage() {
         })()}
 
         {/* Print Receipt Modal */}
-        {showPrintPrompt && lastCreatedId != null && (
-          <Modal
-            title={t('Print Receipt?', 'ரசீதை அச்சிடவா?')}
-            onClose={() => setShowPrintPrompt(false)}
-          >
-            <div className="p-6">
-              <div className="text-center mb-6">
-                <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-3" />
-                <p className="text-gray-700 text-lg">
-                  {t('Entry saved! Open PDF receipt for printing?', 'பதிவு சேமிக்கப்பட்டது! அச்சிடுவதற்கு PDF ரசீதைத் திறக்கவா?')}
-                </p>
-              </div>
-              <div className="flex justify-center gap-3">
-                <button
-                  className="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
-                  onClick={() => setShowPrintPrompt(false)}
-                >
-                  {t('Not Now', 'இப்போது வேண்டாம்')}
-                </button>
-                <button
-                  className="px-6 py-2 rounded-lg bg-gradient-to-r from-orange-400 to-red-500 text-white hover:from-orange-500 hover:to-red-600 transition-all duration-200 shadow-md flex items-center gap-2"
-                  onClick={() => {
-                    (window as any).annadhanamHandleDownloadReceipt(lastCreatedId);
-                    setShowPrintPrompt(false);
-                  }}
-                >
-                  <Printer className="w-4 h-4" />
-                  {t('Yes, Open', 'ஆம், திற')}
-                </button>
-              </div>
-            </div>
-          </Modal>
-        )}
+        <SuccessModal
+          isOpen={showPrintPrompt && lastCreatedId != null}
+          onClose={() => setShowPrintPrompt(false)}
+          onPrint={() => {
+            (window as any).annadhanamHandleDownloadReceipt(lastCreatedId);
+          }}
+        />
       </div>
 
       <style>{`

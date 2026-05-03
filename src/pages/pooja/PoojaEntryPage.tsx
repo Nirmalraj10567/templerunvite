@@ -19,6 +19,7 @@ import { Calendar, EyeOff, Tag, User, Phone, Clock, IndianRupee, Hash, Sparkles,
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
 import { theme } from '@/styles/theme';
 import SearchableSelect from '@/components/ui/SearchableSelect';
+import { SuccessModal } from '@/components/ui/SuccessModal';
 
 // Ensure date values are compatible with <input type="date"> (expects YYYY-MM-DD)
 const toDateInputValue = (value: any): string => {
@@ -778,38 +779,15 @@ export default function PoojaEntryPage() {
       </div>
 
       {/* Print confirmation modal */}
-      <Dialog open={showPrintConfirm} onOpenChange={setShowPrintConfirm}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-semibold">
-              {t('Print Receipt', 'ரசீதை அச்சிட')}
-            </DialogTitle>
-            <DialogDescription className="text-base text-gray-600">
-              {t('Do you want to open the receipt PDF in a new tab?', 'ரசீது PDF-ஐ புதிய தாளில் திறக்க உங்களுக்குத் தோன்றுகிறதா?')}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="flex gap-3">
-            <Button
-              variant="outline"
-              className={cn(theme.input.base, "px-4 py-2 text-sm hover:bg-gray-50 rounded-md")}
-              onClick={() => setShowPrintConfirm(false)}
-            >
-              {t('No', 'இல்லை')}
-            </Button>
-            <Button
-              className="px-4 py-2 text-sm bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-md"
-              onClick={() => {
-                if (lastSavedId) {
-                  openReceiptPdf(lastSavedId);
-                }
-                setShowPrintConfirm(false);
-              }}
-            >
-              {t('Yes, Open', 'ஆம், திறக்க')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SuccessModal
+        isOpen={showPrintConfirm}
+        onClose={() => setShowPrintConfirm(false)}
+        onPrint={() => {
+          if (lastSavedId) {
+            openReceiptPdf(lastSavedId);
+          }
+        }}
+      />
     </div>
   );
 }

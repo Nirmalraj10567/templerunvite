@@ -16,6 +16,7 @@ import { theme } from '@/styles/theme';
 import { CardHeader, CardTitle } from '@/components/ui/card';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { Loader2 } from 'lucide-react';
+import { SuccessModal } from '@/components/ui/SuccessModal';
 
 const RAW_API_BASE =
   (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || window.location.origin;
@@ -1329,8 +1330,10 @@ export default function TaxUserEntryPage() {
       let data: any = null;
       try { data = await res.json(); } catch {}
       if (!res.ok) throw new Error(data?.error || data?.message || `Failed (${res.status})`);
-      showSuccessAlert(`Tax Registration #${data.id} saved successfully!`);
-      if (typeof data?.id === 'number') { setLastCreatedId(data.id); setShowPrintPrompt(true); }
+      if (typeof data?.id === 'number') { 
+        setLastCreatedId(data.id); 
+        setShowPrintPrompt(true); 
+      }
       clearForm();
     } catch (e: any) { setErr(e.message || 'Failed to save'); }
     finally { setSaving(false); }
@@ -1990,52 +1993,10 @@ export default function TaxUserEntryPage() {
         return null;
       })()}
 
-      {/* ── Print Prompt Modal ── */}
-      {showPrintPrompt && lastCreatedId != null && (
-        <div className="trp-modal-overlay">
-          <div className="trp-modal">
-            <div className="trp-modal-header">
-              <span>🖨 {L('Print Receipt','ரசீதை அச்சிடவா?')}</span>
-              <button className="trp-modal-close" onClick={() => setShowPrintPrompt(false)}>×</button>
-            </div>
-            <div className="trp-modal-body">
-              <p style={{ fontSize:14, color:'var(--ink-60)', marginBottom:20 }}>
-                {L('Do you want to open the PDF receipt for printing?','PDF ரசீதை அச்சிட திறக்க விரும்புகிறீர்களா?')}
-              </p>
-              <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
-                <button className="trp-btn trp-btn--outline" onClick={() => setShowPrintPrompt(false)}>
-                  {L('No','இல்லை')}
-                </button>
-                <button className="trp-btn trp-btn--primary" onClick={() => {
-                  (window as any).taxHandleDownloadReceipt(lastCreatedId);
-                  setShowPrintPrompt(false);
-                }}>
-                  🖨 {L('Yes, Print','ஆம், அச்சிடு')}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Success Modal ── */}
-      {showSuccessModal && (
-        <div className="trp-modal-overlay" onClick={() => setShowSuccessModal(false)}>
-          <div className="trp-modal" style={{ maxWidth:380 }} onClick={e => e.stopPropagation()}>
-            <div className="trp-modal-header" style={{ background:'linear-gradient(135deg,#15803D,#166534)' }}>
-              <span>✅ {L('Success','வெற்றி')}</span>
-              <button className="trp-modal-close" onClick={() => setShowSuccessModal(false)}>×</button>
-            </div>
-            <div className="trp-modal-body" style={{ textAlign:'center' }}>
-              <div style={{ fontSize:40, marginBottom:12 }}>✅</div>
-              <p style={{ fontSize:13, color:'var(--ink-60)', marginBottom:20, lineHeight:1.6 }}>{successMessage}</p>
-              <button className="trp-btn trp-btn--primary" style={{ background:'linear-gradient(135deg,#15803D,#166534)', minWidth:100 }} onClick={() => setShowSuccessModal(false)}>
-                {L('OK','சரி')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <SuccessModal
+        isOpen={showPrintPrompt}
+        onClose={() => setShowPrintPrompt(false)}
+      />
     </div>
   );
 }
