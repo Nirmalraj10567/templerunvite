@@ -306,6 +306,36 @@ export default function HallEntryPage() {
     }
   };
 
+  // Helper function to format date to YYYY-MM-DD
+  const formatDateForInput = (dateStr: string | undefined): string => {
+    if (!dateStr) return '';
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return dateStr;
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    } catch {
+      return dateStr;
+    }
+  };
+
+  // Helper function to format time to HH:MM
+  const formatTimeForInput = (timeStr: string | undefined): string => {
+    if (!timeStr) return '';
+    try {
+      if (/^\d{2}:\d{2}$/.test(timeStr)) return timeStr;
+      if (timeStr.includes('T')) {
+        const time = timeStr.split('T')[1]?.split(':').slice(0, 2).join(':');
+        return time || '';
+      }
+      return timeStr;
+    } catch {
+      return timeStr;
+    }
+  };
+
   useEffect(() => {
     if (isEdit && id) {
       (async () => {
@@ -318,8 +348,10 @@ export default function HallEntryPage() {
           const booking = data.data || data;
           setForm({
             ...booking,
-            entryDate: booking.entryDate || booking.date,
-            bookingDate: booking.bookingDate || booking.date,
+            entryDate: formatDateForInput(booking.entryDate || booking.date),
+            bookingDate: formatDateForInput(booking.bookingDate || booking.date),
+            date: formatDateForInput(booking.date),
+            time: formatTimeForInput(booking.time),
             advanceAmount: booking.advanceAmount?.toString() || '',
             totalAmount: booking.totalAmount?.toString() || '',
             balanceAmount: booking.balanceAmount?.toString() || '',

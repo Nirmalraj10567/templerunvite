@@ -61,7 +61,7 @@ import { tableClasses } from '@/styles/theme';
 
 
 export default function DaybookListPage() {
-  const { token } = useAuth();
+  const { token, temple } = useAuth();
   const { language } = useLanguage();
   const navigate = useNavigate();
   
@@ -257,6 +257,7 @@ export default function DaybookListPage() {
   const exportVisiblePDF = () => {
     try {
       const title = t('Daybook Report', 'டேபுக் அறிக்கை');
+      const templeName = temple?.name || 'Temple Management';
 
       // Filter: keep only visible cols, exclude 'actions'
       const activeCols = allColDefs.filter(c => c.key !== 'actions' && visibleColumns[c.key]);
@@ -275,50 +276,56 @@ export default function DaybookListPage() {
       const doc = new jsPDF("landscape");
       const pageWidth = doc.internal.pageSize.getWidth();
       const now = new Date();
-      const templeName = "Temple Management";
 
-      // Header
+      // Header background
+      doc.setFillColor(255, 255, 255);
+      doc.rect(10, 10, pageWidth - 20, 35, "F");
+
+      // Top border line
       doc.setDrawColor(204, 85, 0);
       doc.setLineWidth(2);
       doc.line(10, 12, pageWidth - 10, 12);
 
-      doc.setFontSize(24);
+      // Left side - Temple name and subtitle
+      doc.setFontSize(20);
       doc.setTextColor(204, 85, 0);
       doc.setFont(undefined, "bold");
-      doc.text(templeName, 14, 25);
-
-      doc.setFontSize(10);
-      doc.setTextColor(120, 120, 120);
-      doc.setFont(undefined, "normal");
-      doc.text("Daybook Management System", 14, 31);
-
-      doc.setFontSize(16);
-      doc.setTextColor(40, 40, 40);
-      doc.setFont(undefined, "bold");
-      doc.text(title, pageWidth - 14, 25, { align: "right" });
+      doc.text(templeName, 14, 24);
 
       doc.setFontSize(9);
+      doc.setTextColor(120, 120, 120);
+      doc.setFont(undefined, "normal");
+      doc.text("Daybook Management System", 14, 30);
+
+      // Right side - Title and metadata
+      doc.setFontSize(14);
+      doc.setTextColor(40, 40, 40);
+      doc.setFont(undefined, "bold");
+      doc.text(title, pageWidth - 14, 24, { align: "right" });
+
+      doc.setFontSize(8);
       doc.setTextColor(130, 130, 130);
       doc.setFont(undefined, "normal");
-      doc.text(`${t('Generated', 'உருவாக்கப்பட்டது')}: ${now.toLocaleDateString()}`, pageWidth - 14, 32, { align: "right" });
-      doc.text(`${t('Records', 'பதிவுகள்')}: ${entries.length}`, pageWidth - 14, 38, { align: "right" });
+      doc.text(`${t('Generated', 'உருவாக்கப்பட்டது')}: ${now.toLocaleDateString()}`, pageWidth - 14, 30, { align: "right" });
+      doc.text(`${t('Records', 'பதிவுகள்')}: ${entries.length}`, pageWidth - 14, 36, { align: "right" });
 
+      // Bottom border line
       doc.setDrawColor(200);
       doc.setLineWidth(0.5);
-      doc.line(10, 42, pageWidth - 10, 42);
+      doc.line(10, 47, pageWidth - 10, 47);
 
       // Summary bar
       const totalIncome = entries.filter(e => e.entry_type === 'income').reduce((sum, e) => sum + e.amount, 0);
       const totalExpense = entries.filter(e => e.entry_type === 'expense').reduce((sum, e) => sum + e.amount, 0);
 
       doc.setFillColor(248, 248, 248);
-      doc.roundedRect(10, 46, pageWidth - 20, 12, 3, 3, "F");
+      doc.roundedRect(10, 51, pageWidth - 20, 12, 3, 3, "F");
       doc.setFontSize(10);
       doc.setTextColor(50, 50, 50);
       doc.setFont(undefined, "bold");
-      doc.text(`${t('Total Income', 'மொத்த வருமானம்')}: Rs. ${String(Math.round(totalIncome)).replace(/['"]/g, '')}`, 14, 54);
-      doc.text(`${t('Total Expense', 'மொத்த செலவு')}: Rs. ${String(Math.round(totalExpense)).replace(/['"]/g, '')}`, pageWidth / 2, 54, { align: "center" });
-      doc.text(`${t('Records', 'பதிவுகள்')}: ${entries.length}`, pageWidth - 14, 54, { align: "right" });
+      doc.text(`${t('Total Income', 'மொத்த வருமானம்')}: Rs. ${String(Math.round(totalIncome)).replace(/['"]/g, '')}`, 14, 59);
+      doc.text(`${t('Total Expense', 'மொத்த செலவு')}: Rs. ${String(Math.round(totalExpense)).replace(/['"]/g, '')}`, pageWidth / 2, 59, { align: "center" });
+      doc.text(`${t('Records', 'பதிவுகள்')}: ${entries.length}`, pageWidth - 14, 59, { align: "right" });
 
       // Compute equal column widths based on visible count
       const usableWidth = pageWidth - 20;
@@ -338,7 +345,7 @@ export default function DaybookListPage() {
       autoTable(doc, {
         head: [headCells],
         body: exportRows as (string | number)[][],
-        startY: 62,
+        startY: 67,
         styles: {
           fontSize: 8.5,
           cellPadding: 4,

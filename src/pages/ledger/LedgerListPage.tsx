@@ -15,6 +15,8 @@ import { toast } from '@/components/ui/use-toast';
 import { FileDown, Search, RefreshCw, Edit, Trash2, Printer, Plus } from 'lucide-react';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
 import { theme, tableClasses, buttonClasses } from '@/styles/theme';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 // Define styles using formFieldStyles
 const styles = {
@@ -49,7 +51,7 @@ const styles = {
 
 export default function LedgerListPage() {
   const { language } = useLanguage();
-  const { token } = useAuth();
+  const { token, temple } = useAuth();
   const navigate = useNavigate();
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -429,8 +431,172 @@ export default function LedgerListPage() {
     }
   };
 
+  const formatDate = (dateStr: string | undefined) => {
+    if (!dateStr) return '';
+    try {
+      return format(new Date(dateStr), 'dd/MM/yyyy');
+    } catch {
+      return dateStr;
+    }
+  };
+
   const onExportPDF = () => {
-    window.print();
+    try {
+      const doc = new jsPDF("landscape");
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const now = new Date();
+      const templeName = temple?.name || "Temple Management";
+      const title = t("Ledger Report", "லெட்ஜர் அறிக்கை");
+
+      // Header
+      doc.setDrawColor(204, 85, 0);
+      doc.setLineWidth(2);
+      doc.line(10, 12, pageWidth - 10, 12);
+
+      doc.setFontSize(20);
+      doc.setTextColor(204, 85, 0);
+      doc.setFont(undefined, "bold");
+      doc.text(templeName, 14, 24);
+
+      doc.setFontSize(9);
+      doc.setTextColor(120, 120, 120);
+      doc.setFont(undefined, "normal");
+      doc.text("Ledger Management System", 14, 30);
+
+      doc.setFontSize(14);
+      doc.setTextColor(40, 40, 40);
+      doc.setFont(undefined, "bold");
+      doc.text(title, pageWidth - 14, 24, { align: "right" });
+
+      doc.setFontSize(8);
+      doc.setTextColor(130, 130, 130);
+      doc.setFont(undefined, "normal");
+      doc.text(`${t('Generated', 'உருவாக்கப்பட்டது')}: ${now.toLocaleDateString()}`, pageWidth - 14, 30, { align: "right" });
+      doc.text(`${t('Records', 'பதிவுகள்')}: ${entries.length}`, pageWidth - 14, 36, { align: "right" });
+
+      doc.setDrawColor(200);
+      doc.setLineWidth(0.5);
+      doc.line(10, 42, pageWidth - 10, 42);
+
+      // Summary bar
+      const totalCredit = entries.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
+      const totalDebit = entries.filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0);
+
+      doc.setFillColor(248, 248, 248);
+      doc.roundedRect(10, 46, pageWidth - 20, 12, 3, 3, "F");
+      doc.setFontSize(9);
+      doc.setTextColor(50, 50, 50);
+      doc.setFont(undefined, "bold");
+      
+      // Center all three items in the summary bar
+      const summaryY = 54;
+      const summaryItems = [
+        `${t('Total Credit', 'மொத்த கடன்')}: Rs. ${String(Math.round(totalCredit))}`,
+        `${t('Total Debit', 'மொத்த பற்று')}: Rs. ${String(Math.round(totalDebit))}`,
+        `${t('Balance', 'இருப்பு')}: Rs. ${String(Math.round(currentBalance))}`
+      ];
+      
+      const itemWidth = (pageWidth - 20) / 3;
+      summaryItems.forEach((item, idx) => {
+        const x = 10 + itemWidth * idx + itemWidth / 2;
+        doc.text(item, x, summaryY, { align: "center" });
+      });
+
+      // Table data
+      const headCells = [
+        t('S.No', 'எண்'),
+        t('Date', 'தேதி'),
+        t('Name', 'பெயர்'),
+        t('Category', 'வகை'),
+        t('Credit', 'கடன்'),
+        t('Debit', 'பற்று'),
+        t('Balance', 'இருப்பு'),
+      ];
+
+      // Calculate running balance for each entry
+      let runningBalance = 0;
+      const exportRows = entries.map((r, idx) => {
+        if (r.type === 'credit') {
+          runningBalance += r.amount;
+        } else {
+          runningBalance -= r.amount;
+        }
+        
+        return [
+          String(idx + 1),
+          formatDate(r.date),
+          r.name || '',
+          r.under || '',
+          r.type === 'credit' ? String(Math.round(r.amount)) : '',
+          r.type === 'debit' ? String(Math.round(r.amount)) : '',
+          String(Math.round(runningBalance)),
+        ];
+      });
+
+      const columnStyles: Record<number, any> = {
+        0: { cellWidth: 12, halign: 'center' },
+        1: { cellWidth: 20, halign: 'center' },
+        2: { cellWidth: 40, halign: 'left' },
+        3: { cellWidth: 35, halign: 'left' },
+        4: { cellWidth: 25, halign: 'right' },
+        5: { cellWidth: 25, halign: 'right' },
+        6: { cellWidth: 25, halign: 'right' },
+      };
+
+      autoTable(doc, {
+        head: [headCells],
+        body: exportRows,
+        startY: 62,
+        margin: { top: 15, left: 10, right: 10, bottom: 25 },
+        styles: {
+          fontSize: 7.5,
+          cellPadding: 2.5,
+          valign: "middle",
+          lineColor: [220, 220, 220],
+          lineWidth: 0.2,
+        },
+        headStyles: {
+          fillColor: [204, 85, 0],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          halign: "center",
+          fontSize: 7,
+          cellPadding: 2,
+        },
+        alternateRowStyles: { fillColor: [252, 252, 252] },
+        columnStyles,
+        didDrawPage: (data) => {
+          const pWidth = doc.internal.pageSize.getWidth();
+          const pHeight = doc.internal.pageSize.getHeight();
+          doc.setDrawColor(200);
+          doc.line(10, pHeight - 18, pWidth - 10, pHeight - 18);
+          doc.setFontSize(8);
+          doc.setTextColor(80);
+          doc.setFont(undefined, "bold");
+          doc.text(templeName, 10, pHeight - 10);
+          doc.setFont(undefined, "normal");
+          doc.text(now.toLocaleDateString(), pWidth - 10, pHeight - 10, { align: "right" });
+          doc.setFont(undefined, "bold");
+          doc.text(`Page ${data.pageNumber} / ${doc.getNumberOfPages()}`, pWidth / 2, pHeight - 5, { align: "center" });
+        },
+      });
+
+      const stamp = now.toISOString().slice(0, 19).replace(/[:T]/g, "-");
+      doc.save(`ledger-${stamp}.pdf`);
+      
+      toast({
+        title: t("Success", "வெற்றி"),
+        description: t("PDF exported successfully", "PDF வெற்றிகரமாக ஏற்றுமதி செய்யப்பட்டது"),
+      });
+    } catch (err) {
+      console.error("PDF export failed", err);
+      toast({
+        title: t("Error", "பிழை"),
+        description: t("Failed to export PDF", "PDF ஏற்றுமதி தோல்வியடைந்தது"),
+        variant: "destructive",
+      });
+    }
   };
 
   const showToast = (message: string, isError = false) => {

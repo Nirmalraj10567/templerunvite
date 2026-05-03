@@ -511,13 +511,6 @@ export const sidebarItems: NavItem[] = [
         accessLevel: 'view'
       },
       { 
-        to: 'settings', 
-        label: navigationTranslations.english.generalSettings, 
-        tamilLabel: navigationTranslations.tamil.generalSettings, 
-        permissionId: 'setting',
-        accessLevel: 'edit'
-      },
-      { 
         to: 'settings/pdf', 
         label: navigationTranslations.english.pdfSettings, 
         tamilLabel: navigationTranslations.tamil.pdfSettings, 

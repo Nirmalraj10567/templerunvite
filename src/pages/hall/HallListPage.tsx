@@ -555,7 +555,26 @@ export default function HallListPage() {
       }
 
       // 2. Build table data - always export full rows array
-      const headCells = activeCols.map(c => c.label);
+      // Use shorter labels for PDF headers to fit better
+      const pdfHeaderMap: Record<string, string> = {
+        '#': 'S.No',
+        'register_no': 'Receipt',
+        'entry_date': 'Entry',
+        'booking_date': 'Booking',
+        'date': 'Legacy',
+        'time': 'Time',
+        'event': 'Event',
+        'subdivision': 'Sub',
+        'name': 'Name',
+        'address': 'Address',
+        'village': 'Village',
+        'mobile': 'Phone',
+        'advance_amount': 'Adv',
+        'total_amount': 'Total',
+        'balance_amount': 'Balance',
+      };
+
+      const headCells = activeCols.map(c => pdfHeaderMap[c.key] || c.label);
       const exportRows = rows.map((r, idx) => activeCols.map(c => {
         const val = c.getValue(r, idx);
         // CRITICAL: NEVER use ₹ inside doc.text() or table cells -> use "Rs." instead
@@ -613,14 +632,29 @@ export default function HallListPage() {
       /* =========================================================
          📏 Auto column widths & Alignment per key
       ========================================================= */
-      const colWidth = Math.floor((pageWidth - 20) / activeCols.length);
+      // Define proportional widths for different column types
+      const getColumnWidth = (key: string) => {
+        // Date columns need more space
+        if (['entry_date', 'booking_date', 'date'].includes(key)) return 1.3;
+        // Number columns can be narrower
+        if (['#', 'time'].includes(key)) return 0.7;
+        // Advance/Total/Balance columns
+        if (['advance_amount', 'total_amount', 'balance_amount'].includes(key)) return 1.1;
+        // Default width
+        return 1;
+      };
+
+      const totalWidth = activeCols.reduce((sum, col) => sum + getColumnWidth(col.key), 0);
+      const baseColWidth = (pageWidth - 20) / totalWidth;
+
       const rightAlign = ['advance_amount', 'total_amount', 'balance_amount'];
       const centerAlign = ['#', 'register_no', 'entry_date', 'booking_date', 'date', 'time', 'mobile'];
       
       const columnStyles: Record<number, any> = {};
       activeCols.forEach((col, i) => {
+        const proportionalWidth = baseColWidth * getColumnWidth(col.key);
         columnStyles[i] = {
-          cellWidth: colWidth,
+          cellWidth: proportionalWidth,
           halign: rightAlign.includes(col.key) ? 'right' : centerAlign.includes(col.key) ? 'center' : 'left',
         };
       });
@@ -635,8 +669,8 @@ export default function HallListPage() {
         startY: 62,
         margin: { top: 15, left: 10, right: 10, bottom: 25 },
         styles: {
-          fontSize: 8.5,
-          cellPadding: 4,
+          fontSize: 7.5,
+          cellPadding: 2.5,
           valign: "middle",
           lineColor: [220, 220, 220],
           lineWidth: 0.2,
@@ -646,6 +680,8 @@ export default function HallListPage() {
           textColor: [255, 255, 255],
           fontStyle: "bold",
           halign: "center",
+          fontSize: 7,
+          cellPadding: 2,
         },
         alternateRowStyles: { fillColor: [252, 252, 252] },
         columnStyles,
@@ -798,10 +834,7 @@ export default function HallListPage() {
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      onClick={() => {
-                                        const pdfUrl = `/api/hall-bookings/${r.id}/receipt.pdf`;
-                                        window.open(pdfUrl, '_blank');
-                                      }}
+                                      onClick={() => handleDownloadReceipt(r.id, r.registerNo)}
                                       className={cn(buttonClasses.actionSecondary, "h-6 w-6 p-0")}
                                       title={t('Print Receipt', 'ரசீது அச்சிடு')}
                                     >

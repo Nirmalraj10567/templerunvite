@@ -85,8 +85,8 @@ export default function PdfSettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <Loader2 className="w-12 h-12 text-orange-600 animate-spin mx-auto mb-4" />
+      <div className="flex flex-col items-center justify-center min-h-screen p-8">
+        <Loader2 className="w-12 h-12 text-orange-600 animate-spin mb-4" />
         <p className="text-gray-600 text-lg">{t('Loading...', 'ஏற்றுகிறது...')}</p>
       </div>
     );

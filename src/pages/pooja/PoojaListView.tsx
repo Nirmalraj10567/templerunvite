@@ -48,7 +48,7 @@ interface PoojaLog {
 
 export default function PoojaListView() {
   const navigate = useNavigate();
-  const { user, token } = useAuth();
+  const { user, token, temple } = useAuth();
   const { language } = useLanguage();
   // State for expanded pooja details
   const [expandedPoojas, setExpandedPoojas] = useState<Record<number, boolean>>({});
@@ -483,18 +483,6 @@ export default function PoojaListView() {
   // Column Keys
   type ColKey = 'sno' | 'receipt' | 'name' | 'mobile' | 'bookingDate' | 'entryDate' | 'time' | 'amount' | 'actions';
 
-  const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' | 'center' }> = [
-    { key: 'sno', label: translate('sno') || (language === 'tamil' ? 'வ.எண்' : 'S.No') },
-    { key: 'receipt', label: translate('receiptNo') },
-    { key: 'name', label: translate('name') },
-    { key: 'mobile', label: translate('mobile') },
-    { key: 'bookingDate', label: translate('bookingDate') },
-    { key: 'entryDate', label: translate('entryDate') },
-    { key: 'time', label: translate('time') },
-    { key: 'amount', label: translate('amount'), align: 'right' },
-    { key: 'actions', label: translate('actions'), align: 'center' },
-  ];
-
   const STORAGE_KEY = 'pooja_list_visible_columns_v1';
   const defaultVisible: Record<ColKey, boolean> = {
     sno: true,
@@ -746,79 +734,185 @@ export default function PoojaListView() {
     return timeString;
   };
 
-  const handleExportPdf = () => {
+  // Column definitions for export
+  const allColDefs: Array<{
+    key: ColKey;
+    label: string;
+    getValue: (row: Pooja, idx: number) => string | number;
+  }> = [
+    { key: 'sno', label: translate('sno') || (language === 'tamil' ? 'வ.எண்' : 'S.No'), getValue: (_, idx) => idx + 1 },
+    { key: 'receipt', label: translate('receiptNo'), getValue: (r) => r.receipt_number || '' },
+    { key: 'name', label: translate('name'), getValue: (r) => r.name || '' },
+    { key: 'mobile', label: translate('mobile'), getValue: (r) => r.mobile_number || '' },
+    { key: 'bookingDate', label: translate('bookingDate'), getValue: (r) => formatDate(r.booking_date || r.from_date) },
+    { key: 'entryDate', label: translate('entryDate'), getValue: (r) => formatDate(r.entry_date || r.created_at) },
+    { key: 'time', label: translate('time'), getValue: (r) => r.time || '' },
+    { key: 'amount', label: translate('amount'), getValue: (r) => r.amount || '0' },
+    { key: 'actions', label: translate('actions'), getValue: () => '' },
+  ];
+
+  const exportToCSV = () => {
     try {
-      const title = translate("poojaList");
-      const headCells = [
-        translate("receiptNo"),
-        translate("name"),
-        translate("mobile"),
-        translate("bookingDate"),
-        translate("entryDate"),
-        translate("time"),
-        translate("amount"),
-      ];
+      const activeCols = allColDefs.filter(c => visibleCols[c.key]);
+      const headers = activeCols.map(c => c.label);
+      const csvRows = data.map((r, idx) => activeCols.map(c => String(c.getValue(r, idx))));
 
-      const exportRows = data.map((r) => [
-        r.receipt_number || "",
-        r.name || "",
-        r.mobile_number || "",
-        formatDate(r.booking_date || r.from_date),
-        formatDate(r.entry_date || r.created_at),
-        formatTime(r.time),
-        r.amount || "0",
-      ]);
+      const csvContent = [
+        headers.join(","),
+        ...csvRows.map((row) => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")),
+      ].join("\n");
 
-      const doc = new jsPDF('landscape');
+      const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `pooja-${stamp}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       
-      // Add Title and Styling
-      doc.setFontSize(20);
-      doc.setTextColor(40);
-      doc.text(title, 14, 22);
-      
-      // Add metadata info
-      doc.setFontSize(10);
-      doc.setTextColor(100);
+      toast({
+        title: translate("success"),
+        description: "CSV exported successfully",
+      });
+    } catch (e) {
+      console.error("CSV export failed", e);
+      toast({
+        title: translate("error"),
+        description: "Failed to export CSV",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const exportVisiblePDF = () => {
+    try {
+      // 1. Filter: only visible cols, never 'actions'
+      const activeCols = allColDefs.filter(c => c.key !== 'actions' && visibleCols[c.key]);
+
+      if (activeCols.length === 0) {
+        toast({
+          title: translate("error"),
+          description: "Please make at least one column visible",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // 2. Build table data
+      const headCells = activeCols.map(c => c.label);
+      const exportRows = data.map((r, idx) => activeCols.map(c => {
+        const val = c.getValue(r, idx);
+        return typeof val === 'string' ? val.replace(/₹/g, 'Rs.') : val;
+      }));
+
+      const doc = new jsPDF("landscape");
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
       const now = new Date();
-      const meta = `${translate("showing")}: ${data.length} | ${translate("total")}: ${pagination.total}`;
-      doc.text(meta, 14, 30);
-      
-      // Horizontal line
-      doc.setDrawColor(200, 200, 200);
-      doc.line(14, 33, 283, 33);
+      const templeName = temple?.name || "Temple Management";
+      const title = translate("poojaList");
 
+      // Header
+      doc.setDrawColor(204, 85, 0);
+      doc.setLineWidth(2);
+      doc.line(10, 12, pageWidth - 10, 12);
+
+      doc.setFontSize(20);
+      doc.setTextColor(204, 85, 0);
+      doc.setFont(undefined, "bold");
+      doc.text(templeName, 14, 24);
+
+      doc.setFontSize(9);
+      doc.setTextColor(120, 120, 120);
+      doc.setFont(undefined, "normal");
+      doc.text("Pooja Management System", 14, 30);
+
+      doc.setFontSize(14);
+      doc.setTextColor(40, 40, 40);
+      doc.setFont(undefined, "bold");
+      doc.text(title, pageWidth - 14, 24, { align: "right" });
+
+      doc.setFontSize(8);
+      doc.setTextColor(130, 130, 130);
+      doc.setFont(undefined, "normal");
+      doc.text(`Generated: ${now.toLocaleDateString()}`, pageWidth - 14, 30, { align: "right" });
+      doc.text(`Records: ${data.length}`, pageWidth - 14, 36, { align: "right" });
+
+      doc.setDrawColor(200);
+      doc.setLineWidth(0.5);
+      doc.line(10, 42, pageWidth - 10, 42);
+
+      // Summary bar - Total Amount on LEFT
+      const totalAmount = data.reduce((sum, r) => sum + (parseFloat(String(r.amount)) || 0), 0);
+
+      doc.setFillColor(248, 248, 248);
+      doc.roundedRect(10, 46, pageWidth - 20, 12, 3, 3, "F");
+      doc.setFontSize(9);
+      doc.setTextColor(50, 50, 50);
+      doc.setFont(undefined, "bold");
+      doc.text(`Total Amount: Rs. ${String(Math.round(totalAmount))}`, 14, 54);
+
+      // 3. Column widths
+      const colWidth = Math.floor((pageWidth - 20) / activeCols.length);
+      const rightAlign = ['amount'];
+      const centerAlign = ['sno', 'receipt', 'bookingDate', 'entryDate', 'time'];
+
+      const columnStyles: Record<number, any> = {};
+      activeCols.forEach((col, i) => {
+        columnStyles[i] = {
+          cellWidth: colWidth,
+          halign: rightAlign.includes(col.key) ? 'right' : centerAlign.includes(col.key) ? 'center' : 'left',
+        };
+      });
+
+      // 4. autoTable config
       autoTable(doc, {
         head: [headCells],
         body: exportRows,
-        startY: 40,
-        styles: { 
-          fontSize: 9, 
-          cellPadding: 4,
-          valign: 'middle'
+        startY: 62,
+        margin: { top: 15, left: 10, right: 10, bottom: 25 },
+        styles: {
+          fontSize: 7.5,
+          cellPadding: 2.5,
+          valign: "middle",
+          lineColor: [220, 220, 220],
+          lineWidth: 0.2,
         },
-        headStyles: { 
-          fillColor: [79, 70, 229], // Indigo 600
-          textColor: [255, 255, 255], 
-          fontStyle: 'bold',
-          fontSize: 10
+        headStyles: {
+          fillColor: [204, 85, 0],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          halign: "center",
+          fontSize: 7,
+          cellPadding: 2,
         },
-        alternateRowStyles: {
-          fillColor: [249, 250, 251] // Gray 50
-        },
-        margin: { top: 40 },
+        alternateRowStyles: { fillColor: [252, 252, 252] },
+        columnStyles,
         didDrawPage: (data) => {
-          // Footer: Page Number
-          const str = `Page ${(doc as any).getNumberOfPages()}`;
+          const pWidth = doc.internal.pageSize.getWidth();
+          const pHeight = doc.internal.pageSize.getHeight();
+          doc.setDrawColor(200);
+          doc.line(10, pHeight - 18, pWidth - 10, pHeight - 18);
           doc.setFontSize(8);
-          doc.setTextColor(150);
-          const pageSize = doc.internal.pageSize;
-          const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
-          doc.text(str, 14, pageHeight - 10);
-        }
+          doc.setTextColor(80);
+          doc.setFont(undefined, "bold");
+          doc.text(templeName, 10, pHeight - 10);
+          doc.setFont(undefined, "normal");
+          doc.text(now.toLocaleDateString(), pWidth - 10, pHeight - 10, { align: "right" });
+          doc.setFont(undefined, "bold");
+          doc.text(`Page ${data.pageNumber}`, pWidth / 2, pHeight - 5, { align: "center" });
+        },
       });
 
       const stamp = now.toISOString().slice(0, 19).replace(/[:T]/g, "-");
-      doc.save(`pooja-export-${stamp}.pdf`);
+      doc.save(`pooja-${stamp}.pdf`);
+
+      toast({
+        title: translate("success"),
+        description: "PDF exported successfully",
+      });
     } catch (err) {
       console.error("PDF export failed", err);
       toast({
@@ -873,9 +967,14 @@ export default function PoojaListView() {
                 <X className="h-3 w-3 mr-1" />
                 {translate("clear")}
               </Button>
-              <Button variant="outline" size="sm" onClick={handleExportPdf} className={formFieldStyles.moneyDonationList.filters.button}>
+             
+              <Button variant="outline" size="sm" onClick={exportToCSV} disabled={loading || data.length === 0} className={formFieldStyles.moneyDonationList.filters.button}>
                 <FileDown className="h-3 w-3 mr-1" />
-                {translate("export")}
+                {translate("export")} CSV
+              </Button>
+               <Button variant="outline" size="sm" onClick={exportVisiblePDF} disabled={loading || data.length === 0} className={formFieldStyles.moneyDonationList.filters.button}>
+                <FileDown className="h-3 w-3 mr-1" />
+                {translate("export")} PDF
               </Button>
              
             </div>
@@ -891,15 +990,15 @@ export default function PoojaListView() {
             <table className={formFieldStyles.moneyDonationList.table.table}>
               <thead className={formFieldStyles.moneyDonationList.table.thead}>
                 <tr>
-                  {allColumns.map(
+                  {allColDefs.map(
                     (col) =>
                       visibleCols[col.key] && (
                         <th
                           key={col.key}
                           className={cn(
                             formFieldStyles.moneyDonationList.table.th,
-                            col.align === 'right' ? formFieldStyles.moneyDonationList.table.thRight :
-                            col.align === 'center' ? formFieldStyles.moneyDonationList.table.thCenter :
+                            ['amount'].includes(col.key) ? formFieldStyles.moneyDonationList.table.thRight :
+                            ['sno', 'receipt', 'bookingDate', 'entryDate', 'time'].includes(col.key) ? formFieldStyles.moneyDonationList.table.thCenter :
                             formFieldStyles.moneyDonationList.table.thLeft
                           )}
                         >
@@ -913,8 +1012,10 @@ export default function PoojaListView() {
                 {loading ? (
                   <tr>
                     <td colSpan={visibleColCount} className={formFieldStyles.moneyDonationList.table.loadingCell}>
-                      <Loader2 className="w-12 h-12 text-orange-600 animate-spin mx-auto mb-4" />
-                      {translate("loading")}
+                      <div className="flex flex-col items-center justify-center py-12">
+                        <Loader2 className="w-12 h-12 text-orange-600 animate-spin mb-4" />
+                        {translate("loading")}
+                      </div>
                     </td>
                   </tr>
                 ) : filteredData.length > 0 ? (
@@ -1023,7 +1124,7 @@ export default function PoojaListView() {
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                   <h4 className="font-semibold mb-2">{translate("poojaDetails")}</h4>
-                                  <p><span className="font-medium">{translate("poojaName")}:</span> {pooja.pooja_name}</p>
+                                  <p><span className="font-medium">{translate("poojaName")}:</span> {pooja.remarks || '-'}</p>
                                   <p><span className="font-medium">{translate("poojaDate")}:</span> {formatDate(pooja.from_date)} {pooja.from_date !== pooja.to_date ? `- ${formatDate(pooja.to_date)}` : ''}</p>
                                   <p><span className="font-medium">{translate("poojaTime")}:</span> {formatTime(pooja.time)}</p>
                                   <p><span className="font-medium">{translate("amount")}:</span> {pooja.amount || '0'}</p>
@@ -1032,12 +1133,9 @@ export default function PoojaListView() {
                                   <h4 className="font-semibold mb-2">{translate("devoteeInfo")}</h4>
                                   <p><span className="font-medium">{translate("devoteeName")}:</span> {pooja.name}</p>
                                   <p><span className="font-medium">{translate("devoteeMobile")}:</span> {pooja.mobile_number}</p>
-                                  {pooja.address && (
-                                    <p><span className="font-medium">{translate("address")}:</span> {pooja.address}</p>
-                                  )}
-                                  {pooja.notes && (
+                                  {pooja.remarks && (
                                     <p className="mt-2">
-                                      <span className="font-medium">{translate("notes")}:</span> {pooja.notes}
+                                      <span className="font-medium">{translate("remarks")}:</span> {pooja.remarks}
                                     </p>
                                   )}
                                 </div>
@@ -1142,11 +1240,11 @@ export default function PoojaListView() {
             <div className={formFieldStyles.moneyDonationList.contextMenu.header}>
               <h3 className={formFieldStyles.moneyDonationList.contextMenu.title}>{translate('columns')}</h3>
               <p className={formFieldStyles.moneyDonationList.contextMenu.subtitle}>
-                {translate('visible')} {Object.values(visibleCols).filter(Boolean).length}/{allColumns.length}
+                {translate('visible')} {Object.values(visibleCols).filter(Boolean).length}/{allColDefs.length}
               </p>
             </div>
             <div className={formFieldStyles.moneyDonationList.contextMenu.content}>
-              {allColumns.map((col) => (
+              {allColDefs.map((col) => (
                 <label
                   key={col.key}
                   className={formFieldStyles.moneyDonationList.contextMenu.item}
@@ -1169,7 +1267,7 @@ export default function PoojaListView() {
                 size="sm"
                 className={formFieldStyles.moneyDonationList.contextMenu.actionButton}
                 onClick={() =>
-                  setVisibleCols(Object.fromEntries(allColumns.map((c) => [c.key, true])) as any)
+                  setVisibleCols(Object.fromEntries(allColDefs.map((c) => [c.key, true])) as any)
                 }
               >
                 {translate('selectAll')}
@@ -1179,7 +1277,7 @@ export default function PoojaListView() {
                 size="sm"
                 className={formFieldStyles.moneyDonationList.contextMenu.actionButton}
                 onClick={() =>
-                  setVisibleCols(Object.fromEntries(allColumns.map((c) => [c.key, false])) as any)
+                  setVisibleCols(Object.fromEntries(allColDefs.map((c) => [c.key, false])) as any)
                 }
               >
                 {translate('clearAll')}
