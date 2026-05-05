@@ -1,8 +1,32 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const jwt = require('jsonwebtoken');
 const { authenticateToken } = require('../middleware');
 const { exportRegistrationsToPdf, exportSingleRegistrationToPdf } = require('../utils/pdfExport');
+
+// Permissive token decoder: accepts any valid JWT (admin or member)
+// Does NOT enforce permissions — just ensures a valid, non-expired token is present
+function decodeAnyToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Access token required' });
+
+  const secrets = [
+    process.env.JWT_SECRET,
+    'dev-insecure-secret-change-me',
+  ].filter(Boolean);
+
+  for (const secret of secrets) {
+    try {
+      req.user = jwt.verify(token, secret);
+      return next();
+    } catch (e) {
+      // try next secret
+    }
+  }
+  return res.status(401).json({ error: 'Invalid or expired token' });
+}
 
 function createRegistrationsRouter(db) {
   const router = express.Router();
@@ -296,6 +320,21 @@ function createRegistrationsRouter(db) {
     } catch (err) {
       console.error('Registration list error:', err);
       res.status(500).json({ error: 'Failed to list registrations' });
+    }
+  });
+
+  // ========== MEMBER PROFILE API ==========
+  // GET /api/registrations/member/profile
+  // Public via token: accepts any valid JWT (admin, member, etc.) — no permission check
+  router.get('/member/profile', decodeAnyToken, async (req, res) => {
+    try {
+      const memberId = req.user.id;
+      const member = await db('user_registrations').where('id', memberId).first();
+      if (!member) return res.status(404).json({ error: 'Member profile not found' });
+      res.json({ success: true, member });
+    } catch (err) {
+      console.error('Error fetching member profile:', err);
+      res.status(500).json({ error: 'Database error' });
     }
   });
 
@@ -609,19 +648,6 @@ function createRegistrationsRouter(db) {
     if (s.includes(',') || s.includes('\n') || s.includes('"')) return '"' + s + '"';
     return s;
   }
-
-  // ========== MEMBER PROFILE API ==========
-  // GET /api/registrations/member/profile
-  router.get('/member/profile', authenticateToken, async (req, res) => {
-    try {
-      const member = await db('user_registrations').where('id', req.user.id).first();
-      if (!member) return res.status(404).json({ error: 'Member profile not found' });
-      res.json({ success: true, member });
-    } catch (err) {
-      console.error('Error fetching member profile:', err);
-      res.status(500).json({ error: 'Database error' });
-    }
-  });
 
   // PUT /api/registrations/member/profile
   router.put('/member/profile', authenticateToken, async (req, res) => {

@@ -443,20 +443,20 @@ export default function AssetManagementPage() {
               <TableHead>{t('For Sell', 'விற்க')}</TableHead>
               <TableHead>{t('Available', 'கிடைக்கிறது')}</TableHead>
               <TableHead>{t('Status', 'நிலை')}</TableHead>
-              <TableHead>{t('Actions', 'செயல்கள்')}</TableHead>
+
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-8">
+                <TableCell colSpan={9} className="text-center py-8">
                   <Loader2 className="w-12 h-12 text-orange-600 animate-spin mx-auto mb-4" />
                   <p className="text-gray-600 text-lg">{t('Loading...', 'ஏற்றுகிறது...')}</p>
                 </TableCell>
               </TableRow>
             ) : assets.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-8">
+                <TableCell colSpan={9} className="text-center py-8">
                   {t('No assets found', 'சொத்துகள் இல்லை')}
                 </TableCell>
               </TableRow>
@@ -497,19 +497,7 @@ export default function AssetManagementPage() {
                     <div className="text-green-600 font-bold">{availableQty(asset)}</div>
                   </TableCell>
                   <TableCell>{getStatusBadge(asset.status)}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => handleView(asset)} className="text-blue-600">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleEdit(asset)} className="text-green-600">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDelete(asset.id)} className="text-red-600">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+
                 </TableRow>
               ))
             )}

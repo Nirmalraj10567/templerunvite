@@ -590,13 +590,46 @@ module.exports = function(deps = {}) {
       // Get the data before deleting for logging
       const beforeRow = await db('annadhanam').where({ id }).first();
       
+      if (!beforeRow) {
+        return res.status(404).json({ success: false, error: 'Annadhanam entry not found' });
+      }
+
+      // Check for linked assets in Asset Management
+      try {
+        const hasAssets = await db.schema.hasTable('assets');
+        if (hasAssets) {
+          const linkedAsset = await db('assets')
+            .where({ temple_id: beforeRow.temple_id })
+            .where('details', 'like', `%reference_id:${id}%`)
+            .first();
+
+          if (linkedAsset) {
+            if (linkedAsset.status === 'converted') {
+              return res.status(400).json({
+                success: false,
+                error: 'Cannot delete: asset already sold',
+                message: 'This request is linked to an asset that has already been sold.'
+              });
+            }
+
+            const usedQty = Number(linkedAsset.used_qty || 0);
+            const forSellQty = Number(linkedAsset.for_sell_qty || 0);
+            if (usedQty > 0 || forSellQty > 0) {
+              return res.status(400).json({
+                success: false,
+                error: 'Cannot delete: asset in use',
+                message: `This request has a linked asset with quantities recorded (used: ${usedQty}, sold: ${forSellQty}). Only items that are not used and not sold can be deleted.`
+              });
+            }
+          }
+        }
+      } catch (assetErr) {
+        console.error('Error checking linked assets for mobile delete:', assetErr);
+      }
+
       const result = await db('annadhanam')
         .where({ id })
         .del();
-      
-      if (!result) {
-        return res.status(404).json({ success: false, error: 'Annadhanam entry not found' });
-      }
 
       // Log deletion with before snapshot
       try {

@@ -5,7 +5,6 @@ import { useLanguage } from '@/lib/language';
 import { moneyDonationService, MoneyDonationFormData } from '@/services/moneyDonationService';
 import { donationService, DonationFormData } from '@/services/donationService';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Modal } from '@/components/ui/modal';
 import { SuccessModal } from '@/components/ui/SuccessModal';
 import { accountService, AccountItem } from '@/services/accountService';
 import { DonationProductManager, DonationProduct } from '@/components/product/DonationProductManager';
@@ -103,8 +102,6 @@ export default function UnifiedDonationEntry() {
   const [isError, setIsError] = useState(false);
   const [lastCreatedId, setLastCreatedId] = useState<number | null>(null);
   const [showPrintPrompt, setShowPrintPrompt] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
-  const [successMessage, setSuccessMessage] = useState<string>('');
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
@@ -231,16 +228,6 @@ export default function UnifiedDonationEntry() {
   }, [isEdit, editId, editType, token]);
 
   const t = (en: string, ta: string) => (language === 'english' ? ta : en);
-
-  // Helper function to show success messages in modal
-  const showSuccessAlert = (message: string) => {
-    setSuccessMessage(message);
-    setShowSuccessModal(true);
-    setTimeout(() => {
-      setShowSuccessModal(false);
-      setSuccessMessage('');
-    }, 4000);
-  };
 
   // Function to refresh journal after money donation operations
   const refreshJournal = async () => {
@@ -561,7 +548,8 @@ export default function UnifiedDonationEntry() {
         };
         await moneyDonationService.update(token, editId, updatePayload);
         setIsError(false);
-        showSuccessAlert(t('Updated successfully', 'வெற்றிகரமாக புதுப்பிக்கப்பட்டது'));
+        setIsError(false);
+        setMessage(t('Updated successfully', 'வெற்றிகரமாக புதுப்பிக்கப்பட்டது'));
         setLastCreatedId(editId);
         await refreshJournal();
         setTimeout(() => {
@@ -591,7 +579,8 @@ export default function UnifiedDonationEntry() {
           setMoneyForm(prev => ({ ...prev, registerNo: newRegisterNo }));
         }
         setIsError(false);
-        showSuccessAlert(t('Saved successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது'));
+        setMessage(t('Saved successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது'));
+        setIsError(false);
 
         await refreshJournal();
 
@@ -636,7 +625,8 @@ export default function UnifiedDonationEntry() {
           unit: productForm.unit,
         });
         setIsError(false);
-        showSuccessAlert(t('Updated successfully', 'வெற்றிகரமாக புதுப்பிக்கப்பட்டது'));
+        setIsError(false);
+        setMessage(t('Updated successfully', 'வெற்றிகரமாக புதுப்பிக்கப்பட்டது'));
         setLastCreatedId(editId);
         setTimeout(() => {
           navigate('/dashboard/donations/list');
@@ -648,13 +638,19 @@ export default function UnifiedDonationEntry() {
           entry_date: productForm.entryDate,
           date: productForm.bookingDate
         };
-        await donationService.createDonation(token, payload);
+        const resp = await donationService.createDonation(token, payload);
+        const createdId = resp?.data?.id ?? null;
+        setLastCreatedId(createdId);
         const nextNo = await fetchNextRegisterNo();
         setNextRegisterNo(nextNo);
         setProductForm({ ...createProductDonationState(), registerNo: nextNo });
         setErrors({});
         setTouched({});
-        showSuccessAlert(t('Saved successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது'));
+        setMessage(t('Saved successfully', 'வெற்றிகரமாக சேமிக்கப்பட்டது'));
+        setIsError(false);
+        if (createdId != null) {
+          setShowPrintPrompt(true);
+        }
       }
     } catch {
       setIsError(true);
@@ -1370,8 +1366,37 @@ export default function UnifiedDonationEntry() {
         <SuccessModal
           isOpen={showPrintPrompt && lastCreatedId != null}
           onClose={() => setShowPrintPrompt(false)}
+          onDownload={async () => {
+            try {
+              const url = activeTab === 'product'
+                ? donationService.receiptUrl(lastCreatedId!, token)
+                : moneyDonationService.receiptUrl(lastCreatedId!, token);
+              
+              const response = await fetch(url);
+              if (!response.ok) throw new Error('Download failed');
+              
+              const blob = await response.blob();
+              const downloadUrl = window.URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = downloadUrl;
+              a.download = `receipt-${lastCreatedId}.pdf`;
+              document.body.appendChild(a);
+              a.click();
+              window.URL.revokeObjectURL(downloadUrl);
+              document.body.removeChild(a);
+            } catch (err) {
+              console.error('Download failed:', err);
+              // Fallback to direct URL if fetch fails
+              const url = activeTab === 'product'
+                ? donationService.receiptUrl(lastCreatedId!, token)
+                : moneyDonationService.receiptUrl(lastCreatedId!, token);
+              window.open(url, '_blank');
+            }
+          }}
           onPrint={() => {
-            const url = moneyDonationService.receiptUrl(lastCreatedId!, token);
+            const url = activeTab === 'product'
+              ? donationService.receiptUrl(lastCreatedId!, token)
+              : moneyDonationService.receiptUrl(lastCreatedId!, token);
             const iframe = document.createElement('iframe');
             iframe.style.position = 'fixed';
             iframe.style.right = '0';
@@ -1393,30 +1418,8 @@ export default function UnifiedDonationEntry() {
               }
             };
             document.body.appendChild(iframe);
-            setShowPrintPrompt(false);
           }}
         />
-
-        {/* Success Alert Modal */}
-        {showSuccessModal && (
-          <Modal
-            title={t('Success', 'வெற்றி')}
-            onClose={() => setShowSuccessModal(false)}
-          >
-            <div className="text-center">
-              <div className="text-green-600 text-4xl mb-4">✅</div>
-              <p className="text-sm text-gray-700 mb-4">
-                {successMessage}
-              </p>
-              <button
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                onClick={() => setShowSuccessModal(false)}
-              >
-                {t('OK', 'சரி')}
-              </button>
-            </div>
-          </Modal>
-        )}
       </div>
     </div>
   );

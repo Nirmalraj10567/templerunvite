@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Loader2, Eye, Edit, Trash2, Calendar, IndianRupee, ArrowDownCircle, ArrowUpCircle, Plus, FileDown } from 'lucide-react';
 import jsPDF from 'jspdf';
@@ -141,6 +141,7 @@ export default function ReceiptListView() {
       to: 'வரை',
       all: 'அனைத்தும்',
       exportCsv: 'CSV ஏற்றுமதி',
+      toggleColumns: 'பத்திகளை மாற்று',
       viewReceipt: 'ரசீது பார்க்க',
       editReceipt: 'ரசீது திருத்தம்',
       viewDescription: 'கீழே உள்ள ரசீது விவரங்களை பார்க்கவும்',
@@ -191,6 +192,7 @@ export default function ReceiptListView() {
       to: 'To',
       all: 'All',
       exportCsv: 'Export CSV',
+      toggleColumns: 'Toggle Columns',
       viewReceipt: 'View Receipt',
       editReceipt: 'Edit Receipt',
       viewDescription: 'View the receipt details below',
@@ -243,6 +245,52 @@ export default function ReceiptListView() {
   const [logsPage, setLogsPage] = useState(1);
   const [logsTotal, setLogsTotal] = useState(0);
   const logsPageSize = 50;
+
+  // Visible columns state
+  type ColKey = '#' | 'receiptNumber' | 'date' | 'type' | 'donor' | 'receiver' | 'amount' | 'actions';
+  const STORAGE_KEY = 'receipt_list_visible_columns_v1';
+  const defaultVisible: Record<ColKey, boolean> = {
+    '#': true,
+    receiptNumber: true,
+    date: true,
+    type: true,
+    donor: true,
+    receiver: true,
+    amount: true,
+    actions: true,
+  };
+  const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return { ...defaultVisible, ...JSON.parse(raw) };
+    } catch { }
+    return defaultVisible;
+  });
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(visibleCols)); } catch { }
+  }, [visibleCols]);
+
+  const visibleColCount = useMemo(() => Object.values(visibleCols).filter(Boolean).length, [visibleCols]);
+
+  // Context menu state
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const onContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setMenuPos({ x: e.clientX, y: e.clientY });
+    setMenuOpen(true);
+  };
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false); };
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false); };
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, []);
 
   // Permission checks
   const isSuperAdmin = user?.role === 'superadmin';
@@ -355,13 +403,41 @@ export default function ReceiptListView() {
     }
   };
 
-  const handleExportPDF = () => {
+  const exportVisiblePDF = () => {
     try {
+      // Column definitions - use English labels for PDF (jsPDF doesn't support Tamil)
+      type ColDef = { key: ColKey; label: string; getValue: (r: Receipt, idx: number) => string | number };
+      const allColDefs: ColDef[] = [
+        { key: '#', label: 'S.No', getValue: (_, idx) => idx + 1 },
+        { key: 'receiptNumber', label: 'Receipt No', getValue: (r) => r.receipt_number || '' },
+        { key: 'date', label: 'Date', getValue: (r) => formatDate(r.date) },
+        { key: 'type', label: 'Type', getValue: (r) => r.type === 'income' ? 'Income' : 'Expense' },
+        { key: 'donor', label: 'Donor', getValue: (r) => r.donor || '-' },
+        { key: 'receiver', label: 'Receiver', getValue: (r) => r.receiver || '-' },
+        { key: 'amount', label: 'Amount', getValue: (r) => `Rs. ${String(Math.round(r.amount || 0))}` },
+      ];
+
+      // 1. Filter: only visible cols, never 'actions'
+      const activeCols = allColDefs.filter(c => c.key !== 'actions' && visibleCols[c.key]);
+
+      if (activeCols.length === 0) {
+        toast({
+          title: t('error'),
+          description: t('Please make at least one column visible.', 'குறைந்தது ஒரு நெடுவரிசையை காட்டுங்கள்.'),
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // 2. Build table data
+      const headCells = activeCols.map(c => c.label);
+      const exportRows = data.map((r, idx) => activeCols.map(c => c.getValue(r, idx)));
+
       const doc = new jsPDF("landscape");
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
       const now = new Date();
-      const templeName = temple?.name || (user as any)?.templeName || "Temple Management";
+      const templeName = (user as any)?.templeName || "Temple Management";
       const title = t('title');
 
       // Top Orange Accent Line
@@ -387,71 +463,73 @@ export default function ReceiptListView() {
       doc.setFont(undefined, "normal");
       doc.text(`${t("Generated", "உருவாக்கப்பட்டது")}: ${now.toLocaleDateString()}`, pageWidth - 14, 32, { align: "right" });
       doc.text(`${t("Records", "பதிவுகள்")}: ${data.length}`, pageWidth - 14, 38, { align: "right" });
-      doc.text(`${t('balance')}: Rs. ${totals.balance}`, pageWidth - 14, 44, { align: "right" });
 
       // Divider
       doc.setDrawColor(200);
       doc.setLineWidth(0.5);
-      doc.line(10, 48, pageWidth - 10, 48);
+      doc.line(10, 42, pageWidth - 10, 42);
 
       // Summary bar
       const totalIncome = data.filter(r => r.type === 'income').reduce((sum, r) => sum + (r.amount || 0), 0);
       const totalExpense = data.filter(r => r.type === 'expense').reduce((sum, r) => sum + (r.amount || 0), 0);
+      const balance = totalIncome - totalExpense;
       doc.setFillColor(248, 248, 248);
-      doc.roundedRect(10, 52, pageWidth - 20, 12, 3, 3, "F");
+      doc.roundedRect(10, 46, pageWidth - 20, 12, 3, 3, "F");
       doc.setFontSize(10);
       doc.setTextColor(50, 50, 50);
       doc.setFont(undefined, "bold");
-      doc.text(`${t("Total Income", "மொத்த வருமானம்")}: Rs. ${totalIncome.toFixed(2)}`, 14, 60);
-      doc.text(`${t("Total Expense", "மொத்த செலவு")}: Rs. ${totalExpense.toFixed(2)}`, pageWidth / 2, 60, { align: "center" });
-      doc.text(`${t('balance')}: Rs. ${totals.balance}`, pageWidth - 14, 60, { align: "right" });
+      doc.text(`${t("Total Income", "மொத்த வருமானம்")}: Rs. ${totalIncome.toFixed(2)}`, 14, 54);
+      doc.text(`${t("Total Expense", "மொத்த செலவு")}: Rs. ${totalExpense.toFixed(2)}`, pageWidth / 2, 54, { align: "center" });
+      doc.text(`${t('balance')}: Rs. ${balance.toFixed(2)}`, pageWidth - 14, 54, { align: "right" });
 
-      // Table
-      const headCells = [
-        t('receiptNumber'),
-        t('date'),
-        t('type'),
-        t('donor'),
-        t('receiver'),
-        t('amount'),
-      ];
+      // 3. Specific column widths based on content type
+      const columnWidthMap: Record<ColKey, number> = {
+        '#': 15,
+        receiptNumber: 30,
+        date: 25,
+        type: 25,
+        donor: 45,
+        receiver: 45,
+        amount: 30,
+        actions: 0,
+      };
 
-      const exportRows = data.map((r) => [
-        r.receipt_number || "",
-        formatDate(r.date),
-        r.type === 'income' ? t('income') : t('expense'),
-        r.donor || "",
-        r.receiver || "",
-        `Rs. ${r.amount || "0"}`,
-      ]);
+      // 4. Alignment per key
+      const rightAlign = ['amount'];
+      const centerAlign = ['#', 'receiptNumber', 'date', 'type'];
+      const columnStyles: Record<number, any> = {};
+      activeCols.forEach((col, i) => {
+        columnStyles[i] = {
+          cellWidth: columnWidthMap[col.key],
+          halign: rightAlign.includes(col.key) ? 'right' : centerAlign.includes(col.key) ? 'center' : 'left',
+        };
+      });
 
+      // 5. PDF header (page 1 only via startY)
       autoTable(doc, {
         head: [headCells],
-        body: exportRows,
-        startY: 68,
-        margin: { top: 15, left: 10, right: 10, bottom: 25 },
+        body: exportRows as (string | number)[][],
+        startY: 62,
+        margin: { top: 15, left: 'auto', right: 'auto', bottom: 25 },
+        tableWidth: 'auto',
         styles: {
           fontSize: 8.5,
           cellPadding: 3,
-          valign: 'middle'
+          valign: 'middle',
+          halign: 'center',
+          overflow: 'linebreak'
         },
         headStyles: {
           fillColor: [204, 85, 0],
           textColor: [255, 255, 255],
           fontStyle: 'bold',
-          fontSize: 9
+          fontSize: 9,
+          halign: 'center'
         },
         alternateRowStyles: {
           fillColor: [252, 252, 252]
         },
-        columnStyles: {
-          0: { cellWidth: 25 },
-          1: { cellWidth: 25, halign: 'center' },
-          2: { cellWidth: 20, halign: 'center' },
-          3: { cellWidth: 40 },
-          4: { cellWidth: 40 },
-          5: { cellWidth: 25, halign: 'right' }
-        },
+        columnStyles,
         didDrawPage: (data) => {
           // Footer
           doc.setFontSize(8);
@@ -714,12 +792,12 @@ export default function ReceiptListView() {
               </div>
               
               <div className="flex gap-2 ml-auto">
-                <Button variant="outline" onClick={handleExportPDF}>
+                <Button variant="outline" onClick={exportVisiblePDF} disabled={loading || data.length === 0}>
                   <FileDown className="h-3 w-3 mr-1" />
-                  {t('print')}
+                  Export PDF
                 </Button>
-                <Button onClick={handleExportCSV}>
-                  {t('exportCsv')}
+                <Button onClick={handleExportCSV} disabled={loading || data.length === 0}>
+                  Export CSV
                 </Button>
               </div>
             </div>
@@ -728,36 +806,38 @@ export default function ReceiptListView() {
             <div className={tableClasses.scrollContainerWrapper}>
               <div className={tableClasses.scrollContainer}>
                 {loading ? (
-                  <div className={tableClasses.emptyState}>
+                  <div className={cn(tableClasses.emptyState, "flex items-center justify-center py-12")}>
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                   </div>
                 ) : (
-                  <Table className={tableClasses.container}>
+                  <Table className={tableClasses.container} onContextMenu={onContextMenu}>
                     <TableHeader className={tableClasses.header}>
                       <TableRow className={tableClasses.row}>
-                        <TableHead className={tableClasses.headerCell}>{t('receiptNumber')}</TableHead>
-                        <TableHead className={tableClasses.headerCell}>{t('date')}</TableHead>
-                        <TableHead className={tableClasses.headerCell}>{t('type')}</TableHead>
-                        <TableHead className={tableClasses.headerCell}>{t('donor')}</TableHead>
-                        <TableHead className={tableClasses.headerCell}>{t('receiver')}</TableHead>
-                        <TableHead className={cn(tableClasses.headerCell, 'text-right')}>{t('amount')}</TableHead>
-                        <TableHead className={cn(tableClasses.headerCell, 'text-right')}>{t('actions')}</TableHead>
+                        {visibleCols['#'] && <TableHead className={cn(tableClasses.headerCell, 'w-[50px]')}>{'#'}</TableHead>}
+                        {visibleCols.receiptNumber && <TableHead className={tableClasses.headerCell}>{t('receiptNumber')}</TableHead>}
+                        {visibleCols.date && <TableHead className={tableClasses.headerCell}>{t('date')}</TableHead>}
+                        {visibleCols.type && <TableHead className={tableClasses.headerCell}>{t('type')}</TableHead>}
+                        {visibleCols.donor && <TableHead className={tableClasses.headerCell}>{t('donor')}</TableHead>}
+                        {visibleCols.receiver && <TableHead className={tableClasses.headerCell}>{t('receiver')}</TableHead>}
+                        {visibleCols.amount && <TableHead className={cn(tableClasses.headerCell, 'text-right')}>{t('amount')}</TableHead>}
+                        {visibleCols.actions && <TableHead className={cn(tableClasses.headerCell, 'text-right')}>{t('actions')}</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {data.length > 0 ? (
-                        data.map((rec) => (
+                        data.map((rec, idx) => (
                           <TableRow key={rec.id} className={tableClasses.row}>
-                            <TableCell className={tableClasses.cell}>
+                            {visibleCols['#'] && <TableCell className={cn(tableClasses.cell, 'w-[50px]')}>{idx + 1}</TableCell>}
+                            {visibleCols.receiptNumber && <TableCell className={tableClasses.cell}>
                               {rec.receipt_number}
-                            </TableCell>
-                            <TableCell className={tableClasses.cell}>
+                            </TableCell>}
+                            {visibleCols.date && <TableCell className={tableClasses.cell}>
                               <div className="flex items-center">
                                 <Calendar className="h-3 w-3 mr-1.5 text-muted-foreground" />
                                 {formatDate(rec.date)}
                               </div>
-                            </TableCell>
-                            <TableCell className={tableClasses.cell}>
+                            </TableCell>}
+                            {visibleCols.type && <TableCell className={tableClasses.cell}>
                               <div className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
                                 rec.type === 'income' 
                                   ? 'bg-green-100 text-green-700' 
@@ -770,21 +850,21 @@ export default function ReceiptListView() {
                                 )}
                                 {rec.type === 'income' ? t('income') : t('expense')}
                               </div>
-                            </TableCell>
-                            <TableCell className={tableClasses.cell}>
+                            </TableCell>}
+                            {visibleCols.donor && <TableCell className={tableClasses.cell}>
                               {rec.donor || '-'}
-                            </TableCell>
-                            <TableCell className={tableClasses.cell}>
+                            </TableCell>}
+                            {visibleCols.receiver && <TableCell className={tableClasses.cell}>
                               {rec.receiver || '-'}
-                            </TableCell>
-                            <TableCell className={cn(tableClasses.cell, 'text-right')}>
+                            </TableCell>}
+                            {visibleCols.amount && <TableCell className={cn(tableClasses.cell, 'text-right')}>
                               <div className={`inline-flex items-center justify-end w-full font-medium ${
                                 rec.type === 'income' ? 'text-green-600' : 'text-red-600'
                               }`}>
                                 {formatAmount(rec.amount)}
                               </div>
-                            </TableCell>
-                            <TableCell className={cn(tableClasses.cell, tableClasses.actionCell)}>
+                            </TableCell>}
+                            {visibleCols.actions && <TableCell className={cn(tableClasses.cell, tableClasses.actionCell)}>
                               <div className="flex items-center justify-end gap-1">
                                 <Button 
                                   variant="ghost" 
@@ -815,12 +895,12 @@ export default function ReceiptListView() {
                                   <Trash2 className="h-3 w-3" />
                                 </Button>
                               </div>
-                            </TableCell>
+                            </TableCell>}
                           </TableRow>
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={7} className={tableClasses.emptyState}>
+                          <TableCell colSpan={visibleColCount} className={tableClasses.emptyState}>
                             {t('noReceipts')}
                           </TableCell>
                         </TableRow>
@@ -868,6 +948,48 @@ export default function ReceiptListView() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Column Toggle Context Menu */}
+        {menuOpen && (
+          <div
+            ref={menuRef}
+            style={{ position: 'fixed', top: menuPos.y, left: menuPos.x, zIndex: 9999 }}
+            className="bg-white border rounded shadow-lg py-1 min-w-[180px] max-h-[60vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-3 py-1 text-xs font-semibold text-gray-500 border-b">
+              {t('toggleColumns')}
+            </div>
+            {/* Define menu items inline since allColDefs is inside the PDF function */}
+            {[
+              { key: '#' as ColKey, label: language === 'english' ? 'S.No' : 'வ.எண்' },
+              { key: 'receiptNumber' as ColKey, label: t('receiptNumber') },
+              { key: 'date' as ColKey, label: t('date') },
+              { key: 'type' as ColKey, label: t('type') },
+              { key: 'donor' as ColKey, label: t('donor') },
+              { key: 'receiver' as ColKey, label: t('receiver') },
+              { key: 'amount' as ColKey, label: t('amount') },
+            ].map(col => (
+              <label key={col.key} className="flex items-center gap-2 px-3 py-1 text-sm hover:bg-gray-100 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={visibleCols[col.key]}
+                  onChange={() => setVisibleCols(prev => ({ ...prev, [col.key]: !prev[col.key] }))}
+                  className="rounded"
+                />
+                {col.label}
+              </label>
+            ))}
+            <div className="border-t mt-1 pt-1">
+              <button onClick={() => setVisibleCols({ '#': true, receiptNumber: true, date: true, type: true, donor: true, receiver: true, amount: true, actions: true })} className="w-full text-left px-3 py-1 text-xs text-blue-600 hover:bg-blue-50" type="button">
+                {t('Select all', 'அனைத்தையும் தேர்ந்தெடு')}
+              </button>
+              <button onClick={() => setMenuOpen(false)} className="w-full text-left px-3 py-1 text-xs text-gray-600 hover:bg-gray-50" type="button">
+                {t('Close', 'மூடு')}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* View/Edit Modal */}
         <Dialog open={isViewEditOpen} onOpenChange={setIsViewEditOpen}>

@@ -36,7 +36,7 @@ module.exports = function createMoneyDonationReceiptRouter({ db, verifyQueryToke
       });
 
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `inline; filename=donation_receipt_${id}.pdf`);
+      res.setHeader('Content-Disposition', `attachment; filename=donation_receipt_${id}.pdf`);
       doc.pipe(res);
 
       // Load Tamil font
@@ -63,17 +63,19 @@ module.exports = function createMoneyDonationReceiptRouter({ db, verifyQueryToke
 
       // Helpers to render bold-looking Tamil when bold font isn't available
       const drawBold = (text, x, y, size, options = {}) => {
+        const safeText = String(text || '').replace(/₹/g, 'ரூ');
         if (hasTamilBoldFont) {
-          doc.font(F_BOLD).fontSize(size).text(text, x, y, options);
+          doc.font(F_BOLD).fontSize(size).text(safeText, x, y, options);
         } else {
           // Faux bold by drawing twice with a tiny x-offset
-          doc.font(F_REG).fontSize(size).text(text, x, y, options);
+          doc.font(F_REG).fontSize(size).text(safeText, x, y, options);
           const dupOpts = { ...options };
-          doc.text(text, x + 0.35, y, dupOpts);
+          doc.text(safeText, x + 0.35, y, dupOpts);
         }
       };
       const drawReg = (text, x, y, size, options = {}) => {
-        doc.font(F_REG).fontSize(size).text(text, x, y, options);
+        const safeText = String(text || '').replace(/₹/g, 'ரூ');
+        doc.font(F_REG).fontSize(size).text(safeText, x, y, options);
       };
 
       // Page dimensions

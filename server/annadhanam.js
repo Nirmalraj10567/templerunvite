@@ -75,7 +75,7 @@ module.exports = function(deps = {}) {
 
       const productName = row.product_name || row.food?.replace('Product: ', '') || 'Product';
       const quantity = row.quantity || 1;
-      const details = `Annadhanam Product Donation ID: ${annadhanamId} | ${productName} x ${quantity} | From: ${row.name} (${row.mobile_number})`;
+      const details = `Annadhanam Product Donation [reference_id:${annadhanamId}] | ${productName} x ${quantity} | From: ${row.name} (${row.mobile_number})`;
 
       await db('assets').insert({
         name: `Annadhanam - ${row.name || 'Product Donation'}`,
@@ -386,7 +386,7 @@ module.exports = function(deps = {}) {
         if (!p.productName || !p.quantity) {
           return res.status(400).json({ error: 'productName and quantity are required for product donation' });
         }
-        `Product: ${String(p.productName).trim()} | Qty: ${String(p.quantity).trim()}${p.unit ? ` | Unit: ${String(p.unit).trim()}` : ''}`
+        storedFood = `Product: ${String(p.productName).trim()} | Qty: ${String(p.quantity).trim()}${p.unit ? ` | Unit: ${String(p.unit).trim()}` : ''}`;
         storedPeoples = 1;
       } else if (p.donationType === 'money') {
         if (!p.amount) {
@@ -440,6 +440,9 @@ module.exports = function(deps = {}) {
         remarks: p.remarks || null,
         amount: p.amount ? Number(p.amount) : null,
         donation_type: p.donationType || 'food',
+        product_name: p.donationType === 'product' ? p.productName : null,
+        quantity: p.donationType === 'product' ? Number(p.quantity) : null,
+        unit: p.donationType === 'product' ? (p.unit || null) : null,
         payment_mode: p.paymentMode ? String(p.paymentMode).toLowerCase() : 'cash',
         account_id: p.accountId ? Number(p.accountId) : null,
         created_by: req.user.id,
@@ -498,13 +501,31 @@ module.exports = function(deps = {}) {
               const entryDate = annadhanamRow.entry_date instanceof Date 
                 ? annadhanamRow.entry_date.toISOString().slice(0, 10) 
                 : String(annadhanamRow.entry_date || annadhanamRow.from_date).split('T')[0];
+
+              // Resolve account based on payment mode (same logic as money donations)
+              let toAccount = 'CASH A/C'; // default
+              const paymentMode = String(annadhanamRow.payment_mode || 'cash').toLowerCase();
+              
+              if (paymentMode !== 'cash' && annadhanamRow.account_id) {
+                // Get account name for bank/UPI payments
+                const account = await db('accounts as a')
+                  .leftJoin('account_ledgers as l', 'a.ledger_id', 'l.id')
+                  .where('a.id', Number(annadhanamRow.account_id))
+                  .andWhere('a.temple_id', req.user.templeId)
+                  .select('a.*', 'l.name as ledger_name')
+                  .first();
+                
+                if (account) {
+                  toAccount = account.ledger_name || account.account_name || account.name || 'CASH A/C';
+                }
+              }
                 
               await db('journal_entries').insert({
                 date: entryDate,
                 reference_number: 'ANN-' + insertedId + '-' + Date.now(),
                 description: 'Annadhanam from ' + (annadhanamRow.name || 'Anonymous'),
                 from_account: 'ANNADHANAM A/C',
-                to_account: 'INCOME A/C',
+                to_account: toAccount,
                 amount: Number(annadhanamRow.amount),
                 total_amount: Number(annadhanamRow.amount),
                 entry_type: 'transfer',
@@ -678,6 +699,9 @@ module.exports = function(deps = {}) {
         remarks: p.remarks || null,
         amount: p.amount ? Number(p.amount) : null,
         donation_type: p.donationType || 'food',
+        product_name: p.donationType === 'product' ? p.productName : null,
+        quantity: p.donationType === 'product' ? Number(p.quantity) : null,
+        unit: p.donationType === 'product' ? (p.unit || null) : null,
         updated_at: db.fn.now(),
       };
 
@@ -785,6 +809,35 @@ module.exports = function(deps = {}) {
       
       // Get the data before deleting for logging
       const beforeRow = await db('annadhanam').where({ id }).andWhere('temple_id', req.user.templeId).first();
+
+      // Block delete if linked asset in Asset Management is sold or has used/sell qty > 0
+      try {
+        const hasAssets = await db.schema.hasTable('assets');
+        if (hasAssets && beforeRow) {
+          const linkedAsset = await db('assets')
+            .where({ temple_id: req.user.templeId })
+            .where('details', 'like', `%reference_id:${id}%`)
+            .first();
+          if (linkedAsset) {
+            if (linkedAsset.status === 'converted') {
+              return res.status(400).json({
+                error: 'Cannot delete: asset sold',
+                message: 'This annadhanam entry has a linked asset that has been sold in Asset Management. Please remove the asset first.'
+              });
+            }
+            const usedQty = Number(linkedAsset.used_qty || 0);
+            const forSellQty = Number(linkedAsset.for_sell_qty || 0);
+            if (usedQty > 0 || forSellQty > 0) {
+              return res.status(400).json({
+                error: 'Cannot delete: asset in use',
+                message: `This annadhanam entry has a linked asset with quantities recorded (used: ${usedQty}, sold: ${forSellQty}). Only items that are not used and not sold can be deleted.`
+              });
+            }
+          }
+        }
+      } catch (assetCheckError) {
+        console.error('Asset check error during annadhanam delete:', assetCheckError);
+      }
       
       const result = await db('annadhanam')
         .where({ id })
@@ -817,6 +870,18 @@ module.exports = function(deps = {}) {
         });
       } catch (daybookError) {
         console.error('Failed to remove annadhanam from daybook:', daybookError);
+      }
+
+      // Remove journal entries
+      try {
+        const hasJournal = await db.schema.hasTable('journal_entries');
+        if (hasJournal) {
+          await db('journal_entries')
+            .where({ temple_id: req.user.templeId, reference_type: 'annadhanam', reference_id: Number(id) })
+            .del();
+        }
+      } catch (journalError) {
+        console.error('Failed to remove annadhanam journal entries:', journalError);
       }
       
       res.json({ success: true });

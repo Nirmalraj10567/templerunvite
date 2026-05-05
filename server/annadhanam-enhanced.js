@@ -1149,6 +1149,38 @@ module.exports = function(deps = {}) {
       if (!existing) {
         return res.status(404).json({ error: 'Annadhanam entry not found' });
       }
+
+      // Check for linked assets in Asset Management
+      try {
+        const hasAssets = await db.schema.hasTable('assets');
+        if (hasAssets) {
+          const linkedAsset = await db('assets')
+            .where({ temple_id: req.user.templeId })
+            .where('details', 'like', `%reference_id:${id}%`)
+            .first();
+
+          if (linkedAsset) {
+            if (linkedAsset.status === 'converted') {
+              return res.status(400).json({
+                error: 'Cannot delete: asset already sold',
+                message: 'This annadhanam entry is linked to an asset that has already been converted to cash (sold).'
+              });
+            }
+
+            const usedQty = Number(linkedAsset.used_qty || 0);
+            const forSellQty = Number(linkedAsset.for_sell_qty || 0);
+            if (usedQty > 0 || forSellQty > 0) {
+              return res.status(400).json({
+                error: 'Cannot delete: asset in use',
+                message: `This annadhanam entry has a linked asset with quantities recorded (used: ${usedQty}, sold: ${forSellQty}). Only items that are not used and not sold can be deleted.`
+              });
+            }
+          }
+        }
+      } catch (assetErr) {
+        console.error('Error checking linked assets:', assetErr);
+        // Continue deletion if check fails (optional, but safer to block if uncertain)
+      }
       
       // Release slot booking
       if (existing.from_date && existing.time && existing.peoples) {

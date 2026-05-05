@@ -54,6 +54,11 @@ interface Annadhanam {
   remarks?: string;
   created_at: string;
   updated_at: string;
+  donation_type?: 'food' | 'product' | 'money';
+  product_name?: string;
+  quantity?: number;
+  unit?: string;
+  amount?: number;
 }
 
 interface AnnadhanamFormData {
@@ -81,7 +86,7 @@ interface AnnadhanamLog {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 1. VISIBLE COLUMNS STATE & TYPES
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-type ColKey = '#' | 'receipt_number' | 'name' | 'mobile_number' | 'food' | 'peoples' | 'date_range' | 'time' | 'actions';
+type ColKey = '#' | 'receipt_number' | 'name' | 'mobile_number' | 'food' | 'qty' | 'peoples' | 'date_range' | 'time' | 'actions';
 
 const STORAGE_KEY = 'annadhanam_visible_cols_v1';
 const defaultVisibleCols: Record<ColKey, boolean> = {
@@ -90,6 +95,7 @@ const defaultVisibleCols: Record<ColKey, boolean> = {
   'name': true,
   'mobile_number': true,
   'food': true,
+  'qty': true,
   'peoples': true,
   'date_range': true,
   'time': true,
@@ -102,21 +108,31 @@ const defaultVisibleCols: Record<ColKey, boolean> = {
 const allColDefs: Array<{
   key: ColKey;
   label: string;
+  labelTa?: string;
   getValue: (row: Annadhanam, index: number) => string | number;
 }> = [
-  { key: '#', label: 'S.No', getValue: (_, idx) => idx + 1 },
-  { key: 'receipt_number', label: 'Receipt No', getValue: (r) => r.receipt_number || '' },
-  { key: 'name', label: 'Name', getValue: (r) => r.name || '' },
-  { key: 'mobile_number', label: 'Mobile', getValue: (r) => r.mobile_number || '' },
-  { key: 'food', label: 'Food Items', getValue: (r) => r.food || '' },
-  { key: 'peoples', label: 'People', getValue: (r) => r.peoples ?? '' },
-  { key: 'date_range', label: 'Date Range', getValue: (r) => {
+  { key: '#', label: 'S.No', labelTa: 'வ.எண்', getValue: (_, idx) => idx + 1 },
+  { key: 'receipt_number', label: 'Receipt No', labelTa: 'ரசீது எண்', getValue: (r) => r.receipt_number || '' },
+  { key: 'name', label: 'Name', labelTa: 'பெயர்', getValue: (r) => r.name || '' },
+  { key: 'mobile_number', label: 'Mobile', labelTa: 'செல்', getValue: (r) => r.mobile_number || '' },
+  { key: 'food', label: 'Items/Product', labelTa: 'பொருள்', getValue: (r) => {
+    if (r.donation_type === 'product' && r.product_name) return r.product_name;
+    if (r.donation_type === 'money') return `Money: ${r.amount || ''}`;
+    return r.food || '';
+  }},
+  { key: 'qty', label: 'Qty', labelTa: 'அளவு', getValue: (r) => {
+    if (r.donation_type === 'product' && r.quantity != null) {
+      return `${r.quantity}${r.unit ? ` ${r.unit}` : ''}`;
+    }
+    return '-';
+  }},
+  { key: 'peoples', label: 'People', labelTa: 'மக்கள்', getValue: (r) => r.peoples ?? '' },
+  { key: 'date_range', label: 'Date Range', labelTa: 'தேதி', getValue: (r) => {
       const from = formatDateStatic(r.from_date);
       const to = formatDateStatic(r.to_date);
       return from !== to ? `${from} - ${to}` : from;
     }},
-  { key: 'time', label: 'Time', getValue: (r) => formatTimeStatic(r.time) || '' },
-  // 'actions' is excluded from export but included in visibleCols for UI toggle
+  { key: 'time', label: 'Time', labelTa: 'நேரம்', getValue: (r) => formatTimeStatic(r.time) || '' },
 ];
 
 // Static helpers for export (don't depend on component instance)
@@ -456,7 +472,7 @@ export default function AnnadhanamListView() {
     try {
       // Filter to visible columns only, exclude 'actions'
       const activeCols = allColDefs.filter(c => c.key !== 'actions' && visibleCols[c.key]);
-      const headers = activeCols.map(c => csvEscape(t(c.label, c.label)));
+      const headers = activeCols.map(c => csvEscape(t(c.label, c.labelTa || c.label)));
       // Export ALL data, not just paginated
       const rows = data.map((r, idx) => activeCols.map(c => csvEscape(c.getValue(r, idx))));
       const csv = [headers.join(","), ...rows.map(row => row.join(","))].join("\n");
@@ -497,7 +513,7 @@ export default function AnnadhanamListView() {
       }
 
       // 2. Build table data - export ALL rows, not paginated
-      const headCells = activeCols.map(c => t(c.label, c.label));
+      const headCells = activeCols.map(c => t(c.label, c.labelTa || c.label));
       const exportRows = data.map((r, idx) => activeCols.map(c => {
         const val = c.getValue(r, idx);
         // CRITICAL: NEVER use ₹ - use "Rs." instead
@@ -575,7 +591,7 @@ export default function AnnadhanamListView() {
          3. Auto column widths & alignment
       ========================================================= */
       const colWidth = Math.floor((pageWidth - 20) / activeCols.length);
-      const rightAlign: ColKey[] = ['peoples'];
+      const rightAlign: ColKey[] = ['peoples', 'qty'];
       const centerAlign: ColKey[] = ['#', 'receipt_number', 'mobile_number', 'time', 'date_range'];
       
       const columnStyles: Record<number, any> = {};
@@ -857,7 +873,7 @@ export default function AnnadhanamListView() {
                           {/* Render only visible columns */}
                           {allColDefs.filter(c => visibleCols[c.key] && c.key !== 'actions').map((col) => (
                             <TableHead key={col.key} className={cn(tableClasses.headerCell, col.key === '#' ? tableClasses.headerCellSno : "text-left")}>
-                              {t(col.label, col.label)}
+                              {t(col.label, col.labelTa || col.label)}
                             </TableHead>
                           ))}
                           {visibleCols['actions'] && (
@@ -890,6 +906,10 @@ export default function AnnadhanamListView() {
                                     <div className="flex items-center justify-center">
                                       <Users className="h-3 w-3 mr-1" />
                                       {annadhanam.peoples}
+                                    </div>
+                                  ) : col.key === 'qty' ? (
+                                    <div className="flex items-center font-medium">
+                                      {col.getValue(annadhanam, index)}
                                     </div>
                                   ) : (
                                     col.getValue(annadhanam, pagination.pageIndex * pagination.pageSize + index)

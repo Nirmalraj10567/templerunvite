@@ -1012,7 +1012,7 @@ export default function PoojaListView() {
                 {loading ? (
                   <tr>
                     <td colSpan={visibleColCount} className={formFieldStyles.moneyDonationList.table.loadingCell}>
-                      <div className="flex flex-col items-center justify-center py-12">
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
                         <Loader2 className="w-12 h-12 text-orange-600 animate-spin mb-4" />
                         {translate("loading")}
                       </div>

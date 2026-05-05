@@ -35,15 +35,17 @@ module.exports = function createPoojaReceiptRouter({ db, verifyQueryToken }) {
       const F_BOLD = hasTamilBoldFont ? 'TamilBold' : (hasTamilFont ? 'Tamil' : 'Helvetica-Bold');
 
       const drawBold = (text, x, y, size, options = {}) => {
+        const safeText = String(text || '').replace(/₹/g, 'ரூ');
         if (hasTamilBoldFont) {
-          doc.font(F_BOLD).fontSize(size).text(text, x, y, options);
+          doc.font(F_BOLD).fontSize(size).text(safeText, x, y, options);
         } else {
-          doc.font(F_REG).fontSize(size).text(text, x, y, options);
-          doc.text(text, x + 0.35, y, options);
+          doc.font(F_REG).fontSize(size).text(safeText, x, y, options);
+          doc.text(safeText, x + 0.35, y, options);
         }
       };
       const drawReg = (text, x, y, size, options = {}) => {
-        doc.font(F_REG).fontSize(size).text(text, x, y, options);
+        const safeText = String(text || '').replace(/₹/g, 'ரூ');
+        doc.font(F_REG).fontSize(size).text(safeText, x, y, options);
       };
 
       // Format date as D/M/YYYY (no leading zeros) – e.g., 5/6/2025

@@ -40,15 +40,17 @@ module.exports = function createAnnadhanamReceiptRouter({ db, verifyQueryToken }
       const F_BOLD = hasTamilBoldFont ? 'TamilBold' : (hasTamilFont ? 'Tamil' : 'Helvetica-Bold');
 
       const drawBold = (text, x, y, size, options = {}) => {
+        const safeText = String(text || '').replace(/₹/g, 'ரூ');
         if (hasTamilBoldFont) {
-          doc.font(F_BOLD).fontSize(size).text(text, x, y, options);
+          doc.font(F_BOLD).fontSize(size).text(safeText, x, y, options);
         } else {
-          doc.font(F_REG).fontSize(size).text(text, x, y, options);
-          doc.text(text, x + 0.35, y, options);
+          doc.font(F_REG).fontSize(size).text(safeText, x, y, options);
+          doc.text(safeText, x + 0.35, y, options);
         }
       };
       const drawReg = (text, x, y, size, options = {}) => {
-        doc.font(F_REG).fontSize(size).text(text, x, y, options);
+        const safeText = String(text || '').replace(/₹/g, 'ரூ');
+        doc.font(F_REG).fontSize(size).text(safeText, x, y, options);
       };
 
       // Dimensions and main border
@@ -108,13 +110,14 @@ module.exports = function createAnnadhanamReceiptRouter({ db, verifyQueryToken }
 
       // Derive donation info (type + details)
       const inferDonation = (row) => {
-        const out = { type: 'food', foodText: '', people: Number(row.peoples || 0), productName: null, quantity: null, amount: null };
+        const out = { type: 'food', foodText: '', people: Number(row.peoples || 0), productName: null, quantity: null, unit: null, amount: null };
         const dt = row.donation_type || null;
         if (dt === 'product' || dt === 'money' || dt === 'food') out.type = dt;
         // If structured columns exist, prefer them
         if (!out.foodText && row.food) out.foodText = String(row.food);
         if (row.product_name) { out.productName = String(row.product_name); out.type = 'product'; }
         if (row.quantity != null) { out.quantity = Number(row.quantity); }
+        if (row.unit) { out.unit = String(row.unit); }
         if (row.amount != null) { out.amount = Number(row.amount); out.type = 'money'; }
         // If still ambiguous, parse from foodText
         if (!dt && out.foodText) {
@@ -123,11 +126,13 @@ module.exports = function createAnnadhanamReceiptRouter({ db, verifyQueryToken }
             out.type = 'product';
             const nameMatch = ft.match(/^Product:\s*([^|]+)/i);
             if (nameMatch) out.productName = nameMatch[1].trim();
-            const qtyMatch = ft.match(/Qty:\s*(\d+)/i);
+            const qtyMatch = ft.match(/Qty:\s*([0-9.]+)/i);
             if (qtyMatch) out.quantity = Number(qtyMatch[1]);
+            const unitMatch = ft.match(/Unit:\s*([^|]+)/i);
+            if (unitMatch) out.unit = unitMatch[1].trim();
           } else if (/^Money:/i.test(ft)) {
             out.type = 'money';
-            const amtMatch = ft.match(/Money:\s*([0-9]+(?:\.[0-9]+)?)/i);
+            const amtMatch = ft.match(/Money:\s*([0-9.]+)/i);
             if (amtMatch) out.amount = Number(amtMatch[1]);
           } else {
             out.type = 'food';
@@ -237,11 +242,11 @@ module.exports = function createAnnadhanamReceiptRouter({ db, verifyQueryToken }
       donorY = doc.y + 6;
       // Donation detail line
       if (donation.type === 'money') {
-        const amtText = (donation.amount != null) ? `₹ ${donation.amount}` : (donation.foodText || '');
+        const amtText = (donation.amount != null) ? `ரூ ${donation.amount}` : (donation.foodText || '');
         drawBold(`நன்கொடை: ${amtText}`, marginLeft + 15, donorY, 12, { width: donorTextWidth, align: 'left' });
       } else if (donation.type === 'product') {
         const pn = donation.productName || '';
-        const q = donation.quantity != null ? ` (Qty: ${donation.quantity})` : '';
+        const q = donation.quantity != null ? ` (Qty: ${donation.quantity}${donation.unit ? ` ${donation.unit}` : ''})` : '';
         drawBold(`பொருள்: ${pn}${q}`, marginLeft + 15, donorY, 12, { width: donorTextWidth, align: 'left' });
       } else {
         const ft = donation.foodText || '';
@@ -261,9 +266,9 @@ module.exports = function createAnnadhanamReceiptRouter({ db, verifyQueryToken }
       doc.lineWidth(1.5).rect(rupeeBoxX, footerStartY, rupeeBoxWidth, rupeeBoxHeight).stroke();
       let boxText = '';
       if (donation.type === 'money') {
-        boxText = `₹ ${donation.amount != null ? donation.amount : ''}`;
+        boxText = `ரூ ${donation.amount != null ? donation.amount : ''}`;
       } else if (donation.type === 'product') {
-        boxText = donation.quantity != null ? `Qty ${donation.quantity}` : 'PRODUCT';
+        boxText = donation.quantity != null ? `${donation.quantity}${donation.unit ? ` ${donation.unit}` : ''}` : 'PRODUCT';
       } else {
         boxText = peoples > 0 ? `மக்கள் ${peoples}` : 'FOOD';
       }

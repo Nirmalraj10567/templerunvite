@@ -10,9 +10,12 @@ module.exports = function createHallBookingReceiptRouter({ db, verifyQueryToken 
   router.get('/api/hall-bookings/:id/receipt.pdf', verifyQueryToken, async (req, res) => {
     try {
       const { id } = req.params;
-      const r = await db('marriage_hall_bookings')
-        .where({ id: Number(id) })
-        .andWhere('temple_id', req.user.templeId)
+      const r = await db('marriage_hall_bookings as hb')
+        .leftJoin('master_halls as h', 'hb.hall_id', 'h.id')
+        .leftJoin('master_hall_events as e', 'hb.event_id', 'e.id')
+        .where('hb.id', Number(id))
+        .andWhere('hb.temple_id', req.user.templeId)
+        .select('hb.*', 'h.name as hall_master_name', 'e.name as event_master_name')
         .first();
       if (!r) return res.status(404).json({ error: 'Hall booking not found' });
 
@@ -40,15 +43,17 @@ module.exports = function createHallBookingReceiptRouter({ db, verifyQueryToken 
       const F_BOLD = hasTamilBoldFont ? 'TamilBold' : (hasTamilFont ? 'Tamil' : 'Helvetica-Bold');
 
       const drawBold = (text, x, y, size, options = {}) => {
+        const safeText = String(text || '').replace(/₹/g, 'ரூ');
         if (hasTamilBoldFont) {
-          doc.font(F_BOLD).fontSize(size).text(text, x, y, options);
+          doc.font(F_BOLD).fontSize(size).text(safeText, x, y, options);
         } else {
-          doc.font(F_REG).fontSize(size).text(text, x, y, options);
-          doc.text(text, x + 0.35, y, options);
+          doc.font(F_REG).fontSize(size).text(safeText, x, y, options);
+          doc.text(safeText, x + 0.35, y, options);
         }
       };
       const drawReg = (text, x, y, size, options = {}) => {
-        doc.font(F_REG).fontSize(size).text(text, x, y, options);
+        const safeText = String(text || '').replace(/₹/g, 'ரூ');
+        doc.font(F_REG).fontSize(size).text(safeText, x, y, options);
       };
 
       // Dimensions and border
@@ -180,15 +185,31 @@ module.exports = function createHallBookingReceiptRouter({ db, verifyQueryToken 
       const leftTextWidth = infoBoxX - marginLeft - 30;
       let leftY = contentYStart + 8;
       const person = (r.name || '').toString().toUpperCase();
-      const eventName = (r.event || '-').toString();
+      const eventName = (r.event || r.event_master_name || '-').toString();
       const prefixText = 'உயர்திரு/திருமதி ';
       doc.font(F_BOLD).fontSize(12).text(prefixText, marginLeft + 15, leftY);
       const prefixWidth = doc.widthOfString(prefixText);
       drawBold(`${person}`, marginLeft + 15 + prefixWidth, leftY, 12, { width: leftTextWidth - prefixWidth, align: 'left' });
       leftY = doc.y + 6;
+      const hallName = (r.subdivision || r.hall_master_name || '-').toString();
+      drawBold(`மண்டபம்: ${hallName}`, marginLeft + 15, leftY, 12, { width: leftTextWidth, align: 'left' });
+      leftY = doc.y + 6;
       drawBold(`நிகழ்ச்சி: ${eventName}`, marginLeft + 15, leftY, 12, { width: leftTextWidth, align: 'left' });
       leftY = doc.y + 8;
       doc.font(F_REG).fontSize(12).text('அவர்களிடமிருந்து', marginLeft + 15, leftY, { width: leftTextWidth, align: 'left' });
+
+      // Add payment details breakdown - MOVE TO THE RIGHT SIDE to avoid overlap
+      const breakdownX = infoBoxX;
+      let breakdownY = infoBoxY + infoBoxHeight + 10;
+      const toNum = (v) => { if (!v) return 0; const n = parseFloat(String(v).toString().replace(/[^0-9.\-]/g, '')); return isNaN(n) ? 0 : n; };
+      const fmt = (v) => toNum(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      
+      doc.font(F_REG).fontSize(9);
+      doc.text(`Total Amount: Rs. ${fmt(r.total_amount)}`, breakdownX, breakdownY);
+      breakdownY = doc.y + 3;
+      doc.font(F_BOLD).fontSize(10).text(`Advance Paid: Rs. ${fmt(r.advance_amount)}`, breakdownX, breakdownY);
+      breakdownY = doc.y + 3;
+      doc.font(F_REG).fontSize(9).text(`Balance Due: Rs. ${fmt(r.balance_amount)}`, breakdownX, breakdownY);
 
       // Footer rupee box using total amount
       const rupeeBoxHeight = 50;
@@ -198,9 +219,9 @@ module.exports = function createHallBookingReceiptRouter({ db, verifyQueryToken 
       const rupeeBoxWidth = 160;
       const rupeeBoxX = marginLeft + 15;
       doc.lineWidth(1.5).rect(rupeeBoxX, footerStartY, rupeeBoxWidth, rupeeBoxHeight).stroke();
-      const toNum = (v) => { if (!v) return 0; const n = parseFloat(String(v).toString().replace(/[^0-9.\-]/g, '')); return isNaN(n) ? 0 : n; };
-      const totalAmount = toNum(r.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      const currencyText = `ரூ ${totalAmount}`;
+      const toNumLocal = (v) => { if (!v) return 0; const n = parseFloat(String(v).toString().replace(/[^0-9.\-]/g, '')); return isNaN(n) ? 0 : n; };
+      const displayAmount = toNumLocal(r.advance_amount || r.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const currencyText = `ரூ ${displayAmount}`;
       let currencyFontSize = 20;
       doc.font(F_BOLD).fontSize(currencyFontSize);
       let currencyTextWidth = doc.widthOfString(currencyText);

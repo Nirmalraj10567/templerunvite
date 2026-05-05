@@ -1014,12 +1014,9 @@ module.exports = function (deps = {}) {
 
   // ========== MEMBER PROFILE ROUTES ==========
 
-  // GET /api/users/member/profile - Get own profile (member)
+  // GET /api/users/member/profile - Get own profile (any authenticated user)
   router.get('/member/profile', async (req, res) => {
     try {
-      if (req.user.type !== 'member') {
-        return res.status(403).json({ error: 'Member access only' });
-      }
       const member = await db('user_registrations').where('id', req.user.id).first();
       if (!member) return res.status(404).json({ error: 'Member not found' });
       res.json({ success: true, member });

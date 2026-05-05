@@ -148,7 +148,7 @@ export default function HallEntryPage() {
   const [lastCreatedId, setLastCreatedId] = useState<number | null>(null);
   const [showPrintPrompt, setShowPrintPrompt] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showAdditionalCharges, setShowAdditionalCharges] = useState(false);
+  const [showAdditionalCharges, setShowAadditionalCharges] = useState(false);
   const [showCheckInOut, setShowCheckInOut] = useState(false);
   const [paymentAccounts, setPaymentAccounts] = useState<AccountItem[]>([]);
 
@@ -222,14 +222,14 @@ export default function HallEntryPage() {
 
   // Select a hall
   const selectHall = useCallback((h: { id: number; name: string }) => {
-    setForm(prev => ({ ...prev, hallId: h.id }));
+    setForm(prev => ({ ...prev, hallId: h.id, subdivision: h.name }));
     setHallQuery(h.name);
     setShowHallDropdown(false);
   }, []);
 
   // Select an event
   const selectEvent = useCallback((ev: { id: number; name: string }) => {
-    setForm(prev => ({ ...prev, eventId: ev.id }));
+    setForm(prev => ({ ...prev, eventId: ev.id, event: ev.name }));
     setEventQuery(ev.name);
     setShowEventDropdown(false);
   }, []);
@@ -254,7 +254,11 @@ export default function HallEntryPage() {
         setHalls(freshHalls);
         const match = freshHalls.find((h: any) => h.name.toLowerCase() === trimmed.toLowerCase());
         if (match) selectHall(match);
-        else { setHallQuery(trimmed); setShowHallDropdown(false); }
+        else { 
+          setHallQuery(trimmed); 
+          setForm(prev => ({ ...prev, subdivision: trimmed }));
+          setShowHallDropdown(false); 
+        }
       }
     } catch (err) { console.error('Failed to create hall:', err); }
     finally { setAddingHall(false); }
@@ -280,7 +284,11 @@ export default function HallEntryPage() {
         setHallEvents(freshEvents);
         const match = freshEvents.find((e: any) => e.name.toLowerCase() === trimmed.toLowerCase());
         if (match) selectEvent(match);
-        else { setEventQuery(trimmed); setShowEventDropdown(false); }
+        else { 
+          setEventQuery(trimmed); 
+          setForm(prev => ({ ...prev, event: trimmed }));
+          setShowEventDropdown(false); 
+        }
       }
     } catch (err) { console.error('Failed to create event:', err); }
     finally { setAddingEvent(false); }
@@ -489,11 +497,7 @@ export default function HallEntryPage() {
                 {isEdit ? t('Edit Hall Booking', 'மண்டப பதிவு திருத்து') : t('Hall Booking Entry', 'மண்டப பதிவு')}
               </CardTitle>
             </div>
-            {isEdit && (
-              <Button variant="destructive" size="sm" onClick={() => setShowDeleteModal(true)}>
-                {t('Delete', 'நீக்கு')}
-              </Button>
-            )}
+
           </CardHeader>
 
           <CardContent className="p-6">

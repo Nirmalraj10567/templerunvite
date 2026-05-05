@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 module.exports = function(deps = {}) {
-  const { db } = deps;
+  const { db, generateDaybookReceiptNumber, calculateDaybookRunningBalance } = deps;
 
   // Helper to write donation product logs
   async function logDonationProductAction({ donationId, templeId, userId, action, details }) {
@@ -329,7 +329,37 @@ module.exports = function(deps = {}) {
       } catch (assetError) {
         console.error('Failed to sync donation to assets:', assetError.message);
       }
-      
+
+      // Sync to daybook
+      try {
+        const hasDaybook = await db.schema.hasTable('daybook_entries');
+        const amountNum = Number(donation.price || 0) * Number(donation.quantity || 1);
+        if (hasDaybook && generateDaybookReceiptNumber) {
+          const recNum = await generateDaybookReceiptNumber(req.user.templeId);
+          const entryDate = donation.entry_date || donation.donation_date || new Date().toISOString().slice(0, 10);
+          const runningBalance = await calculateDaybookRunningBalance(req.user.templeId, entryDate);
+          await db('daybook_entries').insert({
+            temple_id: req.user.templeId,
+            entry_date: entryDate,
+            entry_type: 'income',
+            description: `Product Donation - ${donation.donor_name || 'Anonymous'} | ${donation.product_name || ''} ${donation.quantity || ''}${donation.unit ? ' ' + donation.unit : ''}`.trim(),
+            reference_type: 'product_donation',
+            reference_id: donation.id,
+            receipt_number: recNum,
+            amount: amountNum,
+            payment_mode: 'donation',
+            party_name: donation.donor_name,
+            party_mobile: donation.donor_contact,
+            notes: donation.notes || `${donation.product_name || ''} x${donation.quantity || 1}`,
+            running_balance: runningBalance + amountNum,
+            created_by: req.user.id,
+            created_at: db.fn.now(),
+          });
+        }
+      } catch (daybookError) {
+        console.error('Failed to sync product donation to daybook:', daybookError.message);
+      }
+
       res.json({ success: true, data: donation });
     } catch (err) {
       console.error('POST /api/donations error:', err);
@@ -401,7 +431,38 @@ module.exports = function(deps = {}) {
         console.error('Log error details:', logError);
         // Don't fail the request if logging fails, but log the error
       }
-      
+
+      // Sync daybook on update
+      try {
+        const hasDaybook = await db.schema.hasTable('daybook_entries');
+        const amountNum = Number(donation.price || 0) * Number(donation.quantity || 1);
+        if (hasDaybook && generateDaybookReceiptNumber) {
+          await db('daybook_entries').where({ reference_type: 'product_donation', reference_id: Number(id), temple_id: req.user.templeId }).del();
+          const entryDate = donation.entry_date || donation.donation_date || new Date().toISOString().slice(0, 10);
+          const recNum = await generateDaybookReceiptNumber(req.user.templeId);
+          const runningBalance = await calculateDaybookRunningBalance(req.user.templeId, entryDate);
+          await db('daybook_entries').insert({
+            temple_id: req.user.templeId,
+            entry_date: entryDate,
+            entry_type: 'income',
+            description: `Product Donation - ${donation.donor_name || 'Anonymous'} | ${donation.product_name || ''} ${donation.quantity || ''}${donation.unit ? ' ' + donation.unit : ''}`.trim(),
+            reference_type: 'product_donation',
+            reference_id: donation.id,
+            receipt_number: recNum,
+            amount: amountNum,
+            payment_mode: 'donation',
+            party_name: donation.donor_name,
+            party_mobile: donation.donor_contact,
+            notes: donation.notes || `${donation.product_name || ''} x${donation.quantity || 1}`,
+            running_balance: runningBalance + amountNum,
+            created_by: req.user.id,
+            created_at: db.fn.now(),
+          });
+        }
+      } catch (daybookError) {
+        console.error('Failed to sync product donation update to daybook:', daybookError.message);
+      }
+
       res.json({ success: true, data: donation });
     } catch (err) {
       console.error('PUT /api/donations/:id error:', err);
@@ -480,7 +541,14 @@ module.exports = function(deps = {}) {
         console.error('Failed to log donation product deletion:', logError);
         // Don't fail the request if logging fails, but log the error
       }
-      
+
+      // Remove daybook entry
+      try {
+        await db('daybook_entries').where({ reference_type: 'product_donation', reference_id: Number(id), temple_id: req.user.templeId }).del();
+      } catch (daybookError) {
+        console.error('Failed to remove product donation from daybook:', daybookError.message);
+      }
+
       res.json({ success: true });
     } catch (err) {
       console.error('DELETE /api/donations/:id error:', err);

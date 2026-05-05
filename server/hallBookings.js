@@ -486,7 +486,7 @@ module.exports = function (deps = {}) {
       try {
         const under = row.transfer_to_account || p.transferTo || 'CASH A/C';
         // Use advanceAmount if provided (even if 0), otherwise fallback to totalAmount if advance is missing
-        const amountNum = p.advanceAmount !== undefined ? Number(p.advanceAmount) : Number(p.totalAmount || 0);
+        const amountNum = Number(p.advanceAmount) || Number(p.totalAmount) || 0;
         if (!isNaN(amountNum) && amountNum > 0) {
           await db('ledger_entries').insert({
             date: row.date || new Date().toISOString().slice(0, 10),
@@ -506,8 +506,8 @@ module.exports = function (deps = {}) {
       }
 
       // Mirror to journal: INCOME A/C -> CASH A/C (matching existing pattern)
+      const amountNum = Number(p.advanceAmount) || Number(p.totalAmount) || 0;
       try {
-        const amountNum = p.advanceAmount !== undefined ? Number(p.advanceAmount) : Number(p.totalAmount || 0);
 
         if (row && row.id && amountNum > 0) {
           const entryData = {
@@ -536,6 +536,38 @@ module.exports = function (deps = {}) {
       } catch (e) {
         console.error('❌ Failed to mirror hall booking into journal_entries:', e.message);
         console.error('❌ Full error:', e);
+      }
+
+      // Create daybook entry
+      try {
+        const hasDaybook = await db.schema.hasTable('daybook_entries');
+        if (hasDaybook && row && row.id && amountNum > 0) {
+          const recNum = await generateDaybookReceiptNumber(req.user.templeId);
+          const runningBalance = await calculateDaybookRunningBalance(req.user.templeId, row.date);
+          
+          await db('daybook_entries').insert({
+            temple_id: req.user.templeId,
+            entry_date: row.date || new Date().toISOString().slice(0, 10),
+            entry_type: 'income',
+            description: `Hall Booking - ${row.name || 'Unknown'}`,
+            reference_type: 'hall_booking',
+            reference_id: row.id,
+            receipt_number: recNum,
+            amount: amountNum,
+            payment_mode: row.payment_mode || 'cash',
+            party_name: row.name,
+            party_mobile: row.mobile,
+            notes: row.remarks,
+            running_balance: runningBalance + amountNum,
+            journal_from_account: 'HALL INCOME A/C',
+            journal_to_account: accountSel?.ledgerName || 'CASH A/C',
+            created_by: req.user.id,
+            created_at: db.fn.now(),
+          });
+          console.log(`✅ Daybook entry created for hall booking ${row.id}`);
+        }
+      } catch (e) {
+        console.error('❌ Failed to create daybook entry for hall booking:', e.message);
       }
 
       // Log creation with full snapshot
@@ -685,8 +717,40 @@ module.exports = function (deps = {}) {
         console.log('✅ Successfully logged hall booking update for ID:', idNum);
       } catch (logError) {
         console.error('❌ Failed to log hall booking update:', logError);
-        console.error('Log error details:', logError);
-        // Don't fail the request if logging fails, but log the error
+      }
+
+      // Sync daybook on update: delete old entry and re-insert with updated values
+      try {
+        const hasDaybook = await db.schema.hasTable('daybook_entries');
+        if (hasDaybook) {
+          await db('daybook_entries').where({ reference_type: 'hall_booking', reference_id: idNum, temple_id: req.user.templeId }).del();
+          const amountNum = Number(p.advanceAmount) || Number(p.totalAmount) || Number(booking.total_amount) || 0;
+          if (amountNum > 0) {
+            const recNum = await generateDaybookReceiptNumber(req.user.templeId);
+            const runningBalance = await calculateDaybookRunningBalance(req.user.templeId, booking.date);
+            await db('daybook_entries').insert({
+              temple_id: req.user.templeId,
+              entry_date: booking.date || new Date().toISOString().slice(0, 10),
+              entry_type: 'income',
+              description: `Hall Booking - ${booking.name || 'Unknown'}`,
+              reference_type: 'hall_booking',
+              reference_id: idNum,
+              receipt_number: recNum,
+              amount: amountNum,
+              payment_mode: booking.payment_mode || 'cash',
+              party_name: booking.name,
+              party_mobile: booking.mobile,
+              notes: booking.remarks,
+              running_balance: runningBalance + amountNum,
+              journal_from_account: 'HALL INCOME A/C',
+              journal_to_account: accountSel?.ledgerName || 'CASH A/C',
+              created_by: req.user.id,
+              created_at: db.fn.now(),
+            });
+          }
+        }
+      } catch (e) {
+        console.error('❌ Failed to sync daybook on hall booking update:', e.message);
       }
 
       res.json({ success: true, data: booking });
@@ -733,28 +797,22 @@ module.exports = function (deps = {}) {
     try {
       const year = new Date().getFullYear();
 
-      // Ensure table exists (works for both SQLite/MySQL)
-      const hasTable = await db.schema.hasTable('receipt_counter');
-      if (!hasTable) {
-        await db.schema.createTable('receipt_counter', (t) => {
-          t.integer('year').primary();
-          t.integer('last_number').notNullable().defaultTo(0);
-          t.timestamp('created_at').defaultTo(db.fn.now());
-          t.timestamp('updated_at').defaultTo(db.fn.now());
-        });
+      // Get the highest existing receipt number for this temple
+      const maxReceipt = await db('marriage_hall_bookings')
+        .where('temple_id', req.user.templeId)
+        .whereRaw('register_no LIKE ?', [`${year}-%`])
+        .max('register_no as max_receipt')
+        .first();
+
+      let nextNumber = 1;
+      if (maxReceipt?.max_receipt) {
+        const match = maxReceipt.max_receipt.match(/^\d{4}-(\d{4})$/);
+        if (match) {
+          nextNumber = parseInt(match[1], 10) + 1;
+        }
       }
 
-      // Atomic upsert: insert year with last_number=1 or increment existing last_number
-      // Keep the column set minimal to avoid errors if older schemas lack created_at/updated_at
-      await db('receipt_counter')
-        .insert({ year, last_number: 1 })
-        .onConflict('year')
-        .merge({ last_number: db.raw('last_number + 1') });
-
-      // Read back the latest counter
-      const updated = await db('receipt_counter').where({ year }).first();
-      const seq = Number(updated?.last_number || 1);
-      const receiptNo = `${year}-${String(seq).padStart(4, '0')}`;
+      const receiptNo = `${year}-${String(nextNumber).padStart(4, '0')}`;
       res.json({ receiptNo });
     } catch (error) {
       console.error('Error generating receipt number:', error);
@@ -860,6 +918,20 @@ module.exports = function (deps = {}) {
       // Get the data before deleting for logging
       const beforeRow = await db('marriage_hall_bookings').where({ id: idNum }).andWhere('temple_id', req.user.templeId).first();
 
+      // Log deletion BEFORE deleting (FK constraint requires parent row to exist)
+      try {
+        await logHallBookingAction({
+          hallBookingId: idNum,
+          templeId: req.user.templeId,
+          userId: req.user.id,
+          action: 'delete',
+          details: { before: beforeRow || null, after: null },
+        });
+        console.log('Successfully logged hall booking deletion for ID:', idNum);
+      } catch (logError) {
+        console.error('Failed to log hall booking deletion:', logError);
+      }
+
       const result = await db('marriage_hall_bookings')
         .where({ id: idNum })
         .andWhere('temple_id', req.user.templeId)
@@ -881,19 +953,11 @@ module.exports = function (deps = {}) {
         console.warn('Failed to cleanup hall booking journal mirror:', e);
       }
 
-      // Log deletion with before snapshot
+      // Cleanup daybook entry
       try {
-        await logHallBookingAction({
-          hallBookingId: idNum,
-          templeId: req.user.templeId,
-          userId: req.user.id,
-          action: 'delete',
-          details: { before: beforeRow || null, after: null },
-        });
-        console.log('Successfully logged hall booking deletion for ID:', idNum);
-      } catch (logError) {
-        console.error('Failed to log hall booking deletion:', logError);
-        // Don't fail the request if logging fails, but log the error
+        await db('daybook_entries').where({ reference_type: 'hall_booking', reference_id: idNum, temple_id: req.user.templeId }).del();
+      } catch (e) {
+        console.warn('Failed to cleanup hall booking daybook entry:', e);
       }
 
       res.json({ success: true });
@@ -930,6 +994,7 @@ module.exports = function (deps = {}) {
       }
 
       // Prepare updates for main booking record
+      const updates = {};
       // Handle optional date updates
       if (entryDate !== undefined) updates.entry_date = entryDate;
       if (bookingDate !== undefined) updates.booking_date = bookingDate;

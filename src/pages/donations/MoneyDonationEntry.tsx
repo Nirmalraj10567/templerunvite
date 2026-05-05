@@ -13,6 +13,8 @@ import { theme } from '@/styles/theme';
 const createInitialState = (): MoneyDonationFormData => ({
   registerNo: '',
   date: new Date().toISOString().slice(0, 10),
+  entryDate: new Date().toISOString().slice(0, 10),
+  bookingDate: new Date().toISOString().slice(0, 10),
   name: '',
   fatherName: '',
   address: '',
@@ -224,6 +226,8 @@ export default function MoneyDonationEntry() {
             setForm({
               registerNo: d.register_no || '',
               date: d.date || new Date().toISOString().slice(0, 10),
+              entryDate: d.entry_date || d.date || new Date().toISOString().slice(0, 10),
+              bookingDate: d.date || new Date().toISOString().slice(0, 10),
               name: d.name || '',
               fatherName: d.father_name || '',
               address: d.address || '',
@@ -365,6 +369,8 @@ export default function MoneyDonationEntry() {
         setForm({
           registerNo: d.register_no || '',
           date: d.date || new Date().toISOString().slice(0, 10),
+          entryDate: d.entry_date || d.date || new Date().toISOString().slice(0, 10),
+          bookingDate: d.date || new Date().toISOString().slice(0, 10),
           name: d.name || '',
           fatherName: d.father_name || '',
           address: d.address || '',
@@ -558,7 +564,7 @@ export default function MoneyDonationEntry() {
           >
             <div className={formFieldStyles.modal.container}>
               <p className={formFieldStyles.modal.content}>
-                {t('Do you want to open the PDF receipt for printing?', 'PDF ரசீதை அச்சிட திறக்க விரும்புகிறீர்களா?')}
+                {t('Do you want to download or print the PDF receipt?', 'PDF ரசீதை பதிவிறக்கம் செய்ய வேண்டுமா அல்லது அச்சிட வேண்டுமா?')}
               </p>
               <div className={formFieldStyles.modal.actions}>
                 <button
@@ -566,6 +572,30 @@ export default function MoneyDonationEntry() {
                   onClick={() => setShowPrintPrompt(false)}
                 >
                   {t('No', 'இல்லை')}
+                </button>
+                <button
+                  className="px-4 py-2 border border-orange-300 text-orange-600 rounded-md hover:bg-orange-50 transition-colors flex items-center gap-2"
+                  onClick={async () => {
+                    try {
+                      const url = moneyDonationService.receiptUrl(lastCreatedId!, token);
+                      const response = await fetch(url);
+                      const blob = await response.blob();
+                      const downloadUrl = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = downloadUrl;
+                      a.download = `receipt-${lastCreatedId}.pdf`;
+                      document.body.appendChild(a);
+                      a.click();
+                      window.URL.revokeObjectURL(downloadUrl);
+                      document.body.removeChild(a);
+                    } catch (err) {
+                      const url = moneyDonationService.receiptUrl(lastCreatedId!, token);
+                      window.open(url, '_blank');
+                    }
+                  }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                  {t('Download', 'பதிவிறக்கம்')}
                 </button>
                 <button
                   className={formFieldStyles.modal.button.confirm}
@@ -584,7 +614,6 @@ export default function MoneyDonationEntry() {
                         iframe.contentWindow?.focus();
                         iframe.contentWindow?.print();
                       } catch (e) {
-                        // Fallback to opening in new tab if print cannot be triggered (cross-origin PDFs etc.)
                         window.open(url, '_blank');
                       } finally {
                         setTimeout(() => {

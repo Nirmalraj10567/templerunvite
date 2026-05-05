@@ -135,6 +135,10 @@ class DonationService {
     return response.json();
   }
 
+  receiptUrl(id: number, token: string | null): string {
+    return `${this.baseUrl}/${id}/receipt.pdf?token=${token}`;
+  }
+
   async deleteDonation(token: string | null, id: number): Promise<ApiResponse<{ success: true }>> {
     const response = await fetch(`${this.baseUrl}/${id}`, {
       method: 'DELETE',

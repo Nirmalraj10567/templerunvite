@@ -76,6 +76,21 @@ export default function HallListPage() {
       return dateStr;
     }
   };
+
+  // Helper to convert date to YYYY-MM-DD format for date inputs
+  const formatDateForInput = (dateStr: string | null | undefined): string => {
+    if (!dateStr) return '';
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return '';
+      const y = date.getFullYear();
+      const m = (date.getMonth() + 1).toString().padStart(2, '0');
+      const d = date.getDate().toString().padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    } catch (e) {
+      return '';
+    }
+  };
   const [from, setFrom] = useState<string>('');
   const [to, setTo] = useState<string>('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -1064,7 +1079,7 @@ export default function HallListPage() {
                   <Input 
                     type="date" 
                     className={cn("h-8 text-sm", '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')} 
-                    defaultValue={selectedBooking.entry_date || selectedBooking.date || ''} 
+                    defaultValue={formatDateForInput(selectedBooking.entry_date) || formatDateForInput(selectedBooking.date) || ''} 
                     id="pay_entryDate" 
                   />
                 </div>
@@ -1073,7 +1088,7 @@ export default function HallListPage() {
                   <Input 
                     type="date" 
                     className={cn("h-8 text-sm", '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')} 
-                    defaultValue={selectedBooking.booking_date || selectedBooking.date || ''} 
+                    defaultValue={formatDateForInput(selectedBooking.booking_date) || formatDateForInput(selectedBooking.date) || ''} 
                     id="pay_bookingDate" 
                   />
                 </div>
@@ -1093,7 +1108,7 @@ export default function HallListPage() {
                   <div className="p-3 grid grid-cols-2 gap-3 bg-white">
                     <div className="space-y-1">
                       <label className="text-[10px] font-semibold text-gray-500 uppercase">{t('Check-in Date', 'செக்-இன் தேதி')}</label>
-                      <Input type="date" className="h-8 text-sm" defaultValue={selectedBooking.check_in_date || ''} id="pay_checkInDate" />
+                      <Input type="date" className="h-8 text-sm" defaultValue={formatDateForInput(selectedBooking.check_in_date) || ''} id="pay_checkInDate" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-semibold text-gray-500 uppercase">{t('Time', 'நேரம்')}</label>
@@ -1101,7 +1116,7 @@ export default function HallListPage() {
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-semibold text-gray-500 uppercase">{t('Check-out Date', 'செக்-அவுட் தேதி')}</label>
-                      <Input type="date" className="h-8 text-sm" defaultValue={selectedBooking.check_out_date || ''} id="pay_checkOutDate" />
+                      <Input type="date" className="h-8 text-sm" defaultValue={formatDateForInput(selectedBooking.check_out_date) || ''} id="pay_checkOutDate" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-semibold text-gray-500 uppercase">{t('Time', 'நேரம்')}</label>

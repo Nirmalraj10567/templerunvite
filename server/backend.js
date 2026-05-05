@@ -2697,8 +2697,20 @@ const ledgerCategoriesCompat = (() => {
         .whereNotNull('to_account')
         .where('to_account', '!=', '');
 
-      // Combine and deduplicate accounts
-      const allAccounts = [...new Set([...fromAccounts, ...toAccounts].map(a => a.account))];
+      // Get all accounts from accounts table to include bank accounts with zero balances
+      const allDbAccounts = await db('accounts')
+        .where('temple_id', req.user.templeId)
+        .select('name', 'account_name', 'category')
+        .union([
+          db('account_ledgers')
+            .where('temple_id', req.user.templeId)
+            .select('name', 'name as account_name', 'category')
+        ]);
+
+      // Combine journal accounts and database accounts
+      const journalAccounts = [...new Set([...fromAccounts, ...toAccounts].map(a => a.account))];
+      const dbAccountNames = allDbAccounts.map(a => a.name || a.account_name).filter(Boolean);
+      const allAccounts = [...new Set([...journalAccounts, ...dbAccountNames])];
 
       // Get categories for all accounts
       const accountCategories = await db('ledger_entries')
@@ -2995,14 +3007,20 @@ const ledgerCategoriesCompat = (() => {
           return;
         }
 
-        // Categorized as income → incomeItems
-        if (category.includes('income') || accountName === 'INCOME A/C') {
+        // Categorized as income → incomeItems (except INCOME A/C which goes to assets)
+        if (category.includes('income') && accountName !== 'INCOME A/C') {
           incomeItems.push(item);
           return;
         }
 
+        // INCOME A/C goes to assets
+        if (accountName === 'INCOME A/C') {
+          assets.push(item);
+          return;
+        }
+
         // Known income accounts (regardless of category)
-        if (['DONATION INCOME A/C', 'HALL INCOME A/C', 'POOJA INCOME A/C', 'ANNADHANAM A/C'].includes(accountName)) {
+        if (accountName.includes('INCOME') || ['ANNADHANAM A/C'].includes(accountName)) {
           incomeItems.push(item);
           return;
         }
@@ -4705,6 +4723,34 @@ app.use('/api/tax-settings',
 // Import tax calculations routes
 const taxCalculationsRouter = require('./routes/tax-calculations');
 
+// ─── PUBLIC member profile endpoint (NO permission required) ─────────────────
+// MUST be defined BEFORE the broad app.use('/api', authorizePermission(...)) below
+// so it is matched first without going through permission checks.
+app.get('/api/registrations/member/profile', (req, res) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Access token required' });
+
+  const jwtLib = require('jsonwebtoken');
+  const secrets = [process.env.JWT_SECRET, 'dev-insecure-secret-change-me'].filter(Boolean);
+  let decoded = null;
+  for (const secret of secrets) {
+    try { decoded = jwtLib.verify(token, secret); break; } catch (e) { /* try next */ }
+  }
+  if (!decoded) return res.status(401).json({ error: 'Invalid or expired token' });
+
+  db('user_registrations').where('id', decoded.id).first()
+    .then(member => {
+      if (!member) return res.status(404).json({ error: 'Member profile not found' });
+      return res.json({ success: true, member });
+    })
+    .catch(err => {
+      console.error('Error fetching member profile:', err);
+      return res.status(500).json({ error: 'Database error' });
+    });
+});
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Mount tax calculations routes with middleware - mounted at /api
 // because taxCalculationsRouter handles /tax-settings/* and /tax-calculations/* routes
 app.use('/api',
@@ -5030,7 +5076,7 @@ const journalRouter = require('./routes/journal')({ db });
 app.use('/api/journal', authenticateToken, authorizeRole(['admin', 'superadmin']), journalRouter);
 
 // Mount donations router
-const donationsRouter = require('./donations')({ db });
+const donationsRouter = require('./donations')({ db, generateDaybookReceiptNumber, calculateDaybookRunningBalance });
 app.use('/api/donations', authenticateToken, donationsRouter);
 
 // Mount daybook router
@@ -5073,6 +5119,34 @@ const donationsApprovalRouter = require('./donations-approval')({ db });
 app.use('/api/donations-approval', authenticateToken, authorizePermission('donation_approval', 'view'), donationsApprovalRouter);
 
 // Single registration PDF export is now handled in routes/registrations.js
+
+// ─── PUBLIC member profile endpoint ─────────────────────────────────────────
+// Mounted BEFORE the main registrations router so NO permission middleware
+// can intercept it. Accepts any valid JWT (admin or member) with no permission check.
+app.get('/api/registrations/member/profile', (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Access token required' });
+
+  // Try all possible secrets
+  const secrets = [process.env.JWT_SECRET, 'dev-insecure-secret-change-me'].filter(Boolean);
+  let decoded = null;
+  for (const secret of secrets) {
+    try { decoded = jwt.verify(token, secret); break; } catch (e) { /* try next */ }
+  }
+  if (!decoded) return res.status(401).json({ error: 'Invalid or expired token' });
+
+  db('user_registrations').where('id', decoded.id).first()
+    .then(member => {
+      if (!member) return res.status(404).json({ error: 'Member profile not found' });
+      res.json({ success: true, member });
+    })
+    .catch(err => {
+      console.error('Error fetching member profile:', err);
+      res.status(500).json({ error: 'Database error' });
+    });
+});
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Import and use the registrations router with all necessary middleware
 const createRegistrationsRouter = require('./routes/registrations');

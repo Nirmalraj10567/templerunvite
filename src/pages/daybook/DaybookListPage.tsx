@@ -412,6 +412,15 @@ export default function DaybookListPage() {
       );
     }
 
+    if (referenceType === 'product_donation') {
+      return (
+        <Badge className="bg-green-100 text-green-800 border-green-200">
+          <TrendingUp className="h-3 w-3 mr-1" />
+          {t('Income', 'வருமானம்')}
+        </Badge>
+      );
+    }
+
     const variants = {
       income: 'bg-green-100 text-green-800',
       expense: 'bg-red-100 text-red-800',
@@ -678,6 +687,8 @@ export default function DaybookListPage() {
                               <span className="font-medium text-blue-600">{entry.journal_to_account}</span>
                             ) : entry.payment_mode === 'in_kind' ? (
                               <span className="text-green-600">{t('In Kind', 'உணவு')}</span>
+                            ) : entry.payment_mode === 'donation' ? (
+                              <span className="text-green-600">{t('Donation', 'நன்கொடை')}</span>
                             ) : (
                               <span>
                                 {entry.payment_mode === 'cash' ? t('Cash', 'பணம்') :

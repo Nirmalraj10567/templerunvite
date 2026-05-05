@@ -747,7 +747,6 @@ export default function TempleUserEntryPage() {
       }
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Failed');
-      setMsg(isEdit ? t.success.updated : t.success.saved);
       setLastSavedId(data.data?.id || data.id || editId);
       setShowSuccessModal(true);
       if (!isEdit) {
