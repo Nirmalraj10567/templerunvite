@@ -899,7 +899,7 @@ export default function ReceiptListView() {
                           </TableRow>
                         ))
                       ) : (
-                        <TableRow>
+                         <TableRow  className="whitespace-nowrap">
                           <TableCell colSpan={visibleColCount} className={tableClasses.emptyState}>
                             {t('noReceipts')}
                           </TableCell>

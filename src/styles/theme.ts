@@ -205,8 +205,8 @@ export const theme = {
   // Sidebar Styles
   sidebar: {
     // Main sidebar container
-    container: 'bg-gradient-to-b from-gray-900 to-black text-white shadow-xl',
-    containerDark: 'bg-gradient-to-b from-gray-900 to-black text-white shadow-xl',
+    container: 'bg-gray-900 text-white shadow-xl',
+    containerDark: 'bg-gray-900 text-white shadow-xl',
     //container: 'bg-gradient-to-b from-orange-600 to-orange-700 text-white shadow-xl',
     // containerDark: 'bg-gradient-to-b from-gray-800 to-gray-900 text-white shadow-xl',
     // Sidebar navigation items
@@ -252,8 +252,8 @@ export const theme = {
       // itemHover: 'hover:bg-orange-500',
       // itemActive: 'bg-orange-500',
       //
-      background: 'bg-gradient-to-b from-gray-900 to-black',
-      backgroundDark: 'bg-gradient-to-b from-gray-900 to-black',
+      background: 'bg-gray-900',
+      backgroundDark: 'bg-gray-900',
       itemHover: 'hover:bg-gray-800',
       itemActive: 'bg-gray-800',
       text: 'text-white',

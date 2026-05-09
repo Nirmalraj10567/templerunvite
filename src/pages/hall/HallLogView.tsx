@@ -215,7 +215,7 @@ export default function HallLogView({ recentOnly = false }: HallLogViewProps) {
         ) : (
           <Table>
             <TableHeader>
-              <TableRow>
+               <TableRow  className="whitespace-nowrap">
                 <TableHead>{t('Action', 'செயல்')}</TableHead>
                 <TableHead>{t('Date & Time', 'தேதி & நேரம்')}</TableHead>
                 <TableHead>{t('Booking ID', 'பதிவு ஐடி')}</TableHead>
@@ -227,7 +227,7 @@ export default function HallLogView({ recentOnly = false }: HallLogViewProps) {
             </TableHeader>
             <TableBody>
               {logs.length === 0 ? (
-                <TableRow>
+                 <TableRow  className="whitespace-nowrap">
                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     {t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}
                   </TableCell>

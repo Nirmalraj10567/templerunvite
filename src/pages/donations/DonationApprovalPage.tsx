@@ -360,9 +360,9 @@ export default function DonationApprovalPage() {
             </TableHeader>
             <TableBody>
               {loading.donations?(
-                <TableRow><TableCell colSpan={visibleColCount} className={tableClasses.emptyState}><Loader2 className="h-4 w-4 animate-spin mx-auto"/></TableCell></TableRow>
+                 <TableRow  className="whitespace-nowrap"><TableCell colSpan={visibleColCount} className={tableClasses.emptyState}><Loader2 className="h-4 w-4 animate-spin mx-auto"/></TableCell></TableRow>
               ):filteredDonations.length===0?(
-                <TableRow><TableCell colSpan={visibleColCount} className={tableClasses.emptyState}>{t('No data','தரவு இல்லை')}</TableCell></TableRow>
+                 <TableRow  className="whitespace-nowrap"><TableCell colSpan={visibleColCount} className={tableClasses.emptyState}>{t('No data','தரவு இல்லை')}</TableCell></TableRow>
               ):filteredDonations.map(d=>(
                 <TableRow key={d.id} className={tableClasses.row}>
                   {visibleCols.product&&<TableCell className={tableClasses.cell}>{d.product_name}</TableCell>}

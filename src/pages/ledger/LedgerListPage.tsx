@@ -746,7 +746,7 @@ export default function LedgerListPage() {
                           );
                         })
                       ) : (
-                        <TableRow>
+                         <TableRow  className="whitespace-nowrap">
                           <TableCell colSpan={8} className={tableClasses.emptyState}>
                             {t("No entries found", "உள்ளீடுகள் கிடைக்கவில்லை")}
                           </TableCell>

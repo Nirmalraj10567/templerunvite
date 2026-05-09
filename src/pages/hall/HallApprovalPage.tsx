@@ -387,7 +387,7 @@ export default function HallApprovalPage() {
                       </TableRow>
                     ))}
                     {items.length === 0 && (
-                      <TableRow>
+                       <TableRow  className="whitespace-nowrap">
                         <TableCell colSpan={7} className={tableClasses.emptyState}>
                           {t('No records', 'பதிவுகள் இல்லை')}
                         </TableCell>

@@ -722,36 +722,68 @@ export default function HallEntryPage() {
                   </div>
                 </div>
 
-                {/* Payment Mode */}
-                <div className="space-y-2 group">
-                  <Label className="text-sm font-semibold text-gray-700 group-focus-within:text-orange-600 transition-colors">
-                    {t('Payment Mode', 'பணம் செலுத்தும் முறை')}
-                  </Label>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant={form.paymentMode === 'cash' ? 'default' : 'outline'}
-                      onClick={() => setForm(prev => ({ ...prev, paymentMode: 'cash', accountId: null }))}
-                    >
-                      {t('Cash', 'பணம்')}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={form.paymentMode === 'bank' ? 'default' : 'outline'}
-                      onClick={() => setForm(prev => ({ ...prev, paymentMode: 'bank' }))}
-                    >
-                      {t('Bank', 'வங்கி')}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={form.paymentMode === 'upi' ? 'default' : 'outline'}
-                      onClick={() => setForm(prev => ({ ...prev, paymentMode: 'upi' }))}
-                    >
-                      {t('UPI', 'UPI')}
-                    </Button>
-                  </div>
-                </div>
+           <div className="space-y-2 group">
+  <Label className="text-sm font-semibold text-gray-700 group-focus-within:text-orange-600 ">
+    {t('Payment Mode', 'பணம் செலுத்தும் முறை')}
+  </Label>
 
+  <div className="flex gap-2">
+    <Button
+      type="button"
+      variant="ghost"
+      className={`shadow-none border ${
+        form.paymentMode === 'cash'
+          ? 'border-orange-500 text-orange-600 bg-transparent hover:bg-transparent'
+          : 'border-gray-300 bg-transparent hover:bg-transparent'
+      }`}
+      onClick={() =>
+        setForm(prev => ({
+          ...prev,
+          paymentMode: 'cash',
+          accountId: null,
+        }))
+      }
+    >
+      {t('Cash', 'பணம்')}
+    </Button>
+
+    <Button
+      type="button"
+      variant="ghost"
+      className={`shadow-none border ${
+        form.paymentMode === 'bank'
+          ? 'border-orange-500 text-orange-600 bg-transparent hover:bg-transparent'
+          : 'border-gray-300 bg-transparent hover:bg-transparent'
+      }`}
+      onClick={() =>
+        setForm(prev => ({
+          ...prev,
+          paymentMode: 'bank',
+        }))
+      }
+    >
+      {t('Bank', 'வங்கி')}
+    </Button>
+
+    <Button
+      type="button"
+      variant="ghost"
+      className={`shadow-none border ${
+        form.paymentMode === 'upi'
+          ? 'border-orange-500 text-orange-600 bg-transparent hover:bg-transparent'
+          : 'border-gray-300 bg-transparent hover:bg-transparent'
+      }`}
+      onClick={() =>
+        setForm(prev => ({
+          ...prev,
+          paymentMode: 'upi',
+        }))
+      }
+    >
+      {t('UPI', 'UPI')}
+    </Button>
+  </div>
+</div>
                 {(form.paymentMode === 'bank' || form.paymentMode === 'upi') && (
                   <div className="space-y-2 group">
                     <Label className="text-sm font-semibold text-gray-700 group-focus-within:text-orange-600 transition-colors">

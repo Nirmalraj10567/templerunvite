@@ -50,7 +50,7 @@ export function DataTable<TData>({
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow>
+               <TableRow  className="whitespace-nowrap">
                 <TableCell colSpan={columns.length} className="h-24 text-center">
                   <div className="space-y-2">
                     {Array(5).fill(0).map((_, i) => (
@@ -73,7 +73,7 @@ export function DataTable<TData>({
                 </TableRow>
               ))
             ) : (
-              <TableRow>
+               <TableRow  className="whitespace-nowrap">
                 <TableCell colSpan={columns.length} className="h-24 text-center">
                   No results.
                 </TableCell>

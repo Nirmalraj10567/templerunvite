@@ -804,7 +804,7 @@ export default function HallListPage() {
                      </TableHeader>
                     <TableBody>
                        {rows.length === 0 ? (
-                         <TableRow>
+                          <TableRow  className="whitespace-nowrap">
                            <TableCell colSpan={visibleColCount} className={tableClasses.emptyState}>
                              {t('No records found', 'பதிவுகள் கிடைக்கவில்லை')}
                            </TableCell>

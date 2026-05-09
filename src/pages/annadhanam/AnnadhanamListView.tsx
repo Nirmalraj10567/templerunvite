@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, PlusCircle, Loader2, Eye, Edit, Trash2, Calendar, Users, Clock, FileDown, FileSpreadsheet } from "lucide-react";
+import { Search, PlusCircle, Loader2, Eye, Edit, Trash2, Calendar, Users, Clock, FileDown, FileSpreadsheet, ChevronRight, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +33,13 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn, pageContainerStyles, formFieldStyles } from "@/styles/formStyles";
@@ -40,6 +47,16 @@ import { theme, tableClasses, buttonClasses } from '@/styles/theme';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import apiClient from "@/lib/apiClient";
+
+interface AnnadhanamSlot {
+  id: number;
+  annadhanam_id: number;
+  donation_date: string;
+  time_slot: string;
+  donation_time: string;
+  food_details: string;
+  count: number;
+}
 
 interface Annadhanam {
   id: number;
@@ -59,6 +76,8 @@ interface Annadhanam {
   quantity?: number;
   unit?: string;
   amount?: number;
+  enable_multi_slot?: number | boolean;
+  food_details?: AnnadhanamSlot[];
 }
 
 interface AnnadhanamFormData {
@@ -86,7 +105,7 @@ interface AnnadhanamLog {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 1. VISIBLE COLUMNS STATE & TYPES
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-type ColKey = '#' | 'receipt_number' | 'name' | 'mobile_number' | 'food' | 'qty' | 'peoples' | 'date_range' | 'time' | 'actions';
+type ColKey = '#' | 'receipt_number' | 'name' | 'mobile_number' | 'donation_type' | 'food' | 'qty' | 'peoples' | 'multi_slot' | 'date_range' | 'time' | 'actions';
 
 const STORAGE_KEY = 'annadhanam_visible_cols_v1';
 const defaultVisibleCols: Record<ColKey, boolean> = {
@@ -94,9 +113,11 @@ const defaultVisibleCols: Record<ColKey, boolean> = {
   'receipt_number': true,
   'name': true,
   'mobile_number': true,
+  'donation_type': true,
   'food': true,
   'qty': true,
   'peoples': true,
+  'multi_slot': true,
   'date_range': true,
   'time': true,
   'actions': true,
@@ -115,9 +136,15 @@ const allColDefs: Array<{
   { key: 'receipt_number', label: 'Receipt No', labelTa: 'ரசீது எண்', getValue: (r) => r.receipt_number || '' },
   { key: 'name', label: 'Name', labelTa: 'பெயர்', getValue: (r) => r.name || '' },
   { key: 'mobile_number', label: 'Mobile', labelTa: 'செல்', getValue: (r) => r.mobile_number || '' },
+  { key: 'donation_type', label: 'Donation Type', labelTa: 'நன்கொடை வகை', getValue: (r) => {
+    if (r.donation_type === 'product') return 'Product';
+    if (r.donation_type === 'money') return 'Money';
+    return 'Food';
+  }},
   { key: 'food', label: 'Items/Product', labelTa: 'பொருள்', getValue: (r) => {
     if (r.donation_type === 'product' && r.product_name) return r.product_name;
     if (r.donation_type === 'money') return `Money: ${r.amount || ''}`;
+    if (r.enable_multi_slot) return 'Multi-Slot Food Donation';
     return r.food || '';
   }},
   { key: 'qty', label: 'Qty', labelTa: 'அளவு', getValue: (r) => {
@@ -126,7 +153,8 @@ const allColDefs: Array<{
     }
     return '-';
   }},
-  { key: 'peoples', label: 'People', labelTa: 'மக்கள்', getValue: (r) => r.peoples ?? '' },
+  { key: 'peoples', label: 'Total Qty', labelTa: 'மொத்த அளவு', getValue: (r) => r.peoples ?? '' },
+  { key: 'multi_slot', label: 'Multi Slot', labelTa: 'பல இடங்கள்', getValue: (r) => (r.enable_multi_slot ? 'Yes' : 'No') },
   { key: 'date_range', label: 'Date Range', labelTa: 'தேதி', getValue: (r) => {
       const from = formatDateStatic(r.from_date);
       const to = formatDateStatic(r.to_date);
@@ -203,6 +231,13 @@ export default function AnnadhanamListView() {
   const [viewEditAnnadhanam, setViewEditAnnadhanam] = useState<Annadhanam | null>(null);
   const [isViewEditOpen, setIsViewEditOpen] = useState(false);
   const [editedAnnadhanam, setEditedAnnadhanam] = useState<Partial<AnnadhanamFormData>>({});
+  const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
+  const [donationTypeFilter, setDonationTypeFilter] = useState<string>("all");
+  const [isMultiSlotFilter, setIsMultiSlotFilter] = useState<string>("all");
+
+  const toggleRow = (id: number) => {
+    setExpandedRows(prev => ({ ...prev, [id]: !prev[id] }));
+  };
   
   // Logs modal state
   const [logsFor, setLogsFor] = useState<number | null>(null);
@@ -425,7 +460,10 @@ export default function AnnadhanamListView() {
   const fetchAnnadhanam = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`https://templeapi.agniplay.com/api/annadhanam?page=${pagination.pageIndex + 1}&per_page=${pagination.pageSize}&search=${encodeURIComponent(searchTerm)}&sort=receipt_number&order=desc`, {
+      const donationParam = donationTypeFilter !== 'all' ? `&donationType=${donationTypeFilter}` : '';
+      const slotParam = isMultiSlotFilter !== 'all' ? `&isMultiSlot=${isMultiSlotFilter === 'multi'}` : '';
+      
+      const response = await fetch(`https://templeapi.agniplay.com/api/annadhanam?page=${pagination.pageIndex + 1}&per_page=${pagination.pageSize}&search=${encodeURIComponent(searchTerm)}${donationParam}${slotParam}&sort=receipt_number&order=desc`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch annadhanam data');
@@ -514,11 +552,46 @@ export default function AnnadhanamListView() {
 
       // 2. Build table data - export ALL rows, not paginated
       const headCells = activeCols.map(c => t(c.label, c.labelTa || c.label));
-      const exportRows = data.map((r, idx) => activeCols.map(c => {
-        const val = c.getValue(r, idx);
-        // CRITICAL: NEVER use ₹ - use "Rs." instead
-        return typeof val === 'string' ? val.replace(/₹/g, 'Rs.') : val;
-      }));
+      
+      const exportRows: any[] = [];
+      data.forEach((r, idx) => {
+        // Master Row
+        const masterRow = activeCols.map(c => {
+          const val = c.getValue(r, idx);
+          return typeof val === 'string' ? val.replace(/₹/g, 'Rs.') : val;
+        });
+        exportRows.push(masterRow);
+
+        // If multi-slot, add children rows
+        if (r.enable_multi_slot && r.food_details && r.food_details.length > 0) {
+          // Add a spacer/header row for slots
+          const slotHeader = activeCols.map(c => {
+            if (c.key === 'food') return `--- ${t('SLOT DETAILS', 'இடங்கள் விவரங்கள்')} ---`;
+            return '';
+          });
+          exportRows.push(slotHeader);
+
+          r.food_details.forEach(slot => {
+            const slotRow = activeCols.map(c => {
+              if (c.key === 'date_range') return formatDateStatic(slot.donation_date);
+              if (c.key === 'time') return `${slot.time_slot} (${slot.donation_time})`;
+              if (c.key === 'food') return `  ↳ ${slot.food_details}`;
+              if (c.key === 'peoples') return slot.count;
+              if (c.key === 'multi_slot') return '';
+              if (c.key === 'donation_type') return '';
+              if (c.key === 'receipt_number') return '';
+              if (c.key === 'name') return '';
+              if (c.key === 'mobile_number') return '';
+              if (c.key === '#') return '';
+              return '';
+            });
+            exportRows.push(slotRow);
+          });
+          
+          // Add a small spacer after slots
+          exportRows.push(activeCols.map(() => ''));
+        }
+      });
 
       const doc = new jsPDF("landscape");
       const pageWidth = doc.internal.pageSize.getWidth();
@@ -665,7 +738,7 @@ export default function AnnadhanamListView() {
   useEffect(() => {
     fetchAnnadhanam();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.pageIndex, pagination.pageSize, searchTerm]);
+  }, [pagination.pageIndex, pagination.pageSize, searchTerm, donationTypeFilter, isMultiSlotFilter]);
 
   const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -809,6 +882,16 @@ export default function AnnadhanamListView() {
     return timeString;
   };
 
+  const getSlotRowColor = (timeSlot: string) => {
+    switch (timeSlot?.toLowerCase()) {
+      case 'morning': return 'bg-orange-50/50';
+      case 'afternoon': return 'bg-blue-50/50';
+      case 'evening': return 'bg-purple-50/50';
+      case 'night': return 'bg-indigo-50/50';
+      default: return '';
+    }
+  };
+
   return (
     <div className={pageContainerStyles.container}>
       <div className={cn(pageContainerStyles.content, "max-w-6xl")}>
@@ -840,10 +923,41 @@ export default function AnnadhanamListView() {
                       onKeyDown={handleSearch}
                     />
                   </div>
-                  <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>
-                    <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => setSearchTerm('')}>
+
+                  <div className="flex gap-2 items-center">
+                    <Select value={donationTypeFilter} onValueChange={setDonationTypeFilter}>
+                      <SelectTrigger className="h-8 w-[130px] text-xs">
+                        <SelectValue placeholder={t("Donation Type", "நன்கொடை வகை")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{t("All Types", "அனைத்து வகைகள்")}</SelectItem>
+                        <SelectItem value="food">{t("Food", "உணவு")}</SelectItem>
+                        <SelectItem value="product">{t("Product", "பொருள்")}</SelectItem>
+                        <SelectItem value="money">{t("Money", "பணம்")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Select value={isMultiSlotFilter} onValueChange={setIsMultiSlotFilter}>
+                      <SelectTrigger className="h-8 w-[130px] text-xs">
+                        <SelectValue placeholder={t("Slot Type", "இட வகை")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{t("All Slots", "அனைத்து இடங்கள்")}</SelectItem>
+                        <SelectItem value="single">{t("Single Slot", "ஒற்றை இடம்")}</SelectItem>
+                        <SelectItem value="multi">{t("Multi Slot", "பல இடங்கள்")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => {
+                      setSearchTerm('');
+                      setDonationTypeFilter('all');
+                      setIsMultiSlotFilter('all');
+                    }}>
                       {t('Clear', 'அழி')}
                     </Button>
+                  </div>
+
+                  <div className={formFieldStyles.moneyDonationList.filters.buttonContainer}>
                     {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
                         5. BUTTONS IN TOOLBAR
                       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
@@ -870,71 +984,171 @@ export default function AnnadhanamListView() {
                     <Table className={tableClasses.container}>
                       <TableHeader className={tableClasses.header}>
                         <TableRow className={tableClasses.row}>
+                          <TableHead className={cn(tableClasses.headerCell, "w-[40px]")}></TableHead>
                           {/* Render only visible columns */}
                           {allColDefs.filter(c => visibleCols[c.key] && c.key !== 'actions').map((col) => (
-                            <TableHead key={col.key} className={cn(tableClasses.headerCell, col.key === '#' ? tableClasses.headerCellSno : "text-left")}>
+                            <TableHead key={col.key} className={cn(tableClasses.headerCell, "whitespace-nowrap", col.key === '#' ? tableClasses.headerCellSno : "text-left")}>
                               {t(col.label, col.labelTa || col.label)}
                             </TableHead>
                           ))}
                           {visibleCols['actions'] && (
-                            <TableHead className={cn(tableClasses.headerCell, "text-right")}>{t("Actions", "செயல்கள்")}</TableHead>
+                            <TableHead className={cn(tableClasses.headerCell, "whitespace-nowrap text-right")}>{t("Actions", "செயல்கள்")}</TableHead>
                           )}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {data.length > 0 ? (
                           data.map((annadhanam, index) => (
-                            <TableRow key={annadhanam.id} className={tableClasses.row}>
-                              {allColDefs.filter(c => visibleCols[c.key] && c.key !== 'actions').map((col) => (
-                                <TableCell key={col.key} className={cn(tableClasses.cell, col.key === '#' ? tableClasses.cellSno : "", col.key === 'food' ? "max-w-xs truncate" : "")}>
-                                  {col.key === 'date_range' ? (
-                                    <div className="flex items-center">
-                                      <Calendar className="h-3 w-3 mr-1" />
-                                      <div className="text-xs">
-                                        <div>{formatDate(annadhanam.from_date)}</div>
-                                        {annadhanam.from_date !== annadhanam.to_date && (
-                                          <div className="text-muted-foreground">{t("to", "வரை")} {formatDate(annadhanam.to_date)}</div>
+                            <React.Fragment key={annadhanam.id}>
+                              <TableRow 
+                                className={cn(
+                                  tableClasses.row, 
+                                  expandedRows[annadhanam.id] ? "bg-orange-50/30" : "",
+                                  "cursor-pointer hover:bg-gray-50/80 transition-colors"
+                                )}
+                                onClick={() => annadhanam.enable_multi_slot && toggleRow(annadhanam.id)}
+                              >
+                                <TableCell className="py-2 text-center">
+                                  {annadhanam.enable_multi_slot ? (
+                                    expandedRows[annadhanam.id] ? (
+                                      <ChevronDown className="h-4 w-4 text-orange-600" />
+                                    ) : (
+                                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                                    )
+                                  ) : null}
+                                </TableCell>
+                                {allColDefs.filter(c => visibleCols[c.key] && c.key !== 'actions').map((col) => (
+                                  <TableCell key={col.key} className={cn(tableClasses.cell, col.key === '#' ? tableClasses.cellSno : "", col.key === 'food' ? "max-w-xs truncate" : "")}>
+                                    {col.key === 'date_range' ? (
+                                      <div className="flex items-center">
+                                        <Calendar className="h-3 w-3 mr-1 text-gray-400" />
+                                        <div className="text-[11px]">
+                                          <div>{formatDate(annadhanam.from_date)}</div>
+                                          {annadhanam.from_date !== annadhanam.to_date && (
+                                            <div className="text-muted-foreground">{t("to", "வரை")} {formatDate(annadhanam.to_date)}</div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ) : col.key === 'time' ? (
+                                      <div className="flex items-center">
+                                        <Clock className="h-3 w-3 mr-1 text-gray-400" />
+                                        {formatTime(annadhanam.time)}
+                                      </div>
+                                    ) : col.key === 'peoples' ? (
+                                      <div className="flex items-center justify-center font-semibold">
+                                        <Users className="h-3 w-3 mr-1 text-gray-400" />
+                                        {annadhanam.peoples}
+                                      </div>
+                                    ) : col.key === 'multi_slot' ? (
+                                      <div className="flex flex-col gap-1 items-center">
+                                        <span className={cn(
+                                          "px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider",
+                                          annadhanam.enable_multi_slot ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
+                                        )}>
+                                          {annadhanam.enable_multi_slot ? t('Yes', 'ஆம்') : t('No', 'இல்லை')}
+                                        </span>
+                                        {annadhanam.enable_multi_slot && annadhanam.food_details && (
+                                          <span className="bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded text-[9px] font-bold">
+                                            {annadhanam.food_details.length} {t('Slots', 'இடங்கள்')}
+                                          </span>
                                         )}
                                       </div>
+                                    ) : col.key === 'qty' ? (
+                                      <div className="flex items-center font-medium text-orange-700">
+                                        {col.getValue(annadhanam, index)}
+                                      </div>
+                                    ) : col.key === 'donation_type' ? (
+                                      <span className={cn(
+                                        "px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider",
+                                        annadhanam.donation_type === 'product' ? "bg-blue-100 text-blue-700" : 
+                                        annadhanam.donation_type === 'money' ? "bg-purple-100 text-purple-700" : 
+                                        "bg-orange-100 text-orange-700"
+                                      )}>
+                                        {col.getValue(annadhanam, index)}
+                                      </span>
+                                    ) : (
+                                      col.getValue(annadhanam, pagination.pageIndex * pagination.pageSize + index)
+                                    )}
+                                  </TableCell>
+                                ))}
+                                {visibleCols['actions'] && (
+                                  <TableCell className={cn(tableClasses.cell, tableClasses.actionCell)}>
+                                    <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                                      <Button variant="ghost" size="sm" onClick={() => handleEditClick(annadhanam)} className={cn(tableClasses.actionButtonSecondary, "h-5 w-5 p-0")}>
+                                        <Edit className="h-3 w-3" />
+                                      </Button>
+                                      <Button variant="ghost" size="sm" onClick={() => handleDownloadReceipt(annadhanam.id, annadhanam.receipt_number)} className="h-5 w-5 p-0 text-green-600 hover:text-green-700" title={t("Download Receipt PDF", "ரசீது PDF ஐ பதிவிறக்கு")}>
+                                        <FileDown className="h-3 w-3" />
+                                      </Button>
+                                      <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(annadhanam.id)} disabled={!isLastReceipt(annadhanam)} title={!isLastReceipt(annadhanam) ? t("Only the last receipt can be deleted", "கடைசி ரசீதை மட்டுமே நீக்க முடியும்") : ""} className={cn(!isLastReceipt(annadhanam) ? "opacity-50 cursor-not-allowed h-5 w-5 p-0" : tableClasses.actionButtonDanger, "h-5 w-5 p-0")}>
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
                                     </div>
-                                  ) : col.key === 'time' ? (
-                                    <div className="flex items-center">
-                                      <Clock className="h-3 w-3 mr-1" />
-                                      {formatTime(annadhanam.time)}
+                                  </TableCell>
+                                )}
+                              </TableRow>
+
+                              {/* Expandable Child Rows */}
+                              {annadhanam.enable_multi_slot && expandedRows[annadhanam.id] && (
+                                <TableRow className="bg-gray-50/40 border-l-4 border-l-orange-400">
+                                  <TableCell colSpan={allColDefs.filter(c => visibleCols[c.key]).length + 2} className="p-0">
+                                    <div className="px-12 py-4 animate-in slide-in-from-top-2 duration-200">
+                                      <div className="bg-white border border-gray-100 rounded-lg shadow-sm overflow-hidden">
+                                        <Table className="w-full text-[11px]">
+                                          <thead className="bg-gray-100/80 text-gray-600 uppercase font-bold">
+                                            <tr>
+                                              <th className="px-4 py-2 text-left">{t('Date', 'தேதி')}</th>
+                                              <th className="px-4 py-2 text-left">{t('Time Slot', 'நேரம் வகை')}</th>
+                                              <th className="px-4 py-2 text-left">{t('Time', 'நேரம்')}</th>
+                                              <th className="px-4 py-2 text-left">{t('Food Details', 'உணவு விவரங்கள்')}</th>
+                                              <th className="px-4 py-2 text-right">{t('Count', 'எண்ணிக்கை')}</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody className="divide-y divide-gray-50">
+                                            {annadhanam.food_details?.map((slot) => (
+                                              <tr key={slot.id} className={cn("hover:bg-gray-50/50 transition-colors", getSlotRowColor(slot.time_slot))}>
+                                                <td className="px-4 py-2 font-medium">
+                                                  <div className="flex items-center gap-1.5">
+                                                    <Calendar className="h-3 w-3 text-orange-400" />
+                                                    {formatDate(slot.donation_date)}
+                                                  </div>
+                                                </td>
+                                                <td className="px-4 py-2">
+                                                  <span className="capitalize">{slot.time_slot}</span>
+                                                </td>
+                                                <td className="px-4 py-2">
+                                                  <div className="flex items-center gap-1.5 text-gray-500">
+                                                    <Clock className="h-3 w-3" />
+                                                    {formatTime(slot.donation_time)}
+                                                  </div>
+                                                </td>
+                                                <td className="px-4 py-2 italic text-gray-700">
+                                                  {slot.food_details}
+                                                </td>
+                                                <td className="px-4 py-2 text-right font-bold text-orange-600">
+                                                  {slot.count}
+                                                </td>
+                                              </tr>
+                                            ))}
+                                            <tr className="bg-orange-50/30">
+                                              <td colSpan={4} className="px-4 py-2 text-right font-bold text-gray-600">
+                                                {t('Total People', 'மொத்த மக்கள் எண்ணிக்கை')}
+                                              </td>
+                                              <td className="px-4 py-2 text-right font-extrabold text-orange-700 border-t border-orange-200">
+                                                {annadhanam.peoples}
+                                              </td>
+                                            </tr>
+                                          </tbody>
+                                        </Table>
+                                      </div>
                                     </div>
-                                  ) : col.key === 'peoples' ? (
-                                    <div className="flex items-center justify-center">
-                                      <Users className="h-3 w-3 mr-1" />
-                                      {annadhanam.peoples}
-                                    </div>
-                                  ) : col.key === 'qty' ? (
-                                    <div className="flex items-center font-medium">
-                                      {col.getValue(annadhanam, index)}
-                                    </div>
-                                  ) : (
-                                    col.getValue(annadhanam, pagination.pageIndex * pagination.pageSize + index)
-                                  )}
-                                </TableCell>
-                              ))}
-                              {visibleCols['actions'] && (
-                                <TableCell className={cn(tableClasses.cell, tableClasses.actionCell)}>
-                                  <div className="flex items-center justify-end gap-1">
-                                    <Button variant="ghost" size="sm" onClick={() => handleEditClick(annadhanam)} className={cn(tableClasses.actionButtonSecondary, "h-5 w-5 p-0")}>
-                                      <Edit className="h-3 w-3" />
-                                    </Button>
-                                    <Button variant="ghost" size="sm" onClick={() => handleDownloadReceipt(annadhanam.id, annadhanam.receipt_number)} className="h-5 w-5 p-0 text-green-600 hover:text-green-700" title={t("Download Receipt PDF", "ரசீது PDF ஐ பதிவிறக்கு")}>
-                                      <FileDown className="h-3 w-3" />
-                                    </Button>
-                                    <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(annadhanam.id)} disabled={!isLastReceipt(annadhanam)} title={!isLastReceipt(annadhanam) ? t("Only the last receipt can be deleted", "கடைசி ரசீதை மட்டுமே நீக்க முடியும்") : ""} className={cn(!isLastReceipt(annadhanam) ? "opacity-50 cursor-not-allowed h-5 w-5 p-0" : tableClasses.actionButtonDanger, "h-5 w-5 p-0")}>
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                </TableCell>
+                                  </TableCell>
+                                </TableRow>
                               )}
-                            </TableRow>
+                            </React.Fragment>
                           ))
                         ) : (
-                          <TableRow>
+                           <TableRow  className="whitespace-nowrap">
                             <TableCell colSpan={allColDefs.filter(c => visibleCols[c.key]).length} className={tableClasses.emptyState}>
                               {t("No annadhanam entries found", "அன்னதானம் பதிவுகள் எதுவும் கிடைக்கவில்லை")}
                             </TableCell>

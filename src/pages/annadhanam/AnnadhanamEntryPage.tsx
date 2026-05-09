@@ -68,7 +68,7 @@ interface FoodEntry {
   timeSlot: 'Morning' | 'Afternoon' | 'Evening' | 'Night';
   time: string;
   foodDetails: string;
-  peopleCount: string;
+  count: string;
 }
 
 interface AnnadhanamFormData {
@@ -89,6 +89,7 @@ interface AnnadhanamFormData {
   toDate: string;
   entryDate: string;
   remarks?: string;
+  enableMultiSlot: boolean;
   foodEntries: FoodEntry[];
 }
 
@@ -119,17 +120,18 @@ export default function AnnadhanamEntryPage() {
         return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       })(),
       entryDate: new Date().toISOString().slice(0, 10),
+      enableMultiSlot: false,
       foodEntries: [{
         date: new Date().toISOString().slice(0, 10),
         timeSlot: 'Morning',
         time: '08:00',
         foodDetails: '',
-        peopleCount: '50'
+        count: '50'
       }]
     }
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control,
     name: "foodEntries"
   });
@@ -322,7 +324,7 @@ export default function AnnadhanamEntryPage() {
                       timeSlot: match[2] as any,
                       time: match[3],
                       foodDetails: match[4],
-                      peopleCount: match[5]
+                      count: match[5]
                     };
                   }
                   return null;
@@ -336,7 +338,7 @@ export default function AnnadhanamEntryPage() {
                   timeSlot: 'Morning',
                   time: normalizeTimeString(data.time) || '08:00',
                   foodDetails: storedFood,
-                  peopleCount: data.peoples?.toString() || '50'
+                  count: data.peoples?.toString() || '50'
                 }];
               }
             }
@@ -359,13 +361,22 @@ export default function AnnadhanamEntryPage() {
               toDate: normalizeDateString(data.to_date),
               entryDate: normalizeDateString(data.entry_date || data.from_date),
               remarks: data.remarks || '',
-              foodEntries: foodEntries.length > 0 ? foodEntries : [{
-                date: normalizeDateString(data.from_date),
-                timeSlot: 'Morning',
-                time: normalizeTimeString(data.time) || '08:00',
-                foodDetails: storedFood,
-                peopleCount: data.peoples?.toString() || '50'
-              }]
+              enableMultiSlot: !!data.enable_multi_slot,
+              foodEntries: (data.food_details && data.food_details.length > 0)
+                ? data.food_details.map((slot: any) => ({
+                    date: slot.donation_date,
+                    timeSlot: slot.time_slot,
+                    time: slot.donation_time,
+                    foodDetails: slot.food_details,
+                    count: slot.count?.toString() || '0'
+                  }))
+                : [{
+                    date: normalizeDateString(data.from_date),
+                    timeSlot: 'Morning',
+                    time: normalizeTimeString(data.time) || '08:00',
+                    foodDetails: storedFood,
+                    count: data.peoples?.toString() || '50'
+                  }]
             };
 
             reset(formData as AnnadhanamFormData);
@@ -498,61 +509,17 @@ export default function AnnadhanamEntryPage() {
     try {
       setIsSubmitting(true);
 
-      let mappedFood = '';
-      let mappedPeoples = 1;
-      let singleDate = data.fromDate;
-
-      if (data.donationType === 'food') {
-        // Concatenate all food entries into the food field
-        mappedFood = data.foodEntries.map(entry => 
-          `${entry.date} [${entry.timeSlot} ${entry.time}] : ${entry.foodDetails} (${entry.peopleCount})`
-        ).join(' | ');
-        
-        // Sum of all people counts
-        mappedPeoples = data.foodEntries.reduce((sum, entry) => sum + parseInt(entry.peopleCount || '0'), 0);
-        
-        // Use the first date as the primary date
-        singleDate = data.foodEntries[0]?.date || data.fromDate;
-      } else if (data.donationType === 'product') {
-        const pn = data.productName?.trim() || '';
-        const qty = data.quantity?.trim() || '';
-        const unit = data.unit?.trim() || '';
-        mappedFood = `Product: ${pn}${qty ? ` | Qty: ${qty}` : ''}${unit ? ` | Unit: ${unit}` : ''}`;
-        mappedPeoples = 1;
-      } else if (data.donationType === 'money') {
-        const amt = data.amount?.toString().trim() || '';
-        mappedFood = `Money: ${amt}`;
-        mappedPeoples = 1;
-      }
-
-      const payload: any = {
-        receipt_number: data.receiptNumber,
-        name: data.name,
-        mobile_number: data.mobileNumber,
-        food: mappedFood,
-        peoples: mappedPeoples,
-        time: data.time,
-        from_date: singleDate,
-        to_date: singleDate,
-        entry_date: data.entryDate,
-        remarks: data.remarks || '',
-        donation_type: data.donationType,
-        product_name: data.donationType === 'product' ? data.productName : null,
-        quantity: data.donationType === 'product' ? data.quantity : null,
-        unit: data.donationType === 'product' ? data.unit : null,
-        amount: data.donationType === 'money' ? data.amount : null
+      const payload = {
+        ...data,
+        food_details: data.foodEntries.map(entry => ({
+          date: entry.date,
+          timeSlot: entry.timeSlot,
+          time: entry.time,
+          foodDetails: entry.foodDetails,
+          count: entry.count
+        })),
+        enable_multi_slot: data.enableMultiSlot
       };
-
-      // Add payment mode fields for money donations
-      if (data.donationType === 'money') {
-        payload.paymentMode = data.paymentMode || 'cash';
-        if (data.paymentMode === 'bank' || data.paymentMode === 'upi') {
-          if (!data.accountId) {
-            throw new Error(t('Account is required for bank or UPI payments', 'வங்கி/UPI கட்டணத்திற்கு கணக்கு தேவை'));
-          }
-          payload.accountId = data.accountId;
-        }
-      }
 
       const url = id ? `https://templeapi.agniplay.com/api/annadhanam/${id}` : 'https://templeapi.agniplay.com/api/annadhanam';
       const method = id ? 'PUT' : 'POST';
@@ -620,7 +587,7 @@ export default function AnnadhanamEntryPage() {
                 timeSlot: 'Morning',
                 time: '08:00',
                 foodDetails: '',
-                peopleCount: '50'
+                count: '50'
               }]
             });
             fetchNextReceipt();
@@ -829,57 +796,25 @@ export default function AnnadhanamEntryPage() {
                   <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
                     {t('Entry Date', 'பதிவு தேதி')}
                   </Label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
-                    <Input
-                      id="entryDate"
-                      type="date"
-                      className={cn(theme.input.base, theme.input.size.md, `pl-10 bg-white border-gray-200 ${errors.entryDate ? 'border-red-500' : ''}`, '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')}
-                      {...register('entryDate', { required: t('Entry date is required', 'பதிவு தேதி கட்டாயம்') })}
-                      placeholder={t('Entry Date', 'பதிவு தேதி')}
-                    />
-                  </div>
+                      <div className="relative">
+                        <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
+                        <Input
+                          id="fromDate"
+                          type="date"
+                          className={cn(
+                            theme.input.base,
+                            theme.input.size.md,
+                            `pl-10 bg-white border-gray-200 ${errors.fromDate ? 'border-red-500' : ''}`,
+                            'date-picker-input'
+                          )}
+                          {...register('fromDate', { required: t('Booking date is required', 'முயற்சி தேதி கட்டாயம்') })}
+                          placeholder={t('Booking Date', 'முயற்சி தேதி')}
+                        />
+                      </div>
                   {errors.entryDate && <p className="text-red-500 text-xs mt-1">{errors.entryDate.message}</p>}
                 </div>
 
-                {/* 3. Booking Date */}
-                <div className="space-y-2 group">
-                  <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
-                    {t('Booking Date', 'முன்பதிவு தேதி')}
-                  </Label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
-                    <Input
-                      id="fromDate"
-                      type="date"
-                      className={cn(theme.input.base, theme.input.size.md, `pl-10 bg-white border-gray-200 ${errors.fromDate ? 'border-red-500' : ''}`, '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')}
-                      {...register('fromDate', { required: t('Booking date is required', 'முன்பதிவு தேதி கட்டாயம்') })}
-                      placeholder={t('Booking Date', 'முன்பதிவு தேதி')}
-                    />
-                  </div>
-                  {errors.fromDate && <p className="text-red-500 text-xs mt-1">{errors.fromDate.message}</p>}
-                </div>
-
-                {/* 4. Time */}
-                <div className="space-y-2 group">
-                  <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
-                    {t('Time', 'நேரம்')}
-                  </Label>
-                  <div className="relative">
-                    <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
-                    <Input
-                      id="time"
-                      type="time"
-                      className={cn(theme.input.base, theme.input.size.md, `pl-10 bg-white border-gray-200 ${errors.time ? 'border-red-500' : ''}`, '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer')}
-                      {...register('time', { required: t('Time is required', 'நேரம் கட்டாயம்') })}
-                      onClick={(e) => (e.target as any).showPicker?.()}
-                      placeholder={t('Time', 'நேரம்')}
-                    />
-                  </div>
-                  {errors.time && <p className="text-red-500 text-xs mt-1">{errors.time.message}</p>}
-                </div>
-
-                {/* 5. Name */}
+                {/* 3. Name */}
                 <div className="space-y-2 group">
                   <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
                     {t('Name', 'பெயர்')}
@@ -901,7 +836,7 @@ export default function AnnadhanamEntryPage() {
                   {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
                 </div>
 
-                {/* 6. Mobile Number */}
+                {/* 4. Mobile Number */}
                 <div className="space-y-2 group">
                   <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
                     {t('Mobile Number', 'கைபேசி எண்')}
@@ -935,7 +870,7 @@ export default function AnnadhanamEntryPage() {
                   {errors.mobileNumber && <p className="text-red-500 text-xs mt-1">{errors.mobileNumber.message}</p>}
                 </div>
 
-                {/* 7. Donation Type */}
+                {/* 5. Donation Type */}
                 <div className="space-y-2 group">
                   <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
                     {t('Donation Type', 'நன்கொடை வகை')}
@@ -947,9 +882,9 @@ export default function AnnadhanamEntryPage() {
                       {...register('donationType', { required: t('Donation type is required', 'நன்கொடை வகை கட்டாயம்') })}
                       defaultValue="food"
                     >
+                      <option value="money">{t('Money', 'பண')}</option>
+                      <option value="product">{t('Product Donation', 'பொருள்')}</option>
                       <option value="food">{t('Food', 'உணவு')}</option>
-                      <option value="product">{t('Product', 'பொருள்')}</option>
-                      <option value="money">{t('Money', 'பணம்')}</option>
                     </select>
                     <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -962,6 +897,47 @@ export default function AnnadhanamEntryPage() {
                   {errors.donationType && <p className="text-red-500 text-xs mt-1">{errors.donationType.message}</p>}
                 </div>
 
+                {/* 6. Enable Multiple Time Slots (Moved to 3rd column) */}
+                {watch('donationType') === 'food' && (
+                  <div className="space-y-2 group">
+                    <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
+                      {t('Multi-Slot Option', 'பல நேர இடங்கள்')}
+                    </Label>
+                    <div className="flex items-center space-x-3 p-3 bg-gradient-to-r from-orange-50 to-red-50 rounded-lg border border-orange-100 h-[42px]">
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          id="enableMultiSlot"
+                          className="sr-only peer"
+                          checked={watch('enableMultiSlot')}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            if (!checked && fields.length > 1) {
+                              if (window.confirm(t('Disabling multiple slots will remove all entries except the first one. Do you want to continue?', 'பல நேர இடங்களை முடக்குவது முதல் உள்ளீட்டைத் தவிர மற்ற அனைத்தையும் நீக்கும். நீங்கள் தொடர விரும்புகிறீர்களா?'))) {
+                                const firstRow = fields[0];
+                                replace([{
+                                  date: firstRow.date,
+                                  timeSlot: firstRow.timeSlot,
+                                  time: firstRow.time,
+                                  foodDetails: firstRow.foodDetails,
+                                  count: firstRow.count
+                                }]);
+                                setValue('enableMultiSlot', false, { shouldValidate: true });
+                              }
+                            } else {
+                              setValue('enableMultiSlot', checked, { shouldValidate: true });
+                            }
+                          }}
+                        />
+                        <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                      </label>
+                      <Label htmlFor="enableMultiSlot" className="text-sm font-medium text-gray-700 cursor-pointer">
+                        {t('Enable Multiple Time Slots', 'பல நேர இடங்களை இயக்கு')}
+                      </Label>
+                    </div>
+                  </div>
+                )}
+              
                 {/* Dynamic Fields Based on Donation Type */}
                 {watch('donationType') === 'food' && (
                   <div className="col-span-full space-y-4">
@@ -969,65 +945,233 @@ export default function AnnadhanamEntryPage() {
                       <Label className="text-lg font-semibold text-gray-800">
                         {t('Food Donation Details', 'உணவு நன்கொடை விவரங்கள்')}
                       </Label>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => append({ 
-                          date: new Date().toISOString().slice(0, 10), 
-                          timeSlot: 'Morning', 
-                          time: '08:00', 
-                          foodDetails: '', 
-                          peopleCount: '50' 
-                        })}
-                        className="text-orange-600 border-orange-200 hover:bg-orange-50 shadow-sm"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        {t('Add Row', 'வரிசையைச் சேர்க்கவும்')}
-                      </Button>
+                      {watch('enableMultiSlot') && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => append({ 
+                            date: new Date().toISOString().slice(0, 10), 
+                            timeSlot: 'Morning', 
+                            time: '08:00', 
+                            foodDetails: '', 
+                            count: '50' 
+                          })}
+                          className="text-orange-600 border-orange-200 hover:bg-orange-50 shadow-sm"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          {t('Add Row', 'வரிசையைச் சேர்க்கவும்')}
+                        </Button>
+                      )}
                     </div>
 
-                    <div className="border border-gray-200 rounded-lg overflow-x-auto shadow-sm bg-white">
-                      <table className="w-full text-sm text-left">
-                        <thead className="bg-gray-50 text-gray-700 uppercase text-xs font-semibold">
-                          <tr>
-                            <th className="px-4 py-3 border-b whitespace-nowrap">{t('Date', 'தேதி')}</th>
-                            <th className="px-4 py-3 border-b whitespace-nowrap">{t('Time Slot', 'நேரம் வகை')}</th>
-                            <th className="px-4 py-3 border-b whitespace-nowrap">{t('Time', 'நேரம்')}</th>
-                            <th className="px-4 py-3 border-b whitespace-nowrap">{t('Food Details', 'உணவு விவரங்கள்')}</th>
-                            <th className="px-4 py-3 border-b whitespace-nowrap">{t('Count', 'எண்ணிக்கை')}</th>
-                            <th className="px-4 py-3 border-b text-center">{t('Action', 'செயல்')}</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                          {fields.map((field, index) => (
-                            <tr key={field.id} className="hover:bg-gray-50 transition-colors">
-                              <td className="px-3 py-2 min-w-[150px]">
+                    <div className="border border-gray-200 rounded-lg shadow-sm bg-white overflow-hidden">
+                      <div className="hidden md:block overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                          <thead className="bg-gradient-to-r from-orange-100 to-red-100 text-gray-700 uppercase text-xs font-semibold">
+                            <tr>
+                              <th className="px-4 py-3 border-b whitespace-nowrap">{t('Date', 'தேதி')}</th>
+                              <th className="px-4 py-3 border-b whitespace-nowrap">{t('Time Slot', 'நேரம் வகை')}</th>
+                              <th className="px-4 py-3 border-b whitespace-nowrap">{t('Time', 'நேரம்')}</th>
+                              <th className="px-4 py-3 border-b whitespace-nowrap">{t('Food Details', 'உணவு விவரங்கள்')}</th>
+                              <th className="px-4 py-3 border-b whitespace-nowrap">{t('Count', 'எண்ணிக்கை')}</th>
+                              {watch('enableMultiSlot') && (
+                                <th className="px-4 py-3 border-b text-center">{t('Action', 'செயல்')}</th>
+                              )}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {fields.map((field, index) => (
+                              <tr key={field.id} className="hover:bg-orange-50/50 transition-colors">
+                                <td className="px-3 py-3 min-w-[150px]">
+                                  <Input
+                                    type="date"
+                                    {...register(`foodEntries.${index}.date` as const, { required: true })}
+                                    className="h-10 text-sm border-orange-200 focus:ring-orange-500 focus:border-orange-500 rounded-lg"
+                                  />
+                                </td>
+                                <td className="px-3 py-3 min-w-[130px]">
+                                  <select
+                                    {...register(`foodEntries.${index}.timeSlot` as const, { required: true })}
+                                    className="w-full h-10 text-sm rounded-lg border border-orange-200 px-3 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none bg-white font-medium"
+                                  >
+                                    <option value="Morning">{t('Morning', 'காலை')}</option>
+                                    <option value="Afternoon">{t('Afternoon', 'மதியம்')}</option>
+                                    <option value="Evening">{t('Evening', 'மாலை')}</option>
+                                    <option value="Night">{t('Night', 'இரவு')}</option>
+                                  </select>
+                                </td>
+                                <td className="px-3 py-3 min-w-[120px]">
+                                  <Input
+                                    type="time"
+                                    step="60"
+                                    {...register(`foodEntries.${index}.time` as const, { required: true })}
+                                    className="h-10 text-sm border-orange-200 focus:ring-orange-500 focus:border-orange-500 rounded-lg"
+                                  />
+                                </td>
+                                <td className="px-3 py-3 min-w-[200px] relative">
+                                  <div className="relative" ref={activeFoodRow === index ? foodDropdownRef : null}>
+                                    <Input
+                                      {...register(`foodEntries.${index}.foodDetails` as const, { required: true })}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setActiveFoodRow(index);
+                                        setFoodSearchQuery(val);
+                                        setValue(`foodEntries.${index}.foodDetails`, val, { shouldValidate: true });
+                                        if (val.length > 0) {
+                                          searchFoodItems(val);
+                                          setShowFoodDropdown(true);
+                                        } else {
+                                          setShowFoodDropdown(false);
+                                        }
+                                      }}
+                                      onFocus={() => {
+                                        setActiveFoodRow(index);
+                                        const currentVal = watch(`foodEntries.${index}.foodDetails`);
+                                        setFoodSearchQuery(currentVal || '');
+                                        if (foodItems.length > 0 || (currentVal && currentVal.length > 0)) {
+                                          setShowFoodDropdown(true);
+                                        }
+                                      }}
+                                      placeholder={t('e.g. Idli & Sambar', 'உதா: இட்லி & சாம்பார்')}
+                                      className="h-10 text-sm border-orange-200 focus:ring-orange-500 focus:border-orange-500 rounded-lg"
+                                    />
+                                    {showFoodDropdown && activeFoodRow === index && (
+                                      <div className="absolute z-50 w-full left-0 top-full mt-1 bg-white border border-orange-200 rounded-lg shadow-xl max-h-60 overflow-auto py-1">
+                                        {foodItems.length > 0 ? (
+                                          <>
+                                            {foodItems.map((item) => (
+                                              <div
+                                                key={item.id}
+                                                className="px-4 py-3 hover:bg-orange-50 cursor-pointer text-sm text-gray-700 transition-colors"
+                                                onClick={() => {
+                                                  setValue(`foodEntries.${index}.foodDetails`, item.name, { shouldValidate: true });
+                                                  setFoodSearchQuery(item.name);
+                                                  setShowFoodDropdown(false);
+                                                  setActiveFoodRow(null);
+                                                }}
+                                              >
+                                                {item.name}
+                                              </div>
+                                            ))}
+                                            {foodSearchQuery && !foodItems.some(i => i.name?.toLowerCase() === foodSearchQuery.toLowerCase()) && (
+                                              <div
+                                                className={`px-4 py-3 cursor-pointer text-sm border-t border-orange-100 flex items-center gap-2 ${addingFoodName === foodSearchQuery
+                                                  ? 'bg-green-100 text-green-800'
+                                                  : 'hover:bg-green-50 text-green-700'
+                                                  }`}
+                                                onClick={() => !addingFoodName && addNewFoodItem(foodSearchQuery)}
+                                              >
+                                                {addingFoodName === foodSearchQuery ? (
+                                                  <>
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                    {t(`Adding "${foodSearchQuery}"...`, `"${foodSearchQuery}" சேர்க்கப்படுகிறது...`)}
+                                                  </>
+                                                ) : (
+                                                  <>
+                                                    <Plus className="w-4 h-4" />
+                                                    {t(`Add "${foodSearchQuery}" to master`, `"${foodSearchQuery}" ஐ முதன்மை தரவில் சேர்க்க`)}
+                                                  </>
+                                                )}
+                                              </div>
+                                            )}
+                                          </>
+                                        ) : foodSearchQuery ? (
+                                          <div
+                                            className="px-4 py-3 hover:bg-green-50 cursor-pointer text-sm text-green-700 flex items-center gap-2"
+                                            onClick={() => addNewFoodItem(foodSearchQuery)}
+                                          >
+                                            <Plus className="w-4 h-4" />
+                                            {t(`Add "${foodSearchQuery}" to master`, `"${foodSearchQuery}" ஐ முதன்மை தரவில் சேர்க்க`)}
+                                          </div>
+                                        ) : (
+                                          <div className="px-4 py-3 text-sm text-gray-500 italic">
+                                            {t('Type to search...', 'தேட தட்டச்சு செய்யவும்...')}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-3 py-3 min-w-[100px]">
+                                  <Input
+                                    type="number"
+                                    {...register(`foodEntries.${index}.count` as const, { required: true, min: 1 })}
+                                    className="h-10 text-sm border-orange-200 focus:ring-orange-500 focus:border-orange-500 rounded-lg"
+                                  />
+                                </td>
+                                {watch('enableMultiSlot') && (
+                                  <td className="px-3 py-3 text-center">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => remove(index)}
+                                      disabled={fields.length === 1}
+                                      className="text-red-500 hover:text-red-700 hover:bg-red-50 h-10 w-10 p-0 rounded-lg"
+                                    >
+                                      <X className="w-5 h-5" />
+                                    </Button>
+                                  </td>
+                                )}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="md:hidden space-y-4 p-4">
+                        {fields.map((field, index) => (
+                          <div key={field.id} className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl p-4 border border-orange-100 shadow-sm">
+                            <div className="flex items-center justify-between mb-3">
+                              <span className="text-xs font-semibold text-orange-600 uppercase tracking-wide">
+                                {t('Entry', 'உள்ளீடு')} #{index + 1}
+                              </span>
+                              {watch('enableMultiSlot') && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => remove(index)}
+                                  disabled={fields.length === 1}
+                                  className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0 rounded-full"
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
+                            <div className="space-y-3">
+                              <div className="space-y-1">
+                                <Label className="text-xs font-medium text-gray-600">{t('Date', 'தேதி')}</Label>
                                 <Input
                                   type="date"
                                   {...register(`foodEntries.${index}.date` as const, { required: true })}
-                                  className="h-9 text-xs border-gray-200 focus:ring-orange-500"
+                                  className="h-10 text-sm border-orange-200 focus:ring-orange-500 focus:border-orange-500 rounded-lg bg-white"
                                 />
-                              </td>
-                              <td className="px-3 py-2 min-w-[120px]">
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs font-medium text-gray-600">{t('Time Slot', 'நேரம் வகை')}</Label>
                                 <select
                                   {...register(`foodEntries.${index}.timeSlot` as const, { required: true })}
-                                  className="w-full h-9 text-xs rounded-md border border-gray-200 px-2 focus:ring-1 focus:ring-orange-500 outline-none bg-white"
+                                  className="w-full h-10 text-sm rounded-lg border border-orange-200 px-3 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none bg-white font-medium"
                                 >
                                   <option value="Morning">{t('Morning', 'காலை')}</option>
                                   <option value="Afternoon">{t('Afternoon', 'மதியம்')}</option>
                                   <option value="Evening">{t('Evening', 'மாலை')}</option>
                                   <option value="Night">{t('Night', 'இரவு')}</option>
                                 </select>
-                              </td>
-                              <td className="px-3 py-2 min-w-[110px]">
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs font-medium text-gray-600">{t('Time', 'நேரம்')}</Label>
                                 <Input
                                   type="time"
+                                  step="60"
                                   {...register(`foodEntries.${index}.time` as const, { required: true })}
-                                  className="h-9 text-xs border-gray-200 focus:ring-orange-500"
+                                  className="h-10 text-sm border-orange-200 focus:ring-orange-500 focus:border-orange-500 rounded-lg bg-white"
                                 />
-                              </td>
-                              <td className="px-3 py-2 min-w-[200px] relative">
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs font-medium text-gray-600">{t('Food Details', 'உணவு விவரங்கள்')}</Label>
                                 <div className="relative" ref={activeFoodRow === index ? foodDropdownRef : null}>
                                   <Input
                                     {...register(`foodEntries.${index}.foodDetails` as const, { required: true })}
@@ -1052,88 +1196,54 @@ export default function AnnadhanamEntryPage() {
                                       }
                                     }}
                                     placeholder={t('e.g. Idli & Sambar', 'உதா: இட்லி & சாம்பார்')}
-                                    className="h-9 text-xs border-gray-200 focus:ring-orange-500"
+                                    className="h-10 text-sm border-orange-200 focus:ring-orange-500 focus:border-orange-500 rounded-lg bg-white"
                                   />
                                   {showFoodDropdown && activeFoodRow === index && (
-                                    <div className="absolute z-50 w-full left-0 top-full mt-1 bg-white border border-gray-200 rounded-md shadow-xl max-h-60 overflow-auto py-1">
+                                    <div className="absolute z-50 w-full left-0 top-full mt-1 bg-white border border-orange-200 rounded-lg shadow-xl max-h-48 overflow-auto py-1">
                                       {foodItems.length > 0 ? (
-                                        <>
-                                          {foodItems.map((item) => (
-                                            <div
-                                              key={item.id}
-                                              className="px-4 py-2 hover:bg-orange-50 cursor-pointer text-sm text-gray-700 transition-colors"
-                                              onClick={() => {
-                                                setValue(`foodEntries.${index}.foodDetails`, item.name, { shouldValidate: true });
-                                                setFoodSearchQuery(item.name);
-                                                setShowFoodDropdown(false);
-                                                setActiveFoodRow(null);
-                                              }}
-                                            >
-                                              {item.name}
-                                            </div>
-                                          ))}
-                                          {foodSearchQuery && !foodItems.some(i => i.name?.toLowerCase() === foodSearchQuery.toLowerCase()) && (
-                                            <div
-                                              className={`px-4 py-2 cursor-pointer text-sm border-t border-gray-100 flex items-center gap-2 ${addingFoodName === foodSearchQuery
-                                                ? 'bg-green-100 text-green-800'
-                                                : 'hover:bg-green-50 text-green-700'
-                                                }`}
-                                              onClick={() => !addingFoodName && addNewFoodItem(foodSearchQuery)}
-                                            >
-                                              {addingFoodName === foodSearchQuery ? (
-                                                <>
-                                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                                  {t(`Adding "${foodSearchQuery}"...`, `"${foodSearchQuery}" சேர்க்கப்படுகிறது...`)}
-                                                </>
-                                              ) : (
-                                                <>
-                                                  <Plus className="w-4 h-4" />
-                                                  {t(`Add "${foodSearchQuery}" to master`, `"${foodSearchQuery}" ஐ முதன்மை தரவில் சேர்க்க`)}
-                                                </>
-                                              )}
-                                            </div>
-                                          )}
-                                        </>
+                                        foodItems.map((item) => (
+                                          <div
+                                            key={item.id}
+                                            className="px-4 py-3 hover:bg-orange-50 cursor-pointer text-sm text-gray-700 transition-colors"
+                                            onClick={() => {
+                                              setValue(`foodEntries.${index}.foodDetails`, item.name, { shouldValidate: true });
+                                              setFoodSearchQuery(item.name);
+                                              setShowFoodDropdown(false);
+                                              setActiveFoodRow(null);
+                                            }}
+                                          >
+                                            {item.name}
+                                          </div>
+                                        ))
                                       ) : foodSearchQuery ? (
                                         <div
-                                          className="px-4 py-2 hover:bg-green-50 cursor-pointer text-sm text-green-700 flex items-center gap-2"
+                                          className="px-4 py-3 hover:bg-green-50 cursor-pointer text-sm text-green-700 flex items-center gap-2"
                                           onClick={() => addNewFoodItem(foodSearchQuery)}
                                         >
                                           <Plus className="w-4 h-4" />
-                                          {t(`Add "${foodSearchQuery}" to master`, `"${foodSearchQuery}" ஐ முதன்மை தரவில் சேர்க்க`)}
+                                          {t(`Add "${foodSearchQuery}"`, `"${foodSearchQuery}" சேர்`)}
                                         </div>
                                       ) : (
-                                        <div className="px-4 py-2 text-sm text-gray-500 italic">
-                                          {t('Type to search...', 'தேட தட்டச்சு செய்யவும்...')}
+                                        <div className="px-4 py-3 text-sm text-gray-500 italic">
+                                          {t('Type to search...', 'தேட...')}
                                         </div>
                                       )}
                                     </div>
                                   )}
                                 </div>
-                              </td>
-                              <td className="px-3 py-2 min-w-[100px]">
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs font-medium text-gray-600">{t('Count', 'எண்ணிக்கை')}</Label>
                                 <Input
                                   type="number"
-                                  {...register(`foodEntries.${index}.peopleCount` as const, { required: true, min: 1 })}
-                                  className="h-9 text-xs border-gray-200 focus:ring-orange-500"
+                                  {...register(`foodEntries.${index}.count` as const, { required: true, min: 1 })}
+                                  className="h-10 text-sm border-orange-200 focus:ring-orange-500 focus:border-orange-500 rounded-lg bg-white"
                                 />
-                              </td>
-                              <td className="px-3 py-2 text-center">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => remove(index)}
-                                  disabled={fields.length === 1}
-                                  className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
-                                >
-                                  <X className="w-4 h-4" />
-                                </Button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                     <div className="space-y-2 group">
                       <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
@@ -1158,6 +1268,42 @@ export default function AnnadhanamEntryPage() {
 
                 {watch('donationType') === 'product' && (
                   <>
+                    {/* Booking Date & Time */}
+                    <div className="space-y-2 group">
+                      <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
+                        {t('Booking Date', 'முயற்சி தேதி')}
+                      </Label>
+                      <div className="relative">
+                        <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
+                        <Input
+                          id="fromDate"
+                          type="date"
+                          className={cn(theme.input.base, theme.input.size.md, `pl-10 bg-white border-gray-200 ${errors.fromDate ? 'border-red-500' : ''}`, 'date-picker-input')}
+                          {...register('fromDate', { required: t('Booking date is required', 'முயற்சி தேதி கட்டாயம்') })}
+                          placeholder={t('Booking Date', 'முயற்சி தேதி')}
+                        />
+                      </div>
+                      {errors.fromDate && <p className="text-red-500 text-xs mt-1">{errors.fromDate.message}</p>}
+                    </div>
+
+                    <div className="space-y-2 group">
+                      <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
+                        {t('Time', 'நேரம்')}
+                      </Label>
+                      <div className="relative">
+                        <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
+                        <Input
+                          id="time"
+                          type="time"
+                          step="60"
+                          className={cn(theme.input.base, theme.input.size.md, `pl-10 bg-white border-gray-200 ${errors.time ? 'border-red-500' : ''}`)}
+                          {...register('time', { required: t('Time is required', 'நேரம் கட்டாயம்') })}
+                          placeholder={t('Select time', 'நேரத்தைத் தேர்வுசெய்யவும்')}
+                        />
+                      </div>
+                      {errors.time && <p className="text-red-500 text-xs mt-1">{errors.time.message}</p>}
+                    </div>
+
                     <div className="space-y-2 group" ref={productDropdownRef}>
                       <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
                         {t('Product Name', 'பொருள் பெயர்')}
@@ -1310,15 +1456,52 @@ export default function AnnadhanamEntryPage() {
 
                 {watch('donationType') === 'money' && (
                   <>
+                    {/* Booking Date & Time */}
+                    <div className="space-y-2 group">
+                      <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
+                        {t('Booking Date', 'முயற்சி தேதி')}
+                      </Label>
+                      <div className="relative">
+                        <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
+                        <Input
+                          id="fromDate"
+                          type="date"
+                          className={cn(theme.input.base, theme.input.size.md, `pl-10 bg-white border-gray-200 ${errors.fromDate ? 'border-red-500' : ''}`, 'date-picker-input')}
+                          {...register('fromDate', { required: t('Booking date is required', 'முயற்சி தேதி கட்டாயம்') })}
+                          placeholder={t('Booking Date', 'முயற்சி தேதி')}
+                        />
+                      </div>
+                      {errors.fromDate && <p className="text-red-500 text-xs mt-1">{errors.fromDate.message}</p>}
+                    </div>
+
+                    <div className="space-y-2 group">
+                      <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
+                        {t('Time', 'நேரம்')}
+                      </Label>
+                      <div className="relative">
+                        <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
+                        <Input
+                          id="time"
+                          type="time"
+                          step="60"
+                          className={cn(theme.input.base, theme.input.size.md, `pl-10 bg-white border-gray-200 ${errors.time ? 'border-red-500' : ''}`)}
+                          {...register('time', { required: t('Time is required', 'நேரம் கட்டாயம்') })}
+                          placeholder={t('Select time', 'நேரத்தைத் தேர்வுசெய்யவும்')}
+                        />
+                      </div>
+                      {errors.time && <p className="text-red-500 text-xs mt-1">{errors.time.message}</p>}
+                    </div>
+
                     <div className="space-y-2 group">
                       <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2 group-focus-within:text-orange-600 transition-colors">
                         {t('Amount', 'தொகை')}
                       </Label>
                       <div className="relative">
+                        <IndianRupee className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <Input
                           id="amount"
                           type="number"
-                          className={cn(theme.input.base, theme.input.size.md, `px-4 bg-white border-gray-200 ${errors.amount ? 'border-red-500' : ''}`)}
+                          className={cn(theme.input.base, theme.input.size.md, `pl-10 bg-white border-gray-200 ${errors.amount ? 'border-red-500' : ''}`)}
                           {...register('amount', {
                             required: t('Amount is required', 'தொகை கட்டாயம்'),
                             min: { value: 1, message: t('Amount must be at least 1', 'தொகை குறைந்தது 1 ஆக இருக்க வேண்டும்') }
@@ -1331,29 +1514,37 @@ export default function AnnadhanamEntryPage() {
                     </div>
 
                     {/* Payment Mode */}
-                    <div className="space-y-2 group">
-                      <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <div className="space-y-3 group">
+                      <Label className="text-sm font-semibold text-gray-700">
                         {t('Payment Mode', 'கட்டணம் வகை')}
                       </Label>
-                      <div className="flex gap-2">
-                        {(['cash', 'bank', 'upi'] as const).map((mode) => (
-                          <button
-                            key={mode}
-                            type="button"
-                            onClick={() => {
-                              setValue('paymentMode', mode, { shouldValidate: true });
-                              if (mode === 'cash') {
-                                setValue('accountId', null, { shouldValidate: true });
-                              }
-                            }}
-                            className={`px-3 py-2 rounded border text-sm ${watch('paymentMode') === mode
-                              ? 'bg-orange-100 border-orange-400 text-orange-700'
-                              : 'bg-white border-gray-300 text-gray-700'
-                              }`}
-                          >
-                            {mode.toUpperCase()}
-                          </button>
-                        ))}
+                      <div className="flex flex-wrap gap-2">
+                        {(['cash', 'bank', 'upi'] as const).map((mode) => {
+                          const isActive = watch('paymentMode') === mode;
+                          return (
+                            <button
+                              key={mode}
+                              type="button"
+                              onClick={() => {
+                                setValue('paymentMode', mode, { shouldValidate: true });
+                                if (mode === 'cash') {
+                                  setValue('accountId', null, { shouldValidate: true });
+                                }
+                              }}
+                              className={cn(
+                                'px-0 py-1.5 rounded-lg border-2 text-sm font-semibold uppercase tracking-wide transition-all duration-200 min-w-[80px]',
+                                isActive
+                                  ? mode === 'cash' ? 'bg-green-100 border-green-500 text-green-700 shadow-md' :
+                                    mode === 'bank' ? 'bg-blue-100 border-blue-500 text-blue-700 shadow-md' :
+                                    'bg-purple-100 border-purple-500 text-purple-700 shadow-md'
+                                  : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400 hover:bg-gray-50'
+                              )}
+                            >
+                            
+                              {mode.toUpperCase()}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
 
@@ -1454,7 +1645,7 @@ export default function AnnadhanamEntryPage() {
                           timeSlot: 'Morning',
                           time: '08:00',
                           foodDetails: '',
-                          peopleCount: '50'
+                          count: '50'
                         }]
                       });
                       setFoodSearchQuery('');
@@ -1601,9 +1792,43 @@ export default function AnnadhanamEntryPage() {
             transform: translateY(0);
           }
         }
-        
+
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateX(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+
         .animate-fadeIn {
           animation: fadeIn 0.3s ease-out;
+        }
+
+        .animate-slideIn {
+          animation: slideIn 0.3s ease-out;
+        }
+
+        .date-picker-input::-webkit-calendar-picker-indicator {
+          opacity: 0;
+          position: absolute;
+          right: 0;
+          width: 100%;
+          height: 100%;
+          cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+          .mobile-card {
+            transition: all 0.3s ease-in-out;
+          }
+          .mobile-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+          }
         }
       `}</style>
     </div>

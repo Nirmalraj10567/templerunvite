@@ -357,7 +357,7 @@ export default function JournalLogPage() {
                     </TableHeader>
                     <TableBody>
                       {entries.length === 0 ? (
-                        <TableRow>
+                         <TableRow  className="whitespace-nowrap">
                           <TableCell colSpan={5} className={tableClasses.emptyState}>
                             {t('No entries found', 'பதிவுகள் இல்லை')}
                           </TableCell>

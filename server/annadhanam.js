@@ -235,12 +235,40 @@ module.exports = function(deps = {}) {
           }
           if (from) qb.andWhere('from_date', '>=', from);
           if (to) qb.andWhere('to_date', '<=', to);
+          
+          if (req.query.donationType) {
+            qb.andWhere('donation_type', req.query.donationType);
+          }
+          if (req.query.isMultiSlot !== undefined && req.query.isMultiSlot !== '') {
+            qb.andWhere('enable_multi_slot', req.query.isMultiSlot === 'true' ? 1 : 0);
+          }
         })
         .orderBy('from_date', 'desc')
         .limit(ps)
         .offset(offset);
 
       const rows = await query;
+      
+      // Batch fetch slots for all rows
+      if (rows.length > 0) {
+        const ids = rows.map(r => r.id);
+        const slots = await db('annadhanam_slots')
+          .whereIn('annadhanam_id', ids)
+          .orderBy('donation_date', 'asc')
+          .orderBy('donation_time', 'asc');
+        
+        // Group slots by annadhanam_id
+        const slotsMap = slots.reduce((acc, slot) => {
+          if (!acc[slot.annadhanam_id]) acc[slot.annadhanam_id] = [];
+          acc[slot.annadhanam_id].push(slot);
+          return acc;
+        }, {});
+        
+        rows.forEach(row => {
+          row.food_details = slotsMap[row.id] || [];
+        });
+      }
+
       res.json({ success: true, data: rows });
     } catch (err) {
       console.error('GET /api/annadhanam error:', err);
@@ -328,6 +356,14 @@ module.exports = function(deps = {}) {
       if (!row) {
         return res.status(404).json({ error: 'Annadhanam entry not found' });
       }
+
+      // Fetch slots
+      const slots = await db('annadhanam_slots')
+        .where({ annadhanam_id: id })
+        .orderBy('donation_date', 'asc')
+        .orderBy('donation_time', 'asc');
+
+      row.food_details = slots;
       
       res.json({ success: true, data: row });
     } catch (err) {
@@ -338,6 +374,7 @@ module.exports = function(deps = {}) {
 
   // Create annadhanam entry
   router.post('/', async (req, res) => {
+    const trx = await db.transaction();
     try {
       const body = req.body || {};
 
@@ -361,17 +398,14 @@ module.exports = function(deps = {}) {
         // Payment mode fields
         paymentMode: body.paymentMode ?? body.payment_mode,
         accountId: body.accountId ?? body.account_id,
+        // Multi-slot fields
+        enableMultiSlot: body.enableMultiSlot ?? body.enable_multi_slot ?? false,
+        foodDetails: body.foodDetails ?? body.food_details ?? []
       };
 
       // Basic validations
-      if (!p.name || !p.mobileNumber || !p.time || !p.fromDate || !p.toDate) {
-        return res.status(400).json({
-          error: 'Missing required fields: name, mobileNumber, time, fromDate, toDate'
-        });
-      }
-
-      if (new Date(p.fromDate) > new Date(p.toDate)) {
-        return res.status(400).json({ error: 'From date cannot be later than to date' });
+      if (!p.name || !p.mobileNumber) {
+        return res.status(400).json({ error: 'Missing name or mobileNumber' });
       }
 
       if (!/^[0-9]{10}$/.test(p.mobileNumber)) {
@@ -394,48 +428,48 @@ module.exports = function(deps = {}) {
         }
         storedFood = `Money: ${String(p.amount).trim()}`;
         storedPeoples = 1;
-        // Validate account selection for bank/upi payments
         const paymentMode = String(p.paymentMode || 'cash').toLowerCase();
         if ((paymentMode === 'bank' || paymentMode === 'upi') && !p.accountId) {
           return res.status(400).json({ error: 'Account is required for bank or UPI payments' });
         }
-      } else {
-        // Food (default/legacy) or check for prefixes in food string
-        if (!storedFood) {
-          return res.status(400).json({ error: 'food is required for food donation' });
+      } else if (p.donationType === 'food') {
+        // Multi-slot validation
+        if (!p.enableMultiSlot && p.foodDetails.length > 1) {
+          return res.status(400).json({ error: 'Multiple slots are not allowed when multi-slot is disabled' });
         }
+        if (p.foodDetails.length === 0) {
+          return res.status(400).json({ error: 'At least one food donation detail is required' });
+        }
+
+        // Validate each row
+        for (const item of p.foodDetails) {
+          if (!item.date) return res.status(400).json({ error: 'Date required in food details' });
+          if (!item.timeSlot) return res.status(400).json({ error: 'Time slot required' });
+          if (!item.time) return res.status(400).json({ error: 'Time required' });
+          if (!item.foodDetails) return res.status(400).json({ error: 'Food details required' });
+          if (!item.count || parseInt(item.count) <= 0) return res.status(400).json({ error: 'Invalid count' });
+        }
+
+        // Summary for legacy food field
+        storedFood = p.foodDetails.map(entry => 
+          `${entry.date} [${entry.timeSlot} ${entry.time}] : ${entry.foodDetails} (${entry.count})`
+        ).join(' | ');
         
-        // Auto-detect donation type from food string if not provided
-        if (!p.donationType) {
-          if (storedFood.startsWith('Money:')) {
-            p.donationType = 'money';
-            p.amount = storedFood.replace(/^Money:\s*/i, '').trim();
-          } else if (storedFood.startsWith('Product:')) {
-            p.donationType = 'product';
-          }
-        }
-        
-        if (p.peoples != null && p.peoples !== '') {
-          const n = parseInt(p.peoples, 10);
-          if (isNaN(n) || n < 1) {
-            return res.status(400).json({ error: 'Number of people must be at least 1' });
-          }
-          storedPeoples = n;
-        } else {
-          storedPeoples = 1;
-        }
+        storedPeoples = p.foodDetails.reduce((sum, entry) => sum + parseInt(entry.count || '0'), 0);
       }
 
+      const receiptNumber = await generateReceiptNumber(trx, req.user.templeId);
+      
       const record = {
         temple_id: req.user.templeId,
-        receipt_number: await generateReceiptNumber(db, req.user.templeId),
+        receipt_number: receiptNumber,
         name: p.name,
         mobile_number: p.mobileNumber,
         food: storedFood,
         peoples: storedPeoples,
-        time: p.time,
-        from_date: p.fromDate,
-        to_date: p.toDate,
+        time: p.donationType === 'food' ? p.foodDetails[0].time : (p.time || '00:00'),
+        from_date: p.donationType === 'food' ? p.foodDetails[0].date : p.fromDate,
+        to_date: p.donationType === 'food' ? p.foodDetails[p.foodDetails.length - 1].date : p.toDate,
         entry_date: p.entryDate || new Date().toISOString().slice(0, 10),
         remarks: p.remarks || null,
         amount: p.amount ? Number(p.amount) : null,
@@ -445,56 +479,63 @@ module.exports = function(deps = {}) {
         unit: p.donationType === 'product' ? (p.unit || null) : null,
         payment_mode: p.paymentMode ? String(p.paymentMode).toLowerCase() : 'cash',
         account_id: p.accountId ? Number(p.accountId) : null,
+        enable_multi_slot: p.enableMultiSlot ? 1 : 0,
         created_by: req.user.id,
-        created_at: db.fn.now(),
-        updated_at: db.fn.now(),
+        created_at: trx.fn.now(),
+        updated_at: trx.fn.now(),
       };
 
-      // For SQLite3 recent versions, returning('*') works; for MySQL it doesn't.
-      // Do an insert and then fetch the row using the inserted id for maximum compatibility.
-      const insertResult = await db('annadhanam').insert(record);
+      const insertResult = await trx('annadhanam').insert(record);
       const insertedId = Array.isArray(insertResult) ? Number(insertResult[0]) : Number(insertResult);
-      let createdRow = null;
-      try {
-        createdRow = await db('annadhanam').where({ id: insertedId }).first();
-      } catch (e) {
-        // Fallback: return minimal payload if select fails
-        createdRow = { id: insertedId, ...record };
+
+      // Insert slots if donation type is food
+      if (p.donationType === 'food') {
+        const slotsToInsert = p.foodDetails.map(item => ({
+          annadhanam_id: insertedId,
+          donation_date: item.date,
+          time_slot: item.timeSlot,
+          donation_time: item.time,
+          food_details: item.foodDetails,
+          count: parseInt(item.count),
+          created_at: trx.fn.now()
+        }));
+        await trx('annadhanam_slots').insert(slotsToInsert);
+      } else {
+        // Insert a single slot for other types for consistency if needed, 
+        // or just rely on the master record. The user requirement suggested 
+        // "Insert all slot records into food_donation_slots".
+        // For non-food types, we can skip or insert one dummy. Let's skip for now.
       }
 
-      // Log creation with full snapshot
+      await trx.commit();
+
+      // Post-commit actions (Logging, Syncing, Notifications)
+      // Re-fetch to get full row
+      const createdRow = await db('annadhanam').where({ id: insertedId }).first();
+
       try {
         await logAnnadhanamAction({
           annadhanamId: insertedId,
           templeId: req.user.templeId,
           userId: req.user.id,
           action: 'create',
-          details: createdRow || { ...record, id: insertedId },
+          details: createdRow,
         });
-        console.log('Successfully logged annadhanam creation for ID:', insertedId);
-      } catch (logError) {
-        console.error('Failed to log annadhanam creation:', logError);
-      }
+      } catch (e) { console.error('Log error:', e); }
 
-      // Sync to daybook (all annadhanam entries)
       try {
-        if (createdRow || record) {
-          await syncAnnadhanamToDaybook({
-            annadhanamId: insertedId,
-            templeId: req.user.templeId,
-            userId: req.user.id,
-            row: createdRow || record,
-          });
-          console.log('Successfully synced annadhanam to daybook for ID:', insertedId);
-        }
-      } catch (daybookError) {
-        console.error('Failed to sync annadhanam to daybook:', daybookError);
-      }
+        await syncAnnadhanamToDaybook({
+          annadhanamId: insertedId,
+          templeId: req.user.templeId,
+          userId: req.user.id,
+          row: createdRow,
+        });
+      } catch (e) { console.error('Daybook sync error:', e); }
 
       // Also create journal entry for income tracking
       try {
-        if (createdRow || record) {
-          const annadhanamRow = createdRow || record;
+        if (createdRow) {
+          const annadhanamRow = createdRow;
           if (annadhanamRow.amount && Number(annadhanamRow.amount) > 0) {
             const hasJournal = await db.schema.hasTable('journal_entries');
             if (hasJournal) {
@@ -544,63 +585,39 @@ module.exports = function(deps = {}) {
         console.error('Failed to create journal entry for annadhanam:', journalError);
       }
 
-      // Sync product donations to asset management
-      try {
-        if (createdRow || record) {
+      // Sync product to asset
+      if (createdRow.donation_type === 'product') {
+        try {
           await syncAnnadhanamProductToAsset({
             annadhanamId: insertedId,
             templeId: req.user.templeId,
             userId: req.user.id,
-            row: createdRow || record,
+            row: createdRow,
           });
-        }
-      } catch (assetError) {
-        console.error('Failed to sync annadhanam to assets:', assetError);
+        } catch (e) {}
       }
 
-      // Send FCM notification to ALL temple users
+      // Notifications
       try {
-        const templeUsers = await db('user_registrations')
-          .where('temple_id', req.user.templeId)
-          .whereNotNull('fcm_token')
-          .select('fcm_token');
-        
+        const templeUsers = await db('user_registrations').where('temple_id', req.user.templeId).whereNotNull('fcm_token').select('fcm_token');
         const tokens = templeUsers.map(u => u.fcm_token).filter(Boolean);
-        
         if (tokens.length > 0) {
-          await sendNotification(
-            tokens,
-            'New Annadhanam Request',
-            `${p.name} submitted an Annadhanam request for ${p.fromDate}. Awaiting approval.`,
-            {
-              type: 'annadhanam_submitted',
-              annadhanamId: String(insertedId),
-              submittedBy: p.name,
-              templeId: String(req.user.templeId),
-              status: 'pending'
-            }
-          );
-          console.log(`✓ Sent submission notification to ${tokens.length} users in temple ${req.user.templeId}`);
+          await sendNotification(tokens, 'New Annadhanam Request', `${p.name} submitted a request.`, { type: 'annadhanam_submitted', annadhanamId: String(insertedId) });
         }
-      } catch (notifyErr) {
-        console.warn('Failed to send submission notification:', notifyErr.message);
-      }
+      } catch (e) {}
 
-      res.json({ success: true, data: createdRow });
+      res.json({ success: true, data: createdRow, donationId: insertedId });
     } catch (err) {
+      await trx.rollback();
       console.error('POST /api/annadhanam error:', err);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Internal server error: ' + err.message });
     }
   });
 
   // Update annadhanam entry
   router.put('/:id', async (req, res) => {
+    const trx = await db.transaction();
     try {
-      console.log('🔍 Annadhanam update API called');
-      console.log('Request params:', req.params);
-      console.log('Request body:', req.body);
-      console.log('User:', req.user);
-      
       const { id } = req.params;
       const body = req.body || {};
 
@@ -621,24 +638,20 @@ module.exports = function(deps = {}) {
         entryDate: body.entryDate ?? body.entry_date,
         paymentMode: body.paymentMode ?? body.payment_mode,
         accountId: body.accountId ?? body.account_id,
+        enableMultiSlot: body.enableMultiSlot ?? body.enable_multi_slot ?? false,
+        foodDetails: body.foodDetails ?? body.food_details ?? []
       };
 
       // Basic validations
-      if (!p.name || !p.mobileNumber || !p.time || !p.fromDate || !p.toDate) {
-        return res.status(400).json({
-          error: 'Missing required fields: name, mobileNumber, time, fromDate, toDate'
-        });
-      }
-
-      if (new Date(p.fromDate) > new Date(p.toDate)) {
-        return res.status(400).json({ error: 'From date cannot be later than to date' });
+      if (!p.name || !p.mobileNumber) {
+        return res.status(400).json({ error: 'Missing name or mobileNumber' });
       }
 
       if (!/^[0-9]{10}$/.test(p.mobileNumber)) {
         return res.status(400).json({ error: 'Mobile number must be 10 digits' });
       }
 
-      // Map donation type to stored fields (food string + peoples number)
+      // Map donation type to stored fields
       let storedFood = p.food || '';
       let storedPeoples = 1;
 
@@ -654,47 +667,39 @@ module.exports = function(deps = {}) {
         }
         storedFood = `Money: ${String(p.amount).trim()}`;
         storedPeoples = 1;
-        // Validate account selection for bank/upi payments
         const paymentMode = String(p.paymentMode || 'cash').toLowerCase();
         if ((paymentMode === 'bank' || paymentMode === 'upi') && !p.accountId) {
           return res.status(400).json({ error: 'Account is required for bank or UPI payments' });
         }
-      } else {
-        // Food (default/legacy) or check for prefixes
-        if (!storedFood) {
-          return res.status(400).json({ error: 'food is required' });
+      } else if (p.donationType === 'food') {
+        if (!p.enableMultiSlot && p.foodDetails.length > 1) {
+          return res.status(400).json({ error: 'Multiple slots are not allowed' });
+        }
+        if (p.foodDetails.length === 0) {
+          return res.status(400).json({ error: 'At least one food donation detail is required' });
         }
 
-        // Auto-detect donation type from food string if not provided
-        if (!p.donationType) {
-          if (storedFood.startsWith('Money:')) {
-            p.donationType = 'money';
-            p.amount = storedFood.replace(/^Money:\s*/i, '').trim();
-          } else if (storedFood.startsWith('Product:')) {
-            p.donationType = 'product';
+        for (const item of p.foodDetails) {
+          if (!item.date || !item.timeSlot || !item.time || !item.foodDetails || !item.count) {
+             return res.status(400).json({ error: 'All food detail fields are required' });
           }
         }
 
-        if (p.peoples != null && p.peoples !== '') {
-          const n = parseInt(p.peoples, 10);
-          if (isNaN(n) || n < 1) {
-            return res.status(400).json({ error: 'Number of people must be at least 1' });
-          }
-          storedPeoples = n;
-        } else {
-          storedPeoples = 1;
-        }
+        storedFood = p.foodDetails.map(entry => 
+          `${entry.date} [${entry.timeSlot} ${entry.time}] : ${entry.foodDetails} (${entry.count})`
+        ).join(' | ');
+        
+        storedPeoples = p.foodDetails.reduce((sum, entry) => sum + parseInt(entry.count || '0'), 0);
       }
       
       const updateData = {
-        // Do NOT update receipt_number on PUT; keep original
         name: p.name,
         mobile_number: p.mobileNumber,
         food: storedFood,
         peoples: storedPeoples,
-        time: p.time,
-        from_date: p.fromDate,
-        to_date: p.toDate,
+        time: p.donationType === 'food' ? p.foodDetails[0].time : (p.time || '00:00'),
+        from_date: p.donationType === 'food' ? p.foodDetails[0].date : p.fromDate,
+        to_date: p.donationType === 'food' ? p.foodDetails[p.foodDetails.length - 1].date : p.toDate,
         entry_date: p.entryDate,
         remarks: p.remarks || null,
         amount: p.amount ? Number(p.amount) : null,
@@ -702,29 +707,44 @@ module.exports = function(deps = {}) {
         product_name: p.donationType === 'product' ? p.productName : null,
         quantity: p.donationType === 'product' ? Number(p.quantity) : null,
         unit: p.donationType === 'product' ? (p.unit || null) : null,
-        updated_at: db.fn.now(),
+        enable_multi_slot: p.enableMultiSlot ? 1 : 0,
+        updated_at: trx.fn.now(),
       };
 
-      // Add payment mode fields if provided
-      if (p.paymentMode !== undefined) {
-        updateData.payment_mode = String(p.paymentMode).toLowerCase();
-      }
-      if (p.accountId !== undefined) {
-        updateData.account_id = p.accountId ? Number(p.accountId) : null;
-      }
+      if (p.paymentMode !== undefined) updateData.payment_mode = String(p.paymentMode).toLowerCase();
+      if (p.accountId !== undefined) updateData.account_id = p.accountId ? Number(p.accountId) : null;
 
-      const result = await db('annadhanam')
+      const result = await trx('annadhanam')
         .where({ id })
         .andWhere('temple_id', req.user.templeId)
         .update(updateData);
       
       if (!result) {
+        await trx.rollback();
         return res.status(404).json({ error: 'Annadhanam entry not found' });
       }
+
+      // Update slots: delete existing and insert new
+      await trx('annadhanam_slots').where({ annadhanam_id: id }).del();
       
+      if (p.donationType === 'food') {
+        const slotsToInsert = p.foodDetails.map(item => ({
+          annadhanam_id: id,
+          donation_date: item.date,
+          time_slot: item.timeSlot,
+          donation_time: item.time,
+          food_details: item.foodDetails,
+          count: parseInt(item.count),
+          created_at: trx.fn.now()
+        }));
+        await trx('annadhanam_slots').insert(slotsToInsert);
+      }
+      
+      await trx.commit();
+
       const annadhanam = await db('annadhanam').where({ id }).first();
 
-      // Sync journal mirror on update
+      // Post-commit actions
       try {
         const hasJournal = await db.schema.hasTable('journal_entries');
         if (hasJournal) {
@@ -737,13 +757,25 @@ module.exports = function(deps = {}) {
               ? annadhanam.entry_date.toISOString().slice(0, 10) 
               : String(annadhanam.entry_date || annadhanam.from_date).split('T')[0];
 
+            // Resolve account
+            let toAccount = 'CASH A/C';
+            if (annadhanam.payment_mode !== 'cash' && annadhanam.account_id) {
+              const account = await db('accounts as a')
+                .leftJoin('account_ledgers as l', 'a.ledger_id', 'l.id')
+                .where('a.id', Number(annadhanam.account_id))
+                .andWhere('a.temple_id', req.user.templeId)
+                .select('a.*', 'l.name as ledger_name')
+                .first();
+              if (account) toAccount = account.ledger_name || account.account_name || account.name || 'CASH A/C';
+            }
+
             await db('journal_entries').insert({
               date: entryDate,
               reference_number: 'ANN-' + id + '-' + Date.now(),
               description: 'Annadhanam from ' + (annadhanam.name || 'Anonymous'),
               total_amount: amountNum,
               from_account: 'ANNADHANAM A/C',
-              to_account: 'INCOME A/C',
+              to_account: toAccount,
               amount: amountNum,
               entry_type: 'transfer',
               remarks: annadhanam.remarks || null,
@@ -755,50 +787,29 @@ module.exports = function(deps = {}) {
             });
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error('Journal sync error:', e);
+      }
 
-      // Log update with before/after
       try {
-        console.log('🔍 Attempting to log annadhanam update...');
-        console.log('Log data:', {
-          annadhanamId: id,
-          templeId: req.user.templeId,
-          userId: req.user.id,
-          action: 'update',
-          details: { before: null, after: annadhanam || null }
-        });
-        
         await logAnnadhanamAction({
           annadhanamId: id,
           templeId: req.user.templeId,
           userId: req.user.id,
           action: 'update',
-          details: { before: null, after: annadhanam || null }, // We don't have before state in this context
+          details: { after: annadhanam },
         });
-        console.log('✅ Successfully logged annadhanam update for ID:', id);
-      } catch (logError) {
-        console.error('❌ Failed to log annadhanam update:', logError);
-        console.error('Log error details:', logError);
-      }
+      } catch (e) {}
 
-      // Sync to daybook (all entries)
       try {
-        if (annadhanam) {
-          await syncAnnadhanamToDaybook({
-            annadhanamId: id,
-            templeId: req.user.templeId,
-            userId: req.user.id,
-            row: annadhanam,
-          });
-        }
-      } catch (daybookError) {
-        console.error('Failed to sync annadhanam update to daybook:', daybookError);
-      }
+        await syncAnnadhanamToDaybook({ annadhanamId: id, templeId: req.user.templeId, userId: req.user.id, row: annadhanam });
+      } catch (e) {}
 
       res.json({ success: true, data: annadhanam });
     } catch (err) {
+      await trx.rollback();
       console.error('PUT /api/annadhanam/:id error:', err);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Internal server error: ' + err.message });
     }
   });
 

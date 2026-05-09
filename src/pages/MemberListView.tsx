@@ -466,7 +466,7 @@ export default function MemberListView({
                   </TableHeader>
                   <TableBody>
                     {members.length === 0 ? (
-                      <TableRow>
+                       <TableRow  className="whitespace-nowrap">
                         <TableCell colSpan={8} className={tableClasses.emptyState}>
                           {t('No members found', 'உறுப்பினர்கள் இல்லை')}
                         </TableCell>

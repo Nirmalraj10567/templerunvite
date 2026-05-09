@@ -672,7 +672,7 @@ export default function DonationUnifiedList() {
                   </TableHeader>
                   <TableBody>
                     {rows.length === 0 ? (
-                      <TableRow>
+                       <TableRow  className="whitespace-nowrap">
                         <TableCell colSpan={visibleColCount} className={tableClasses.emptyState}>
                           {t('No data found', 'தரவு கிடைக்கவில்லை')}
                         </TableCell>

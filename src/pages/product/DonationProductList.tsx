@@ -657,7 +657,7 @@ export default function DonationProductList() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow>
+                   <TableRow  className="whitespace-nowrap">
                     <TableCell
                       colSpan={visibleColCount}
                       className={tableClasses.emptyState}
@@ -666,7 +666,7 @@ export default function DonationProductList() {
                     </TableCell>
                   </TableRow>
                 ) : items.length === 0 ? (
-                  <TableRow>
+                   <TableRow  className="whitespace-nowrap">
                     <TableCell
                       colSpan={visibleColCount}
                       className={tableClasses.emptyState}

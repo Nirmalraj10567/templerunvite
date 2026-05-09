@@ -213,7 +213,7 @@ export default function LedgerLogView({ recentOnly = false }: LedgerLogViewProps
         ) : (
           <Table>
             <TableHeader>
-              <TableRow>
+               <TableRow  className="whitespace-nowrap">
                 <TableHead>{t('Action', 'செயல்')}</TableHead>
                 <TableHead>{t('Date & Time', 'தேதி & நேரம்')}</TableHead>
                 <TableHead>{t('Entry ID', 'உள்ளீடு ஐடி')}</TableHead>
@@ -224,7 +224,7 @@ export default function LedgerLogView({ recentOnly = false }: LedgerLogViewProps
             </TableHeader>
             <TableBody>
               {logs.length === 0 ? (
-                <TableRow>
+                 <TableRow  className="whitespace-nowrap">
                   <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     {t('No logs found', 'பதிவுகள் கிடைக்கவில்லை')}
                   </TableCell>

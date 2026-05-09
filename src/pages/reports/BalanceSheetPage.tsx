@@ -509,7 +509,7 @@ export default function BalanceSheetPage() {
       </TableHeader>
       <TableBody>
         {!isLoading && maxRows === 0 && (
-          <TableRow>
+           <TableRow  className="whitespace-nowrap">
             <TableCell colSpan={6} className={tableClasses.emptyState}>{t[language].noData}</TableCell>
           </TableRow>
         )}

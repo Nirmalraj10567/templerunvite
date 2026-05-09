@@ -544,7 +544,7 @@ export default function DashboardLayout() {
       <aside
         className={`
           ${isMobile ? 'fixed' : 'hidden md:flex'} 
-          inset-y-0 left-0 z-40 flex-col bg-gradient-to-b from-orange-700 via-red-800 to-orange-700 
+          inset-y-0 left-0 z-40 flex-col bg-orange-700 
           text-white transition-all duration-300 shadow-2xl border-r border-red-600/20
           ${isSidebarCollapsed ? 'w-20' : 'w-72'} h-screen flex-shrink-0
           ${isMobile ? (isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full') : ''}
@@ -621,12 +621,12 @@ export default function DashboardLayout() {
                       {item.children.map((child, childIndex) => (
                         <NavLink
                           key={child.to}
-                          to={child.to}
+                          to={normalizePath(child.to)}
                           end
                           className={({ isActive }) =>
                             `group flex items-center p-3 rounded-lg transition-all duration-500 relative
                             ${isActive
-                              ? 'bg-gradient-to-r from-orange-400 to-orange-500 text-white shadow-lg shadow-orange-300/50'
+                              ? 'bg-orange-300 text-white shadow-lg shadow-white-300/50'
                               : 'text-orange-200 hover:bg-orange-800/30 hover:text-white'
                             }`
                           }
@@ -652,7 +652,7 @@ export default function DashboardLayout() {
                   `group flex items-center p-3 rounded-xl transition-all duration-200 backdrop-blur-sm
                   ${isSidebarCollapsed ? 'justify-center' : ''} 
                   ${isActive
-                    ? 'bg-gradient-to-r from-orange-400 to-orange-500 text-white shadow-lg shadow-orange-300/50'
+                    ? 'bg-orange-500 text-white shadow-lg shadow-orange-300/50'
                     : 'text-orange-200 hover:bg-gradient-to-r hover:from-orange-800/40 hover:to-red-800/40 hover:text-white hover:shadow-lg hover:shadow-red-900/20'
                   }`
                 }

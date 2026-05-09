@@ -163,7 +163,7 @@ export function DonationProductManager({
             </TableHeader>
             <TableBody>
               {!safeProducts || safeProducts.length === 0 ? (
-                <TableRow>
+                 <TableRow  className="whitespace-nowrap">
                   <TableCell colSpan={3} className="text-center py-4 text-muted-foreground">
                     {t('No products found. Add a new one below.', 'பொருட்கள் எதுவும் இல்லை. கீழே புதியதைச் சேர்க்கவும்.')}
                   </TableCell>

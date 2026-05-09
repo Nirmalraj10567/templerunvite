@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Plus, Search, Edit, Trash2, Eye, Package, IndianRupee, Box, User, Phone, FileText, History, X, Loader2 } from 'lucide-react';
+import { cn, formFieldStyles } from '@/styles/formStyles';
 
 export default function AssetManagementPage() {
   const { token } = useAuth();
@@ -432,8 +433,8 @@ export default function AssetManagementPage() {
       {/* Assets Table */}
       <Card>
         <Table>
-          <TableHeader>
-            <TableRow>
+         <TableHeader className={cn(formFieldStyles.moneyDonationList.logsTable.thead, "bg-[#FDEBD0]")}>
+             <TableRow  className="whitespace-nowrap">
               <TableHead>{t('Name', 'பெயர்')}</TableHead>
               <TableHead>{t('Details', 'விவரங்கள்')}</TableHead>
               <TableHead>{t('Qty', 'அளவு')}</TableHead>
@@ -448,14 +449,14 @@ export default function AssetManagementPage() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow>
+               <TableRow  className="whitespace-nowrap">
                 <TableCell colSpan={9} className="text-center py-8">
                   <Loader2 className="w-12 h-12 text-orange-600 animate-spin mx-auto mb-4" />
                   <p className="text-gray-600 text-lg">{t('Loading...', 'ஏற்றுகிறது...')}</p>
                 </TableCell>
               </TableRow>
             ) : assets.length === 0 ? (
-              <TableRow>
+               <TableRow  className="whitespace-nowrap">
                 <TableCell colSpan={9} className="text-center py-8">
                   {t('No assets found', 'சொத்துகள் இல்லை')}
                 </TableCell>

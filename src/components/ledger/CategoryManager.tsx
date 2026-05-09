@@ -220,14 +220,14 @@ export function CategoryManager({
         <div className="max-h-80 overflow-y-auto">
         <Table>
           <TableHeader>
-            <TableRow>
+             <TableRow  className="whitespace-nowrap">
               <TableHead>{t('label')}</TableHead>
               <TableHead>{t('actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {categories.length === 0 ? (
-              <TableRow>
+               <TableRow  className="whitespace-nowrap">
                 <TableCell colSpan={3} className="text-center py-4 text-muted-foreground">
                   {t('noCategoriesFound')}
                 </TableCell>

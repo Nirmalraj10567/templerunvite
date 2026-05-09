@@ -246,7 +246,7 @@ const PropertyListView: React.FC = () => {
                           </TableRow>
                         ))
                       ) : (
-                        <TableRow>
+                         <TableRow  className="whitespace-nowrap">
                           <TableCell colSpan={8} className={tableClasses.emptyState}>
                             No properties found
                           </TableCell>

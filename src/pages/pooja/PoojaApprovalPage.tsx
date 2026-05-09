@@ -728,7 +728,7 @@ export default function PoojaApprovalPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow>
+                   <TableRow  className="whitespace-nowrap">
                     <TableCell colSpan={visibleColCount} className={tableClasses.emptyState}>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mx-auto mb-2"></div>
                       {t('Loading...', 'ஏற்றுகிறது...')}
@@ -850,7 +850,7 @@ export default function PoojaApprovalPage() {
                     </TableRow>
                   ))
                 ) : (
-                  <TableRow>
+                   <TableRow  className="whitespace-nowrap">
                     <TableCell colSpan={visibleColCount} className={tableClasses.emptyState}>
                       {t('No pending requests found', 'நிலுவை கோரிக்கைகள் எதுவும் கிடைக்கவில்லை')}
                     </TableCell>

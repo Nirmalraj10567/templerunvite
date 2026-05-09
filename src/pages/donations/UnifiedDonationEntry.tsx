@@ -738,7 +738,7 @@ export default function UnifiedDonationEntry() {
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                     }`}
                 >
-                  {t('Money Donation', 'பண நன்கொடை')}
+                  {t('Money', 'பண நன்கொடை')}
                 </button>
                 <button
                   type="button"
@@ -748,7 +748,7 @@ export default function UnifiedDonationEntry() {
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                     }`}
                 >
-                  {t('Product Donation', 'பொருள் நன்கொடை')}
+                  {t('Product', 'பொருள் நன்கொடை')}
                 </button>
               </div>
             </div>

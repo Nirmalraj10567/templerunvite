@@ -542,6 +542,7 @@ export default function ProfilePage() {
                 </label>
               </div>
             </div>
+<div className="flex align-end">
 
             <Button
               type="submit"
@@ -550,6 +551,7 @@ export default function ProfilePage() {
             >
               {isLoading ? t[lang].saving : t[lang].save}
             </Button>
+            </div>
           </form>
         </div>
       </div>

@@ -1248,14 +1248,14 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow>
+                 <TableRow  className="whitespace-nowrap">
                   <TableCell colSpan={visibleColCount} className={tableClasses.emptyState}>
                     <Loader2 className="w-12 h-12 text-orange-600 animate-spin mx-auto mb-4" />
                     <p className="text-gray-600 text-lg">{t('Loading...', 'ஏற்றுகிறது...')}</p>
                   </TableCell>
                 </TableRow>
               ) : filteredRows.length === 0 ? (
-                <TableRow>
+                 <TableRow  className="whitespace-nowrap">
                   <TableCell colSpan={visibleColCount} className={tableClasses.emptyState}>
                     {t('No records found', 'பதிவுகள் கிடைக்கவில்லை')}
                   </TableCell>

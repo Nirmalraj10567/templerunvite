@@ -31,6 +31,8 @@ export interface DaybookEntry {
   updated_at: string;
   journal_from_account?: string | null;
   journal_to_account?: string | null;
+  enable_multi_slot?: number;
+  food_details?: any[];
 }
 
 export interface DaybookLog {

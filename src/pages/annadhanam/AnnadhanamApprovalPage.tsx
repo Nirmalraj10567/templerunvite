@@ -762,8 +762,8 @@ export default function AnnadhanamApprovalPage() {
         {/* Table */}
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50">
+          <table className={formFieldStyles.moneyDonationList.logsTable.table}>
+        <thead className={cn(formFieldStyles.moneyDonationList.logsTable.thead, "bg-[#FDEBD0]")}>
                 <tr>
                   {allColumns.map(
                     (col) =>
@@ -1088,7 +1088,7 @@ export default function AnnadhanamApprovalPage() {
                     <div className="mt-2 overflow-x-auto">
                       <Table>
                         <TableHeader>
-                          <TableRow>
+                           <TableRow  className="whitespace-nowrap">
                             <TableHead>{t('Action', 'செயல்')}</TableHead>
                             <TableHead>{t('Performed By', 'நடைமுறைப்படுத்தியவர்')}</TableHead>
                             <TableHead>{t('When', 'எப்போது')}</TableHead>
@@ -1489,8 +1489,8 @@ export default function AnnadhanamApprovalPage() {
               ) : (
                 <>
                   <div className="max-h-[70vh] overflow-y-auto border rounded">
-                    <table className="min-w-full text-xs">
-                      <thead className="bg-gray-50 sticky top-0">
+                    <table className={formFieldStyles.moneyDonationList.logsTable.table}>
+                                             <thead className={formFieldStyles.moneyDonationList.logsTable.thead}>
                         <tr>
                           <th className="text-left px-2 py-1">{t('Time', 'நேரம்')}</th>
                           <th className="text-left px-2 py-1">{t('Action', 'செயல்')}</th>
@@ -1559,8 +1559,8 @@ export default function AnnadhanamApprovalPage() {
                 <div className="p-3 text-xs text-gray-600">{t('Loading logs...', 'பதிவுகள் ஏறுகிறது...')}</div>
               ) : (
                 <div className="max-h-[70vh] overflow-y-auto border rounded">
-                  <table className="min-w-full text-xs">
-                    <thead className="bg-gray-50 sticky top-0">
+                     <table className={formFieldStyles.moneyDonationList.logsTable.table}>
+                                              <thead className={formFieldStyles.moneyDonationList.logsTable.thead}>
                       <tr>
                         <th className="text-left px-2 py-1">{t('Time', 'நேரம்')}</th>
                         <th className="text-left px-2 py-1">{t('Action', 'செயல்')}</th>

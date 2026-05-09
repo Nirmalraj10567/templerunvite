@@ -143,6 +143,31 @@ module.exports = function(deps = {}) {
 
       const rows = await query;
       
+      // Batch fetch Annadhanam slots if any exist
+      const annadhanamIds = rows
+        .filter(r => r.reference_type === 'annadhanam' && r.reference_id)
+        .map(r => r.reference_id);
+
+      if (annadhanamIds.length > 0) {
+        const slots = await db('annadhanam_slots')
+          .whereIn('annadhanam_id', annadhanamIds)
+          .orderBy('donation_date', 'asc')
+          .orderBy('donation_time', 'asc');
+
+        const annadhanamData = await db('annadhanam')
+          .whereIn('id', annadhanamIds)
+          .select('id', 'enable_multi_slot');
+
+        // Attach to rows
+        rows.forEach(row => {
+          if (row.reference_type === 'annadhanam') {
+            row.food_details = slots.filter(s => s.annadhanam_id === row.reference_id);
+            const master = annadhanamData.find(a => a.id === row.reference_id);
+            row.enable_multi_slot = master ? master.enable_multi_slot : 0;
+          }
+        });
+      }
+      
       // Get total count
       const countQuery = db('daybook_entries')
         .where('temple_id', req.user.templeId)

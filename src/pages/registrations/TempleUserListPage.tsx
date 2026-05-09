@@ -384,13 +384,13 @@ export default function TempleUserListPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow>
+                   <TableRow  className="whitespace-nowrap">
                     <TableCell colSpan={visibleColCount} className={tableClasses.emptyState}>
                       {t[language].loading}
                     </TableCell>
                   </TableRow>
                 ) : rows.length === 0 ? (
-                  <TableRow>
+                   <TableRow  className="whitespace-nowrap">
                     <TableCell colSpan={visibleColCount} className={tableClasses.emptyState}>
                       {t[language].noRecords}
                     </TableCell>
