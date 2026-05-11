@@ -29,14 +29,27 @@ const upload = multer({ storage });
 /**
  * Get single event by ID
  * GET /api/events/:id
+ * Query params:
+ *  - templeId: number (optional, required for unauthenticated requests)
  */
 router.get('/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (Number.isNaN(id)) return res.status(400).json({ error: 'Invalid event id' });
 
+    // Support both authenticated (req.user.templeId) and unauthenticated (templeId query param)
+    // If unauthenticated OR if querying a different temple, use query param
+    const queryTempleId = parseInt(req.query.templeId, 10);
+    const tokenTempleId = req.user?.templeId;
+    
+    // Use query param templeId if provided, otherwise fall back to JWT templeId
+    const templeId = queryTempleId || tokenTempleId;
+    if (!templeId) {
+      return res.status(400).json({ error: 'templeId is required' });
+    }
+
     const event = await req.db('events')
-      .where({ id, temple_id: req.user.templeId })
+      .where({ id, temple_id: templeId })
       .first();
 
     if (!event) return res.status(404).json({ error: 'Event not found' });
@@ -210,6 +223,7 @@ router.delete('/:id', async (req, res) => {
  * List events
  * GET /api/events
  * Query params:
+ *  - templeId: number (required for unauthenticated requests)
  *  - from: YYYY-MM-DD (optional)
  *  - to: YYYY-MM-DD (optional)
  *  - q: search in title/description (optional)
@@ -222,8 +236,19 @@ router.get('/', async (req, res) => {
     const pageSize = Math.min(Math.max(parseInt(req.query.pageSize, 10) || 10, 1), 100);
     const offset = (page - 1) * pageSize;
 
+    // Support both authenticated (req.user.templeId) and unauthenticated (templeId query param)
+    // If unauthenticated OR if querying a different temple, use query param
+    const queryTempleId = parseInt(req.query.templeId, 10);
+    const tokenTempleId = req.user?.templeId;
+    
+    // Use query param templeId if provided, otherwise fall back to JWT templeId
+    const templeId = queryTempleId || tokenTempleId;
+    if (!templeId) {
+      return res.status(400).json({ error: 'templeId is required' });
+    }
+
     // Base filter
-    const base = req.db('events').where('temple_id', req.user.templeId);
+    const base = req.db('events').where('temple_id', templeId);
     if (from) base.andWhere('date', '>=', from);
     if (to) base.andWhere('date', '<=', to);
     if (search) {

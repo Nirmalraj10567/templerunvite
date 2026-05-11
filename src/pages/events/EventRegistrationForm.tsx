@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { X, ImagePlus, Trash2, Calendar, Clock, MapPin, Type, AlignLeft, Plus } from 'lucide-react';
+import { X, ImagePlus, Trash2, Calendar, Clock, MapPin, Type, AlignLeft, Plus, Eye } from 'lucide-react';
 import eventService from '@/services/eventService';
 import { Event, EventImage } from '@/types/event';
 import { toast } from '@/components/ui/use-toast';
@@ -88,6 +88,7 @@ export default function EventRegistrationForm() {
   const [deletedImageIds, setDeletedImageIds] = useState<number[]>([]);
   // Track which image card is expanded for editing
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const { language } = useLanguage();
   const t = translations[language];
@@ -217,6 +218,32 @@ export default function EventRegistrationForm() {
   const labelStyles = formFieldStyles.label;
 
   return (
+    <>
+    {/* ── Fullscreen Lightbox Overlay ── */}
+    {lightboxSrc && (
+      <div
+        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 backdrop-blur-sm"
+        onClick={() => setLightboxSrc(null)}
+      >
+        {/* Close button */}
+        <button
+          type="button"
+          className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/25 flex items-center justify-center transition-colors"
+          onClick={() => setLightboxSrc(null)}
+        >
+          <X className="w-5 h-5 text-white" />
+        </button>
+
+        {/* Image */}
+        <img
+          src={lightboxSrc}
+          alt="Full screen preview"
+          className="max-w-[90vw] max-h-[90vh] object-contain rounded-xl shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        />
+      </div>
+    )}
+
     <div className={cn(pageContainerStyles.container, "bg-gradient-to-br from-orange-50/50 via-white to-red-50/30 py-4")}>
       <div className={pageContainerStyles.content}>
         <Card className={cn(formFieldStyles.card.container, "overflow-hidden border-none shadow-2xl")}>
@@ -394,6 +421,20 @@ export default function EventRegistrationForm() {
                             <X className="w-3 h-3 text-white" />
                           </button>
 
+                          {/* View full-screen button — only when image exists */}
+                          {src && (
+                            <button
+                              type="button"
+                              className="absolute top-1 left-1 z-10 w-5 h-5 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center shadow transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setLightboxSrc(src);
+                              }}
+                            >
+                              <Eye className="w-3 h-3 text-white" />
+                            </button>
+                          )}
+
                           {/* Thumbnail */}
                           {src ? (
                             <img
@@ -492,5 +533,6 @@ export default function EventRegistrationForm() {
         </Card>
       </div>
     </div>
+    </>
   );
 }

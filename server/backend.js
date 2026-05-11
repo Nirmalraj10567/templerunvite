@@ -4720,6 +4720,42 @@ app.use('/api/tax-settings',
   taxSettingsRouter
 );
 
+// Import events routes
+const eventsRouter = require('./routes/events');
+
+// Optional auth middleware - allows both authenticated and unauthenticated requests
+// If JWT is provided, validates it and attaches user. If not, allows request to proceed.
+function optionalAuth(req, res, next) {
+  const authHeader = req.header('Authorization');
+  if (!authHeader) {
+    return next();
+  }
+  const token = authHeader.split(' ')[1];
+  if (!token) {
+    return next();
+  }
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (!err) {
+      req.user = user;
+    }
+    next();
+  });
+}
+
+// Mount events routes with optional auth - allows public access but uses JWT when provided
+// MUST be defined BEFORE the broad app.use('/api', authorizePermission(...)) below
+// so it is matched first without going through permission checks.
+app.use('/api/events',
+  optionalAuth,
+  (req, res, next) => {
+    req.db = db;
+    next();
+  },
+  eventsRouter
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Import tax calculations routes
 const taxCalculationsRouter = require('./routes/tax-calculations');
 
@@ -4797,19 +4833,6 @@ app.use('/api/wedding-events',
     next();
   },
   weddingEventsRouter
-);
-
-// Import events routes
-const eventsRouter = require('./routes/events');
-
-// Mount events routes with middleware
-app.use('/api/events',
-  authenticateToken,
-  (req, res, next) => {
-    req.db = db;
-    next();
-  },
-  eventsRouter
 );
 
 // Import calendar routes

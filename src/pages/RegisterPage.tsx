@@ -173,9 +173,11 @@ export default function RegisterPage() {
     const { name, value, type } = e.target;
 
     if (type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked;
       setFormData((prev) => ({
         ...prev,
-        [name]: (e.target as HTMLInputElement).checked,
+        [name]: checked,
+        ...(name === 'isTrust' && checked ? { trustType: 'Religious' } : {}),
       }));
       return;
     }
@@ -559,14 +561,12 @@ export default function RegisterPage() {
                     {t[lang].trustType}
                   </label>
 
-                  <select
-                    name="trustType"
-                  value="Religious"
-                  
-                    className="w-full h-12 px-4 rounded-xl border border-gray-300 focus:ring-2 focus:ring-orange-500 outline-none"
-                  >
-                  
-                  </select>
+                  <input
+                    type="text"
+                    value={t[lang].trustTypeReligious}
+                    readOnly
+                    className="w-full h-12 px-4 rounded-xl border border-gray-300 bg-gray-50 text-gray-500 outline-none cursor-default"
+                  />
                 </div>
 
                 <div>
