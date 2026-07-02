@@ -10,9 +10,10 @@ interface SuccessModalProps {
   onDownload?: () => void;
   title?: string;
   message?: string;
+  closeText?: string;
 }
 
-export function SuccessModal({ isOpen, onClose, onPrint, onDownload, title, message }: SuccessModalProps) {
+export function SuccessModal({ isOpen, onClose, onPrint, onDownload, title, message, closeText }: SuccessModalProps) {
   const { language } = useLanguage();
   const t = (ta: string, en: string) => language === 'tamil' ? en : ta;
 
@@ -20,6 +21,10 @@ export function SuccessModal({ isOpen, onClose, onPrint, onDownload, title, mess
 
   const showPrint = !!onPrint;
   const showDownload = !!onDownload;
+
+  const defaultCloseText = showPrint || showDownload 
+    ? t('இப்போது வேண்டாம்', 'Not Now')
+    : t('சரி', 'OK');
 
   return (
     <Modal
@@ -38,10 +43,10 @@ export function SuccessModal({ isOpen, onClose, onPrint, onDownload, title, mess
         </div>
         <div className="flex flex-wrap justify-center gap-3">
           <button
-            className="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors order-last sm:order-first"
+            className="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors order-last sm:order-first min-w-[100px]"
             onClick={onClose}
           >
-            {t('இப்போது வேண்டாம்', 'Not Now')}
+            {closeText || defaultCloseText}
           </button>
           
           {showDownload && (

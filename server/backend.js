@@ -2377,7 +2377,7 @@ try {
 
 // Mount PDF settings API
 try {
-  const pdfSettingsRouter = require('./routes/pdf-settings')({ db, authenticateToken, authorizePermission });
+  const pdfSettingsRouter = require('./routes/pdf-settings')({ db, authenticateToken, authorizePermission, verifyQueryToken });
   app.use('/api/pdf-settings', pdfSettingsRouter);
 } catch (e) {
   console.error('Failed to mount PDF settings router:', e);

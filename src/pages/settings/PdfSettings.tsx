@@ -4,7 +4,13 @@ import { useLanguage } from '@/lib/language';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { theme } from '@/styles/theme';
 import { cn } from '@/lib/utils';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Eye, X } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function PdfSettingsPage() {
   const { language } = useLanguage();
@@ -14,6 +20,8 @@ export default function PdfSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('general');
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   // Highlighted input style
   const highlightedInputClass = cn(
@@ -81,6 +89,12 @@ export default function PdfSettingsPage() {
     }
   };
 
+  const onPreview = () => {
+    const type = activeTab === 'general' ? 'tax' : activeTab; // general preview uses tax as example
+    const url = pdfSettingsService.getPreviewUrl(type);
+    setPreviewUrl(url);
+  };
+
   const logoSrc = form.logo_url ? (form.logo_url.startsWith('http') ? form.logo_url : form.logo_url) : '';
 
   if (loading) {
@@ -112,7 +126,7 @@ export default function PdfSettingsPage() {
             )}
 
             <form onSubmit={onSave} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Tabs defaultValue="general" className="md:col-span-2 lg:col-span-3">
+              <Tabs defaultValue="general" onValueChange={setActiveTab} className="md:col-span-2 lg:col-span-3">
                 <TabsList className="mb-6 grid w-full grid-cols-5">
                   <TabsTrigger value="general">{t('General', 'பொது')}</TabsTrigger>
                   <TabsTrigger value="tax">{t('Tax', 'வரி')}</TabsTrigger>
@@ -483,19 +497,44 @@ export default function PdfSettingsPage() {
 
               {/* Action Buttons - Full width */}
               <div className="md:col-span-3 flex flex-wrap gap-3 justify-between pt-4 border-t border-gray-200">
-                <div></div>
+                <button
+                  type="button"
+                  onClick={onPreview}
+                  className="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-md text-base transition-all duration-200 flex items-center gap-2"
+                >
+                  <Eye className="w-5 h-5" />
+                  {t('Preview PDF', 'PDF முன்பார்வை')}
+                </button>
                 <button
                   type="submit"
                   disabled={saving}
                   className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-md text-base transition-all duration-200"
                 >
-                  {saving ? t('Saving...', 'Saving...') : t('Save Settings', 'Save Settings')}
+                  {saving ? t('Saving...', 'சேமிக்கிறது...') : t('Save Settings', 'அமைப்புகளைச் சேமி')}
                 </button>
               </div>
             </form>
           </div>
         </div>
       </div>
+
+      {/* Preview Dialog */}
+      <Dialog open={!!previewUrl} onOpenChange={(open) => !open && setPreviewUrl(null)}>
+        <DialogContent className="max-w-5xl w-[95vw] h-[90vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="px-6 py-4 border-b flex flex-row items-center justify-between">
+            <DialogTitle>{t('PDF Preview', 'PDF முன்பார்வை')}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 w-full bg-gray-100 relative">
+            {previewUrl && (
+              <iframe
+                src={previewUrl}
+                className="w-full h-full border-none"
+                title="PDF Preview"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

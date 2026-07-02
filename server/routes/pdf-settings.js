@@ -3,8 +3,10 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { compressImage } = require('../middlewares/imageCompression');
+const PDFDocument = require('pdfkit');
+const https = require('https');
 
-module.exports = function createPdfSettingsRouter({ db, authenticateToken, authorizePermission }) {
+module.exports = function createPdfSettingsRouter({ db, authenticateToken, authorizePermission, verifyQueryToken }) {
   const router = express.Router();
 
   // Ensure pdf_settings table has all required columns
@@ -195,6 +197,178 @@ module.exports = function createPdfSettingsRouter({ db, authenticateToken, autho
     } catch (err) {
       console.error('POST /api/pdf-settings/logo error:', err);
       res.status(500).json({ error: 'Failed to upload logo' });
+    }
+  });
+
+  // PDF Preview Route
+  router.get('/preview.pdf', verifyQueryToken, async (req, res) => {
+    try {
+      const { type } = req.query;
+      const templeId = req.user.templeId;
+      const settings = await db('pdf_settings').where({ temple_id: templeId }).first().catch(() => null);
+
+      const doc = new PDFDocument({ size: 'A5', layout: 'landscape', margin: 24, bufferPages: true });
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename=preview_${type || 'sample'}.pdf`);
+      doc.pipe(res);
+
+      // Fonts
+      let tamilFontPath = path.join(__dirname, '..', 'fonts', 'NotoSansTamil-Regular.ttf');
+      let tamilBoldFontPath = path.join(__dirname, '..', 'fonts', 'NotoSansTamil-Bold.ttf');
+      let hasTamilFont = false;
+      let hasTamilBoldFont = false;
+      try {
+        if (fs.existsSync(tamilFontPath)) { doc.registerFont('Tamil', tamilFontPath); hasTamilFont = true; }
+        if (fs.existsSync(tamilBoldFontPath)) { doc.registerFont('TamilBold', tamilBoldFontPath); hasTamilBoldFont = true; }
+      } catch {}
+      const F_REG = hasTamilFont ? 'Tamil' : 'Helvetica';
+      const F_BOLD = hasTamilBoldFont ? 'TamilBold' : (hasTamilFont ? 'Tamil' : 'Helvetica-Bold');
+
+      const drawBold = (text, x, y, size, options = {}) => {
+        const safeText = String(text || '').replace(/₹/g, 'ரூ');
+        if (hasTamilBoldFont) {
+          doc.font(F_BOLD).fontSize(size).text(safeText, x, y, options);
+        } else {
+          doc.font(F_REG).fontSize(size).text(safeText, x, y, options);
+          doc.text(safeText, x + 0.35, y, options);
+        }
+      };
+      const drawReg = (text, x, y, size, options = {}) => {
+        const safeText = String(text || '').replace(/₹/g, 'ரூ');
+        doc.font(F_REG).fontSize(size).text(safeText, x, y, options);
+      };
+
+      // Header settings
+      const titleSub = settings?.title_sub || 'அருள்மிகு நல்லகுமாரசுவாமி துணை';
+      const titleLine2 = settings?.title_line2 || 'நாமக்கல் மாவட்டம், திருச்செங்கோடு வட்டம், கூத்தம்பூண்டி கிராமம்';
+      const titleMain = settings?.title_main || 'அருள்மிகு நல்லகுமாரசுவாமி திருக்கோவில்';
+      
+      let subHeader = settings?.subheader || 'ரசீது';
+      let L = {
+        receipt: 'ரசீது எண்',
+        date: 'தேதி',
+        year: 'வருடம்',
+        cell: 'செல்',
+        collector: 'வசூலிப்பாளர்',
+      };
+
+      if (type === 'tax') {
+        subHeader = settings?.tax_subheader || settings?.subheader || 'வரி ரசீது';
+        L = {
+          receipt: settings?.tax_receipt_label || 'ரசீது எண்',
+          date: settings?.tax_date_label || 'தேதி',
+          year: settings?.tax_year_label || 'வருடம்',
+          cell: settings?.tax_cell_label || 'செல்',
+          collector: settings?.tax_collector_label || 'வசூலிப்பாளர்',
+        };
+      } else if (type === 'annadhanam') {
+        subHeader = settings?.annadhanam_subheader || settings?.subheader || 'அன்னதான ரசீது';
+        L = {
+          receipt: settings?.annadhanam_receipt_label || 'ரசீது எண்',
+          date: settings?.annadhanam_date_label || 'தேதி',
+          year: settings?.annadhanam_year_label || 'வருடம்',
+          cell: settings?.annadhanam_cell_label || 'செல்',
+          collector: settings?.annadhanam_collector_label || 'வசூலிப்பாளர்',
+        };
+      } else if (type === 'hall') {
+        subHeader = settings?.hall_subheader || settings?.subheader || 'மண்டப ரசீது';
+        L = {
+          receipt: settings?.hall_receipt_label || 'ரசீது எண்',
+          date: settings?.hall_date_label || 'தேதி',
+          year: settings?.hall_year_label || 'வருடம்',
+          cell: settings?.hall_cell_label || 'செல்',
+          collector: settings?.hall_collector_label || 'வசூலிப்பாளர்',
+        };
+      } else if (type === 'pooja') {
+        subHeader = settings?.pooja_subheader || settings?.subheader || 'பூஜை ரசீது';
+        L = {
+          receipt: settings?.pooja_receipt_label || 'ரசீது எண்',
+          date: settings?.pooja_date_label || 'தேதி',
+          year: settings?.pooja_year_label || 'வருடம்',
+          cell: settings?.pooja_cell_label || 'செல்',
+          collector: settings?.pooja_collector_label || 'வசூலிப்பாளர்',
+        };
+      }
+
+      // Logo
+      let logoBuffer = null;
+      try {
+        const logoUrl = settings?.logo_url;
+        if (logoUrl) {
+          if (/^https?:\/\//i.test(logoUrl)) {
+            logoBuffer = await new Promise((resolve, reject) => {
+              const timeout = setTimeout(() => reject(new Error('Logo timeout')), 3000);
+              https.get(logoUrl, (r) => {
+                const chunks = [];
+                r.on('data', (d) => chunks.push(d));
+                r.on('end', () => { clearTimeout(timeout); resolve(Buffer.concat(chunks)); });
+                r.on('error', (e) => { clearTimeout(timeout); reject(e); });
+              }).on('error', (e) => { clearTimeout(timeout); reject(e); });
+            });
+          } else {
+            const rel = logoUrl.replace(/^[\/]+/, '');
+            const localPath = path.join(__dirname, '..', '..', rel);
+            if (fs.existsSync(localPath)) logoBuffer = fs.readFileSync(localPath);
+          }
+        }
+      } catch {}
+
+      // Render
+      const pageWidth = doc.page.width;
+      const pageHeight = doc.page.height;
+      const marginLeft = doc.page.margins.left;
+      const marginRight = doc.page.margins.right;
+      const marginTop = doc.page.margins.top;
+      const marginBottom = doc.page.margins.bottom;
+      const contentWidth = pageWidth - marginLeft - marginRight;
+
+      doc.lineWidth(2).rect(marginLeft - 6, marginTop - 6, contentWidth + 12, pageHeight - marginTop - marginBottom + 12).stroke();
+
+      const headerHeight = 100;
+      const headerY = marginTop + 4;
+      doc.lineWidth(1.5).rect(marginLeft, headerY, contentWidth, headerHeight).stroke();
+
+      let logoWidth = 0;
+      if (logoBuffer) {
+        logoWidth = 70;
+        doc.image(logoBuffer, marginLeft + 10, headerY + 15, { width: logoWidth, height: logoWidth, fit: [logoWidth, logoWidth] });
+      }
+
+      const textStartX = marginLeft + logoWidth + 20;
+      const textWidth = contentWidth - logoWidth - 30;
+      let textY = headerY + 15;
+      doc.font(F_BOLD).fontSize(11).text(titleSub, textStartX, textY, { width: textWidth, align: 'center' });
+      textY += 18;
+      doc.font(F_REG).fontSize(9).text(titleLine2, textStartX, textY, { width: textWidth, align: 'center' });
+      textY += 24;
+      doc.font(F_BOLD).fontSize(15).text(titleMain, textStartX, textY, { width: textWidth, align: 'center' });
+
+      const stripY = headerY + headerHeight + 15;
+      doc.lineWidth(1.5).rect(marginLeft, stripY, contentWidth, 40).stroke();
+      drawReg(`${L.receipt}: 001 (SAMPLE)`, marginLeft + 10, stripY + 14, 12);
+      drawBold(subHeader, marginLeft, stripY + 14, 14, { width: contentWidth, align: 'center' });
+      drawReg(`${L.date}: ${new Date().toLocaleDateString('en-GB')}`, marginLeft, stripY + 14, 11, { width: contentWidth - 10, align: 'right' });
+
+      doc.font(F_REG).fontSize(12).text('உயர்திரு/திருமதி .......................................................................................', marginLeft + 10, stripY + 80);
+      doc.text('அவர்களிடமிருந்து ...................................................................................', marginLeft + 10, stripY + 110);
+      doc.text(`${subHeader} தொகையாக ரூபாய் ....................................................................`, marginLeft + 10, stripY + 140);
+      doc.text('மட்டும் நன்றியுடன் பெற்றுக்கொள்ளப்பட்டது.', marginLeft + 10, stripY + 170);
+
+      const rupeeBoxX = marginLeft + 10;
+      const rupeeBoxY = pageHeight - marginBottom - 50;
+      doc.lineWidth(1.5).rect(rupeeBoxX, rupeeBoxY, 150, 40).stroke();
+      drawBold('ரூ 1,000.00', rupeeBoxX + 10, rupeeBoxY + 12, 16);
+
+      drawReg(L.collector, contentWidth - 80, rupeeBoxY + 15, 12);
+
+      if (settings?.watermark_text) {
+        doc.font(F_REG).fontSize(8).fillColor('gray').text(settings.watermark_text, marginLeft, rupeeBoxY - 15, { width: contentWidth, align: 'center' });
+      }
+
+      doc.end();
+    } catch (err) {
+      console.error('PDF Preview error:', err);
+      res.status(500).send('Error generating preview');
     }
   });
 

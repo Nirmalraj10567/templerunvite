@@ -1271,6 +1271,7 @@ export default function TempleUserEntryPage() {
       <SuccessModal
         isOpen={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
+        message={editId ? t.success.updated : t.success.saved}
       />
     </>
   );

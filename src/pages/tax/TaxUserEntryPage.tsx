@@ -1996,6 +1996,7 @@ export default function TaxUserEntryPage() {
       <SuccessModal
         isOpen={showPrintPrompt}
         onClose={() => setShowPrintPrompt(false)}
+        message={L('Tax registration saved successfully!', 'வரி பதிவு வெற்றிகரமாக சேமிக்கப்பட்டது!')}
       />
     </div>
   );

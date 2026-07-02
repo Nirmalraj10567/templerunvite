@@ -61,4 +61,8 @@ export const pdfSettingsService = {
     });
     return resp?.data?.data || {};
   },
+  getPreviewUrl(type: string): string {
+    const baseUrl = 'https://templeapi.agniplay.com/api/pdf-settings/preview.pdf';
+    return `${baseUrl}?type=${type}&token=${getAuthToken()}`;
+  },
 };
