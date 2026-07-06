@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { setGlobalLogoutCallback, isTokenExpired } from '@/lib/apiClient';
+import apiClient from '@/lib/apiClient';
 
 const RAW_API_BASE =
   (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || window.location.origin;
@@ -24,6 +25,16 @@ interface Temple {
   address: string;
   phone: string;
   email: string;
+}
+
+export interface CompanyInfo {
+  templeId: number;
+  username: string;
+  role: string;
+  templeName: string;
+  templeAddress: string | null;
+  templeLogo: string | null;
+  branch: string | null;
 }
 
 interface UserPermission {
@@ -58,10 +69,15 @@ interface AuthContextType {
   isSuperAdmin: boolean;
   temple: Temple | null;
   isGuest: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  planFeatures: Record<string, unknown>;
+  planName: string;
+  subscriptionStatus: string;
+  login: (email: string, password: string, companyId?: number) => Promise<void>;
+  lookupCompaniesByMobile: (mobile: string) => Promise<CompanyInfo[]>;
   guestLogin: () => Promise<{ success: boolean; error?: string }>;
   register: (userData: RegisterData) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
+  refreshSubscription: () => Promise<void>;
   isLoading: boolean;
   error: string;
 }
@@ -72,6 +88,9 @@ interface AuthState {
   userPermissions: UserPermission[];
   isSuperAdmin: boolean;
   temple: Temple | null;
+  planFeatures: Record<string, unknown>;
+  planName: string;
+  subscriptionStatus: string;
   isLoading: boolean;
   error: string;
 }
@@ -79,14 +98,19 @@ interface AuthState {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   token: null,
-  userPermissions: [], // already initialized
+  userPermissions: [],
   isSuperAdmin: false,
   temple: null,
   isGuest: false,
+  planFeatures: {},
+  planName: '',
+  subscriptionStatus: '',
   login: async () => {},
+  lookupCompaniesByMobile: async () => [],
   guestLogin: async () => ({ success: false, error: 'Not initialized' }),
   register: async () => ({ success: false, error: 'Not initialized' }),
   logout: () => {},
+  refreshSubscription: async () => {},
   isLoading: false,
   error: '',
 });
@@ -98,27 +122,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     userPermissions: [],
     isSuperAdmin: false,
     temple: null,
+    planFeatures: {},
+    planName: '',
+    subscriptionStatus: '',
     isGuest: false,
     isLoading: true,
     error: '',
   });
 
+  // Function to fetch subscription plan data
+  const fetchSubscriptionData = async (templeId: number, token: string): Promise<{ planFeatures: Record<string, unknown>; planName: string; subscriptionStatus: string }> => {
+    try {
+      const response = await apiClient.get('/subscription');
+      const data = response.data;
+      if (data.success && data.data?.subscription?.plan) {
+        return {
+          planFeatures: data.data.subscription.plan.features || {},
+          planName: data.data.subscription.plan.name || '',
+          subscriptionStatus: data.data.subscription.status || '',
+        };
+      }
+      return { planFeatures: {}, planName: '', subscriptionStatus: 'none' };
+    } catch {
+      return { planFeatures: {}, planName: '', subscriptionStatus: '' };
+    }
+  };
+
   // Function to fetch temple data
   const fetchTempleData = async (templeId: number, token: string): Promise<Temple | null> => {
     try {
-      const response = await fetch(`${API_BASE}/temples/${templeId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        console.error('Failed to fetch temple data');
-        return null;
-      }
-
-      const data = await response.json();
+      const response = await apiClient.get(`/temples/${templeId}`);
+      const data = response.data;
       return data.success ? data.data : null;
     } catch (error) {
       console.error('Error fetching temple data:', error);
@@ -133,16 +167,88 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const savedPermissions = localStorage.getItem('userPermissions');
     const savedTemple = localStorage.getItem('templeInfo');
     const savedIsGuest = localStorage.getItem('isGuest') === 'true';
-    
+    const savedPlanFeatures = localStorage.getItem('planFeatures');
+    const savedPlanName = localStorage.getItem('planName');
+    const savedSubStatus = localStorage.getItem('subscriptionStatus');
+
     if (savedToken && savedUser) {
       // Check if token is expired before restoring session
       if (isTokenExpired(savedToken)) {
-        console.warn('Saved token is expired, clearing session');
+        console.warn('Saved token is expired, attempting refresh...');
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (refreshToken) {
+          (async () => {
+            try {
+              const response = await fetch(`${API_BASE}/auth/refresh`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refresh_token: refreshToken }),
+              });
+              const data = await response.json();
+              if (data.success) {
+                localStorage.setItem('authToken', data.data.access_token);
+                localStorage.setItem('refreshToken', data.data.refresh_token);
+                const newToken = data.data.access_token;
+                const parsedUser = JSON.parse(savedUser);
+                const parsedPermissions: UserPermission[] = savedPermissions
+                  ? JSON.parse(savedPermissions)
+                  : (parsedUser.userPermissions || []).map((permission: any) => ({
+                      permission_id: permission.permission_id,
+                      access_level: permission.access_level,
+                    }));
+                const parsedTemple = savedTemple ? JSON.parse(savedTemple) : null;
+
+                setState(prev => ({
+                  ...prev,
+                  token: newToken,
+                  user: parsedUser,
+                  userPermissions: parsedPermissions,
+                  isSuperAdmin: parsedUser.mobile === '9999999999',
+                  temple: parsedTemple,
+                  isGuest: savedIsGuest,
+                  planFeatures: savedPlanFeatures ? JSON.parse(savedPlanFeatures) : {},
+                  planName: savedPlanName || '',
+                  subscriptionStatus: savedSubStatus || '',
+                  isLoading: false,
+                }));
+
+                if (parsedUser?.templeId) {
+                  fetchSubscriptionData(parsedUser.templeId, newToken).then(result => {
+                    setState(prev => ({ ...prev, ...result }));
+                    localStorage.setItem('planFeatures', JSON.stringify(result.planFeatures));
+                    localStorage.setItem('planName', result.planName);
+                    localStorage.setItem('subscriptionStatus', result.subscriptionStatus);
+                  });
+                }
+                return;
+              }
+            } catch (e) {
+              console.warn('Refresh token also expired, clearing session');
+            }
+            // Clear session if refresh failed
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('userInfo');
+            localStorage.removeItem('userPermissions');
+            localStorage.removeItem('templeInfo');
+            localStorage.removeItem('isGuest');
+            localStorage.removeItem('planFeatures');
+            localStorage.removeItem('planName');
+            localStorage.removeItem('subscriptionStatus');
+            setState(prev => ({ ...prev, isLoading: false }));
+          })();
+          return;
+        }
+        // No refresh token, clear session
         localStorage.removeItem('authToken');
+        localStorage.removeItem('refreshToken');
         localStorage.removeItem('userInfo');
         localStorage.removeItem('userPermissions');
         localStorage.removeItem('templeInfo');
         localStorage.removeItem('isGuest');
+        localStorage.removeItem('planFeatures');
+        localStorage.removeItem('planName');
+        localStorage.removeItem('subscriptionStatus');
         setState(prev => ({ ...prev, isLoading: false }));
         return;
       }
@@ -164,27 +270,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isSuperAdmin: parsedUser.mobile === '9999999999',
         temple: parsedTemple,
         isGuest: savedIsGuest,
+        planFeatures: savedPlanFeatures ? JSON.parse(savedPlanFeatures) : {},
+        planName: savedPlanName || '',
+        subscriptionStatus: savedSubStatus || '',
         isLoading: false,
       }));
+
+      // Fetch subscription data in background
+      if (parsedUser?.templeId) {
+        fetchSubscriptionData(parsedUser.templeId, savedToken).then(result => {
+          setState(prev => ({ ...prev, ...result }));
+          localStorage.setItem('planFeatures', JSON.stringify(result.planFeatures));
+          localStorage.setItem('planName', result.planName);
+          localStorage.setItem('subscriptionStatus', result.subscriptionStatus);
+        });
+      }
     } else {
       setState(prev => ({ ...prev, isLoading: false }));
     }
   }, []);
 
-  const login = async (identifier: string, password: string) => {
+  const lookupCompaniesByMobile = async (mobile: string): Promise<CompanyInfo[]> => {
+    try {
+      const response = await fetch(`${API_BASE}/users/lookup-by-mobile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mobile }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Lookup failed');
+      return data.companies || [];
+    } catch (err) {
+      console.error('lookupCompaniesByMobile error:', err);
+      return [];
+    }
+  };
+
+  const login = async (identifier: string, password: string, companyId?: number) => {
     if (!identifier || !password) {
       setState(prev => ({ ...prev, error: 'Username/Mobile and password are required', isLoading: false }));
       return;
     }
-    // Allow either username or mobile number; backend accepts either
 
     setState(prev => ({ ...prev, isLoading: true, error: '' }));
 
     try {
+      const body: Record<string, unknown> = { username: identifier, password };
+      if (companyId) body.companyId = companyId;
       const response = await fetch(`${API_BASE}/users/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mobile: identifier, username: identifier, password }),
+        body: JSON.stringify(body),
       });
 
       const loginData = await response.json();
@@ -197,7 +333,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Your account has been blocked. Please contact support.');
       }
 
-      const { token, user } = loginData;
+      const { token, refresh_token, user } = loginData;
       const permsFromLogin = (user?.permissions || []).map((p: any) => ({
         permission_id: p.permission_id || p.id,
         access_level: p.access_level || p.access,
@@ -205,8 +341,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Fetch temple data if user has templeId
       let templeData: Temple | null = null;
+      let planFeatures: Record<string, unknown> = {};
+      let planName = '';
+      let subscriptionStatus = '';
       if (user?.templeId) {
         templeData = await fetchTempleData(user.templeId, token);
+        const subData = await fetchSubscriptionData(user.templeId, token);
+        planFeatures = subData.planFeatures;
+        planName = subData.planName;
+        subscriptionStatus = subData.subscriptionStatus;
       }
 
       setState(prev => ({
@@ -216,11 +359,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         userPermissions: permsFromLogin,
         isSuperAdmin: user.mobile === '9999999999',
         temple: templeData,
+        planFeatures,
+        planName,
+        subscriptionStatus,
         isLoading: false,
       }));
       localStorage.setItem('authToken', token);
+      if (refresh_token) localStorage.setItem('refreshToken', refresh_token);
       localStorage.setItem('userInfo', JSON.stringify(user));
       localStorage.setItem('userPermissions', JSON.stringify(permsFromLogin));
+      localStorage.setItem('planFeatures', JSON.stringify(planFeatures));
+      localStorage.setItem('planName', planName);
+      localStorage.setItem('subscriptionStatus', subscriptionStatus);
       if (templeData) {
         localStorage.setItem('templeInfo', JSON.stringify(templeData));
       }
@@ -366,15 +516,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       userPermissions: [],
       isSuperAdmin: false,
       temple: null,
+      planFeatures: {},
+      planName: '',
+      subscriptionStatus: '',
       isGuest: false,
       isLoading: false,
       error: '',
     });
     localStorage.removeItem('authToken');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('userInfo');
     localStorage.removeItem('userPermissions');
     localStorage.removeItem('templeInfo');
     localStorage.removeItem('isGuest');
+    localStorage.removeItem('planFeatures');
+    localStorage.removeItem('planName');
+    localStorage.removeItem('subscriptionStatus');
+  };
+
+  // Refresh subscription data from server and sync to state + localStorage
+  const refreshSubscription = async () => {
+    if (!state.user?.templeId || !state.token) return;
+    try {
+      const result = await fetchSubscriptionData(state.user.templeId, state.token);
+      setState(prev => ({ ...prev, ...result }));
+      localStorage.setItem('planFeatures', JSON.stringify(result.planFeatures));
+      localStorage.setItem('planName', result.planName);
+      localStorage.setItem('subscriptionStatus', result.subscriptionStatus);
+    } catch {
+      // silent - stale data is fine
+    }
   };
 
   // Set up global logout callback for API client
@@ -407,10 +578,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isSuperAdmin: state.isSuperAdmin,
       temple: state.temple,
       isGuest: state.isGuest,
+      planFeatures: state.planFeatures,
+      planName: state.planName,
+      subscriptionStatus: state.subscriptionStatus,
       login,
+      lookupCompaniesByMobile,
       guestLogin,
       register,
       logout,
+      refreshSubscription,
       isLoading: state.isLoading,
       error: state.error,
     }}>

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFeature } from '@/hooks/useFeature';
 import { useLanguage } from '@/lib/language';
 import { PrintButton } from '@/components/ui/print-button';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,8 @@ interface MarriageItem {
 
 export default function MarriageListPage() {
   const { token } = useAuth();
+  const canExportCsv = useFeature('data_export_csv');
+  const canExportPdf = useFeature('data_export_excel');
   const { language } = useLanguage();
   const navigate = useNavigate();
   const [items, setItems] = useState<MarriageItem[]>([]);
@@ -345,13 +348,25 @@ export default function MarriageListPage() {
             >
               {t('Clear', 'அழி')}
             </button>
-            <button
-              onClick={onExport}
-              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              type="button"
-            >
-              {t('Export CSV', 'CSV ஏற்றுமதி')}
-            </button>
+            {canExportCsv && (
+              <button
+                onClick={onExport}
+                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                type="button"
+              >
+                {t('Export CSV', 'CSV ஏற்றுமதி')}
+              </button>
+            )}
+            {canExportPdf && (
+              <button
+                onClick={onExportPDF}
+                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                type="button"
+              >
+                {t('Export PDF', 'PDF ஏற்றுமதி')}
+              </button>
+            )}
+            {canExportPdf && (
             <button
               onClick={onExportPDF}
               className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -359,6 +374,7 @@ export default function MarriageListPage() {
             >
               {t('Export PDF', 'PDF ஏற்றுமதி')}
             </button>
+            )}
           </div>
         </div>
       </div>

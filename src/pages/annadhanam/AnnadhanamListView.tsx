@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFeature } from "@/hooks/useFeature";
 import { cn, pageContainerStyles, formFieldStyles } from "@/styles/formStyles";
 import { theme, tableClasses, buttonClasses } from '@/styles/theme';
 import jsPDF from 'jspdf';
@@ -186,6 +187,8 @@ export default function AnnadhanamListView() {
   const navigate = useNavigate();
   const { user, token } = useAuth();
   const { language } = useLanguage();
+  const canExportCsv = useFeature('data_export_csv');
+  const canExportPdf = useFeature('data_export_excel');
 
   const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
 
@@ -961,14 +964,18 @@ export default function AnnadhanamListView() {
                     {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
                         5. BUTTONS IN TOOLBAR
                       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-                    <Button size="sm" className="h-8 text-xs" variant="outline" onClick={exportToCSV} disabled={loading || data.length === 0}>
-                      <FileSpreadsheet className="h-3 w-3 mr-1" />
-                      {t('Export CSV', 'CSV ஏற்றுமதி')}
-                    </Button>
-                    <Button size="sm" className="h-8 text-xs" variant="outline" onClick={exportVisiblePDF} disabled={loading || data.length === 0}>
-                      <FileDown className="h-3 w-3 mr-1" />
-                      {t('Export PDF', 'PDF ஏற்றுமதி')}
-                    </Button>
+                    {canExportCsv && (
+                      <Button size="sm" className="h-8 text-xs" variant="outline" onClick={exportToCSV} disabled={loading || data.length === 0}>
+                        <FileSpreadsheet className="h-3 w-3 mr-1" />
+                        {t('Export CSV', 'CSV ஏற்றுமதி')}
+                      </Button>
+                    )}
+                    {canExportPdf && (
+                      <Button size="sm" className="h-8 text-xs" variant="outline" onClick={exportVisiblePDF} disabled={loading || data.length === 0}>
+                        <FileDown className="h-3 w-3 mr-1" />
+                        {t('Export PDF', 'PDF ஏற்றுமதி')}
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>

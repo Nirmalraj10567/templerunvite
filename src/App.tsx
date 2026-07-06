@@ -78,6 +78,13 @@ import DaybookListPage from './pages/daybook/DaybookListPage';
 import DaybookEntryPage from './pages/daybook/DaybookEntryPage';
 import ProfilePage from './pages/ProfilePage';
 import AccountCreatePage from './pages/accounts/AccountCreatePage';
+import PricingPage from './pages/pricing/PricingPage';
+import MySubscriptionPage from './pages/subscription/MySubscriptionPage';
+import ChangePlanPage from './pages/subscription/ChangePlanPage';
+import PlansListPage from './pages/admin/PlansListPage';
+import PlanFormPage from './pages/admin/PlanFormPage';
+import FeatureDefsPage from './pages/admin/FeatureDefsPage';
+import AdminSubscriptionsPage from './pages/admin/AdminSubscriptionsPage';
 
 function App() {
   return (
@@ -90,6 +97,7 @@ function App() {
               <Routes>
                 {/* Public Routes */}
                 <Route path="/" element={<HomePage />} />
+                <Route path="/pricing" element={<PricingPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
 
@@ -208,6 +216,38 @@ function App() {
                           <MasterAdminPage />
                         </PermissionGuard>
                       }
+                    />
+
+                    {/* Subscription/Plan Routes */}
+                    <Route
+                      path="subscription"
+                      element={<MySubscriptionPage />}
+                    />
+                    <Route
+                      path="subscription/change-plan"
+                      element={<ChangePlanPage />}
+                    />
+
+                    {/* Admin Plan Management Routes */}
+                    <Route
+                      path="admin/plans"
+                      element={<PlansListPage />}
+                    />
+                    <Route
+                      path="admin/plans/new"
+                      element={<PlanFormPage />}
+                    />
+                    <Route
+                      path="admin/plans/:id/edit"
+                      element={<PlanFormPage />}
+                    />
+                    <Route
+                      path="admin/feature-definitions"
+                      element={<FeatureDefsPage />}
+                    />
+                    <Route
+                      path="admin/subscriptions"
+                      element={<AdminSubscriptionsPage />}
                     />
 
                     {/* Receipt Routes */}

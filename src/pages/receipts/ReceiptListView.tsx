@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFeature } from '@/hooks/useFeature';
 import { useLanguage } from '@/lib/language';
 import { toast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
@@ -101,6 +102,8 @@ interface ReceiptFormData {
 export default function ReceiptListView() {
   const navigate = useNavigate();
   const { token, user } = useAuth();
+  const canExportCsv = useFeature('data_export_csv');
+  const canExportPdf = useFeature('data_export_excel');
   const { language } = useLanguage();
 
   // Unified translation object
@@ -792,13 +795,17 @@ export default function ReceiptListView() {
               </div>
               
               <div className="flex gap-2 ml-auto">
-                <Button variant="outline" onClick={exportVisiblePDF} disabled={loading || data.length === 0}>
-                  <FileDown className="h-3 w-3 mr-1" />
-                  Export PDF
-                </Button>
-                <Button onClick={handleExportCSV} disabled={loading || data.length === 0}>
-                  Export CSV
-                </Button>
+                {canExportPdf && (
+                  <Button variant="outline" onClick={exportVisiblePDF} disabled={loading || data.length === 0}>
+                    <FileDown className="h-3 w-3 mr-1" />
+                    Export PDF
+                  </Button>
+                )}
+                {canExportCsv && (
+                  <Button onClick={handleExportCSV} disabled={loading || data.length === 0}>
+                    Export CSV
+                  </Button>
+                )}
               </div>
             </div>
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFeature } from '@/hooks/useFeature';
 import { useLanguage } from '@/lib/language';
 import { PrintButton } from '@/components/ui/print-button';
 import { Modal } from '@/components/ui/modal';
@@ -56,6 +57,8 @@ interface HallBookingLog {
 
 export default function HallListPage() {
   const { token, user } = useAuth();
+  const canExportCsv = useFeature('data_export_csv');
+  const canExportPdf = useFeature('data_export_excel');
   const { language } = useLanguage();
   const navigate = useNavigate();
   const [rows, setRows] = useState<HallBooking[]>([]);
@@ -774,12 +777,16 @@ export default function HallListPage() {
                     <Settings2 className="h-3 w-3 mr-1" />
                     {t('Columns', 'நெடுவரிசைகள்')}
                   </Button>
+                  {canExportCsv && (
                   <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handleExportCSV} disabled={loading || rows.length === 0}>
                     {t('Export CSV', 'CSV ஏற்றுமதி')}
                   </Button>
+                  )}
+                  {canExportPdf && (
                   <Button size="sm" className="h-8 text-xs" variant="outline" onClick={exportVisiblePDF} disabled={loading || rows.length === 0}>
                     {t('Export PDF', 'PDF ஏற்றுமதி')}
                   </Button>
+                  )}
                 </div>
               </div>
             </div>

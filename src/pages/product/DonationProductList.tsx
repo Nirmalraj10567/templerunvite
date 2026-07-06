@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFeature } from '@/hooks/useFeature';
 import { useLanguage } from '@/lib/language';
 import { Button } from '@/components/ui/button';
 import { Loader2, FileDown, Trash2, Edit, Eye } from 'lucide-react';
@@ -164,6 +165,8 @@ const PrintButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
 export default function DonationProductList() {
   const navigate = useNavigate();
   const { token } = useAuth();
+  const canExportCsv = useFeature('data_export_csv');
+  const canExportPdf = useFeature('data_export_excel');
   const { language } = useLanguage();
 
   // State management
@@ -607,20 +610,24 @@ export default function DonationProductList() {
               >
                 {t('Clear', 'அழி')}
               </button>
-              <button
-                onClick={onExport}
-                className="px-3 py-1 border border-gray-300 rounded-md shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                type="button"
-              >
-                {t('Export CSV', 'CSV ஏற்றுமதி')}
-              </button>
-              <button
-                onClick={() => window.print()}
-                className="px-3 py-1 border border-gray-300 rounded-md shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                type="button"
-              >
-                {t('Export PDF', 'PDF ஏற்றுமதி')}
-              </button>
+              {canExportCsv && (
+                <button
+                  onClick={onExport}
+                  className="px-3 py-1 border border-gray-300 rounded-md shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  type="button"
+                >
+                  {t('Export CSV', 'CSV ஏற்றுமதி')}
+                </button>
+              )}
+              {canExportPdf && (
+                <button
+                  onClick={() => window.print()}
+                  className="px-3 py-1 border border-gray-300 rounded-md shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  type="button"
+                >
+                  {t('Export PDF', 'PDF ஏற்றுமதி')}
+                </button>
+              )}
               <button
                 onClick={openAllLogs}
                 className="px-3 py-1 border border-gray-300 rounded-md shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"

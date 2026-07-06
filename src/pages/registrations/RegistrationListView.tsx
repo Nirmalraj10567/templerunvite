@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
+import { useFeature } from '@/hooks/useFeature';
 import { theme } from '@/styles/theme';
 import { cn } from '@/lib/utils';
 
@@ -39,6 +40,7 @@ type Registration = {
 export default function RegistrationListView() {
   const { token } = useAuth();
   const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const canExportPdf = useFeature('data_export_excel');
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -325,6 +327,7 @@ export default function RegistrationListView() {
 
         {/* Pagination */}
         <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          {canExportPdf && (
           <button
             onClick={handleExportAllPDF}
             disabled={isGeneratingPdf || registrations.length === 0}
@@ -351,6 +354,7 @@ export default function RegistrationListView() {
               </>
             )}
           </button>
+          )}
           <div className="text-sm text-gray-700">
             Showing <span className="font-medium">{(page - 1) * pageSize + 1}</span> to{' '}
             <span className="font-medium">

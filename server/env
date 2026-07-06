@@ -5,3 +5,7 @@ MYSQL_USER=root
 MYSQL_PASSWORD=YourStrongPassword123
 MYSQL_DATABASE=templerun
 MYSQL_TIMEZONE=Z
+
+# Razorpay payment gateway (replace with your keys)
+RAZORPAY_KEY_ID=rzp_test_SHAzHnNKynwwfW
+RAZORPAY_KEY_SECRET=t34ONVzmuAVr1k5zWuka5lg4

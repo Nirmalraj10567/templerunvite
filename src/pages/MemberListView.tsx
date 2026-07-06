@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { FileDown, Search } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFeature } from '@/hooks/useFeature';
 import { formFieldStyles, pageContainerStyles, cn } from '@/styles/formStyles';
 import { theme, tableClasses, buttonClasses } from '@/styles/theme';
 import jsPDF from 'jspdf';
@@ -61,6 +62,7 @@ export default function MemberListView({
 }: Props) {
   const { language } = useLanguage();
   const { token } = useAuth();
+  const canExportPdf = useFeature('data_export_excel');
   const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);;
 
   const allColumns: Array<{ key: ColKey; label: string; align?: 'left' | 'right' | 'center' }> = [
@@ -436,10 +438,12 @@ export default function MemberListView({
                   <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => onSearch('')}>
                     {t('Clear', 'அழி')}
                   </Button>
+                  {canExportPdf && (
                   <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handleExportPdf}>
                     <FileDown className="h-3 w-3 mr-1" />
                     {t('Export PDF', 'PDF ஏற்றுமதி')}
                   </Button>
+                  )}
                   <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handlePrint}>
                     <FileDown className="h-3 w-3 mr-1" />
                     {t('Print', 'அச்சிடு')}

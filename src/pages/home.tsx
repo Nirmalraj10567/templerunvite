@@ -63,7 +63,7 @@ export function HomePage(){
             {t[lang].heroSubtitle}
           </p>
           <div className="flex justify-center gap-4">
-            <button className="bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 px-8 rounded-lg shadow-lg transition">
+            <button className="bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 px-8 rounded-lg shadow-lg transition" onClick={() => window.location.href = '/register'}>
               {t[lang].getStarted}
             </button>
             <button 
@@ -71,6 +71,12 @@ export function HomePage(){
               onClick={() => window.location.href = '/login'}
             >
               {t[lang].signIn}
+            </button>
+            <button
+              className="border-2 border-slate-600 text-slate-600 hover:bg-slate-50 font-semibold py-3 px-8 rounded-lg transition"
+              onClick={() => window.location.href = '/pricing'}
+            >
+              View Pricing
             </button>
           </div>
         </div>

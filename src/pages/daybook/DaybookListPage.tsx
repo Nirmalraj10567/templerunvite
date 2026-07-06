@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFeature } from '@/hooks/useFeature';
 import { useLanguage } from '@/lib/language';
 import { daybookService, DaybookEntry, DaybookLog } from '@/services/daybookService';
 import { Button } from '@/components/ui/button';
@@ -63,6 +64,8 @@ import { cn } from '@/lib/utils';
 
 export default function DaybookListPage() {
   const { temple } = useAuth();
+  const canExportCsv = useFeature('data_export_csv');
+  const canExportPdf = useFeature('data_export_excel');
   const { language } = useLanguage();
   const navigate = useNavigate();
   
@@ -575,6 +578,7 @@ export default function DaybookListPage() {
               visibleColumns={visibleColumns} 
               onToggleColumn={onToggleColumn} 
             />
+            {canExportCsv && (
             <Button
               onClick={handleExportCSV}
               variant="outline"
@@ -583,7 +587,8 @@ export default function DaybookListPage() {
               <Download className="h-4 w-4 mr-1.5" />
               CSV
             </Button>
-            
+            )}
+            {canExportPdf && (
             <Button
               onClick={exportVisiblePDF}
               variant="outline"
@@ -592,6 +597,7 @@ export default function DaybookListPage() {
               <FileText className="h-4 w-4 mr-1.5" />
               PDF
             </Button>
+            )}
           </div>
         </div>
 

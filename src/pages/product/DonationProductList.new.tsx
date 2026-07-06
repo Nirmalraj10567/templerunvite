@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFeature } from '@/hooks/useFeature';
 import { useLanguage } from '@/lib/language';
 import { donationService, DonationItem } from '@/services/donationService';
 import { PrintButton } from '@/components/ui/print-button';
@@ -55,7 +56,9 @@ interface DonationProductLog {
 }
 
 export default function DonationProductList() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const canExportCsv = useFeature('data_export_csv');
+  const canExportPdf = useFeature('data_export_excel');
   const { language } = useLanguage();
   const [items, setItems] = useState<DonationItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -214,8 +217,8 @@ export default function DonationProductList() {
             {[
               { label: t('Search', 'தேடு'), onClick: load },
               { label: t('Clear', 'அழி'), onClick: () => { setQ(''); load(); } },
-              { label: t('Export CSV', 'CSV ஏற்றுமதி'), onClick: onExport },
-              { label: t('Export PDF', 'PDF ஏற்றுமதி'), onClick: () => window.print() },
+              ...(canExportCsv ? [{ label: t('Export CSV', 'CSV ஏற்றுமதி'), onClick: onExport }] : []),
+              ...(canExportPdf ? [{ label: t('Export PDF', 'PDF ஏற்றுமதி'), onClick: () => window.print() }] : []),
               { label: t('All Logs', 'அனைத்து பதிவுகள்'), onClick: openAllLogs },
             ].map((btn, i) => (
               <button key={i} onClick={btn.onClick} className={button}>

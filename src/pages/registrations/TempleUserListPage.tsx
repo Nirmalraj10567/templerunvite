@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFeature } from '@/hooks/useFeature';
 import { useLanguage } from '@/lib/language';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,17 +23,6 @@ type Registration = {
 };
 
   type ColKey = 'sno' | 'name' | 'mobile_number' | 'aadhaar_number' | 'reference_number' | 'village' | 'created_at' | 'actions';
-
-  interface Registration {
-    id: number;
-    name: string;
-    mobile_number?: string;
-    aadhaar_number?: string | null;
-    reference_number?: string;
-    village?: string;
-    created_at?: string;
-    status?: 'active' | 'blocked' | 'inactive';
-  }
 
   const t = {
     tamil: {
@@ -95,6 +85,8 @@ export default function TempleUserListPage() {
   const { token } = useAuth();
   const { language } = useLanguage();
   const navigate = useNavigate();
+  const canExportCsv = useFeature('data_export_csv');
+  const canExportPdf = useFeature('data_export_excel');
 
   const [rows, setRows] = useState<Registration[]>([]);
   const [page, setPage] = useState(1);
@@ -346,14 +338,18 @@ export default function TempleUserListPage() {
               <Button onClick={load} className={formFieldStyles.moneyDonationList.filters.button}>
                 {t[language].searchPlaceholder}
               </Button>
+              {canExportCsv && (
               <Button variant="outline" onClick={handleExportCsv} className={formFieldStyles.moneyDonationList.filters.button}>
                 <FileDown className="h-3 w-3 mr-1" />
                 {t[language].exportButton}
               </Button>
+              )}
+              {canExportPdf && (
               <Button variant="outline" onClick={handleExportAllPdf} className={formFieldStyles.moneyDonationList.filters.button}>
                 <FileDown className="h-3 w-3 mr-1" />
                 {t[language].exportButton} PDF
               </Button>
+              )}
             </div>
           </div>
         </div>

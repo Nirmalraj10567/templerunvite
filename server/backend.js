@@ -729,6 +729,22 @@ async function removePoojaFromDaybook({ poojaId, templeId }) {
   }
 }
 // Hall bookings router will be mounted later with proper auth
+// Mount subscription/plans routes (BEFORE broad /api routers to avoid auth blocking)
+const plansRouter = require('./routes/plans');
+app.use('/api/plans', plansRouter);
+
+const subscriptionsRouter = require('./routes/subscriptions');
+app.use('/api/subscription', subscriptionsRouter);
+
+const paymentRouter = require('./routes/payment');
+app.use('/api/payment', paymentRouter);
+
+const authRefreshRouter = require('./routes/auth-refresh');
+app.use('/api/auth', authRefreshRouter);
+
+const adminPlansRouter = require('./routes/admin/plans');
+app.use('/api/admin', adminPlansRouter);
+
 // Mount moon API routes (moon-phases and moon-dates)
 (() => {
   try {
@@ -4393,7 +4409,7 @@ app.post('/api/members',
 
       // Check if username already exists when creating login
       if (createLogin && username) {
-        const existingUser = await db('users').where({ username }).first();
+        const existingUser = await db('users').where({ username, temple_id: req.user.templeId }).first();
         if (existingUser) {
           return res.status(409).json({ error: 'Username already exists' });
         }

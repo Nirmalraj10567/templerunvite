@@ -7,6 +7,7 @@ const sendOtp = require('./sendOtp'); // Import the SMS OTP service
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { generateAccessToken, generateRefreshToken, storeRefreshToken } = require('./utils/refreshToken');
 
 // Set up multer for profile image uploads
 const profileUploadDir = path.join(__dirname, '../public/uploads/profiles');
@@ -196,12 +197,17 @@ module.exports = function (deps = {}) {
           templeId: templeId
         },
         JWT_SECRET,
-        { expiresIn: '365d' }
+        { expiresIn: '15m' }
       );
+
+      // Generate refresh token for member
+      const refresh = generateRefreshToken(user.id);
+      await storeRefreshToken(user.id, refresh.token, refresh.expiresAt);
 
       return res.json({
         success: true,
         token,
+        refresh_token: refresh.token,
         user: {
           id: user.id,
           name: user.name,
@@ -220,10 +226,43 @@ module.exports = function (deps = {}) {
     }
   });
 
+  // Lookup companies by mobile number (public)
+  // POST /api/users/lookup-by-mobile
+  // Searches all companies (temples) that have a user registered with this mobile
+  // Returns array of { templeId, templeName, branch, role, username, logo }
+  router.post('/lookup-by-mobile', async (req, res) => {
+    try {
+      const { mobile } = req.body || {};
+      if (!mobile) return res.status(400).json({ error: 'Mobile number is required' });
+
+      const cleanMobile = String(mobile).replace(/\D/g, '');
+      if (cleanMobile.length < 10) return res.status(400).json({ error: 'Invalid mobile number' });
+
+      const companies = await db('users')
+        .join('temples', 'users.temple_id', 'temples.id')
+        .where('users.mobile', cleanMobile)
+        .where('users.status', 'active')
+        .select(
+          'users.temple_id as templeId',
+          'users.username',
+          'users.role',
+          'temples.name as templeName',
+          'temples.address as templeAddress'
+        );
+
+      return res.json({ companies });
+    } catch (err) {
+      console.error('POST /api/users/lookup-by-mobile error:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // Password login (public)
+  // Accepts { companyId, username, password, fcm_token }
+  // When companyId is provided, authentication is scoped to that company
   router.post('/login', async (req, res) => {
     try {
-      const { mobile, username, password, fcm_token } = req.body || {};
+      const { mobile, username, password, companyId, fcm_token } = req.body || {};
       if ((!mobile && !username) || !password) {
         return res.status(400).json({ error: 'Username or mobile and password are required.' });
       }
@@ -234,7 +273,14 @@ module.exports = function (deps = {}) {
         .where('users.status', 'active')
         .select('users.*', 'temples.name as templeName');
 
-      if (mobile && username) {
+      if (companyId) {
+        // Company-scoped login (new multi-company flow)
+        if (username) {
+          userQuery.andWhere('users.temple_id', companyId).andWhere('users.username', username);
+        } else if (mobile) {
+          userQuery.andWhere('users.temple_id', companyId).andWhere('users.mobile', mobile);
+        }
+      } else if (mobile && username) {
         userQuery.andWhere((b) => b.where('users.mobile', mobile).orWhere('users.username', username));
       } else if (mobile) {
         userQuery.andWhere('users.mobile', mobile);
@@ -266,11 +312,11 @@ module.exports = function (deps = {}) {
         if (hasLastLogin) await db('users').where('id', user.id).update({ last_login: db.fn.now() });
       } catch { }
 
-      const token = jwt.sign(
-        { id: user.id, mobile: user.mobile, username: user.username, templeId: user.temple_id, role: user.role },
-        JWT_SECRET,
-        { expiresIn: '365d' }
-      );
+      const token = generateAccessToken(user);
+
+      // Generate refresh token
+      const refresh = generateRefreshToken(user.id);
+      await storeRefreshToken(user.id, refresh.token, refresh.expiresAt);
 
       // Load permissions and normalize to { id, access }
       const permissions = await db('user_permissions')
@@ -285,6 +331,7 @@ module.exports = function (deps = {}) {
       return res.json({
         success: true,
         token,
+        refresh_token: refresh.token,
         user: {
           id: user.id,
           mobile: user.mobile,
@@ -446,13 +493,16 @@ module.exports = function (deps = {}) {
         }
       }
 
-      // Check if user already exists
+      // Check if user already exists in the same temple
       const exists = await db('users')
-        .where({ mobile })
-        .orWhere({ username })
+        .where({ temple_id: resolvedTempleId })
+        .andWhere(function () {
+          this.where({ mobile }).orWhere({ username });
+        })
         .first();
       if (exists) {
-        return res.status(409).json({ error: 'Mobile number or username already registered.' });
+        const field = exists.mobile === mobile ? 'mobile' : 'username';
+        return res.status(409).json({ error: `${field} already registered in this company.`, field });
       }
 
       // Ensure temple exists (for both paths)
@@ -467,16 +517,18 @@ module.exports = function (deps = {}) {
 
       const safeFullName = (fullName && String(fullName).trim()) || String(username).trim();
       let safeEmail = (email && String(email).trim()) || `${String(username).trim()}@generated.local`;
-      // Ensure email uniqueness for MySQL schema (NOT NULL UNIQUE)
+      // Always ensure email uniqueness (append timestamp to avoid race conditions)
       const emailExists = await db('users').where({ email: safeEmail }).first();
       if (emailExists) {
         const base = String(username).trim() || 'user';
-        safeEmail = `${base}+${Date.now()}@generated.local`;
+        safeEmail = `${base}_${Date.now()}@generated.local`;
       }
+
+      const safeUsername = String(username).trim();
 
       const [insertId] = await db('users').insert({
         mobile,
-        username,
+        username: safeUsername,
         password: hashedPassword,
         email: safeEmail,
         full_name: safeFullName,
@@ -677,16 +729,43 @@ module.exports = function (deps = {}) {
       if (err.sql) console.error('SQL:', err.sql);
       if (err.sqlMessage) console.error('SQL Message:', err.sqlMessage);
 
-      // Handle duplicate entry errors
+      // Handle duplicate entry errors — retry for username with auto-generated unique name
       if (err.code === 'ER_DUP_ENTRY') {
         const errorMsg = (err.message || err.sqlMessage || '').toLowerCase();
-        if (errorMsg.includes('users_email_unique') || errorMsg.includes('email')) {
+        if (errorMsg.includes('users_username_unique') || errorMsg.includes("'username'")) {
+          // Retry with a unique username
+          try {
+            const retryUsername = `${String(username).trim()}_${Date.now()}`;
+            const [retryId] = await db('users').insert({
+              mobile,
+              username: retryUsername,
+              password: hashedPassword,
+              email: safeEmail,
+              full_name: safeFullName,
+              temple_id: resolvedTempleId,
+              role: defaultRole,
+            });
+            const retryUser = await db('users').where({ id: retryId }).first();
+            return res.json({
+              success: true,
+              user: {
+                id: retryUser.id,
+                mobile: retryUser.mobile,
+                username: retryUser.username,
+                email: retryUser.email,
+                fullName: retryUser.full_name,
+                role: retryUser.role,
+                templeId: retryUser.temple_id,
+              }
+            });
+          } catch (retryErr) {
+            console.error('Retry with unique username also failed:', retryErr.message);
+          }
+        }
+        if (errorMsg.includes('users_email_unique') || errorMsg.includes("'email'")) {
           return res.status(409).json({ error: 'Email already registered', field: 'email' });
         }
-        if (errorMsg.includes('users_username_unique') || errorMsg.includes('username')) {
-          return res.status(409).json({ error: 'Username already taken', field: 'username' });
-        }
-        if (errorMsg.includes('users_mobile_unique') || errorMsg.includes('mobile')) {
+        if (errorMsg.includes('users_mobile_unique') || errorMsg.includes("'mobile'")) {
           return res.status(409).json({ error: 'Mobile number already registered', field: 'mobile' });
         }
         return res.status(409).json({ error: 'Duplicate entry found', field: 'unknown' });

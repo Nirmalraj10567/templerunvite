@@ -8,14 +8,14 @@ export function isTokenExpired(token: string): boolean {
     return payload.exp < currentTime;
   } catch (error) {
     console.error('Error parsing JWT token:', error);
-    return true; // Consider invalid tokens as expired
+    return true;
   }
 }
 
 export function getTokenExpirationTime(token: string): number | null {
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
-    return payload.exp * 1000; // Convert to milliseconds
+    return payload.exp * 1000;
   } catch (error) {
     console.error('Error parsing JWT token:', error);
     return null;
@@ -29,7 +29,7 @@ export function setGlobalLogoutCallback(callback: () => void) {
   globalLogoutCallback = callback;
 }
 
-// Create axios instance with automatic token handling
+// Create axios instance
 const RAW_API_BASE =
   (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || window.location.origin;
 const NORMALIZED_API_BASE = RAW_API_BASE.replace(/\/+$/, '');
@@ -44,24 +44,53 @@ const apiClient: AxiosInstance = axios.create({
   },
 });
 
-// Request interceptor to add auth token and check expiration
+// Track if a refresh is in progress to avoid parallel refresh calls
+let isRefreshing = false;
+let failedQueue: Array<{ resolve: (token: string) => void; reject: (error: any) => void }> = [];
+
+const processQueue = (error: any, token: string | null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token!);
+    }
+  });
+  failedQueue = [];
+};
+
+// Attempt to refresh the access token
+async function attemptTokenRefresh(): Promise<string | null> {
+  const refreshToken = localStorage.getItem('refreshToken');
+  if (!refreshToken) return null;
+
+  try {
+    const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+      refresh_token: refreshToken,
+    });
+
+    if (response.data.success) {
+      const { access_token, refresh_token: newRefreshToken } = response.data.data;
+      localStorage.setItem('authToken', access_token);
+      localStorage.setItem('refreshToken', newRefreshToken);
+      return access_token;
+    }
+    return null;
+  } catch (error) {
+    console.error('Token refresh failed:', error);
+    return null;
+  }
+}
+
+// Request interceptor to add auth token
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('authToken');
-    
+
     if (token) {
-      // Check if token is expired before making the request
-      if (isTokenExpired(token)) {
-        console.warn('Token is expired, logging out automatically');
-        if (globalLogoutCallback) {
-          globalLogoutCallback();
-        }
-        return Promise.reject(new Error('Token expired'));
-      }
-      
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
+
     return config;
   },
   (error) => {
@@ -69,28 +98,56 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle 401 errors and token expiration
+// Response interceptor to handle 401 errors with automatic refresh
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => {
     return response;
   },
-  (error: AxiosError) => {
-    // Handle 401 Unauthorized responses
-    if (error.response?.status === 401) {
-      console.warn('Received 401 Unauthorized, token may be expired');
-      if (globalLogoutCallback) {
-        globalLogoutCallback();
+  async (error: AxiosError) => {
+    const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
+
+    // Handle 401 Unauthorized - attempt token refresh
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // Queue this request while refresh is in progress
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers!['Authorization'] = `Bearer ${token}`;
+            return apiClient(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const newToken = await attemptTokenRefresh();
+        if (newToken) {
+          processQueue(null, newToken);
+          originalRequest.headers!['Authorization'] = `Bearer ${newToken}`;
+          return apiClient(originalRequest);
+        } else {
+          // Refresh failed, logout
+          processQueue(new Error('Refresh failed'), null);
+          if (globalLogoutCallback) {
+            globalLogoutCallback();
+          }
+          return Promise.reject(error);
+        }
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        if (globalLogoutCallback) {
+          globalLogoutCallback();
+        }
+        return Promise.reject(error);
+      } finally {
+        isRefreshing = false;
       }
     }
-    
-    // Handle network errors that might indicate token issues
-    if (error.code === 'ERR_NETWORK' && error.message.includes('401')) {
-      console.warn('Network error with 401, token may be expired');
-      if (globalLogoutCallback) {
-        globalLogoutCallback();
-      }
-    }
-    
+
     return Promise.reject(error);
   }
 );

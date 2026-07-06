@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { journalService, JournalEntryItem } from '@/services/journalService';
 import { useLanguage } from '@/lib/language';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFeature } from '@/hooks/useFeature';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,6 +25,8 @@ const PAGE_SIZE = 20;
 export default function JournalLogPage() {
   const { language } = useLanguage();
   const { token } = useAuth();
+  const canExportCsv = useFeature('data_export_csv');
+  const canExportPdf = useFeature('data_export_excel');
   const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -288,26 +291,30 @@ export default function JournalLogPage() {
                 <Input id="account" placeholder={t('Search account name', 'Search account name')} value={account} onChange={(e) => onFilterChange('account', e.target.value)} className={cn(theme.input.base, theme.input.size.md)} />
               </div>
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={exportToCSV}
-                  disabled={isLoading}
-                  size="sm"
-                  className="h-9"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  {t('Export CSV', 'CSV ஏற்றுமதி')}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={exportToPDF}
-                  disabled={isLoading}
-                  size="sm"
-                  className="h-9"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  {t('Export PDF', 'PDF ஏற்றுமதி')}
-                </Button>
+                {canExportCsv && (
+                  <Button
+                    variant="outline"
+                    onClick={exportToCSV}
+                    disabled={isLoading}
+                    size="sm"
+                    className="h-9"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    {t('Export CSV', 'CSV ஏற்றுமதி')}
+                  </Button>
+                )}
+                {canExportPdf && (
+                  <Button
+                    variant="outline"
+                    onClick={exportToPDF}
+                    disabled={isLoading}
+                    size="sm"
+                    className="h-9"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    {t('Export PDF', 'PDF ஏற்றுமதி')}
+                  </Button>
+                )}
               </div>
             </div>
             <div className="flex justify-between items-center mb-3">

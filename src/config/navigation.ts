@@ -31,6 +31,11 @@ export type NavItem = {
 export const navigationTranslations = {
   tamil: {
     overview: 'முகப்பு',
+    subscription: 'சந்தா',
+    upgrade: 'மேம்படுத்து',
+    adminPlans: 'திட்ட மேலாண்மை',
+    adminFeatures: 'அம்ச வரையறைகள்',
+    adminSubscriptions: 'சந்தாக்கள்',
     members: 'பணியாளர் பட்டியல்',
     staff:"பணியாளர்",
     memberEntry: 'பணியாளர்  பதிவு',
@@ -93,6 +98,11 @@ export const navigationTranslations = {
   },
   english: {
     overview: 'Home',
+    subscription: 'Subscription',
+    upgrade: 'Upgrade',
+    adminPlans: 'Plan Management',
+    adminFeatures: 'Feature Definitions',
+    adminSubscriptions: 'Subscriptions',
     staff :"Staff",
     members: 'Staff List',
     memberEntry: 'Staff Entry',
@@ -161,6 +171,19 @@ export const sidebarItems: NavItem[] = [
     tamilLabel: navigationTranslations.tamil.overview,
     to: '/dashboard',
     icon: HomeIcon
+  },
+  {
+    label: navigationTranslations.english.subscription,
+    tamilLabel: navigationTranslations.tamil.subscription,
+    icon: CreditCardIcon,
+    children: [
+      {
+        to: 'subscription',
+        label: navigationTranslations.english.subscription,
+        tamilLabel: navigationTranslations.tamil.subscription,
+      },
+
+    ]
   },
   {
     label: navigationTranslations.english.annadhanam,
@@ -533,16 +556,53 @@ export const sidebarItems: NavItem[] = [
       },
     ]
   },
+  {
+    label: 'Admin',
+    tamilLabel: 'நிர்வாகம்',
+    icon: SettingsIcon,
+    children: [
+      {
+        to: 'admin/plans',
+        label: navigationTranslations.english.adminPlans,
+        tamilLabel: navigationTranslations.tamil.adminPlans,
+      },
+      {
+        to: 'admin/feature-definitions',
+        label: navigationTranslations.english.adminFeatures,
+        tamilLabel: navigationTranslations.tamil.adminFeatures,
+      },
+      {
+        to: 'admin/subscriptions',
+        label: navigationTranslations.english.adminSubscriptions,
+        tamilLabel: navigationTranslations.tamil.adminSubscriptions,
+      },
+    ]
+  },
 ];
 
-export const getSidebarItems = (language: 'english' | 'tamil' = 'english') => {
+export const getSidebarItems = (
+  language: 'english' | 'tamil' = 'english',
+  planName?: string
+) => {
   return sidebarItems.map(item => {
-    const mappedChildren = Array.isArray(item.children)
-      ? item.children
+    let children = Array.isArray(item.children) ? [...item.children] : undefined;
+
+    // Add dynamic "Upgrade" child for free plan users
+    if (children && item.label === 'Subscription') {
+      if (planName === 'Starter' || planName === 'Free') {
+        children.push({
+          to: 'subscription/change-plan',
+          label: navigationTranslations.english.upgrade,
+          tamilLabel: navigationTranslations.tamil.upgrade,
+        });
+      }
+    }
+
+    const mappedChildren = children
+      ? children
           .filter(Boolean)
           .map(child => ({
             ...child,
-            // Ensure label is always defined for consumers
             label: language === 'tamil' ? ((child as any).tamilLabel || (child as any).label) : (child as any).label
           }))
       : undefined;

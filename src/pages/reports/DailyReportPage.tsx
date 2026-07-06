@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFeature } from '@/hooks/useFeature';
 import { useLanguage } from "@/lib/language";
 import { toast } from '@/hooks/use-toast';
 import { Modal } from '@/components/ui/modal';
@@ -28,6 +29,7 @@ type DailyReport = {
 export default function DailyReportPage() {
   const { token } = useAuth();
   const { language } = useLanguage();
+  const canExportCsv = useFeature('data_export_csv');
 
   const t = {
     english: {
@@ -42,6 +44,8 @@ export default function DailyReportPage() {
       load: 'ஏற்று',
       loading: 'ஏற்றுகிறது...',
       errorLoading: 'அறிக்கை ஏற்ற முடியவில்லை',
+      error: 'பிழை',
+      account: 'கணக்கு',
       totalIncome: 'மொத்த வரவு',
       totalExpenses: 'மொத்த செலவு',
       net: 'நிகர',
@@ -85,6 +89,8 @@ export default function DailyReportPage() {
       load: 'Load',
       loading: 'Loading...',
       errorLoading: 'Failed to load report',
+      error: 'Error',
+      account: 'Account',
       totalIncome: 'Total Income',
       totalExpenses: 'Total Expenses',
       net: 'Net',
@@ -202,11 +208,11 @@ export default function DailyReportPage() {
     let i = 1;
     Object.entries(data.breakdown.expenses).forEach(([k, v]) => {
       if (!v) return;
-      list.push({ id: i++, account: k.replaceAll('_', ' '), type: 'expense', debit: v, credit: 0 });
+      list.push({ id: i++, account: k.replace(/_/g, ' '), type: 'expense', debit: v, credit: 0 });
     });
     Object.entries(data.breakdown.income).forEach(([k, v]) => {
       if (!v) return;
-      list.push({ id: i++, account: k.replaceAll('_', ' '), type: 'income', debit: 0, credit: v });
+      list.push({ id: i++, account: k.replace(/_/g, ' '), type: 'income', debit: 0, credit: v });
     });
 
     const ft = filterText.trim().toLowerCase();
@@ -256,7 +262,7 @@ export default function DailyReportPage() {
     ]);
     const all = [...lines, ['', '', t[language].totals, '', debitTotal, creditTotal, '']];
     const csv = [headers, ...all]
-      .map(row => row.map(x => typeof x === 'string' ? `"${x.replaceAll('"', '""')}"` : x).join(','))
+      .map(row => row.map(x => typeof x === 'string' ? `"${x.replace(/"/g, '""')}"` : x).join(','))
       .join('\n');
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -370,12 +376,14 @@ export default function DailyReportPage() {
 
           {/* Action Buttons — Tiny */}
           <div className="flex flex-wrap gap-1 mb-3">
+            {canExportCsv && (
             <button
               onClick={onExportCSV}
               className="px-2 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-sm"
             >
               {t[language].exportCsv}
             </button>
+            )}
             <button
               onClick={onPrint}
               className="px-2 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-sm"
@@ -507,7 +515,7 @@ export default function DailyReportPage() {
                 <h3 className="text-xs font-semibold text-gray-800 mb-1">{t[language].incomeBreakdown}</h3>
                 {Object.entries(data.breakdown.income).map(([k, v]) => (
                   <div key={k} className="flex justify-between text-xs">
-                    <span className="capitalize">{k.replaceAll('_', ' ')}</span>
+                    <span className="capitalize">{k.replace(/_/g, ' ')}</span>
                     <span className="text-green-700">{toCurrency(v)}</span>
                   </div>
                 ))}
@@ -516,7 +524,7 @@ export default function DailyReportPage() {
                 <h3 className="text-xs font-semibold text-gray-800 mb-1">{t[language].expensesBreakdown}</h3>
                 {Object.entries(data.breakdown.expenses).map(([k, v]) => (
                   <div key={k} className="flex justify-between text-xs">
-                    <span className="capitalize">{k.replaceAll('_', ' ')}</span>
+                    <span className="capitalize">{k.replace(/_/g, ' ')}</span>
                     <span className="text-red-700">{toCurrency(v)}</span>
                   </div>
                 ))}

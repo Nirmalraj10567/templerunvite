@@ -23,7 +23,7 @@ import {
 
 export default function DashboardLayout() {
   const navigate = useNavigate();
-  const { user, userPermissions, isSuperAdmin, token } = useAuth();
+  const { user, userPermissions, isSuperAdmin, token, planName, planFeatures } = useAuth();
   const { settings } = useSettings();
   const { language } = useLanguage();
   const location = useLocation();
@@ -122,7 +122,7 @@ export default function DashboardLayout() {
   }, [lastScrollY]);
 
   // Sidebar items and permissions
-  const sidebarItems = useMemo(() => getSidebarItems(lang), [lang]);
+  const sidebarItems = useMemo(() => getSidebarItems(lang, planName), [lang, planName]);
 
   const allowedSidebarItems = useMemo(() => {
     const hiddenKeys = new Set((settings?.hidden_menu_keys || []).map((s) => String(s)));
@@ -200,6 +200,40 @@ export default function DashboardLayout() {
   }, [location.pathname, allowedSidebarItems]);
 
   // Removed auto pin-open behavior so the sidebar can collapse when cursor moves out
+
+  // Compute which groups should be expanded based on current route
+  const getActiveGroupLabels = () => {
+    const path = location.pathname;
+    const out: string[] = [];
+    for (const it of allowedSidebarItems as any[]) {
+      if (it.children && Array.isArray(it.children)) {
+        const matched = it.children.some((c: any) => {
+          const to = String(c?.to || '');
+          if (!to) return false;
+          const abs = normalizePath(to);
+          return path === abs || (abs !== '/' && (path.startsWith(abs + '/') || path.startsWith(abs)));
+        });
+        if (matched) out.push(it.label);
+      }
+    }
+    return out;
+  };
+
+  const [expandedItems, setExpandedItems] = useState<string[]>(() => getActiveGroupLabels());
+
+  useEffect(() => {
+    const active = getActiveGroupLabels();
+    if (active.length === 0) return;
+    setExpandedItems(prev => Array.from(new Set([...prev, ...active])));
+  }, [location.pathname, allowedSidebarItems, isSidebarCollapsed]);
+
+  const toggleItemExpansion = (label: string) => {
+    setExpandedItems(prev =>
+      prev.includes(label)
+        ? prev.filter(item => item !== label)
+        : [...prev, label]
+    );
+  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -503,41 +537,30 @@ export default function DashboardLayout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSearchOpen, selectedIndex, navigate, filteredResults, routeByShortcut]);
 
-  const Sidebar = ({ isMobile = false }) => {
-    // Compute which groups should be expanded based on current route
-    const getActiveGroupLabels = () => {
-      const path = location.pathname;
-      const out: string[] = [];
-      for (const it of allowedSidebarItems as any[]) {
-        if (it.children && Array.isArray(it.children)) {
-          const matched = it.children.some((c: any) => {
-            const to = String(c?.to || '');
-            if (!to) return false;
-            const abs = normalizePath(to);
-            return path === abs || (abs !== '/' && (path.startsWith(abs + '/') || path.startsWith(abs)));
-          });
-          if (matched) out.push(it.label);
-        }
-      }
-      return out;
+  const renderSidebar = (isMobile = false) => {
+    const PERMISSION_TO_FEATURE_MAP: Record<string, string> = {
+      'hall_booking': 'module_hall_booking',
+      'hall_approval': 'module_hall_booking',
+      'ledger_management': 'module_accounting',
+      'daybook': 'module_accounting',
+      'reports': 'module_reports_full',
+      'tax_registrations': 'module_tax',
+      'user_registrations': 'module_tax',
+      'asset_management': 'module_asset',
+      'view_events': 'module_events',
+      'edit_events': 'module_events',
+      'marriage_register': 'module_marriage',
+      'property_registrations': 'module_property',
     };
 
-    // Start with any groups that match the current route
-    const [expandedItems, setExpandedItems] = useState<string[]>(() => getActiveGroupLabels());
-
-    // When the route or sidebar items change, ensure matching groups are opened (merge with existing expanded)
-    useEffect(() => {
-      const active = getActiveGroupLabels();
-      if (active.length === 0) return;
-      setExpandedItems(prev => Array.from(new Set([...prev, ...active])));
-    }, [location.pathname, allowedSidebarItems, isSidebarCollapsed]);
-
-    const toggleItemExpansion = (label: string) => {
-      setExpandedItems(prev =>
-        prev.includes(label)
-          ? prev.filter(item => item !== label)
-          : [...prev, label]
-      );
+    const isFeatureDisabled = (permissionId?: string) => {
+      if (!permissionId || isSuperAdmin) return false;
+      const featureKey = PERMISSION_TO_FEATURE_MAP[permissionId];
+      if (featureKey !== undefined) {
+        const val = planFeatures?.[featureKey];
+        return val === false || val === 0;
+      }
+      return false;
     };
 
     return (
@@ -618,26 +641,68 @@ export default function DashboardLayout() {
 
                   {!isSidebarCollapsed && isExpanded && (
                     <div className="pl-6 space-y-1 animate-in slide-in-from-top-2 duration-500">
-                      {item.children.map((child, childIndex) => (
-                        <NavLink
-                          key={child.to}
-                          to={normalizePath(child.to)}
-                          end
-                          className={({ isActive }) =>
-                            `group flex items-center p-3 rounded-lg transition-all duration-500 relative
-                            ${isActive
-                              ? 'bg-orange-300 text-white shadow-lg shadow-white-300/50'
-                              : 'text-orange-200 hover:bg-orange-800/30 hover:text-white'
-                            }`
-                          }
-                          onClick={() => isMobile && setMobileMenuOpen(false)}
-                        >
-                          <div className="w-2 h-2 rounded-full bg-orange-400 mr-3 opacity-60 group-hover:opacity-100 transition-opacity duration-500"></div>
-                          <span className="font-medium">{child.label}</span>
-                          <span className="sr-only">{t[lang].close}</span>
-                        </NavLink>
-                      ))}
+                      {item.children.map((child, childIndex) => {
+                        const disabled = isFeatureDisabled(child.permissionId);
+                        if (disabled) {
+                          return (
+                            <div
+                              key={child.to}
+                              className="group flex items-center p-3 rounded-lg relative text-orange-200/50 cursor-not-allowed bg-orange-950/20"
+                            >
+                              <div className="w-2 h-2 rounded-full bg-orange-400/40 mr-3"></div>
+                              <span className="font-medium flex items-center justify-between w-full">
+                                <span className="opacity-60">{child.label}</span>
+                                <span className="ml-2 px-1.5 py-0.5 text-[9px] font-bold bg-amber-500 text-white rounded-full uppercase tracking-wider">
+                                  Upgrade
+                                </span>
+                              </span>
+                            </div>
+                          );
+                        }
+                        return (
+                          <NavLink
+                            key={child.to}
+                            to={normalizePath(child.to)}
+                            end
+                            className={({ isActive }) =>
+                              `group flex items-center p-3 rounded-lg transition-all duration-500 relative
+                              ${isActive
+                                ? 'bg-orange-300 text-white shadow-lg shadow-white-300/50'
+                                : 'text-orange-200 hover:bg-orange-800/30 hover:text-white'
+                              }`
+                            }
+                            onClick={() => isMobile && setMobileMenuOpen(false)}
+                          >
+                            <div className="w-2 h-2 rounded-full bg-orange-400 mr-3 opacity-60 group-hover:opacity-100 transition-opacity duration-500"></div>
+                            <span className="font-medium flex items-center justify-between w-full">
+                              <span>{child.label}</span>
+                            </span>
+                            <span className="sr-only">{t[lang].close}</span>
+                          </NavLink>
+                        );
+                      })}
                     </div>
+                  )}
+                </div>
+              );
+            }
+
+            const disabled = isFeatureDisabled(item.permissionId);
+            if (disabled) {
+              return (
+                <div
+                  key={item.to}
+                  className={`group flex items-center p-3 rounded-xl transition-all duration-200 backdrop-blur-sm
+                  ${isSidebarCollapsed ? 'justify-center' : ''} text-orange-200/50 cursor-not-allowed bg-orange-950/20`}
+                >
+                  <item.icon className="h-6 w-6 text-orange-200/40" />
+                  {!isSidebarCollapsed && (
+                    <span className="ml-4 font-medium flex items-center justify-between w-full">
+                      <span className="opacity-60">{item.label}</span>
+                      <span className="ml-2 px-1.5 py-0.5 text-[9px] font-bold bg-amber-500 text-white rounded-full uppercase tracking-wider">
+                        Upgrade
+                      </span>
+                    </span>
                   )}
                 </div>
               );
@@ -659,7 +724,11 @@ export default function DashboardLayout() {
                 onClick={() => isMobile && setMobileMenuOpen(false)}
               >
                 <item.icon className="h-6 w-6 text-orange-200 group-hover:text-orange-100 transition-colors" />
-                {!isSidebarCollapsed && <span className="ml-4 font-medium">{item.label}</span>}
+                {!isSidebarCollapsed && (
+                  <span className="ml-4 font-medium flex items-center justify-between w-full">
+                    <span>{item.label}</span>
+                  </span>
+                )}
               </NavLink>
             );
           })}
@@ -799,8 +868,8 @@ export default function DashboardLayout() {
         </div>
 
         {/* Sidebar */}
-        <Sidebar />
-        {isMobileMenuOpen && <Sidebar isMobile />}
+        {renderSidebar(false)}
+        {isMobileMenuOpen && renderSidebar(true)}
 
         {/* Main content */}
         <div ref={mainContentRef} className="flex-1 flex flex-col overflow-hidden">

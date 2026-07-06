@@ -31,7 +31,12 @@
       "^@/components/ui/use-toast$": "<rootDir>/src/__mocks__/use-toast.ts"
     },
     "transform": {
-      "^.+\\.(ts|tsx)$": "ts-jest"
+      "^.+\\.(ts|tsx)$": [
+        "ts-jest",
+        {
+          "tsconfig": "tsconfig.app.json"
+        }
+      ]
     },
     "testMatch": [
       "**/__tests__/**/*.ts?(x)",

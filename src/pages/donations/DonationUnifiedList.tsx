@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFeature } from '@/hooks/useFeature';
 import { useLanguage } from '@/lib/language';
 import { moneyDonationService, MoneyDonationItem } from '@/services/moneyDonationService';
 import { donationService, DonationItem as ProductDonationItem } from '@/services/donationService';
@@ -38,6 +39,8 @@ export default function DonationUnifiedList() {
   const { token, user } = useAuth();
   const { language } = useLanguage();
   const navigate = useNavigate();
+  const canExportCsv = useFeature('data_export_csv');
+  const canExportPdf = useFeature('data_export_excel');
 
   const [rows, setRows] = useState<UnifiedDonationRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -633,15 +636,19 @@ export default function DonationUnifiedList() {
                 <Button size="sm" className="h-8 text-xs" variant="outline" onClick={load}>
                   {t('Search', 'தேடு')}
                 </Button>
-                <Button size="sm" className="h-8 text-xs" variant="outline" onClick={exportToCSV} disabled={loading || rows.length === 0}>
-                  <FileDown className="h-3 w-3 mr-1" />
-                  {t('Export CSV', 'CSV ஏற்றுமதி')}
-                </Button>
+                {canExportCsv && (
+                  <Button size="sm" className="h-8 text-xs" variant="outline" onClick={exportToCSV} disabled={loading || rows.length === 0}>
+                    <FileDown className="h-3 w-3 mr-1" />
+                    {t('Export CSV', 'CSV ஏற்றுமதி')}
+                  </Button>
+                )}
                 {/* Export PDF — visible columns only */}
-                <Button size="sm" className="h-8 text-xs" variant="outline" onClick={exportVisiblePDF} disabled={loading || rows.length === 0}>
-                  <FileDown className="h-3 w-3 mr-1" />
-                  {t('Export PDF', 'PDF ஏற்றுமதி')}
-                </Button>
+                {canExportPdf && (
+                  <Button size="sm" className="h-8 text-xs" variant="outline" onClick={exportVisiblePDF} disabled={loading || rows.length === 0}>
+                    <FileDown className="h-3 w-3 mr-1" />
+                    {t('Export PDF', 'PDF ஏற்றுமதி')}
+                  </Button>
+                )}
               </div>
             </div>
           </div>

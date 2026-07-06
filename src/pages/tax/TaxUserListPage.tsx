@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFeature } from '@/hooks/useFeature';
 import { useLanguage } from '@/lib/language';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,6 +48,7 @@ type TaxRegistration = {
 
 export default function TaxUserListPage() {
   const { token } = useAuth();
+  const canExportPdf = useFeature('data_export_excel');
   const { language } = useLanguage();
   const [rows, setRows] = useState<TaxRegistration[]>([]);
   const [page, setPage] = useState(1);
@@ -1214,10 +1216,12 @@ const [familyFilter, setFamilyFilter] = useState<'all' | 'family'>('all');
               <FileDown className="h-3 w-3 mr-1" />
               {t('Export All (PDF)', 'அனைத்தையும் ஏற்றுமதி (PDF)')}
             </Button>
-            <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handlePrint} disabled={loading || rows.length === 0}>
-              <FileDown className="h-3 w-3 mr-1" />
-              {t('Export PDF', 'PDF ஏற்றுமதி')}
-            </Button>
+            {canExportPdf && (
+              <Button size="sm" className="h-8 text-xs" variant="outline" onClick={handlePrint} disabled={loading || rows.length === 0}>
+                <FileDown className="h-3 w-3 mr-1" />
+                {t('Export PDF', 'PDF ஏற்றுமதி')}
+              </Button>
+            )}
           </div>
           </div>
       </div>

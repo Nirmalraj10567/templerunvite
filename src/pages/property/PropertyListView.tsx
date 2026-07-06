@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFeature } from '@/hooks/useFeature';
 import { useLanguage } from "@/lib/language";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,8 @@ interface Property {
 export default function PropertyListView() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const canExportCsv = useFeature('data_export_csv');
+  const canExportPdf = useFeature('data_export_excel');
   const { language } = useLanguage();
   const t = (en: string, ta: string) => (language === 'tamil' ? en : ta);
 
@@ -451,14 +454,18 @@ export default function PropertyListView() {
                 <Button variant="outline" onClick={() => setSearchTerm('')}>
                   {t('Clear', 'அழி')}
                 </Button>
-                <Button variant="outline" onClick={handleExportCSV}>
-                  <FileDown className="h-4 w-4 mr-1" />
-                  {t('Export CSV', 'CSV ஏற்றுமதி')}
-                </Button>
-                <Button variant="outline" onClick={handleExportPDF}>
-                  <FileDown className="h-4 w-4 mr-1" />
-                  {t('Export PDF', 'PDF ஏற்றுமதி')}
-                </Button>
+                {canExportCsv && (
+                  <Button variant="outline" onClick={handleExportCSV}>
+                    <FileDown className="h-4 w-4 mr-1" />
+                    {t('Export CSV', 'CSV ஏற்றுமதி')}
+                  </Button>
+                )}
+                {canExportPdf && (
+                  <Button variant="outline" onClick={handleExportPDF}>
+                    <FileDown className="h-4 w-4 mr-1" />
+                    {t('Export PDF', 'PDF ஏற்றுமதி')}
+                  </Button>
+                )}
               </div>
             </div>
           </CardContent>

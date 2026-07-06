@@ -1,7 +1,7 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../lib/language';
-import { ShieldIcon } from './icons';
+import { Building } from 'lucide-react';
 import { translations } from '../lib/translations';
 
 const LANGUAGES = [
@@ -31,69 +31,73 @@ export function Header({ children, pageTitle }: HeaderProps) {
     localStorage.setItem('templeLanguage', LANGUAGES[nextIndex].nativeLabel);
   };
 
+  const navItems = [
+    { path: '/', label: t.home },
+    { path: '/login', label: t.login },
+    { path: '/register', label: t.register },
+  ];
+
   return (
     <header className="bg-white/80 backdrop-blur-sm shadow-sm">
       <div className="w-full">
         {children ? (
           <div>{children}</div>
         ) : (
-          <div className="flex justify-between items-center py-2">
-            {/* Empty left side - no logo or temple name */}
-            <div className="ml-2"></div>
+          <div className="flex justify-between items-center py-3 px-4 sm:px-6">
+            {/* Brand / Logo */}
+            <Link to="/" className="flex items-center gap-2 ml-1 group">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center shadow-sm group-hover:shadow-orange-200 transition-shadow">
+                <Building className="w-4 h-4 text-white" />
+              </div>
+              <span className="text-sm font-extrabold text-gray-800 hidden sm:block">Kanin ERP</span>
+            </Link>
 
             {!user ? (
-              <div className="flex items-center gap-1 pr-4">
-                <div className="flex items-center bg-gray-50 rounded-lg p-1">
-                  <Link 
-                    to="/" 
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ease-in-out ${
-                      location.pathname === '/' 
-                        ? 'bg-white text-orange-600 shadow-sm' 
-                        : 'text-gray-700 hover:text-orange-600 hover:bg-white'
-                    }`}
-                  >
-                    {t.home}
-                  </Link>
-                  <Link 
-                    to="/login" 
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ease-in-out ${
-                      location.pathname === '/login' 
-                        ? 'bg-white text-orange-600 shadow-sm' 
-                        : 'text-gray-700 hover:text-orange-600 hover:bg-white'
-                    }`}
-                  >
-                    {t.login}
-                  </Link>
-                  <Link 
-                    to="/register" 
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ease-in-out ${
-                      location.pathname === '/register' 
-                        ? 'bg-white text-orange-600 shadow-sm' 
-                        : 'text-gray-700 hover:text-orange-600 hover:bg-white'
-                    }`}
-                  >
-                    {t.register}
-                  </Link>
-                </div>
-                <div className="h-6 w-px bg-gray-300 mx-2"></div>
-                <button 
+              <div className="flex items-center gap-1">
+                {/* Navigation links */}
+                <nav className="flex items-center gap-0.5">
+                  {navItems.map(item => (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className={`relative px-3.5 py-2 text-sm font-medium transition-all duration-200 ${
+                        location.pathname === item.path
+                          ? 'text-orange-600'
+                          : 'text-gray-600 hover:text-orange-600'
+                      }`}
+                    >
+                      {item.label}
+                      {location.pathname === item.path && (
+                        <span className="absolute bottom-0 left-3 right-3 h-0.5 bg-orange-500 rounded-full" />
+                      )}
+                    </Link>
+                  ))}
+                </nav>
+
+                <div className="h-5 w-px bg-gray-200 mx-2" />
+
+                {/* Language toggle - outline style */}
+                <button
                   onClick={toggleLanguage}
-                  className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 text-white text-sm font-medium hover:from-orange-600 hover:to-orange-700 transition-all duration-200 ease-in-out shadow-sm hover:shadow-md min-w-[60px]"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-300 hover:text-gray-800 hover:bg-gray-50 transition-all duration-200"
                 >
-                  {LANGUAGES.find(lang => lang.code !== language)?.nativeLabel}
+                  <span className="text-base">🌐</span>
+                  <span>{LANGUAGES.find(lang => lang.code !== language)?.nativeLabel}</span>
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-1 pr-4">
-                <button 
+              <div className="flex items-center gap-2">
+                <button
                   onClick={toggleLanguage}
-                  className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 text-white text-sm font-medium hover:from-orange-600 hover:to-orange-700 transition-all duration-200 ease-in-out shadow-sm hover:shadow-md min-w-[60px]"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 text-sm font-medium hover:border-gray-300 hover:text-gray-800 hover:bg-gray-50 transition-all duration-200"
                 >
-                  {LANGUAGES.find(lang => lang.code !== language)?.nativeLabel}
+                  <span className="text-base">🌐</span>
+                  <span>{LANGUAGES.find(lang => lang.code !== language)?.nativeLabel}</span>
                 </button>
+                <span className="h-5 w-px bg-gray-200" />
                 <button
                   onClick={handleLogout}
-                  className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 text-sm font-medium transition-all duration-200 ease-in-out"
+                  className="px-4 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 text-sm font-medium transition-all duration-200"
                 >
                   {t.logout}
                 </button>
